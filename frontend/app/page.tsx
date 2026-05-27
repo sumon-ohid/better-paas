@@ -602,7 +602,7 @@ export default function Page() {
   return (
     <SidebarProvider>
       <div className="relative flex min-h-screen w-full overflow-hidden bg-background text-foreground transition-colors duration-200 selection:bg-primary/20">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_55%_-20%,rgba(143,153,255,0.24),transparent_42rem)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_55%_-20%,rgba(143,153,255,0.12),transparent_45rem)]" />
         
         {/* Navigation Sidebar */}
         <Sidebar className="border-r border-sidebar-border bg-sidebar/82 backdrop-blur-xl">
@@ -723,7 +723,7 @@ export default function Page() {
         <SidebarInset className="relative z-10 flex min-w-0 flex-1 flex-col bg-transparent">
           
           {/* Header Bar */}
-          <header className="flex h-11 items-center justify-between border-b border-border bg-background/70 px-4 backdrop-blur-xl select-none">
+          <header className="flex h-13.5 items-center justify-between border-b border-border bg-background/70 px-4 backdrop-blur-xl select-none">
             <div className="flex items-center gap-2">
               <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer" />
               <div className="h-3.5 w-px bg-border" />
@@ -829,7 +829,7 @@ export default function Page() {
                 
                 {/* List View */}
                 {viewMode === "list" && (
-                  <div className="overflow-hidden rounded-lg border border-border bg-card/72 shadow-[0_20px_80px_rgba(0,0,0,.12)] backdrop-blur-xl">
+                  <div className="overflow-hidden rounded-lg border border-border bg-card/72 backdrop-blur-xl">
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b border-border/80 bg-muted/20 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
@@ -957,7 +957,7 @@ export default function Page() {
                     ].map((col) => {
                       const colApps = filteredApps.filter(app => app.status === col.id)
                       return (
-                        <div key={col.id} className="flex min-h-[400px] flex-col space-y-3 rounded-lg border border-border/70 bg-card/55 p-3 shadow-[0_14px_44px_rgba(0,0,0,.08)] backdrop-blur-xl">
+                        <div key={col.id} className="flex min-h-[400px] flex-col space-y-3 rounded-lg border border-border/70 bg-card/55 p-3 backdrop-blur-xl">
                           <div className="flex items-center justify-between px-1">
                             <div className="flex items-center gap-2">
                               <span className={`h-2 w-2 rounded-full ${col.color}`} />
@@ -1518,18 +1518,12 @@ export default function Page() {
                         Configure Git repository details to compile and run your server container.
                       </DialogDescription>
                     </div>
-                    <button 
-                      onClick={() => setOpenDeploy(false)}
-                      className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      <XIcon className="h-4 w-4" />
-                    </button>
                   </div>
                 </DialogHeader>
                 
                 <form onSubmit={handleDeploy} className="p-4 space-y-4">
                   <div className="space-y-1">
-                    <Label htmlFor="name" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">App Name</Label>
+                    <Label htmlFor="name" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">App Name</Label>
                     <Input
                       id="name"
                       value={deployName}
@@ -1541,7 +1535,7 @@ export default function Page() {
                   </div>
                   
                   <div className="space-y-1">
-                    <Label htmlFor="git" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Git Repository URL</Label>
+                    <Label htmlFor="git" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Git Repository URL</Label>
                     <Input
                       id="git"
                       value={deployGit}
@@ -1554,7 +1548,7 @@ export default function Page() {
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label htmlFor="branch" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Branch</Label>
+                      <Label htmlFor="branch" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Branch</Label>
                       <Input
                         id="branch"
                         value={deployBranch}
