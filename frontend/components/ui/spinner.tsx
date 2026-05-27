@@ -1,4 +1,4 @@
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon } from "@/components/nucleo-lucide-compat";
 import type React from "react";
 import { cn } from "@/lib/utils";
 

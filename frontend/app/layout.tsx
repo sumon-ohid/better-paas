@@ -1,4 +1,4 @@
-import { Geist, Geist_Mono, Inter } from "next/font/google"
+import { Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -10,6 +10,11 @@ const inter = Inter({subsets:['latin'],variable:'--font-sans'})
 
 const geistMono = Geist_Mono({subsets:['latin'],variable:'--font-mono'})
 
+export const metadata = {
+  title: "Antigravity",
+  description: "A clean deployment control surface for local worker nodes.",
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -19,7 +24,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", "font-mono", inter.variable, interHeading.variable, geistMono.variable)}
+      className={cn("antialiased", "font-sans", inter.variable, interHeading.variable, geistMono.variable)}
     >
       <body>
         <ThemeProvider>{children}</ThemeProvider>

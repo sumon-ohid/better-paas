@@ -8,7 +8,7 @@ import {
   ChevronDownIcon,
   ChevronsUpDownIcon,
   ChevronUpIcon,
-} from "lucide-react";
+} from "@/components/nucleo-lucide-compat";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 

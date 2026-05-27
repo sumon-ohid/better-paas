@@ -3,7 +3,6 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
-import { PanelLeftIcon } from "lucide-react";
 import * as React from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
@@ -24,6 +23,7 @@ import {
   TooltipPopup,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { NucleoIcon } from "@/components/nucleo-icons";
 
 const SIDEBAR_COOKIE_NAME: string = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE: number = 60 * 60 * 24 * 7;
@@ -299,7 +299,7 @@ export function SidebarTrigger({
       variant="ghost"
       {...props}
     >
-      <PanelLeftIcon />
+      <NucleoIcon name="sidebar" />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );
@@ -647,10 +647,7 @@ export function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean;
 }): React.ReactElement {
-  // Random width between 50 to 90%.
-  const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`;
-  }, []);
+  const width = showIcon ? "72%" : "84%";
 
   return (
     <div
