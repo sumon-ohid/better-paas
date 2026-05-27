@@ -238,6 +238,51 @@ export default function Page() {
     }
   }
 
+  const handleTogglePause = async (id: string, action: "stop" | "start") => {
+    try {
+      const endpoint = `http://localhost:8080/api/apps/${action}`
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      if (res.ok) {
+        showToast(
+          action === "stop" ? "Container Stopped" : "Container Started",
+          `Application container state successfully toggled to ${action === "stop" ? "stopped" : "running"}.`
+        )
+        fetchApps()
+      } else {
+        showToast("Error", `Failed to toggle container status to ${action}.`, "destructive")
+      }
+    } catch (err) {
+      console.error(err)
+      showToast("Connection Refused", "Failed to connect to the Go backend API daemon.", "destructive")
+    }
+  }
+
+  const handleDeleteApp = async (id: string) => {
+    if (!confirm("Are you sure you want to permanently delete this application container and its build folder?")) {
+      return
+    }
+    try {
+      const res = await fetch("http://localhost:8080/api/apps/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      if (res.ok) {
+        showToast("App Deleted", "Application container and workspace folder permanently purged.")
+        fetchApps()
+      } else {
+        showToast("Error", "Failed to delete application container.", "destructive")
+      }
+    } catch (err) {
+      console.error(err)
+      showToast("Connection Refused", "Failed to connect to the Go backend API daemon.", "destructive")
+    }
+  }
+
   // Connect WebSocket log stream
   const connectLogsStream = () => {
     if (logsWsRef.current) {
@@ -616,35 +661,67 @@ export default function Page() {
                               </div>
                             </div>
 
-                            <div className="flex gap-2 pt-2 border-t border-border/60">
-                              <a
-                                href={app.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex-1 bg-background hover:bg-muted border border-border text-[11px] h-8 rounded-lg flex items-center justify-center gap-1 font-medium transition-colors text-foreground"
-                              >
-                                View Live
-                                <GlobeIcon className="h-3 w-3" />
-                              </a>
-                              <Button
-                                onClick={() => {
-                                  setSelectedApp(app)
-                                  setCurrentNav("logs")
-                                  setLogs([])
-                                  if (app.status === "building") {
-                                    connectLogsStream()
-                                  } else {
-                                    setLogs([
-                                      { message: "📝 Fetching server container logs...", timestamp: new Date().toISOString() },
-                                      { message: `[sys] Container bound to port :${app.port}`, timestamp: new Date().toISOString() },
-                                      { message: "[sys] App is fully running. Status healthy.", timestamp: new Date().toISOString() },
-                                    ])
-                                  }
-                                }}
-                                className="bg-muted hover:bg-border border border-border text-[11px] text-foreground h-8 px-3 rounded-lg flex items-center gap-1 font-medium"
-                              >
-                                Logs
-                              </Button>
+                            <div className="space-y-2 pt-2 border-t border-border/60">
+                              <div className="flex gap-2">
+                                <a
+                                  href={app.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex-1 bg-background hover:bg-muted border border-border text-[11px] h-8 rounded-lg flex items-center justify-center gap-1 font-medium transition-colors text-foreground"
+                                >
+                                  View Live
+                                  <GlobeIcon className="h-3 w-3" />
+                                </a>
+                                <Button
+                                  onClick={() => {
+                                    setSelectedApp(app)
+                                    setCurrentNav("logs")
+                                    setLogs([])
+                                    if (app.status === "building") {
+                                      connectLogsStream()
+                                    } else {
+                                      setLogs([
+                                        { message: "📝 Fetching server container logs...", timestamp: new Date().toISOString() },
+                                        { message: `[sys] Container bound to port :${app.port}`, timestamp: new Date().toISOString() },
+                                        { message: "[sys] App is fully running. Status healthy.", timestamp: new Date().toISOString() },
+                                      ])
+                                    }
+                                  }}
+                                  className="bg-muted hover:bg-border border border-border text-[11px] text-foreground h-8 px-3 rounded-lg flex items-center gap-1 font-medium"
+                                >
+                                  Logs
+                                </Button>
+                              </div>
+                              <div className="flex gap-2">
+                                {app.status === "running" ? (
+                                  <Button
+                                    onClick={() => handleTogglePause(app.id, "stop")}
+                                    className="flex-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[11px] h-8 rounded-lg flex items-center justify-center gap-1 font-medium"
+                                  >
+                                    Pause
+                                  </Button>
+                                ) : app.status === "stopped" ? (
+                                  <Button
+                                    onClick={() => handleTogglePause(app.id, "start")}
+                                    className="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] h-8 rounded-lg flex items-center justify-center gap-1 font-medium"
+                                  >
+                                    Start
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    disabled
+                                    className="flex-1 bg-muted text-muted-foreground border border-border text-[11px] h-8 rounded-lg flex items-center justify-center gap-1 font-medium"
+                                  >
+                                    Pause
+                                  </Button>
+                                )}
+                                <Button
+                                  onClick={() => handleDeleteApp(app.id)}
+                                  className="flex-1 bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 text-[11px] h-8 rounded-lg flex items-center justify-center gap-1 font-medium"
+                                >
+                                  Delete
+                                </Button>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>

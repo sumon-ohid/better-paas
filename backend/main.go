@@ -61,6 +61,9 @@ func main() {
 	http.HandleFunc("/api/apps", handleApps)
 	http.HandleFunc("/api/deploy", handleDeploy)
 	http.HandleFunc("/api/health", handleHealth)
+	http.HandleFunc("/api/apps/stop", handleStop)
+	http.HandleFunc("/api/apps/start", handleStart)
+	http.HandleFunc("/api/apps/delete", handleDelete)
 	http.HandleFunc("/ws/stats", handleStatsWS)
 	http.HandleFunc("/ws/logs", handleLogsWS)
 
@@ -420,4 +423,166 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 		"uptime":    time.Since(startTime).String(),
 	}
 	json.NewEncoder(w).Encode(response)
+}
+
+func handleStop(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	if r.Method == http.MethodOptions {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	appsLock.Lock()
+	var targetApp *App
+	for i, app := range apps {
+		if app.ID == req.ID {
+			targetApp = &apps[i]
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	if targetApp == nil {
+		http.Error(w, "App not found", http.StatusNotFound)
+		return
+	}
+
+	// Stop container
+	stopCmd := exec.Command("docker", "stop", targetApp.Name)
+	if err := stopCmd.Run(); err != nil {
+		log.Printf("Warning stopping container %s: %v", targetApp.Name, err)
+	}
+
+	appsLock.Lock()
+	for i, app := range apps {
+		if app.ID == req.ID {
+			apps[i].Status = "stopped"
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+}
+
+func handleStart(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	if r.Method == http.MethodOptions {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	appsLock.Lock()
+	var targetApp *App
+	for i, app := range apps {
+		if app.ID == req.ID {
+			targetApp = &apps[i]
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	if targetApp == nil {
+		http.Error(w, "App not found", http.StatusNotFound)
+		return
+	}
+
+	// Start container
+	startCmd := exec.Command("docker", "start", targetApp.Name)
+	if err := startCmd.Run(); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to start container: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	appsLock.Lock()
+	for i, app := range apps {
+		if app.ID == req.ID {
+			apps[i].Status = "running"
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	json.NewEncoder(w).Encode(map[string]string{"status": "running"})
+}
+
+func handleDelete(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	if r.Method == http.MethodOptions {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	appsLock.Lock()
+	var targetApp *App
+	var targetIndex = -1
+	for i, app := range apps {
+		if app.ID == req.ID {
+			targetApp = &apps[i]
+			targetIndex = i
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	if targetApp == nil {
+		http.Error(w, "App not found", http.StatusNotFound)
+		return
+	}
+
+	// Remove container
+	rmCmd := exec.Command("docker", "rm", "-f", targetApp.Name)
+	rmCmd.Run()
+
+	// Delete folder
+	buildDir := filepath.Join("builds", targetApp.Name)
+	os.RemoveAll(buildDir)
+
+	// Remove from slice
+	appsLock.Lock()
+	if targetIndex != -1 {
+		apps = append(apps[:targetIndex], apps[targetIndex+1:]...)
+	}
+	appsLock.Unlock()
+
+	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 }
