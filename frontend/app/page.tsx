@@ -40,6 +40,7 @@ function ApplicationsDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [deleteTarget, setDeleteTarget] = useState<App | null>(null)
+  const [showPruneModal, setShowPruneModal] = useState(false)
 
   const appsRef = useRef<App[]>([])
   const statsWsRef = useRef<WebSocket | null>(null)
@@ -201,7 +202,7 @@ function ApplicationsDashboard() {
           <div className="ml-auto flex items-center gap-2">
             {/* Docker Prune */}
             <button
-              onClick={handleDockerPrune}
+              onClick={() => setShowPruneModal(true)}
               className="flex items-center gap-1.5 rounded-md border border-border bg-muted/15 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-rose-500/50 hover:bg-rose-500/5 transition-all cursor-pointer"
             >
               <TrashIcon2 className="h-3 w-3" />
@@ -426,6 +427,56 @@ function ApplicationsDashboard() {
           )}
         </div>
       </div>
+
+      {/* Docker Prune Confirm Modal */}
+      {showPruneModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+            onClick={() => setShowPruneModal(false)}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150">
+            <div className="p-6 pb-4 space-y-4">
+              <div className="flex items-center justify-center w-11 h-11 rounded-full bg-amber-500/10 border border-amber-500/20 mx-auto">
+                <TrashIcon2 className="h-5 w-5 text-amber-500" />
+              </div>
+              <div className="text-center space-y-1.5">
+                <h3 className="text-base font-semibold text-foreground">Prune Docker System</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  This will run <code className="text-xs font-mono bg-muted px-1 py-0.5 rounded">docker system prune</code> which permanently removes:
+                </p>
+                <ul className="text-sm text-muted-foreground text-left space-y-1 max-w-xs mx-auto list-disc pl-4">
+                  <li>All stopped containers</li>
+                  <li>All unused networks</li>
+                  <li>All dangling images</li>
+                  <li>All build cache</li>
+                </ul>
+                <p className="text-sm text-rose-500 font-semibold pt-1">
+                  Active running containers will NOT be affected.
+                </p>
+              </div>
+            </div>
+            <div className="p-6 pt-2 flex gap-2">
+              <button
+                onClick={() => setShowPruneModal(false)}
+                className="flex-1 h-10 rounded-md border border-border bg-background text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setShowPruneModal(false)
+                  await handleDockerPrune()
+                }}
+                className="flex-1 h-10 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <TrashIcon2 className="h-3.5 w-3.5" />
+                Confirm Prune
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirm Modal */}
       <DeleteConfirmModal
