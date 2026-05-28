@@ -156,6 +156,10 @@ export default function DeployPage() {
   const [manualGitUrl, setManualGitUrl] = useState("")
   const [showPublicRepoModal, setShowPublicRepoModal] = useState(false)
 
+  // ── Bulk env paste ─────────────────────────────────────────────────────────
+  const [showBulkEnv, setShowBulkEnv] = useState(false)
+  const [bulkEnvText, setBulkEnvText] = useState("")
+
   // ── UI state ───────────────────────────────────────────────────────────────
   const [isDeploying, setIsDeploying] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
@@ -245,6 +249,40 @@ export default function DeployPage() {
     } catch {
       // Ignore
     }
+  }
+
+  const parseEnvBlock = (text: string): Array<{ key: string; value: string }> => {
+    const result: Array<{ key: string; value: string }> = []
+    const seen = new Set<string>()
+
+    for (const rawLine of text.split(/\r?\n/)) {
+      let line = rawLine.trim()
+      if (!line || line.startsWith("#")) continue
+
+      // Strip "export " prefix
+      if (line.startsWith("export ")) {
+        line = line.slice(7).trim()
+      }
+
+      const eqIdx = line.indexOf("=")
+      if (eqIdx === -1) continue
+
+      const key = line.slice(0, eqIdx).trim()
+      let value = line.slice(eqIdx + 1).trim()
+
+      // Strip surrounding quotes
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1)
+      }
+
+      if (!key || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue
+      if (seen.has(key)) continue
+      seen.add(key)
+
+      result.push({ key, value })
+    }
+
+    return result
   }
 
   const handleManualRepo = async (url: string) => {
@@ -711,14 +749,66 @@ export default function DeployPage() {
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Environment Variables
                   </Label>
-                  <Button
-                    type="button"
-                    onClick={() => setDeployEnvVars((prev) => [...prev, { key: "", value: "" }])}
-                    className="h-6 cursor-pointer rounded bg-secondary text-secondary-foreground text-xs px-2 hover:bg-secondary/85 flex items-center gap-1 font-semibold border-0"
-                  >
-                    <PlusIcon className="h-3 w-3" /> Add Var
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      onClick={() => setShowBulkEnv((v) => !v)}
+                      variant="outline"
+                      className="h-6 text-[11px] px-2 font-medium"
+                    >
+                      {showBulkEnv ? "Cancel" : "Paste .env"}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setDeployEnvVars((prev) => [...prev, { key: "", value: "" }])}
+                      className="h-6 cursor-pointer rounded bg-secondary text-secondary-foreground text-xs px-2 hover:bg-secondary/85 flex items-center gap-1 font-semibold border-0"
+                    >
+                      <PlusIcon className="h-3 w-3" /> Add Var
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Bulk paste textarea */}
+                {showBulkEnv && (
+                  <div className="space-y-2 animate-in fade-in-50">
+                    <textarea
+                      value={bulkEnvText}
+                      onChange={(e) => setBulkEnvText(e.target.value)}
+                      placeholder={`KEY=value\nDATABASE_URL="postgres://..."\n# comments are ignored\nexport API_KEY=secret`}
+                      className="w-full h-32 rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 resize-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const parsed = parseEnvBlock(bulkEnvText)
+                          if (parsed.length === 0) {
+                            setErrorMsg("No valid KEY=value pairs found.")
+                            return
+                          }
+                          setDeployEnvVars((prev) => {
+                            const existingKeys = new Set(prev.map((e) => e.key))
+                            const merged = [...prev]
+                            for (const p of parsed) {
+                              if (!existingKeys.has(p.key)) {
+                                merged.push(p)
+                                existingKeys.add(p.key)
+                              }
+                            }
+                            return merged
+                          })
+                          setBulkEnvText("")
+                          setShowBulkEnv(false)
+                          setErrorMsg("")
+                        }}
+                        disabled={!bulkEnvText.trim()}
+                        className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 px-3"
+                      >
+                        Parse & Add {bulkEnvText.trim() ? `(${parseEnvBlock(bulkEnvText).length})` : ""}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
                   {deployEnvVars.map((env, index) => (
