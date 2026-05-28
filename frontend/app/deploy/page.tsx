@@ -34,6 +34,8 @@ import { RemixDark } from "@/components/ui/svgs/remixDark"
 import { Django } from "@/components/ui/svgs/django"
 import { FlaskDark } from "@/components/ui/svgs/flaskDark"
 import { Fastapi } from "@/components/ui/svgs/fastapi"
+import { Java } from "@/components/ui/svgs/java"
+import { Microsoft } from "@/components/ui/svgs/microsoft"
 import { api } from "@/lib/api"
 import type { GitHubRepo } from "@/lib/types"
 
@@ -146,7 +148,7 @@ const FRAMEWORKS = [
     keywords: ["django"],
     buildCmd: "",
     startCmd: "python manage.py runserver 0.0.0.0:$PORT",
-    installCmd: "pip install -r requirements.txt",
+    installCmd: "",
     port: 8000,
   },
   {
@@ -157,7 +159,7 @@ const FRAMEWORKS = [
     keywords: ["flask"],
     buildCmd: "",
     startCmd: "python app.py",
-    installCmd: "pip install -r requirements.txt",
+    installCmd: "",
     port: 5000,
   },
   {
@@ -168,7 +170,7 @@ const FRAMEWORKS = [
     keywords: ["fastapi"],
     buildCmd: "",
     startCmd: "uvicorn main:app --host 0.0.0.0 --port $PORT",
-    installCmd: "pip install -r requirements.txt",
+    installCmd: "",
     port: 8000,
   },
   {
@@ -179,7 +181,7 @@ const FRAMEWORKS = [
     keywords: ["python"],
     buildCmd: "",
     startCmd: "python app.py",
-    installCmd: "pip install -r requirements.txt",
+    installCmd: "",
     port: 5000,
   },
   {
@@ -236,6 +238,39 @@ const FRAMEWORKS = [
     startCmd: "mix phx.server",
     installCmd: "mix deps.get",
     port: 4000,
+  },
+  {
+    id: "java",
+    name: "Java (Spring Boot)",
+    color: "text-[#e76f00]",
+    icon: Java,
+    keywords: ["java", "spring", "springboot"],
+    buildCmd: "./mvnw package -DskipTests",
+    startCmd: "java -jar target/*.jar",
+    installCmd: "",
+    port: 8080,
+  },
+  {
+    id: "dotnet",
+    name: ".NET / ASP.NET Core",
+    color: "text-[#512bd4]",
+    icon: Microsoft,
+    keywords: ["dotnet", "aspnet", "csharp", "netcore"],
+    buildCmd: "dotnet publish -c Release -o out",
+    startCmd: "dotnet out/*.dll",
+    installCmd: "",
+    port: 8080,
+  },
+  {
+    id: "staticfile",
+    name: "Static Site",
+    color: "text-[#00d8ff]",
+    icon: null as any,
+    keywords: ["static", "jekyll", "hugo", "eleventy", "gatsby"],
+    buildCmd: "",
+    startCmd: "python -m http.server $PORT",
+    installCmd: "",
+    port: 8080,
   },
 ]
 

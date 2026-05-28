@@ -134,7 +134,16 @@ func runPaaSDeployment(app App, gitURL string) {
 		localLog(fmt.Sprintf("📂 Using sub-directory build context: %s", app.RootDir))
 	}
 
-	// ── 4. Build with Nixpacks ───────────────────────────────────────────────
+	// ── 4. Remove restrictive .dockerignore ──────────────────────────────────
+	// Some repos ignore everything (e.g. `**`) which blocks Nixpacks from
+	// including its generated .nixpacks/ files in the Docker build context.
+	dockerignorePath := filepath.Join(buildSubDir, ".dockerignore")
+	if _, err := os.Stat(dockerignorePath); err == nil {
+		os.Rename(dockerignorePath, dockerignorePath+".bak")
+		localLog("📝 Removed restrictive .dockerignore for Nixpacks build")
+	}
+
+	// ── 5. Build with Nixpacks ───────────────────────────────────────────────
 	localLog("🔍 Analyzing workspace with Nixpacks...")
 	nixpacksArgs := []string{"build", buildSubDir, "--name", app.Name, "--env", "NIXPACKS_NODE_VERSION=22"}
 	for k, v := range app.EnvVars {

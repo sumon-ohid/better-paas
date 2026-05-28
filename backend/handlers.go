@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
@@ -216,11 +218,15 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Stop and remove container
+	// ── Stop and remove container + image ────────────────────────────────────
 	exec.Command("docker", "rm", "-f", app.Name).Run()
+	exec.Command("docker", "rmi", "-f", app.Name).Run()
 
-	// Remove build directory
+	// ── Remove build directory ───────────────────────────────────────────────
 	buildDir := filepath.Join("builds", app.Name)
+	if err := os.RemoveAll(buildDir); err != nil {
+		log.Printf("[delete] warning: failed to remove build dir %s: %v", buildDir, err)
+	}
 
 	appsLock.Lock()
 	for i, a := range apps {
@@ -230,9 +236,6 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	appsLock.Unlock()
-
-	// Remove build dir after unlocking
-	_ = buildDir
 
 	saveDB()
 	rebuildCaddyfile()

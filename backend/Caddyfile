@@ -4,11 +4,7 @@
 	admin 127.0.0.1:2019
 }
 
-http://r1nizjnuvb.10.0.0.3.sslip.io {
-	reverse_proxy localhost:9363
-}
-
-http://b04w12d1jk.10.0.0.3.sslip.io {
-	reverse_proxy localhost:9043
+http://ru4hdgvupg.10.0.0.3.sslip.io {
+	reverse_proxy localhost:9342
 }
 
