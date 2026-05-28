@@ -123,7 +123,8 @@ export default function DeployPage() {
 
       if (res.ok) {
         const newApp = await res.json()
-        router.push(`/?app=${newApp.id}&tab=logs&triggerWS=true`)
+        // Go straight to the full-screen build log for this deployment
+        router.push(`/logs?appId=${newApp.id}&mode=build`)
       } else {
         const text = await res.text()
         setErrorMsg(`Deployment submission failed: ${text}`)

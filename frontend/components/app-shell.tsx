@@ -96,7 +96,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
 
   const allCommands = React.useMemo(
     () => [
-      { label: "Deploy new service", shortcut: "C", action: () => router.push("/deploy") },
+      { label: "Deploy new service", shortcut: "N", action: () => router.push("/deploy") },
       { label: "Go to Applications", shortcut: "G A", action: () => router.push("/") },
       { label: "Go to Node Health", shortcut: "G M", action: () => router.push("/health") },
       { label: "Go to Deployments", shortcut: "G D", action: () => router.push("/deployments") },
@@ -194,7 +194,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         setPendingKey("g")
         return
       }
-      if (e.key.toLowerCase() === "c") {
+      if (e.key.toLowerCase() === "n") {
         e.preventDefault()
         router.push("/deploy")
         return
@@ -322,7 +322,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                 <PlusIcon className="h-3.5 w-3.5" />
                 <span>Deploy service</span>
                 <Kbd className="ml-1 h-3.5 rounded-sm border-0 bg-background/20 px-1 font-mono text-[11px] text-primary-foreground">
-                  C
+                  N
                 </Kbd>
               </Button>
             </div>
@@ -379,7 +379,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                   Actions
                 </span>
                 {[
-                  ["Deploy Service", "c"],
+                  ["Deploy Service", "n"],
                   ["Command Palette", "⌘ k"],
                   ["Toggle Dark Mode", "d"],
                   ["Shortcuts Guide", "?"],
