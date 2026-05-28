@@ -1,15 +1,14 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { NucleoIcon } from "@/components/nucleo-icons"
-import { AppDetailDrawer } from "@/components/app-detail-drawer"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { AppShell, ToastContainer, useToast, StatusDot } from "@/components/app-shell"
-import { api, createBuildLogsWs } from "@/lib/api"
-import type { App, ServerStats, LogEntry } from "@/lib/types"
+import { api } from "@/lib/api"
+import type { App, ServerStats } from "@/lib/types"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
@@ -27,7 +26,6 @@ const TrashIcon2 = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 
 function ApplicationsDashboard() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { toasts, showToast, dismissToast } = useToast()
 
   const [apps, setApps] = useState<App[]>([])
@@ -41,23 +39,10 @@ function ApplicationsDashboard() {
   const [viewMode, setViewMode] = useState<"list" | "board">("list")
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [selectedApp, setSelectedApp] = useState<App | null>(null)
-  const [showDetailDrawer, setShowDetailDrawer] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<App | null>(null)
 
-  // Build log streaming
-  const [logs, setLogs] = useState<LogEntry[]>([])
-  const [logsConnected, setLogsConnected] = useState(false)
-  const logsWsRef = useRef<WebSocket | null>(null)
-  const activeLogAppIdRef = useRef<string | null>(null)
-  const logBufferRef = useRef<LogEntry[]>([])
-  const flushTimerRef = useRef<NodeJS.Timeout | null>(null)
-
   const appsRef = useRef<App[]>([])
-  const handledQueryAppIdRef = useRef<string | null>(null)
   const statsWsRef = useRef<WebSocket | null>(null)
-
-  const queryAppId = searchParams.get("app")
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -98,95 +83,6 @@ function ApplicationsDashboard() {
     }
   }, [fetchApps])
 
-  // ── WebSocket: Build Logs ──────────────────────────────────────────────────
-
-  const connectLogsStream = useCallback((appId: string) => {
-    if (
-      activeLogAppIdRef.current === appId &&
-      logsWsRef.current &&
-      (logsWsRef.current.readyState === WebSocket.OPEN ||
-        logsWsRef.current.readyState === WebSocket.CONNECTING)
-    ) {
-      return
-    }
-
-    // Tear down existing
-    if (logsWsRef.current) {
-      logsWsRef.current.onclose = null
-      logsWsRef.current.onerror = null
-      logsWsRef.current.onopen = null
-      logsWsRef.current.onmessage = null
-      logsWsRef.current.close()
-      logsWsRef.current = null
-    }
-    if (flushTimerRef.current) {
-      clearTimeout(flushTimerRef.current)
-      flushTimerRef.current = null
-    }
-
-    activeLogAppIdRef.current = appId
-    setLogs([])
-    setLogsConnected(false)
-    logBufferRef.current = []
-
-    const ws = createBuildLogsWs(appId)
-    logsWsRef.current = ws
-
-    ws.onopen = () => setLogsConnected(true)
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      logBufferRef.current.push({ message: data.message, timestamp: data.timestamp })
-
-      if (!flushTimerRef.current) {
-        flushTimerRef.current = setTimeout(() => {
-          const batch = [...logBufferRef.current]
-          logBufferRef.current = []
-          setLogs((prev) => [...prev, ...batch])
-          flushTimerRef.current = null
-        }, 100)
-      }
-    }
-
-    ws.onclose = () => {
-      setLogsConnected(false)
-      if (logsWsRef.current === ws) logsWsRef.current = null
-      // Flush remainder
-      if (logBufferRef.current.length > 0) {
-        const batch = [...logBufferRef.current]
-        logBufferRef.current = []
-        setLogs((prev) => [...prev, ...batch])
-      }
-      if (flushTimerRef.current) {
-        clearTimeout(flushTimerRef.current)
-        flushTimerRef.current = null
-      }
-    }
-  }, [])
-
-  // Handle ?app= query param
-  useEffect(() => {
-    if (!queryAppId) return
-    if (apps.length === 0) return
-    if (handledQueryAppIdRef.current === queryAppId) return
-    const found = apps.find((a) => a.id === queryAppId)
-    if (found) {
-      handledQueryAppIdRef.current = queryAppId
-      setSelectedApp(found)
-      setShowDetailDrawer(true)
-      connectLogsStream(queryAppId)
-    }
-  }, [queryAppId, apps, connectLogsStream])
-
-  // Sync selectedApp with latest data
-  useEffect(() => {
-    if (!selectedApp) return
-    const latest = apps.find((a) => a.id === selectedApp.id)
-    if (latest && JSON.stringify(latest) !== JSON.stringify(selectedApp)) {
-      setSelectedApp(latest)
-    }
-  }, [apps, selectedApp])
-
   // Poll while building
   useEffect(() => {
     const hasBuildingApp = apps.some((a) => a.status === "building")
@@ -198,14 +94,10 @@ function ApplicationsDashboard() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (logsWsRef.current) {
-        logsWsRef.current.onclose = null
-        logsWsRef.current.onerror = null
-        logsWsRef.current.onopen = null
-        logsWsRef.current.onmessage = null
-        logsWsRef.current.close()
+      if (statsWsRef.current) {
+        statsWsRef.current.onclose = null
+        statsWsRef.current.close()
       }
-      if (flushTimerRef.current) clearTimeout(flushTimerRef.current)
     }
   }, [])
 
@@ -233,7 +125,6 @@ function ApplicationsDashboard() {
     try {
       await api.apps.delete(id)
       showToast("App Deleted", "Application container and workspace permanently removed.")
-      setShowDetailDrawer(false)
       setDeleteTarget(null)
       fetchApps()
     } catch (err) {
@@ -383,10 +274,7 @@ function ApplicationsDashboard() {
                     filteredApps.map((app) => (
                       <tr
                         key={app.id}
-                        onClick={() => {
-                          setSelectedApp(app)
-                          setShowDetailDrawer(true)
-                        }}
+                        onClick={() => router.push(`/app/${app.id}`)}
                         className="group cursor-pointer border-b border-border/45 text-sm transition-colors duration-150 hover:bg-accent/45"
                       >
                         <td className="py-3 px-4">
@@ -446,11 +334,7 @@ function ApplicationsDashboard() {
                               </Button>
                             )}
                             <Button
-                              onClick={() => {
-                                setSelectedApp(app)
-                                connectLogsStream(app.id)
-                                router.push(`/logs?appId=${app.id}`)
-                              }}
+                              onClick={() => router.push(`/app/${app.id}?tab=logs`)}
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted/45 cursor-pointer"
@@ -508,10 +392,7 @@ function ApplicationsDashboard() {
                         colApps.map((app) => (
                           <Card
                             key={app.id}
-                            onClick={() => {
-                              setSelectedApp(app)
-                              setShowDetailDrawer(true)
-                            }}
+                            onClick={() => router.push(`/app/${app.id}`)}
                             className="group cursor-pointer space-y-3 border-border/80 bg-background/55 p-3 transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/45 hover:bg-accent/20 hover:shadow-[0_14px_34px_rgba(0,0,0,.16)]"
                           >
                             <div className="flex justify-between items-start">
@@ -545,22 +426,6 @@ function ApplicationsDashboard() {
           )}
         </div>
       </div>
-
-      {/* App Detail Drawer */}
-      <AppDetailDrawer
-        app={selectedApp}
-        isOpen={showDetailDrawer}
-        onClose={() => setShowDetailDrawer(false)}
-        onTogglePause={handleTogglePause}
-        onDelete={handleDeleteApp}
-        onViewLogs={(app) => {
-          setSelectedApp(app)
-          connectLogsStream(app.id)
-          router.push(`/logs?appId=${app.id}`)
-        }}
-        onUpdateAppList={fetchApps}
-        stats={stats}
-      />
 
       {/* Delete Confirm Modal */}
       <DeleteConfirmModal

@@ -74,12 +74,6 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
       href: "/health",
     },
     {
-      id: "deployments",
-      label: "Deployments",
-      icon: <HistoryIcon className="h-3.5 w-3.5" />,
-      href: "/deployments",
-    },
-    {
       id: "logs",
       label: "Live Logs",
       icon: <TerminalIcon className="h-3.5 w-3.5" />,
@@ -99,7 +93,6 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
       { label: "Deploy new service", shortcut: "N", action: () => router.push("/deploy") },
       { label: "Go to Applications", shortcut: "G A", action: () => router.push("/") },
       { label: "Go to Node Health", shortcut: "G M", action: () => router.push("/health") },
-      { label: "Go to Deployments", shortcut: "G D", action: () => router.push("/deployments") },
       { label: "Go to Live Logs", shortcut: "G L", action: () => router.push("/logs") },
       { label: "Go to Settings", shortcut: "G S", action: () => router.push("/settings") },
       {
@@ -181,7 +174,6 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         const map: Record<string, string> = {
           a: "/",
           m: "/health",
-          d: "/deployments",
           l: "/logs",
           s: "/settings",
         }
@@ -360,7 +352,6 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                 {[
                   ["Applications", "g a"],
                   ["Node Health", "g m"],
-                  ["Deployments", "g d"],
                   ["Live Logs", "g l"],
                   ["Settings", "g s"],
                 ].map(([label, keys]) => (

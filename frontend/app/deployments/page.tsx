@@ -103,7 +103,7 @@ export default function DeploymentsIndexPage() {
               return (
                 <button
                   key={app.id}
-                  onClick={() => router.push(`/deployments/${app.id}`)}
+                  onClick={() => router.push(`/app/${app.id}?tab=deployments`)}
                   className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 w-full px-4 py-3.5 items-center text-left hover:bg-accent/30 transition-colors cursor-pointer group"
                 >
                   {/* Project info */}
