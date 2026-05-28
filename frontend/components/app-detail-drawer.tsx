@@ -78,6 +78,9 @@ export function AppDetailDrawer({
   const connectRuntimeLogs = (appId: string) => {
     if (runtimeLogsWsRef.current) {
       runtimeLogsWsRef.current.onclose = null
+      runtimeLogsWsRef.current.onerror = null
+      runtimeLogsWsRef.current.onopen = null
+      runtimeLogsWsRef.current.onmessage = null
       runtimeLogsWsRef.current.close()
       runtimeLogsWsRef.current = null
     }

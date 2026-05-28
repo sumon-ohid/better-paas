@@ -189,7 +189,10 @@ function DashboardContent() {
 
     // Tear down any existing connection
     if (logsWsRef.current) {
-      logsWsRef.current.onclose = null // prevent old onclose from firing
+      logsWsRef.current.onclose = null
+      logsWsRef.current.onerror = null
+      logsWsRef.current.onopen = null
+      logsWsRef.current.onmessage = null
       logsWsRef.current.close()
       logsWsRef.current = null
     }
@@ -339,6 +342,10 @@ function DashboardContent() {
   useEffect(() => {
     return () => {
       if (logsWsRef.current) {
+        logsWsRef.current.onclose = null
+        logsWsRef.current.onerror = null
+        logsWsRef.current.onopen = null
+        logsWsRef.current.onmessage = null
         logsWsRef.current.close()
         logsWsRef.current = null
       }
@@ -365,6 +372,9 @@ function DashboardContent() {
       // User is not on the logs tab, close connection to save resources
       if (logsWsRef.current) {
         logsWsRef.current.onclose = null
+        logsWsRef.current.onerror = null
+        logsWsRef.current.onopen = null
+        logsWsRef.current.onmessage = null
         logsWsRef.current.close()
         logsWsRef.current = null
         activeLogAppIdRef.current = null
@@ -1236,8 +1246,8 @@ function DashboardContent() {
                         <div key={index} className="flex gap-4">
                           <span className="text-slate-500 select-none">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
                           <span className={
-                            log.message.startsWith("Initializing") || log.message.startsWith("Launching") ? "text-[#93e0c0] font-semibold" :
-                            log.message.startsWith("✖") || log.message.includes("Error") ? "text-rose-400 font-semibold" : "text-slate-100"
+                            (log.message || "").startsWith("Initializing") || (log.message || "").startsWith("Launching") ? "text-[#93e0c0] font-semibold" :
+                            (log.message || "").startsWith("✖") || (log.message || "").includes("Error") ? "text-rose-400 font-semibold" : "text-slate-100"
                           }>
                             {log.message}
                           </span>
