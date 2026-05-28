@@ -262,7 +262,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                     onClick={() => router.push(item.href)}
                     className={`flex items-center justify-between px-3 py-1.5 w-full rounded text-sm transition-all cursor-pointer ${
                       isActive(item.href)
-                        ? "bg-accent text-foreground font-medium shadow-[inset_2px_0_0_var(--primary)]"
+                        ? "bg-accent text-foreground font-medium"
                         : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"
                     }`}
                   >

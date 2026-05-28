@@ -11,6 +11,9 @@ import { AppShell, ToastContainer, useToast, StatusDot } from "@/components/app-
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { api, createRuntimeLogsWs } from "@/lib/api"
 import type { App, DeploymentRecord, LogEntry } from "@/lib/types"
+import { GithubLight } from "@/components/ui/svgs/githubLight"
+import { GithubDark } from "@/components/ui/svgs/githubDark"
+import { Docker } from "@/components/ui/svgs/docker"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-left" />
@@ -467,12 +470,20 @@ function AppDetailPage() {
                   </span>
                 </Card>
 
-                <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                    Git Repository
-                  </span>
-                  <span className="text-sm font-mono text-foreground truncate block">{app.gitRepo}</span>
-                </Card>
+                 <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
+                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                     Git Repository
+                   </span>
+                   <div className="flex items-center gap-2">
+                     {app.gitRepo.includes("github.com") && (
+                       <>
+                         <GithubLight className="h-4 w-4 shrink-0 dark:hidden" />
+                         <GithubDark className="h-4 w-4 shrink-0 hidden dark:block" />
+                       </>
+                     )}
+                     <span className="text-sm font-mono text-foreground truncate block">{app.gitRepo}</span>
+                   </div>
+                 </Card>
 
                 <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
@@ -523,12 +534,24 @@ function AppDetailPage() {
           {currentTab === "config" && (
             <div className="h-full overflow-y-auto p-4 md:p-6">
               <div className="max-w-2xl space-y-5 animate-in fade-in-50 duration-200">
-              <div className="space-y-1">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Git Repository URL
-                </Label>
-                <Input value={gitRepo} onChange={(e) => setGitRepo(e.target.value)} className="h-9 text-sm" />
-              </div>
+               <div className="space-y-1">
+                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                   Git Repository URL
+                 </Label>
+                  <div className="relative">
+                    {app?.gitRepo?.includes("github.com") && (
+                      <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                        <GithubLight className="h-4 w-4 dark:hidden" />
+                        <GithubDark className="h-4 w-4 hidden dark:block" />
+                      </div>
+                    )}
+                   <Input
+                     value={gitRepo}
+                     onChange={(e) => setGitRepo(e.target.value)}
+                     className={`h-9 text-sm ${app?.gitRepo?.includes("github.com") ? "pl-9" : ""}`}
+                   />
+                 </div>
+               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -554,12 +577,13 @@ function AppDetailPage() {
                     className="h-9 text-sm"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Build Pack</Label>
-                  <div className="h-9 px-2.5 bg-muted/40 border border-border rounded flex items-center text-xs text-muted-foreground font-mono">
-                    Nixpacks
-                  </div>
-                </div>
+                 <div className="space-y-1">
+                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Build Pack</Label>
+                   <div className="h-9 px-2.5 bg-muted/40 border border-border rounded flex items-center gap-2 text-xs text-muted-foreground font-mono">
+                     <Docker className="h-4 w-4 shrink-0" />
+                     Nixpacks → Docker
+                   </div>
+                 </div>
               </div>
 
               <div className="space-y-1">

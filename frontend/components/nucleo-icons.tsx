@@ -23,6 +23,7 @@ import {
   Loader,
   Minus,
   Ellipsis,
+  Eye,
   Play,
   Plus,
   RefreshCw,
@@ -58,6 +59,7 @@ type NucleoIconName =
   | "list"
   | "loader"
   | "minus"
+  | "eye"
   | "more-horizontal"
   | "plus"
   | "play"
@@ -101,6 +103,7 @@ const iconMap: Record<NucleoIconName, React.FC<any>> = {
   list: List,
   loader: Loader,
   minus: Minus,
+  eye: Eye,
   "more-horizontal": Ellipsis,
   play: Play,
   plus: Plus,
