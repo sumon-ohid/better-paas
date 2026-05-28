@@ -152,6 +152,10 @@ export default function DeployPage() {
   // ── Detected framework ─────────────────────────────────────────────────────
   const [detectedFramework, setDetectedFramework] = useState<(typeof FRAMEWORKS)[0] | null>(null)
 
+  // ── Manual public repo input ───────────────────────────────────────────────
+  const [manualGitUrl, setManualGitUrl] = useState("")
+  const [showPublicRepoModal, setShowPublicRepoModal] = useState(false)
+
   // ── UI state ───────────────────────────────────────────────────────────────
   const [isDeploying, setIsDeploying] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
@@ -240,6 +244,54 @@ export default function DeployPage() {
       setSelectedBranch("")
     } catch {
       // Ignore
+    }
+  }
+
+  const handleManualRepo = async (url: string) => {
+    const cleanUrl = url.trim().replace(/\.git$/, "")
+    if (!cleanUrl) return
+
+    setErrorMsg("")
+    setIsFetchingBranches(true)
+
+    // Derive repo name from URL
+    const parts = cleanUrl.split("/")
+    const repoName = parts[parts.length - 1] || "app"
+
+    const repoObj: GitHubRepo = {
+      full_name: cleanUrl.replace("https://github.com/", "").replace("http://github.com/", ""),
+      name: repoName,
+      clone_url: cleanUrl + ".git",
+      html_url: cleanUrl,
+      private: false,
+      description: "",
+      updated_at: new Date().toISOString(),
+    }
+
+    setSelectedRepo(repoObj)
+    setDeployName(repoName.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+
+    // Detect framework
+    const fw = detectFramework(repoObj)
+    setDetectedFramework(fw)
+    if (fw) {
+      setDeployBuildCommand(fw.buildCmd)
+      setDeployStartCommand(fw.startCmd)
+      setDeployInstallCommand(fw.installCmd)
+      setDeployPortOverride(String(fw.port))
+    }
+
+    // Fetch branches
+    try {
+      const list = await api.git.branches(repoObj.clone_url)
+      setBranches(list)
+      if (list.includes("main")) setSelectedBranch("main")
+      else if (list.includes("master")) setSelectedBranch("master")
+      else if (list.length > 0) setSelectedBranch(list[0])
+    } catch (err) {
+      setErrorMsg(`Failed to fetch branches: ${err instanceof Error ? err.message : "Unknown error"}`)
+    } finally {
+      setIsFetchingBranches(false)
     }
   }
 
@@ -355,15 +407,14 @@ export default function DeployPage() {
 
             {/* ── STEP 1: Repository Selection ─────────────────────────────── */}
             {step === 1 && (
-              <div className="space-y-5 animate-in fade-in-50 duration-200">
-                {/* GitHub Connection Status */}
-                {!gitHubConnected ? (
-                  <div className="text-center py-8 space-y-4">
-                    <GlobeIcon className="h-10 w-10 mx-auto text-muted-foreground/30" />
+              <div className="space-y-5 animate-in fade-in-50 duration-200 max-h-[calc(100vh-260px)] overflow-y-auto pr-1">
+                {/* When no repo selected and not connected: show CTA */}
+                {!gitHubConnected && !selectedRepo && (
+                  <div className="py-8 space-y-4 text-center">
                     <div className="space-y-1">
                       <h4 className="text-sm font-medium text-foreground">Connect GitHub</h4>
                       <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                        Link your GitHub account to browse and deploy repositories.
+                        Link your account to browse and deploy your repositories.
                       </p>
                     </div>
                     <Button
@@ -374,9 +425,18 @@ export default function DeployPage() {
                       <GithubDark className="h-4 w-4 hidden dark:block" />
                       Connect GitHub
                     </Button>
+                    <button
+                      onClick={() => setShowPublicRepoModal(true)}
+                      className="block mx-auto text-xs text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Or deploy a public repository &rarr;
+                    </button>
                   </div>
-                ) : (
-                  <div className="space-y-4">
+                )}
+
+                {/* Connected state: show repo list */}
+                {gitHubConnected && (
+                  <div className="space-y-3">
                     {/* Connected header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -403,7 +463,7 @@ export default function DeployPage() {
                       </div>
                     </div>
 
-                    {/* Repo list */}
+                    {/* Repo list — scrollable */}
                     {isLoadingRepos ? (
                       <div className="py-12 text-center text-xs text-muted-foreground">
                         <RefreshIcon className="h-5 w-5 mx-auto mb-2 animate-spin opacity-50" />
@@ -414,7 +474,7 @@ export default function DeployPage() {
                         No repositories found.
                       </div>
                     ) : (
-                      <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
                         {repos.map((repo) => {
                           const isSelected = selectedRepo?.full_name === repo.full_name
                           return (
@@ -464,72 +524,98 @@ export default function DeployPage() {
                       </div>
                     )}
 
-                    {/* Selected repo details */}
-                    {selectedRepo && (
-                      <div className="space-y-3 pt-2 border-t border-border/40">
-                        <div className="space-y-1">
-                          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            Branch
-                          </Label>
-                          {isFetchingBranches ? (
-                            <div className="h-9 flex items-center gap-2 text-xs text-muted-foreground">
-                              <RefreshIcon className="h-3 w-3 animate-spin" />
-                              Fetching branches...
-                            </div>
-                          ) : branches.length > 0 ? (
-                            <Select
-                              value={selectedBranch}
-                              onValueChange={(v) => setSelectedBranch(v ?? "")}
-                            >
-                              <SelectTrigger className="h-9 text-sm w-full">
-                                <SelectValue placeholder="Select branch..." />
-                              </SelectTrigger>
-                              <SelectPopup>
-                                {branches.map((branch) => (
-                                  <SelectItem key={branch} value={branch}>
-                                    {branch}
-                                  </SelectItem>
-                                ))}
-                              </SelectPopup>
-                            </Select>
-                          ) : (
-                            <Input
-                              value={selectedBranch}
-                              onChange={(e) => setSelectedBranch(e.target.value)}
-                              placeholder="main"
-                              className="h-9 text-sm"
-                            />
-                          )}
-                        </div>
+                    {/* Add public repo */}
+                    <button
+                      onClick={() => setShowPublicRepoModal(true)}
+                      className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 hover:bg-accent/20 transition-all cursor-pointer"
+                    >
+                      <PlusIcon className="h-3.5 w-3.5" />
+                      Deploy a public repository
+                    </button>
+                  </div>
+                )}
 
-                        <div className="space-y-1">
-                          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            App Name
-                          </Label>
-                          <Input
-                            value={deployName}
-                            onChange={(e) =>
-                              setDeployName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
-                            }
-                            placeholder="e.g. my-app"
-                            className="h-9 text-sm"
-                          />
-                        </div>
+                {/* Selected repo details — shown for both connected & manual flows */}
+                {selectedRepo && (
+                  <div className="space-y-3 pt-2 border-t border-border/40">
+                    {/* Selected repo info */}
+                    <div className="flex items-center gap-2.5 px-1">
+                      <div className="h-7 w-7 rounded-md bg-muted/50 flex items-center justify-center shrink-0">
+                        <GithubLight className="h-4 w-4 dark:hidden" />
+                        <GithubDark className="h-4 w-4 hidden dark:block" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{selectedRepo.name}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{selectedRepo.full_name}</p>
+                      </div>
+                      {!gitHubConnected && (
+                        <button
+                          onClick={() => {
+                            setSelectedRepo(null)
+                            setBranches([])
+                            setSelectedBranch("")
+                            setDetectedFramework(null)
+                          }}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Change
+                        </button>
+                      )}
+                    </div>
 
-                        {/* Framework detection */}
-                        {detectedFramework && (
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border">
-                            <detectedFramework.icon className="h-5 w-5 shrink-0" />
-                            <div>
-                              <p className="text-xs font-medium text-foreground">
-                                {detectedFramework.name} detected
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">
-                                Build and start commands auto-configured
-                              </p>
-                            </div>
-                          </div>
-                        )}
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Branch
+                      </Label>
+                      {isFetchingBranches ? (
+                        <div className="h-9 flex items-center gap-2 text-xs text-muted-foreground">
+                          <RefreshIcon className="h-3 w-3 animate-spin" />
+                          Fetching branches...
+                        </div>
+                      ) : branches.length > 0 ? (
+                        <Select value={selectedBranch} onValueChange={(v) => setSelectedBranch(v ?? "")}>
+                          <SelectTrigger className="h-9 text-sm w-full">
+                            <SelectValue placeholder="Select branch..." />
+                          </SelectTrigger>
+                          <SelectPopup>
+                            {branches.map((branch) => (
+                              <SelectItem key={branch} value={branch}>
+                                {branch}
+                              </SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      ) : (
+                        <Input
+                          value={selectedBranch}
+                          onChange={(e) => setSelectedBranch(e.target.value)}
+                          placeholder="main"
+                          className="h-9 text-sm"
+                        />
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        App Name
+                      </Label>
+                      <Input
+                        value={deployName}
+                        onChange={(e) =>
+                          setDeployName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+                        }
+                        placeholder="e.g. my-app"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+
+                    {detectedFramework && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border">
+                        <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-foreground">{detectedFramework.name} detected</p>
+                          <p className="text-[10px] text-muted-foreground">Build and start commands auto-configured</p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -733,6 +819,64 @@ export default function DeployPage() {
           loadRepos()
         }}
       />
+
+      {/* Public Repo URL Modal */}
+      {showPublicRepoModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowPublicRepoModal(false)} />
+          <div className="relative w-full max-w-md mx-4 bg-popover border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150">
+            <div className="px-6 py-4 border-b border-border/50 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-foreground">Deploy Public Repository</h3>
+              <button
+                onClick={() => setShowPublicRepoModal(false)}
+                className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <XIcon className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  GitHub Repository URL
+                </Label>
+                <Input
+                  value={manualGitUrl}
+                  onChange={(e) => setManualGitUrl(e.target.value)}
+                  placeholder="https://github.com/user/repo"
+                  className="h-9 text-sm"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && manualGitUrl.trim()) {
+                      setShowPublicRepoModal(false)
+                      handleManualRepo(manualGitUrl)
+                    }
+                  }}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Paste any public GitHub URL. Authentication not required.
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setShowPublicRepoModal(false)
+                  handleManualRepo(manualGitUrl)
+                }}
+                disabled={!manualGitUrl.trim() || isFetchingBranches}
+                className="w-full h-9 text-sm bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {isFetchingBranches ? (
+                  <span className="flex items-center gap-1.5">
+                    <RefreshIcon className="h-3 w-3 animate-spin" />
+                    Fetching...
+                  </span>
+                ) : (
+                  "Continue"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

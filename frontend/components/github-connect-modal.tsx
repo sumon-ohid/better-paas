@@ -153,7 +153,8 @@ export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConne
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full h-10 rounded-lg bg-foreground text-background text-sm font-semibold hover:bg-foreground/90 transition-colors"
                 >
-                  <GithubLight className="h-4 w-4" />
+                  <GithubLight className="h-5 w-5 hidden dark:block" />
+                  <GithubDark className="h-5 w-5 dark:hidden" />
                   Generate Token on GitHub
                   <NucleoIcon name="external" className="h-3 w-3 opacity-60" />
                 </a>
