@@ -446,6 +446,16 @@ func handleStatsWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	// Read loop to consume control messages and detect disconnect
+	go func() {
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				break
+			}
+		}
+		conn.Close()
+	}()
+
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -565,14 +575,34 @@ func handleLogsWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Stream incoming logs in real-time
-	for logLine := range clientChan {
-		msg := map[string]string{
-			"message":   logLine,
-			"timestamp": time.Now().Format(time.RFC3339),
+	// Create close signal channel and run read loop to process control messages and detect disconnects
+	closeSig := make(chan struct{})
+	go func() {
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				break
+			}
 		}
-		data, _ := json.Marshal(msg)
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		close(closeSig)
+	}()
+
+	// Stream incoming logs in real-time or exit if connection is closed
+	for {
+		select {
+		case logLine, ok := <-clientChan:
+			if !ok {
+				return
+			}
+			msg := map[string]string{
+				"message":   logLine,
+				"timestamp": time.Now().Format(time.RFC3339),
+			}
+			data, _ := json.Marshal(msg)
+			if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				return
+			}
+		case <-closeSig:
+			log.Printf("[WS logs] Client disconnected, exiting subscriber loop for appId: %q", appID)
 			return
 		}
 	}
@@ -953,6 +983,19 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 			cmd.Process.Kill()
 		}
 		cmd.Wait()
+	}()
+
+	// Start a read loop to detect client disconnect and terminate the docker process to unblock ReadString
+	go func() {
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				break
+			}
+		}
+		log.Printf("[WS runtime-logs] Client disconnected, killing docker logs process for: %s", name)
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
 	}()
 
 	// Read output and write to WS

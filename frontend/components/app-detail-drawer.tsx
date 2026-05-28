@@ -105,11 +105,17 @@ export function AppDetailDrawer({
     ws.onclose = (event) => {
       console.log('[WS runtime-logs] closed:', event.code, event.reason)
       setRuntimeLogsConnected(false)
+      if (runtimeLogsWsRef.current === ws) {
+        runtimeLogsWsRef.current = null
+      }
     }
 
     ws.onerror = (err) => {
       console.error('[WS runtime-logs] error:', err)
       setRuntimeLogsConnected(false)
+      if (runtimeLogsWsRef.current === ws) {
+        runtimeLogsWsRef.current = null
+      }
     }
   }
 

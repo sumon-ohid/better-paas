@@ -176,12 +176,14 @@ function DashboardContent() {
     console.log('[connectLogsStream] called with appId:', appId)
     const targetId = appId ?? null
 
-    // Already connected to the exact same app — do nothing
+    // Already connected or connecting to the exact same app — do nothing
     if (
       activeLogAppIdRef.current === targetId &&
       logsWsRef.current &&
-      logsWsRef.current.readyState === WebSocket.OPEN
+      (logsWsRef.current.readyState === WebSocket.OPEN ||
+       logsWsRef.current.readyState === WebSocket.CONNECTING)
     ) {
+      console.log('[connectLogsStream] already connected or connecting to', targetId)
       return
     }
 
@@ -220,8 +222,9 @@ function DashboardContent() {
 
       if (!flushTimerRef.current) {
         flushTimerRef.current = setTimeout(() => {
-          setLogs((prev) => [...prev, ...logBufferRef.current])
+          const logsToAppend = [...logBufferRef.current]
           logBufferRef.current = []
+          setLogs((prev) => [...prev, ...logsToAppend])
           flushTimerRef.current = null
         }, 100) // batch every 100ms
       }
@@ -230,10 +233,14 @@ function DashboardContent() {
     logsWs.onclose = (event) => {
       console.log('[WS logs] closed for', appId, 'code:', event.code, 'reason:', event.reason)
       setLogsConnected(false)
+      if (logsWsRef.current === logsWs) {
+        logsWsRef.current = null
+      }
       // Flush any remaining buffered logs
       if (logBufferRef.current.length > 0) {
-        setLogs((prev) => [...prev, ...logBufferRef.current])
+        const logsToAppend = [...logBufferRef.current]
         logBufferRef.current = []
+        setLogs((prev) => [...prev, ...logsToAppend])
       }
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current)
@@ -244,6 +251,9 @@ function DashboardContent() {
     logsWs.onerror = (err) => {
       console.error('[WS logs] error for', appId, 'error:', err)
       setLogsConnected(false)
+      if (logsWsRef.current === logsWs) {
+        logsWsRef.current = null
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -339,17 +349,51 @@ function DashboardContent() {
     }
   }, [])
 
-  // Auto-connect logs when on logs tab with a selected app but no active connection
+  // Auto-connect logs when on logs tab with a selected app but no active connection, or close if navigated away
   useEffect(() => {
-    if (
-      currentNav === "logs" &&
-      selectedApp &&
-      (!logsWsRef.current || logsWsRef.current.readyState !== WebSocket.OPEN) &&
-      activeLogAppIdRef.current !== selectedApp.id
-    ) {
-      connectLogsStream(selectedApp.id)
+    if (currentNav === "logs" && selectedApp) {
+      const noActiveConnection = !logsWsRef.current || 
+        (logsWsRef.current.readyState !== WebSocket.OPEN && 
+         logsWsRef.current.readyState !== WebSocket.CONNECTING);
+         
+      const isDifferentApp = activeLogAppIdRef.current !== selectedApp.id;
+
+      if (noActiveConnection || isDifferentApp) {
+        connectLogsStream(selectedApp.id)
+      }
+    } else {
+      // User is not on the logs tab, close connection to save resources
+      if (logsWsRef.current) {
+        logsWsRef.current.onclose = null
+        logsWsRef.current.close()
+        logsWsRef.current = null
+        activeLogAppIdRef.current = null
+        setLogsConnected(false)
+      }
     }
   }, [currentNav, selectedApp, connectLogsStream])
+
+  // Poll apps list if there are any building apps to update status automatically in the UI
+  useEffect(() => {
+    const hasBuildingApp = apps.some((app) => app.status === "building")
+    if (!hasBuildingApp) return
+
+    const interval = setInterval(() => {
+      fetchApps()
+    }, 2500) // Poll every 2.5 seconds
+
+    return () => clearInterval(interval)
+  }, [apps])
+
+  // Keep selectedApp state in sync with latest changes in the apps list (e.g. status changes from building to running)
+  useEffect(() => {
+    if (selectedApp) {
+      const latest = apps.find((a) => a.id === selectedApp.id)
+      if (latest && JSON.stringify(latest) !== JSON.stringify(selectedApp)) {
+        setSelectedApp(latest)
+      }
+    }
+  }, [apps, selectedApp])
 
   // Keyboard Shortcuts Engine
   useEffect(() => {
