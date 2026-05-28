@@ -53,7 +53,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Node Configuration */}
-        <Card className="border-border bg-card/72 shadow-[0_18px_64px_rgba(0,0,0,.12)] backdrop-blur-xl">
+        <Card className="border-border bg-card/72">
           <CardHeader className="border-b border-border/40">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <SettingsIcon className="h-4 w-4 text-muted-foreground" />
@@ -113,7 +113,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Docker Maintenance */}
-        <Card className="border-border bg-card/72 shadow-[0_18px_64px_rgba(0,0,0,.12)] backdrop-blur-xl">
+        <Card className="border-border bg-card/72">
           <CardHeader className="border-b border-border/40">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <TrashIcon className="h-4 w-4 text-muted-foreground" />
@@ -148,7 +148,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* About */}
-        <Card className="border-border bg-card/72 shadow-[0_18px_64px_rgba(0,0,0,.12)] backdrop-blur-xl">
+        <Card className="border-border bg-card/72">
           <CardHeader className="border-b border-border/40">
             <CardTitle className="text-sm font-bold">About Antigravity</CardTitle>
           </CardHeader>

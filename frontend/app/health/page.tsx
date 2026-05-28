@@ -112,7 +112,7 @@ export default function HealthPage() {
           {statCards.map((card) => (
             <Card
               key={card.label}
-              className="space-y-3 border-border bg-card/72 p-4 shadow-[0_18px_64px_rgba(0,0,0,.12)] backdrop-blur-xl"
+              className="space-y-3 border-border bg-card/72 p-4"
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -133,7 +133,7 @@ export default function HealthPage() {
 
         {/* Health Detail Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="border-border bg-card/72 shadow-[0_18px_64px_rgba(0,0,0,.10)] backdrop-blur-xl">
+          <Card className="border-border bg-card/72">
             <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground font-bold">
                 Service Health Summary
@@ -177,7 +177,7 @@ export default function HealthPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border bg-card/72 shadow-[0_18px_64px_rgba(0,0,0,.10)] backdrop-blur-xl">
+          <Card className="border-border bg-card/72">
             <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground font-bold">
                 System Information

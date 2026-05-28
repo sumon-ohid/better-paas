@@ -6,6 +6,13 @@ import { NucleoIcon } from "@/components/nucleo-icons"
 import { AppShell, useToast, ToastContainer } from "@/components/app-shell"
 import { api, createBuildLogsWs, createRuntimeLogsWs } from "@/lib/api"
 import type { App, LogEntry } from "@/lib/types"
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "@/components/ui/select"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
@@ -168,24 +175,32 @@ function LogsPage() {
           <span className="h-4 w-px bg-border" />
 
           {/* App selector */}
-          <select
+          <Select
             value={selectedAppId}
-            onChange={(e) => {
-              setSelectedAppId(e.target.value)
-              // Update URL without full navigation
+            onValueChange={(v) => {
+              const id = v ?? ""
+              setSelectedAppId(id)
               const url = new URL(window.location.href)
-              url.searchParams.set("appId", e.target.value)
+              if (id) {
+                url.searchParams.set("appId", id)
+              } else {
+                url.searchParams.delete("appId")
+              }
               window.history.replaceState({}, "", url.toString())
             }}
-            className="rounded border border-border bg-muted/20 px-2 py-1 text-xs text-foreground outline-none focus:border-primary/50 transition-colors cursor-pointer"
           >
-            <option value="">— Select app —</option>
-            {apps.map((app) => (
-              <option key={app.id} value={app.id}>
-                {app.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-8 text-xs w-48">
+              <SelectValue placeholder="— Select app —" />
+            </SelectTrigger>
+            <SelectPopup>
+              <SelectItem value="">— Select app —</SelectItem>
+              {apps.map((app) => (
+                <SelectItem key={app.id} value={app.id}>
+                  {app.name}
+                </SelectItem>
+              ))}
+            </SelectPopup>
+          </Select>
 
           {/* App status + URL */}
           {selectedApp && (
