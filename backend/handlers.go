@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os/exec"
 	"path/filepath"
@@ -392,6 +393,69 @@ func handleGitBranches(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// POST /api/git/repos
+// Fetches repositories for the authenticated GitHub user.
+// ---------------------------------------------------------------------------
+
+type GitHubRepo struct {
+	FullName    string `json:"full_name"`
+	Name        string `json:"name"`
+	CloneURL    string `json:"clone_url"`
+	HTMLURL     string `json:"html_url"`
+	Private     bool   `json:"private"`
+	Description string `json:"description"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+func handleGitRepos(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	githubTokenLock.RLock()
+	tok := githubToken
+	githubTokenLock.RUnlock()
+
+	if tok == "" {
+		jsonError(w, "No GitHub token configured", http.StatusUnauthorized)
+		return
+	}
+
+	// Call GitHub API
+	ghReq, err := http.NewRequest("GET", "https://api.github.com/user/repos?sort=updated&per_page=100&affiliation=owner,collaborator", nil)
+	if err != nil {
+		jsonError(w, "Failed to create request", http.StatusInternalServerError)
+		return
+	}
+	ghReq.Header.Set("Authorization", "Bearer "+tok)
+	ghReq.Header.Set("Accept", "application/vnd.github.v3+json")
+	ghReq.Header.Set("User-Agent", "BaaS-Deploy")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(ghReq)
+	if err != nil {
+		jsonError(w, "Failed to reach GitHub API", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		jsonError(w, fmt.Sprintf("GitHub API error: %s", string(body)), resp.StatusCode)
+		return
+	}
+
+	var repos []GitHubRepo
+	if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
+		jsonError(w, "Failed to parse GitHub response", http.StatusInternalServerError)
+		return
+	}
+
+	jsonOK(w, repos)
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/health
 // ---------------------------------------------------------------------------
 
@@ -441,6 +505,64 @@ func handleDeploymentHistory(w http.ResponseWriter, r *http.Request) {
 	deploymentsLock.Unlock()
 
 	jsonOK(w, result)
+}
+
+// ---------------------------------------------------------------------------
+// GitHub Token Management
+// ---------------------------------------------------------------------------
+
+func handleGitTokenGet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	githubTokenLock.RLock()
+	tok := githubToken
+	githubTokenLock.RUnlock()
+
+	jsonOK(w, map[string]interface{}{
+		"connected": tok != "",
+		"token":     "",
+	})
+}
+
+func handleGitTokenSet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	githubTokenLock.Lock()
+	githubToken = req.Token
+	githubTokenLock.Unlock()
+
+	saveDB()
+
+	jsonOK(w, map[string]string{"status": "saved"})
+}
+
+func handleGitTokenDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	githubTokenLock.Lock()
+	githubToken = ""
+	githubTokenLock.Unlock()
+
+	saveDB()
+
+	jsonOK(w, map[string]string{"status": "deleted"})
 }
 
 // ---------------------------------------------------------------------------

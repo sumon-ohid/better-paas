@@ -77,6 +77,9 @@ var (
 	deploymentsLock sync.Mutex
 	deployments     = []DeploymentRecord{}
 
+	githubTokenLock sync.RWMutex
+	githubToken     = ""
+
 	startTime = time.Now()
 )
 
@@ -89,14 +92,17 @@ const dbPath = "data/db.json"
 type dbState struct {
 	Apps        []App              `json:"apps"`
 	Deployments []DeploymentRecord `json:"deployments"`
+	GitHubToken string             `json:"gitHubToken,omitempty"`
 }
 
 // loadDB reads the JSON database from disk and restores state.
 func loadDB() {
 	appsLock.Lock()
 	deploymentsLock.Lock()
+	githubTokenLock.Lock()
 	defer appsLock.Unlock()
 	defer deploymentsLock.Unlock()
+	defer githubTokenLock.Unlock()
 
 	os.MkdirAll("data", 0755)
 
@@ -114,6 +120,7 @@ func loadDB() {
 
 	apps = state.Apps
 	deployments = state.Deployments
+	githubToken = state.GitHubToken
 
 	// Restore empty build log entries for all known apps
 	buildLogsLock.Lock()
@@ -122,7 +129,7 @@ func loadDB() {
 	}
 	buildLogsLock.Unlock()
 
-	log.Printf("✅ Loaded %d apps and %d deployment records from database", len(apps), len(deployments))
+	log.Printf("✅ Loaded %d apps, %d deployments from database", len(apps), len(deployments))
 }
 
 // saveDB atomically writes state to disk.
@@ -130,12 +137,15 @@ func loadDB() {
 func saveDB() {
 	appsLock.Lock()
 	deploymentsLock.Lock()
+	githubTokenLock.RLock()
 
 	state := dbState{
 		Apps:        apps,
 		Deployments: deployments,
+		GitHubToken: githubToken,
 	}
 
+	githubTokenLock.RUnlock()
 	appsLock.Unlock()
 	deploymentsLock.Unlock()
 

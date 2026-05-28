@@ -64,3 +64,13 @@ export interface UpdateRequest {
   installCommand?: string
   portOverride?: number
 }
+
+export interface GitHubRepo {
+  full_name: string
+  name: string
+  clone_url: string
+  html_url: string
+  private: boolean
+  description: string
+  updated_at: string
+}

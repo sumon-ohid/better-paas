@@ -1,82 +1,251 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "@/components/ui/select"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NucleoIcon } from "@/components/nucleo-icons"
+import { GitHubConnectModal } from "@/components/github-connect-modal"
+import { GithubLight } from "@/components/ui/svgs/githubLight"
+import { GithubDark } from "@/components/ui/svgs/githubDark"
+import { ReactLight } from "@/components/ui/svgs/reactLight"
+import { Nodejs } from "@/components/ui/svgs/nodejs"
+import { NextjsIconDark } from "@/components/ui/svgs/nextjsIconDark"
+import { Vite } from "@/components/ui/svgs/vite"
+import { Python } from "@/components/ui/svgs/python"
+import { Golang } from "@/components/ui/svgs/golang"
+import { api } from "@/lib/api"
+import type { GitHubRepo } from "@/lib/types"
+
+// Framework detectors
+const FRAMEWORKS = [
+  {
+    id: "nextjs",
+    name: "Next.js",
+    color: "text-foreground",
+    icon: NextjsIconDark,
+    detectors: ["next.config.js", "next.config.ts", "next.config.mjs"],
+    buildCmd: "npm run build",
+    startCmd: "npm start",
+    installCmd: "npm install",
+    port: 3000,
+  },
+  {
+    id: "vite",
+    name: "Vite",
+    color: "text-[#646cff]",
+    icon: Vite,
+    detectors: ["vite.config.js", "vite.config.ts", "vite.config.mjs"],
+    buildCmd: "npm run build",
+    startCmd: "npx serve dist",
+    installCmd: "npm install",
+    port: 4173,
+  },
+  {
+    id: "react",
+    name: "React (CRA)",
+    color: "text-[#61dafb]",
+    icon: ReactLight,
+    detectors: ["react-scripts"],
+    buildCmd: "npm run build",
+    startCmd: "npx serve build",
+    installCmd: "npm install",
+    port: 3000,
+  },
+  {
+    id: "node",
+    name: "Node.js Server",
+    color: "text-[#68a063]",
+    icon: Nodejs,
+    detectors: ["server.js", "app.js", "index.js", "main.js"],
+    buildCmd: "",
+    startCmd: "node server.js",
+    installCmd: "npm install",
+    port: 3000,
+  },
+  {
+    id: "python",
+    name: "Python",
+    color: "text-[#3776ab]",
+    icon: Python,
+    detectors: ["app.py", "main.py", "server.py", "manage.py", "requirements.txt"],
+    buildCmd: "",
+    startCmd: "python app.py",
+    installCmd: "pip install -r requirements.txt",
+    port: 5000,
+  },
+  {
+    id: "go",
+    name: "Go",
+    color: "text-[#00add8]",
+    icon: Golang,
+    detectors: ["main.go", "go.mod"],
+    buildCmd: "go build -o app",
+    startCmd: "./app",
+    installCmd: "go mod download",
+    port: 8080,
+  },
+]
+
+// ── Detect framework from repo data ──────────────────────────────────────────
+function detectFramework(repo: GitHubRepo | null): (typeof FRAMEWORKS)[0] | null {
+  if (!repo) return null
+  const name = repo.name.toLowerCase()
+  const desc = (repo.description || "").toLowerCase()
+
+  for (const fw of FRAMEWORKS) {
+    if (fw.id === "nextjs" && (name.includes("next") || desc.includes("next.js"))) return fw
+    if (fw.id === "vite" && (name.includes("vite") || desc.includes("vite"))) return fw
+    if (fw.id === "react" && (name.includes("react") || desc.includes("react"))) return fw
+    if (fw.id === "go" && (name.includes("go-") || name.startsWith("go") || desc.includes("golang"))) return fw
+    if (fw.id === "python" && (name.includes("python") || name.includes("django") || name.includes("flask"))) return fw
+  }
+  return null
+}
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
-const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-left" />
 const ChevronRightIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-right" />
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
+const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
+
+const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 
 export default function DeployPage() {
   const router = useRouter()
-  
-  // State variables for Wizard
+
+  // ── Wizard step ────────────────────────────────────────────────────────────
   const [step, setStep] = useState(1)
+
+  // ── GitHub connection ──────────────────────────────────────────────────────
+  const [gitHubConnected, setGitHubConnected] = useState(false)
+  const [showGitHubModal, setShowGitHubModal] = useState(false)
+  const [repos, setRepos] = useState<GitHubRepo[]>([])
+  const [isLoadingRepos, setIsLoadingRepos] = useState(false)
+
+  // ── Selected repo & branch ─────────────────────────────────────────────────
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null)
+  const [branches, setBranches] = useState<string[]>([])
+  const [selectedBranch, setSelectedBranch] = useState("")
+  const [isFetchingBranches, setIsFetchingBranches] = useState(false)
+
+  // ── Deploy config ──────────────────────────────────────────────────────────
   const [deployName, setDeployName] = useState("")
-  const [deployGit, setDeployGit] = useState("")
-  const [deployGitToken, setDeployGitToken] = useState("")
-  const [deployBranch, setDeployBranch] = useState("main")
   const [deployRootDir, setDeployRootDir] = useState("")
-  const [deployEnvVars, setDeployEnvVars] = useState<{ key: string; value: string }[]>([{ key: "", value: "" }])
+  const [deployPortOverride, setDeployPortOverride] = useState("")
   const [deployBuildCommand, setDeployBuildCommand] = useState("")
   const [deployStartCommand, setDeployStartCommand] = useState("")
   const [deployInstallCommand, setDeployInstallCommand] = useState("")
-  const [deployPortOverride, setDeployPortOverride] = useState("")
-  
-  const [branchesList, setBranchesList] = useState<string[]>([])
-  const [isFetchingBranches, setIsFetchingBranches] = useState(false)
+  const [deployEnvVars, setDeployEnvVars] = useState<{ key: string; value: string }[]>([])
+
+  // ── Detected framework ─────────────────────────────────────────────────────
+  const [detectedFramework, setDetectedFramework] = useState<(typeof FRAMEWORKS)[0] | null>(null)
+
+  // ── UI state ───────────────────────────────────────────────────────────────
   const [isDeploying, setIsDeploying] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
 
-  const fetchBranches = async () => {
-    if (!deployGit) return
-    setIsFetchingBranches(true)
-    setErrorMsg("")
-    try {
-      const res = await fetch("http://localhost:8080/api/git/branches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gitRepo: deployGit, gitToken: deployGitToken })
-      })
-      if (res.ok) {
-        const list = await res.json()
-        setBranchesList(list)
-        if (list.length > 0) {
-          if (list.includes("main")) {
-            setDeployBranch("main")
-          } else if (list.includes("master")) {
-            setDeployBranch("master")
-          } else {
-            setDeployBranch(list[0])
-          }
+  // ── Check token on mount ───────────────────────────────────────────────────
+  useEffect(() => {
+    api.git
+      .tokenStatus()
+      .then((status) => {
+        if (status.connected) {
+          setGitHubConnected(true)
+          loadRepos()
         }
-      } else {
-        const text = await res.text()
-        setErrorMsg(`Failed to fetch branches: ${text}`)
-        setBranchesList([])
-      }
+      })
+      .catch(() => {
+        // No saved token
+      })
+  }, [])
+
+  const loadRepos = async () => {
+    setIsLoadingRepos(true)
+    try {
+      const data = await api.git.repos()
+      setRepos(data)
     } catch (err) {
-      console.error(err)
-      setErrorMsg("Network connection failed while fetching branches.")
-      setBranchesList([])
+      console.error("Failed to load repos:", err)
+      setErrorMsg("Failed to load repositories. Your token may have expired.")
     } finally {
-      setIsFetchingBranches(false)
+      setIsLoadingRepos(false)
+    }
+  }
+
+  const handleRepoSelect = (repoFullName: string) => {
+    const repo = repos.find((r) => r.full_name === repoFullName) || null
+    setSelectedRepo(repo)
+    setBranches([])
+    setSelectedBranch("")
+    setErrorMsg("")
+
+    // Detect framework
+    const fw = detectFramework(repo)
+    setDetectedFramework(fw)
+
+    if (fw) {
+      setDeployBuildCommand(fw.buildCmd)
+      setDeployStartCommand(fw.startCmd)
+      setDeployInstallCommand(fw.installCmd)
+      setDeployPortOverride(String(fw.port))
+    } else {
+      setDeployBuildCommand("")
+      setDeployStartCommand("")
+      setDeployInstallCommand("")
+      setDeployPortOverride("")
+    }
+
+    // Derive app name from repo name
+    if (repo) {
+      setDeployName(repo.name.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+    }
+
+    // Fetch branches
+    if (repo) {
+      setIsFetchingBranches(true)
+      api.git
+        .branches(repo.clone_url)
+        .then((list) => {
+          setBranches(list)
+          if (list.includes("main")) setSelectedBranch("main")
+          else if (list.includes("master")) setSelectedBranch("master")
+          else if (list.length > 0) setSelectedBranch(list[0])
+        })
+        .catch((err) => {
+          setErrorMsg(`Failed to fetch branches: ${err.message}`)
+        })
+        .finally(() => setIsFetchingBranches(false))
+    }
+  }
+
+  const handleDisconnect = async () => {
+    try {
+      await api.git.deleteToken()
+      setGitHubConnected(false)
+      setRepos([])
+      setSelectedRepo(null)
+      setBranches([])
+      setSelectedBranch("")
+    } catch {
+      // Ignore
     }
   }
 
   const handleNext = () => {
-    if (step === 1 && (!deployName || !deployGit)) {
-      setErrorMsg("App name and Git repository URL are required.")
+    if (step === 1 && (!deployName || !selectedRepo)) {
+      setErrorMsg("App name and repository are required.")
       return
     }
     setErrorMsg("")
@@ -89,7 +258,7 @@ export default function DeployPage() {
   }
 
   const handleDeploy = async () => {
-    if (!deployName || !deployGit) {
+    if (!deployName || !selectedRepo) {
       setErrorMsg("Validation failed. Please verify Step 1 fields.")
       setStep(1)
       return
@@ -109,9 +278,8 @@ export default function DeployPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: deployName,
-          gitRepo: deployGit,
-          branch: deployBranch,
-          gitToken: deployGitToken,
+          gitRepo: selectedRepo.clone_url,
+          branch: selectedBranch,
           rootDir: deployRootDir,
           envVars: envVarsRecord,
           buildCommand: deployBuildCommand,
@@ -123,7 +291,6 @@ export default function DeployPage() {
 
       if (res.ok) {
         const newApp = await res.json()
-        // Go straight to the full-screen build log for this deployment
         router.push(`/logs?appId=${newApp.id}&mode=build`)
       } else {
         const text = await res.text()
@@ -131,7 +298,7 @@ export default function DeployPage() {
       }
     } catch (err) {
       console.error(err)
-      setErrorMsg("Go backend connection failed. Deploy simulation is not supported on this route.")
+      setErrorMsg("Backend connection failed.")
     } finally {
       setIsDeploying(false)
     }
@@ -139,39 +306,43 @@ export default function DeployPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-xl">
+      <div className="w-full max-w-2xl">
         {/* Step Indicator */}
         <div className="flex items-center justify-between mb-8 px-2">
           {[
-            { num: 1, label: "Git Integration" },
-            { num: 2, label: "Build Context" },
-            { num: 3, label: "Environment" }
+            { num: 1, label: "Repository" },
+            { num: 2, label: "Build Config" },
+            { num: 3, label: "Environment" },
           ].map((s) => (
             <div key={s.num} className="flex items-center gap-3">
-              <span className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${
-                step === s.num
-                  ? "bg-primary border-primary text-primary-foreground font-extrabold"
-                  : step > s.num
-                    ? "bg-muted border-muted text-primary"
-                    : "border-border text-muted-foreground"
-              }`}>
+              <span
+                className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${
+                  step === s.num
+                    ? "bg-primary border-primary text-primary-foreground font-extrabold"
+                    : step > s.num
+                      ? "bg-muted border-muted text-primary"
+                      : "border-border text-muted-foreground"
+                }`}
+              >
                 {s.num}
               </span>
-              <span className={`text-sm font-semibold hidden md:inline transition-colors ${
-                step === s.num ? "text-foreground" : "text-muted-foreground"
-              }`}>
+              <span
+                className={`text-sm font-semibold hidden md:inline transition-colors ${
+                  step === s.num ? "text-foreground" : "text-muted-foreground"
+                }`}
+              >
                 {s.label}
               </span>
-              {s.num < 3 && <div className="h-px w-8 md:w-16 bg-border/40 mx-1" />}
+              {s.num < 3 && <div className="h-px w-8 md:w-16 bg-border mx-1" />}
             </div>
           ))}
         </div>
 
-        <Card className="border border-border/80 bg-card/65 backdrop-blur-xl shadow-2xl">
+        <Card className="border border-border/80 bg-card/65">
           <CardHeader className="border-b border-border/40 pb-4">
             <CardTitle className="text-base font-bold text-foreground">Deploy New Service</CardTitle>
             <CardDescription className="text-xs text-muted-foreground mt-0.5">
-              Follow the wizard to build and host your software application.
+              Select a repository, configure your build, and deploy.
             </CardDescription>
           </CardHeader>
 
@@ -182,151 +353,278 @@ export default function DeployPage() {
               </div>
             )}
 
+            {/* ── STEP 1: Repository Selection ─────────────────────────────── */}
             {step === 1 && (
-              <div className="space-y-4 animate-in fade-in-50 duration-200">
-                <div className="space-y-1">
-                  <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">App Name</Label>
-                  <Input
-                    id="name"
-                    value={deployName}
-                    onChange={(e) => setDeployName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                    placeholder="e.g. user-management-api"
-                    className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-1">
-                  <Label htmlFor="git" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Git Repository URL</Label>
-                  <Input
-                    id="git"
-                    value={deployGit}
-                    onChange={(e) => setDeployGit(e.target.value)}
-                    placeholder="github.com/org/repo"
-                    className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="gitToken" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Git Personal Access Token (PAT)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="gitToken"
-                      type="password"
-                      value={deployGitToken}
-                      onChange={(e) => setDeployGitToken(e.target.value)}
-                      placeholder="Optional PAT for private repositories"
-                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary flex-1"
-                    />
+              <div className="space-y-5 animate-in fade-in-50 duration-200">
+                {/* GitHub Connection Status */}
+                {!gitHubConnected ? (
+                  <div className="text-center py-8 space-y-4">
+                    <GlobeIcon className="h-10 w-10 mx-auto text-muted-foreground/30" />
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-medium text-foreground">Connect GitHub</h4>
+                      <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                        Link your GitHub account to browse and deploy repositories.
+                      </p>
+                    </div>
                     <Button
-                      type="button"
-                      onClick={fetchBranches}
-                      disabled={isFetchingBranches || !deployGit}
-                      className="h-9 cursor-pointer rounded-md bg-secondary text-secondary-foreground text-sm px-3 hover:bg-secondary/85 font-semibold"
+                      onClick={() => setShowGitHubModal(true)}
+                      className="h-9 text-sm flex items-center gap-2 justify-center mx-auto"
                     >
-                      {isFetchingBranches ? "Fetching..." : "Fetch Branches"}
+                      <GithubLight className="h-4 w-4 dark:hidden" />
+                      <GithubDark className="h-4 w-4 hidden dark:block" />
+                      Connect GitHub
                     </Button>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Connected header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                          <NucleoIcon name="check" className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <span className="text-sm font-medium text-foreground">GitHub connected</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={loadRepos}
+                          disabled={isLoadingRepos}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                        >
+                          <RefreshIcon className={`h-3 w-3 ${isLoadingRepos ? "animate-spin" : ""}`} />
+                          Refresh
+                        </button>
+                        <button
+                          onClick={handleDisconnect}
+                          className="text-xs text-rose-500 hover:text-rose-600 transition-colors"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
 
-                <div className="space-y-1 pt-1">
-                  <Label htmlFor="branch" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Branch</Label>
-                  {branchesList.length > 0 ? (
-                    <Select value={deployBranch} onValueChange={(val) => setDeployBranch(val ?? "")}>
-                      <SelectTrigger className="h-9 w-full">
-                        <SelectValue placeholder="Select a branch..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branchesList.map((branch) => (
-                          <SelectItem key={branch} value={branch}>
-                            {branch}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      id="branch"
-                      value={deployBranch}
-                      onChange={(e) => setDeployBranch(e.target.value)}
-                      placeholder="main"
-                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
-                    />
-                  )}
-                  <span className="text-[11px] text-muted-foreground font-mono block mt-1">
-                    * Fetch branches above, or type manually.
-                  </span>
-                </div>
+                    {/* Repo list */}
+                    {isLoadingRepos ? (
+                      <div className="py-12 text-center text-xs text-muted-foreground">
+                        <RefreshIcon className="h-5 w-5 mx-auto mb-2 animate-spin opacity-50" />
+                        Loading repositories...
+                      </div>
+                    ) : repos.length === 0 ? (
+                      <div className="py-12 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
+                        No repositories found.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                        {repos.map((repo) => {
+                          const isSelected = selectedRepo?.full_name === repo.full_name
+                          return (
+                            <button
+                              key={repo.full_name}
+                              onClick={() => handleRepoSelect(repo.full_name)}
+                              className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
+                                isSelected
+                                  ? "border-primary/50 bg-primary/5"
+                                  : "border-border bg-card/40 hover:bg-accent/30"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-7 w-7 rounded-md bg-muted/50 flex items-center justify-center shrink-0">
+                                  <GithubLight className="h-4 w-4 dark:hidden" />
+                                  <GithubDark className="h-4 w-4 hidden dark:block" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground truncate">
+                                      {repo.name}
+                                    </span>
+                                    {repo.private ? (
+                                      <span className="text-[10px] font-mono px-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                        private
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] font-mono px-1 rounded bg-muted/50 text-muted-foreground border border-border">
+                                        public
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground truncate">
+                                    {repo.description || "No description"}
+                                  </p>
+                                </div>
+                                <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                                  {new Date(repo.updated_at).toLocaleDateString(undefined, {
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </span>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Selected repo details */}
+                    {selectedRepo && (
+                      <div className="space-y-3 pt-2 border-t border-border/40">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            Branch
+                          </Label>
+                          {isFetchingBranches ? (
+                            <div className="h-9 flex items-center gap-2 text-xs text-muted-foreground">
+                              <RefreshIcon className="h-3 w-3 animate-spin" />
+                              Fetching branches...
+                            </div>
+                          ) : branches.length > 0 ? (
+                            <Select
+                              value={selectedBranch}
+                              onValueChange={(v) => setSelectedBranch(v ?? "")}
+                            >
+                              <SelectTrigger className="h-9 text-sm w-full">
+                                <SelectValue placeholder="Select branch..." />
+                              </SelectTrigger>
+                              <SelectPopup>
+                                {branches.map((branch) => (
+                                  <SelectItem key={branch} value={branch}>
+                                    {branch}
+                                  </SelectItem>
+                                ))}
+                              </SelectPopup>
+                            </Select>
+                          ) : (
+                            <Input
+                              value={selectedBranch}
+                              onChange={(e) => setSelectedBranch(e.target.value)}
+                              placeholder="main"
+                              className="h-9 text-sm"
+                            />
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            App Name
+                          </Label>
+                          <Input
+                            value={deployName}
+                            onChange={(e) =>
+                              setDeployName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+                            }
+                            placeholder="e.g. my-app"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+
+                        {/* Framework detection */}
+                        {detectedFramework && (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border">
+                            <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                            <div>
+                              <p className="text-xs font-medium text-foreground">
+                                {detectedFramework.name} detected
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                Build and start commands auto-configured
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
+            {/* ── STEP 2: Build Config ─────────────────────────────────────── */}
             {step === 2 && (
               <div className="space-y-4 animate-in fade-in-50 duration-200">
+                {detectedFramework && (
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
+                    <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-foreground">
+                        {detectedFramework.name} project detected
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Commands pre-filled. Adjust if needed.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label htmlFor="rootDir" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Root Directory</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Root Directory
+                    </Label>
                     <Input
-                      id="rootDir"
                       value={deployRootDir}
                       onChange={(e) => setDeployRootDir(e.target.value)}
                       placeholder="./"
-                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                      className="h-9 text-sm"
                     />
                   </div>
-                  
                   <div className="space-y-1">
-                    <Label htmlFor="portOverride" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Container Port Override</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Port Override
+                    </Label>
                     <Input
-                      id="portOverride"
                       value={deployPortOverride}
                       onChange={(e) => setDeployPortOverride(e.target.value.replace(/\D/g, ""))}
                       placeholder="e.g. 3000"
-                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                      className="h-9 text-sm"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="installCmd" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Install Command</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Install Command
+                  </Label>
                   <Input
-                    id="installCmd"
                     value={deployInstallCommand}
                     onChange={(e) => setDeployInstallCommand(e.target.value)}
-                    placeholder="Optional: custom package installation override"
-                    className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                    placeholder="npm install"
+                    className="h-9 text-sm font-mono"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label htmlFor="buildCmd" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Build Command Override</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Build Command
+                    </Label>
                     <Input
-                      id="buildCmd"
                       value={deployBuildCommand}
                       onChange={(e) => setDeployBuildCommand(e.target.value)}
-                      placeholder="e.g. npm run build"
-                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                      placeholder="npm run build"
+                      className="h-9 text-sm font-mono"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="startCmd" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Start Command Override</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Start Command
+                    </Label>
                     <Input
-                      id="startCmd"
                       value={deployStartCommand}
                       onChange={(e) => setDeployStartCommand(e.target.value)}
-                      placeholder="e.g. node dist/main.js"
-                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                      placeholder="npm start"
+                      className="h-9 text-sm font-mono"
                     />
                   </div>
                 </div>
               </div>
             )}
 
+            {/* ── STEP 3: Environment ──────────────────────────────────────── */}
             {step === 3 && (
               <div className="space-y-4 animate-in fade-in-50 duration-200">
                 <div className="flex justify-between items-center">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Environment Variables</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Environment Variables
+                  </Label>
                   <Button
                     type="button"
                     onClick={() => setDeployEnvVars((prev) => [...prev, { key: "", value: "" }])}
@@ -335,7 +633,7 @@ export default function DeployPage() {
                     <PlusIcon className="h-3 w-3" /> Add Var
                   </Button>
                 </div>
-                
+
                 <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
                   {deployEnvVars.map((env, index) => (
                     <div key={index} className="flex gap-2 items-center animate-in fade-in-50 duration-150">
@@ -347,7 +645,7 @@ export default function DeployPage() {
                           setDeployEnvVars(updated)
                         }}
                         placeholder="VARIABLE_NAME"
-                        className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/45 focus-visible:ring-1 focus-visible:ring-primary flex-1 font-mono"
+                        className="h-9 text-sm font-mono flex-1"
                       />
                       <Input
                         value={env.value}
@@ -357,13 +655,11 @@ export default function DeployPage() {
                           setDeployEnvVars(updated)
                         }}
                         placeholder="value"
-                        className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/45 focus-visible:ring-1 focus-visible:ring-primary flex-1 font-mono"
+                        className="h-9 text-sm font-mono flex-1"
                       />
                       <Button
                         type="button"
-                        onClick={() => {
-                          setDeployEnvVars((prev) => prev.filter((_, i) => i !== index))
-                        }}
+                        onClick={() => setDeployEnvVars((prev) => prev.filter((_, i) => i !== index))}
                         variant="ghost"
                         className="h-8 w-8 hover:bg-rose-500/15 text-rose-400 hover:text-rose-500 p-0 shrink-0 border-0"
                       >
@@ -381,16 +677,13 @@ export default function DeployPage() {
             )}
           </CardContent>
 
-          {/* Wizard Footer Navigation */}
+          {/* Wizard Footer */}
           <div className="p-4 border-t border-border/40 flex items-center justify-between bg-muted/5">
             <Button
               type="button"
               onClick={() => {
-                if (step === 1) {
-                  router.push("/")
-                } else {
-                  handleBack()
-                }
+                if (step === 1) router.push("/")
+                else handleBack()
               }}
               variant="outline"
               className="h-9 cursor-pointer rounded-md border-border bg-background px-3.5 text-sm text-foreground hover:bg-muted/30"
@@ -404,6 +697,7 @@ export default function DeployPage() {
                 <Button
                   type="button"
                   onClick={handleNext}
+                  disabled={step === 1 && !selectedRepo}
                   className="h-9 cursor-pointer rounded-md bg-primary text-primary-foreground px-4 text-sm font-semibold hover:bg-primary/90"
                 >
                   Next
@@ -430,6 +724,15 @@ export default function DeployPage() {
           </div>
         </Card>
       </div>
+
+      <GitHubConnectModal
+        isOpen={showGitHubModal}
+        onClose={() => setShowGitHubModal(false)}
+        onConnected={() => {
+          setGitHubConnected(true)
+          loadRepos()
+        }}
+      />
     </main>
   )
 }

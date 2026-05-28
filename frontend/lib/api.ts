@@ -41,6 +41,23 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ gitRepo, gitToken }),
       }),
+    tokenStatus: () => req<{ connected: boolean }>("/api/git/token"),
+    saveToken: (token: string) =>
+      req<{ status: string }>("/api/git/token/save", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      }),
+    deleteToken: () =>
+      req<{ status: string }>("/api/git/token/delete", { method: "DELETE" }),
+    repos: () => req<Array<{
+      full_name: string
+      name: string
+      clone_url: string
+      html_url: string
+      private: boolean
+      description: string
+      updated_at: string
+    }>>("/api/git/repos"),
   },
 
   system: {
