@@ -86,8 +86,8 @@ export function DeleteConfirmModal({
 
           {/* Copy */}
           <div className="text-center space-y-1.5">
-            <h3 className="text-sm font-semibold text-foreground">Purge Application</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <h3 className="text-base font-semibold text-foreground">Purge Application</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
               This will permanently destroy the application, remove all containers, and delete its
               configuration. This action{" "}
               <span className="text-rose-500 font-semibold">cannot be undone</span>.
@@ -98,7 +98,7 @@ export function DeleteConfirmModal({
           <div className="rounded-lg bg-muted/50 border border-border px-3 py-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
-              <span className="text-xs font-mono font-semibold text-foreground truncate">
+              <span className="text-sm font-mono font-semibold text-foreground truncate">
                 {appName}
               </span>
             </div>
@@ -118,7 +118,7 @@ export function DeleteConfirmModal({
 
         {/* Confirmation input */}
         <div className="px-6 pb-2 space-y-1.5">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
             Type the project name to confirm
           </label>
           <input
@@ -129,7 +129,7 @@ export function DeleteConfirmModal({
             onKeyDown={(e) => e.key === "Enter" && handleConfirm()}
             placeholder={appName}
             disabled={isDeleting}
-            className={`w-full h-9 rounded-md border px-3 text-xs font-mono bg-background text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors disabled:opacity-50 ${
+            className={`w-full h-10 rounded-md border px-3 text-sm font-mono bg-background text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors disabled:opacity-50 ${
               inputValue.length > 0
                 ? isMatch
                   ? "border-emerald-500/60 focus:border-emerald-500"
@@ -138,7 +138,7 @@ export function DeleteConfirmModal({
             }`}
           />
           {inputValue.length > 0 && !isMatch && (
-            <p className="text-[10px] text-rose-500 font-medium">
+            <p className="text-xs text-rose-500 font-medium">
               Name doesn&apos;t match — check for typos.
             </p>
           )}
@@ -149,14 +149,14 @@ export function DeleteConfirmModal({
           <button
             onClick={onCancel}
             disabled={isDeleting}
-            className="flex-1 h-9 rounded-md border border-border bg-background text-xs font-semibold text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50 cursor-pointer"
+            className="flex-1 h-10 rounded-md border border-border bg-background text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50 cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={!isMatch || isDeleting}
-            className="flex-1 h-9 rounded-md bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1.5"
+            className="flex-1 h-10 rounded-md bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1.5"
           >
             {isDeleting ? (
               <>

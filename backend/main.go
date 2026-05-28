@@ -526,22 +526,24 @@ func handleLogsWS(w http.ResponseWriter, r *http.Request) {
 
 	clientChan := make(chan string, 200)
 
-	// Fetch existing logs under read lock
+	// Fetch existing logs and register subscriber under locks to prevent race condition
 	buildLogsLock.RLock()
+	subscribersLock.Lock()
+
 	var existingLogs []string
 	if rawLogs, exists := buildLogs[appID]; exists {
 		existingLogs = make([]string, len(rawLogs))
 		copy(existingLogs, rawLogs)
 	}
-	buildLogsLock.RUnlock()
 
 	// Register subscriber
-	subscribersLock.Lock()
 	if subscribers[appID] == nil {
 		subscribers[appID] = make(map[chan string]bool)
 	}
 	subscribers[appID][clientChan] = true
+
 	subscribersLock.Unlock()
+	buildLogsLock.RUnlock()
 
 	defer func() {
 		subscribersLock.Lock()

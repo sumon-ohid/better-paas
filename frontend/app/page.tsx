@@ -254,6 +254,14 @@ function DashboardContent() {
 
   useEffect(() => {
     if (!queryAppId) return
+    if (queryTab === "logs") {
+      setCurrentNav("logs")
+      connectLogsStream(queryAppId)
+    }
+  }, [queryAppId, queryTab, connectLogsStream])
+
+  useEffect(() => {
+    if (!queryAppId) return
     if (apps.length === 0) return
     if (handledQueryAppIdRef.current === queryAppId) return
 
@@ -261,12 +269,8 @@ function DashboardContent() {
     if (found) {
       handledQueryAppIdRef.current = queryAppId
       setSelectedApp(found)
-      if (queryTab === "logs") {
-        setCurrentNav("logs")
-        connectLogsStream(found.id)
-      }
     }
-  }, [queryAppId, queryTab, apps, connectLogsStream])
+  }, [queryAppId, apps])
 
   useEffect(() => {
     appsRef.current = apps
@@ -672,11 +676,11 @@ function DashboardContent() {
                 A
               </div>
               <div className="flex flex-col">
-                <span className="font-semibold text-xs leading-none text-foreground">Antigravity</span>
-                <span className="text-[10px] text-muted-foreground/80 font-mono mt-0.5">engine-01</span>
+                <span className="font-semibold text-sm leading-none text-foreground">Antigravity</span>
+                <span className="text-xs text-muted-foreground/80 font-mono mt-0.5">engine-01</span>
               </div>
             </div>
-            <div className="flex h-5 w-5 items-center justify-center rounded border border-border text-[9px] text-muted-foreground font-mono bg-muted/30 select-none">
+            <div className="flex h-5 w-5 items-center justify-center rounded border border-border text-[11px] text-muted-foreground font-mono bg-muted/30 select-none">
               w1
             </div>
           </SidebarHeader>
@@ -685,13 +689,13 @@ function DashboardContent() {
             <div className="px-2 pt-2">
               <button 
                 onClick={() => setShowCommandPalette(true)}
-              className="flex w-full cursor-pointer items-center justify-between rounded-md border border-border/80 bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground/80 transition-all duration-150 hover:border-primary/30 hover:bg-accent/50 hover:text-foreground"
+              className="flex w-full cursor-pointer items-center justify-between rounded-md border border-border/80 bg-muted/20 px-3 py-1.5 text-sm text-muted-foreground/80 transition-all duration-150 hover:border-primary/30 hover:bg-accent/50 hover:text-foreground"
               >
                 <div className="flex items-center gap-1.5">
                   <SearchIcon className="h-3.5 w-3.5" />
                   <span>Search commands...</span>
                 </div>
-                <div className="flex items-center gap-0.5 text-[10px] font-mono text-muted-foreground bg-muted/40 px-1 rounded">
+                <div className="flex items-center gap-0.5 text-xs font-mono text-muted-foreground bg-muted/40 px-1 rounded">
                   <span>⌘</span><span>K</span>
                 </div>
               </button>
@@ -702,7 +706,7 @@ function DashboardContent() {
                 <SidebarMenuButton 
                   isActive={currentNav === "apps"} 
                   onClick={() => { setCurrentNav("apps"); setViewMode("list"); }}
-                  className={`flex items-center justify-between px-3 py-1.5 w-full rounded text-xs transition-all ${
+                  className={`flex items-center justify-between px-3 py-1.5 w-full rounded text-sm transition-all ${
                     currentNav === "apps" 
                       ? "bg-accent text-foreground font-medium shadow-[inset_2px_0_0_var(--primary)]" 
                       : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"
@@ -712,7 +716,7 @@ function DashboardContent() {
                     <GlobeIcon className="h-3.5 w-3.5" />
                     <span>Applications</span>
                   </div>
-                  <span className="text-[10px] font-mono bg-muted/40 px-1 rounded-sm text-muted-foreground/80">{apps.length}</span>
+                  <span className="text-xs font-mono bg-muted/40 px-1 rounded-sm text-muted-foreground/80">{apps.length}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
@@ -720,7 +724,7 @@ function DashboardContent() {
                 <SidebarMenuButton 
                   isActive={currentNav === "metrics"} 
                   onClick={() => setCurrentNav("metrics")}
-                  className={`flex items-center gap-2 px-3 py-1.5 w-full rounded text-xs transition-all ${
+                  className={`flex items-center gap-2 px-3 py-1.5 w-full rounded text-sm transition-all ${
                     currentNav === "metrics" 
                       ? "bg-accent text-foreground font-medium shadow-[inset_2px_0_0_var(--primary)]" 
                       : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"
@@ -735,7 +739,7 @@ function DashboardContent() {
                 <SidebarMenuButton 
                   isActive={currentNav === "logs"} 
                   onClick={() => setCurrentNav("logs")}
-                  className={`flex items-center justify-between px-3 py-1.5 w-full rounded text-xs transition-all ${
+                  className={`flex items-center justify-between px-3 py-1.5 w-full rounded text-sm transition-all ${
                     currentNav === "logs" 
                       ? "bg-accent text-foreground font-medium shadow-[inset_2px_0_0_var(--primary)]" 
                       : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"
@@ -753,7 +757,7 @@ function DashboardContent() {
                 <SidebarMenuButton 
                   isActive={currentNav === "settings"} 
                   onClick={() => setCurrentNav("settings")}
-                  className={`flex items-center gap-2 px-3 py-1.5 w-full rounded text-xs transition-all ${
+                  className={`flex items-center gap-2 px-3 py-1.5 w-full rounded text-sm transition-all ${
                     currentNav === "settings" 
                       ? "bg-accent text-foreground font-medium shadow-[inset_2px_0_0_var(--primary)]" 
                       : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"
@@ -767,7 +771,7 @@ function DashboardContent() {
           </SidebarContent>
 
           {/* Sidebar Footer Shortcut indicator */}
-          <div className="mt-auto p-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground/60">
+          <div className="mt-auto p-4 border-t border-border flex items-center justify-between text-sm text-muted-foreground/60">
             <button 
               onClick={() => setShowShortcuts(true)}
               className="flex items-center gap-1.5 hover:text-foreground cursor-pointer transition-colors duration-150"
@@ -775,7 +779,7 @@ function DashboardContent() {
               <KeyboardIcon className="h-3.5 w-3.5" />
               <span>Keyboard shortcuts</span>
             </button>
-            <span className="font-mono text-[10px] bg-muted/40 px-1 rounded">?</span>
+            <span className="font-mono text-xs bg-muted/40 px-1 rounded">?</span>
           </div>
         </Sidebar>
 
@@ -787,7 +791,7 @@ function DashboardContent() {
             <div className="flex items-center gap-2">
               <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer" />
               <div className="h-3.5 w-px bg-border" />
-              <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5">
+              <span className="text-xs font-mono text-muted-foreground flex items-center gap-1.5 font-medium">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#69d1a7] animate-pulse" />
                 Active Node: vps-us-east-1
               </span>
@@ -797,18 +801,18 @@ function DashboardContent() {
             <div className="flex items-center gap-2">
               <Button 
                 onClick={() => router.push("/deploy")}
-                className="flex h-7 cursor-pointer items-center gap-1 rounded-md border border-primary/30 bg-primary px-2.5 text-[11px] font-medium text-primary-foreground shadow-[0_0_24px_rgba(143,153,255,.22)] hover:bg-primary/90"
+                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-primary/30 bg-primary px-3 text-xs font-medium text-primary-foreground shadow-[0_0_24px_rgba(143,153,255,.22)] hover:bg-primary/90"
               >
                 <PlusIcon className="h-3.5 w-3.5" />
                 <span>Deploy service</span>
-                <Kbd className="ml-1 h-3.5 rounded-sm border-0 bg-background/20 px-1 font-mono text-[9px] text-primary-foreground">C</Kbd>
+                <Kbd className="ml-1 h-3.5 rounded-sm border-0 bg-background/20 px-1 font-mono text-[11px] text-primary-foreground">C</Kbd>
               </Button>
             </div>
           </header>
 
           {/* Subheader Filter/View Toggle Bar (Visible under Apps navigation) */}
           {currentNav === "apps" && (
-            <div className="flex flex-col justify-between gap-2 border-b border-border bg-background/54 px-4 py-2 text-xs backdrop-blur-xl sm:flex-row sm:items-center select-none">
+            <div className="flex flex-col justify-between gap-2 border-b border-border bg-background/54 px-4 py-2 text-sm backdrop-blur-xl sm:flex-row sm:items-center select-none">
               
               {/* Filters */}
               <div className="flex flex-wrap items-center gap-2">
@@ -818,7 +822,7 @@ function DashboardContent() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Filter by name..."
-                    className="bg-transparent border-0 outline-none text-xs placeholder:text-muted-foreground/60 w-32 focus:w-44 transition-all duration-200"
+                    className="bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/60 w-32 focus:w-44 transition-all duration-200"
                   />
                   {searchQuery && (
                     <button onClick={() => setSearchQuery("")} className="cursor-pointer text-muted-foreground hover:text-foreground">
@@ -892,7 +896,7 @@ function DashboardContent() {
                   <div className="overflow-hidden rounded-lg border border-border bg-card/72 backdrop-blur-xl">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-border/80 bg-muted/20 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                        <tr className="border-b border-border/80 bg-muted/20 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                           <th className="py-2.5 px-4">Status</th>
                           <th className="py-2.5 px-4">Application</th>
                           <th className="py-2.5 px-4">Git Repository</th>
@@ -904,7 +908,7 @@ function DashboardContent() {
                       <tbody>
                         {filteredApps.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-12 text-center text-xs text-muted-foreground">
+                            <td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
                               No matching applications found. Click &quot;Deploy service&quot; to launch one.
                             </td>
                           </tr>
@@ -913,27 +917,27 @@ function DashboardContent() {
                             <tr 
                               key={app.id} 
                               onClick={() => { setSelectedApp(app); setShowDetailDrawer(true); }}
-                              className="group cursor-pointer border-b border-border/45 text-xs transition-colors duration-150 hover:bg-accent/45"
+                              className="group cursor-pointer border-b border-border/45 text-sm transition-colors duration-150 hover:bg-accent/45"
                             >
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-2">
                                   {renderStatusDot(app.status)}
-                                  <span className="text-[10px] text-muted-foreground uppercase font-mono">{app.status}</span>
+                                  <span className="text-xs text-muted-foreground uppercase font-mono">{app.status}</span>
                                 </div>
                               </td>
                               <td className="py-3 px-4 font-semibold text-foreground group-hover:text-primary transition-colors">
                                 {app.name}
                               </td>
-                              <td className="py-3 px-4 text-muted-foreground font-mono text-[11px] max-w-xs truncate">
+                              <td className="py-3 px-4 text-muted-foreground font-mono text-xs max-w-xs truncate">
                                 {app.gitRepo}
                               </td>
                               <td className="py-3 px-4">
-                                <div className="inline-flex items-center gap-1 text-[10px] font-mono bg-muted/40 border border-border px-1.5 py-0.5 rounded text-muted-foreground">
+                                <div className="inline-flex items-center gap-1 text-xs font-mono bg-muted/40 border border-border px-1.5 py-0.5 rounded text-muted-foreground">
                                   <GitBranchIcon className="h-3 w-3" />
                                   {app.branch}
                                 </div>
                               </td>
-                              <td className="py-3 px-4 font-mono text-[11px] text-muted-foreground">
+                              <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
                                 {app.port}
                               </td>
                               <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -1012,14 +1016,14 @@ function DashboardContent() {
                           <div className="flex items-center justify-between px-1">
                             <div className="flex items-center gap-2">
                               <span className={`h-2 w-2 rounded-full ${col.color}`} />
-                              <span className="text-xs font-semibold text-foreground capitalize">{col.label}</span>
+                              <span className="text-sm font-semibold text-foreground capitalize">{col.label}</span>
                             </div>
-                            <span className="text-[10px] font-mono text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded-sm">{colApps.length}</span>
+                            <span className="text-xs font-mono text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded-sm">{colApps.length}</span>
                           </div>
 
                           <div className="flex flex-col gap-2">
                             {colApps.length === 0 ? (
-                              <div className="border border-dashed border-border/50 rounded-md py-6 text-center text-[10px] text-muted-foreground/60">
+                              <div className="border border-dashed border-border/50 rounded-md py-6 text-center text-xs text-muted-foreground/60">
                                 No services
                               </div>
                             ) : (
@@ -1030,17 +1034,17 @@ function DashboardContent() {
                                   className="group cursor-pointer space-y-3 border-border/80 bg-background/55 p-3 transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/45 hover:bg-accent/20 hover:shadow-[0_14px_34px_rgba(0,0,0,.16)]"
                                 >
                                   <div className="flex justify-between items-start">
-                                    <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{app.name}</span>
-                                    <span className="text-[9px] font-mono text-muted-foreground bg-muted/40 px-1.5 rounded">{app.port}</span>
+                                    <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{app.name}</span>
+                                    <span className="text-[11px] font-mono text-muted-foreground bg-muted/40 px-1.5 rounded">{app.port}</span>
                                   </div>
-                                  <span className="text-[10px] text-muted-foreground/80 font-mono block truncate">{app.gitRepo}</span>
+                                  <span className="text-xs text-muted-foreground/80 font-mono block truncate">{app.gitRepo}</span>
                                   
-                                  <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-[10px] text-muted-foreground">
+                                  <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-xs text-muted-foreground">
                                     <span className="flex items-center gap-1 font-mono">
                                       <GitBranchIcon className="h-3 w-3" />
                                       {app.branch}
                                     </span>
-                                    <span className="text-[9px]">{new Date(app.createdAt).toLocaleDateString()}</span>
+                                    <span className="text-[11px]">{new Date(app.createdAt).toLocaleDateString()}</span>
                                   </div>
                                 </Card>
                               ))
@@ -1064,7 +1068,7 @@ function DashboardContent() {
                 <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                   <Card className="space-y-3 border-border bg-card/72 p-4 shadow-[0_18px_64px_rgba(0,0,0,.12)] backdrop-blur-xl">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">CPU Core Load</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">CPU Core Load</span>
                       <CpuIcon className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex items-baseline justify-between">
@@ -1078,7 +1082,7 @@ function DashboardContent() {
 
                   <Card className="space-y-3 border-border bg-card/72 p-4 shadow-[0_18px_64px_rgba(0,0,0,.12)] backdrop-blur-xl">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Memory Buffer</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Memory Buffer</span>
                       <ServerIcon className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex items-baseline justify-between">
@@ -1092,12 +1096,12 @@ function DashboardContent() {
 
                   <Card className="space-y-3 border-border bg-card/72 p-4 shadow-[0_18px_64px_rgba(0,0,0,.12)] backdrop-blur-xl">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Disk Capacity</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Disk Capacity</span>
                       <HardDriveIcon className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex items-baseline justify-between">
                       <span className="text-2xl font-bold font-mono">{stats.diskUsage}%</span>
-                      <span className="text-[10px] font-mono text-[#69d1a7] font-medium">SSD HEALTH: OPTIMAL</span>
+                      <span className="text-xs font-mono text-[#69d1a7] font-medium">SSD HEALTH: OPTIMAL</span>
                     </div>
                     <Progress value={stats.diskUsage} className="h-1 bg-muted">
                       <ProgressIndicator className="bg-primary" />
@@ -1106,12 +1110,12 @@ function DashboardContent() {
 
                   <Card className="space-y-3 border-border bg-card/72 p-4 shadow-[0_18px_64px_rgba(0,0,0,.12)] backdrop-blur-xl">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Active Runtimes</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Active Runtimes</span>
                       <GlobeIcon className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex items-baseline justify-between">
                       <span className="text-2xl font-bold font-mono">{stats.activeApps} / {apps.length}</span>
-                      <span className="text-[10px] font-mono text-[#69d1a7] font-medium flex items-center gap-1">
+                      <span className="text-xs font-mono text-[#69d1a7] font-medium flex items-center gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-[#69d1a7] animate-pulse" />
                         PROXY UP
                       </span>
@@ -1125,10 +1129,10 @@ function DashboardContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card className="border-border bg-card/72 shadow-[0_18px_64px_rgba(0,0,0,.10)] backdrop-blur-xl">
                     <CardHeader className="pb-3 border-b border-border/40">
-                      <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Host Load Average</CardTitle>
-                      <CardDescription className="text-[11px]">Real-time load statistics mapped from Host Hypervisor daemon.</CardDescription>
+                      <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground font-bold">Host Load Average</CardTitle>
+                      <CardDescription className="text-xs">Real-time load statistics mapped from Host Hypervisor daemon.</CardDescription>
                     </CardHeader>
-                    <CardContent className="h-64 flex flex-col items-center justify-center text-xs text-muted-foreground space-y-2">
+                    <CardContent className="h-64 flex flex-col items-center justify-center text-sm text-muted-foreground space-y-2">
                       <SlidersHorizontalIcon className="h-6 w-6 opacity-30 animate-pulse" />
                       <span>Diagnostics visualization running under normal nodes.</span>
                     </CardContent>
@@ -1136,8 +1140,8 @@ function DashboardContent() {
                   
                   <Card className="border-border bg-card/72 shadow-[0_18px_64px_rgba(0,0,0,.10)] backdrop-blur-xl">
                     <CardHeader className="pb-3 border-b border-border/40">
-                      <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Network I/O Streams</CardTitle>
-                      <CardDescription className="text-[11px]">Dynamic tracking of incoming and outgoing proxy packet pipelines.</CardDescription>
+                      <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground font-bold">Network I/O Streams</CardTitle>
+                      <CardDescription className="text-xs">Dynamic tracking of incoming and outgoing proxy packet pipelines.</CardDescription>
                     </CardHeader>
                     <CardContent className="h-64 flex flex-col items-center justify-center text-xs text-muted-foreground space-y-2">
                       <ActivityIcon className="h-6 w-6 opacity-30 animate-pulse" />
@@ -1166,10 +1170,10 @@ function DashboardContent() {
                   )}
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col bg-[#090a0f] p-0">
-                  <div className="p-4 font-mono text-[11px] text-foreground/90 h-[450px] overflow-y-auto space-y-1.5 leading-relaxed">
+                  <div className="p-4 font-mono text-xs text-slate-100 h-[450px] overflow-y-auto space-y-1.5 leading-relaxed">
                     {logs.length === 0 ? (
-                      <div className="text-muted-foreground italic h-full flex flex-col items-center justify-center gap-2 select-none">
-                        <TerminalIcon className={`h-6 w-6 opacity-35 ${logsConnected ? "animate-pulse" : ""}`} />
+                      <div className="text-slate-400 italic h-full flex flex-col items-center justify-center gap-2 select-none">
+                        <TerminalIcon className={`h-6 w-6 opacity-45 ${logsConnected ? "animate-pulse" : ""}`} />
                         {selectedApp ? (
                           logsConnected ? (
                             <span>Connected — waiting for log output...</span>
@@ -1186,10 +1190,10 @@ function DashboardContent() {
                     ) : (
                       logs.map((log, index) => (
                         <div key={index} className="flex gap-4">
-                          <span className="text-muted-foreground/40 select-none">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+                          <span className="text-slate-500 select-none">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
                           <span className={
                             log.message.startsWith("Initializing") || log.message.startsWith("Launching") ? "text-[#93e0c0] font-semibold" :
-                            log.message.startsWith("✖") || log.message.includes("Error") ? "text-rose-400 font-semibold" : "text-foreground/90"
+                            log.message.startsWith("✖") || log.message.includes("Error") ? "text-rose-400 font-semibold" : "text-slate-100"
                           }>
                             {log.message}
                           </span>
@@ -1262,7 +1266,7 @@ function DashboardContent() {
                   <div className="flex items-center justify-between p-4 border-b border-border">
                     <div className="flex items-center gap-1.5">
                       <KeyboardIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-semibold text-sm">Keyboard Shortcuts Cheat Sheet</span>
+                      <span className="font-semibold text-base">Keyboard Shortcuts Cheat Sheet</span>
                     </div>
                     <button 
                       onClick={() => setShowShortcuts(false)}
@@ -1276,30 +1280,30 @@ function DashboardContent() {
                     
                     {/* Column 1: Navigation */}
                     <div className="space-y-3.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Navigation</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Navigation</span>
                       
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Applications</span>
                         <div className="flex items-center gap-0.5">
                           <Kbd>g</Kbd><Kbd>a</Kbd>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Node Health</span>
                         <div className="flex items-center gap-0.5">
                           <Kbd>g</Kbd><Kbd>m</Kbd>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Live Logs</span>
                         <div className="flex items-center gap-0.5">
                           <Kbd>g</Kbd><Kbd>l</Kbd>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Node Settings</span>
                         <div className="flex items-center gap-0.5">
                           <Kbd>g</Kbd><Kbd>s</Kbd>
@@ -1309,35 +1313,35 @@ function DashboardContent() {
 
                     {/* Column 2: Actions & Views */}
                     <div className="space-y-3.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Actions & Views</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Actions & Views</span>
                       
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Deploy Service</span>
                         <Kbd>c</Kbd>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Command palette</span>
                         <div className="flex items-center gap-0.5">
                           <Kbd>⌘</Kbd><Kbd>K</Kbd>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Switch to List View</span>
                         <div className="flex items-center gap-0.5">
                           <Kbd>v</Kbd><Kbd>l</Kbd>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Switch to Board View</span>
                         <div className="flex items-center gap-0.5">
                           <Kbd>v</Kbd><Kbd>b</Kbd>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Toggle Dark Theme</span>
                         <Kbd>d</Kbd>
                       </div>
@@ -1345,7 +1349,7 @@ function DashboardContent() {
 
                   </div>
                   
-                  <div className="bg-muted/30 px-4 py-3 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
+                  <div className="bg-muted/30 px-4 py-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
                     <span>Press <kbd className="font-mono bg-muted px-1 rounded text-foreground">Esc</kbd> to close any overlay panel</span>
                     <HelpCircleIcon className="h-3.5 w-3.5 opacity-55" />
                   </div>

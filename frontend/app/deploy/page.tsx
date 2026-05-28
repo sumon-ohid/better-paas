@@ -3,6 +3,7 @@
 import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -146,7 +147,7 @@ export default function DeployPage() {
             { num: 3, label: "Environment" }
           ].map((s) => (
             <div key={s.num} className="flex items-center gap-3">
-              <span className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border transition-colors ${
+              <span className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${
                 step === s.num
                   ? "bg-primary border-primary text-primary-foreground font-extrabold"
                   : step > s.num
@@ -155,7 +156,7 @@ export default function DeployPage() {
               }`}>
                 {s.num}
               </span>
-              <span className={`text-xs font-semibold hidden md:inline transition-colors ${
+              <span className={`text-sm font-semibold hidden md:inline transition-colors ${
                 step === s.num ? "text-foreground" : "text-muted-foreground"
               }`}>
                 {s.label}
@@ -167,8 +168,8 @@ export default function DeployPage() {
 
         <Card className="border border-border/80 bg-card/65 backdrop-blur-xl shadow-2xl">
           <CardHeader className="border-b border-border/40 pb-4">
-            <CardTitle className="text-sm font-bold text-foreground">Deploy New Service</CardTitle>
-            <CardDescription className="text-[11px] text-muted-foreground mt-0.5">
+            <CardTitle className="text-base font-bold text-foreground">Deploy New Service</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground mt-0.5">
               Follow the wizard to build and host your software application.
             </CardDescription>
           </CardHeader>
@@ -183,31 +184,31 @@ export default function DeployPage() {
             {step === 1 && (
               <div className="space-y-4 animate-in fade-in-50 duration-200">
                 <div className="space-y-1">
-                  <Label htmlFor="name" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">App Name</Label>
+                  <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">App Name</Label>
                   <Input
                     id="name"
                     value={deployName}
                     onChange={(e) => setDeployName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
                     placeholder="e.g. user-management-api"
-                    className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                    className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
                     required
                   />
                 </div>
                 
                 <div className="space-y-1">
-                  <Label htmlFor="git" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Git Repository URL</Label>
+                  <Label htmlFor="git" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Git Repository URL</Label>
                   <Input
                     id="git"
                     value={deployGit}
                     onChange={(e) => setDeployGit(e.target.value)}
                     placeholder="github.com/org/repo"
-                    className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                    className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
                     required
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="gitToken" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Git Personal Access Token (PAT)</Label>
+                  <Label htmlFor="gitToken" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Git Personal Access Token (PAT)</Label>
                   <div className="flex gap-2">
                     <Input
                       id="gitToken"
@@ -215,13 +216,13 @@ export default function DeployPage() {
                       value={deployGitToken}
                       onChange={(e) => setDeployGitToken(e.target.value)}
                       placeholder="Optional PAT for private repositories"
-                      className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary flex-1"
+                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary flex-1"
                     />
                     <Button
                       type="button"
                       onClick={fetchBranches}
                       disabled={isFetchingBranches || !deployGit}
-                      className="h-8 cursor-pointer rounded-md bg-secondary text-secondary-foreground text-xs px-3 hover:bg-secondary/85 font-semibold"
+                      className="h-9 cursor-pointer rounded-md bg-secondary text-secondary-foreground text-sm px-3 hover:bg-secondary/85 font-semibold"
                     >
                       {isFetchingBranches ? "Fetching..." : "Fetch Branches"}
                     </Button>
@@ -229,28 +230,30 @@ export default function DeployPage() {
                 </div>
 
                 <div className="space-y-1 pt-1">
-                  <Label htmlFor="branch" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Select Branch</Label>
+                  <Label htmlFor="branch" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Branch</Label>
                   {branchesList.length > 0 ? (
-                    <select
-                      id="branch"
-                      value={deployBranch}
-                      onChange={(e) => setDeployBranch(e.target.value)}
-                      className="h-8 w-full rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-                    >
-                      {branchesList.map((branch) => (
-                        <option key={branch} value={branch}>{branch}</option>
-                      ))}
-                    </select>
+                    <Select value={deployBranch} onValueChange={(val) => setDeployBranch(val ?? "")}>
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue placeholder="Select a branch..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branchesList.map((branch) => (
+                          <SelectItem key={branch} value={branch}>
+                            {branch}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <Input
                       id="branch"
                       value={deployBranch}
                       onChange={(e) => setDeployBranch(e.target.value)}
                       placeholder="main"
-                      className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
                     />
                   )}
-                  <span className="text-[9px] text-muted-foreground font-mono block mt-1">
+                  <span className="text-[11px] text-muted-foreground font-mono block mt-1">
                     * Fetch branches above, or type manually.
                   </span>
                 </div>
@@ -261,58 +264,58 @@ export default function DeployPage() {
               <div className="space-y-4 animate-in fade-in-50 duration-200">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label htmlFor="rootDir" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Root Directory</Label>
+                    <Label htmlFor="rootDir" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Root Directory</Label>
                     <Input
                       id="rootDir"
                       value={deployRootDir}
                       onChange={(e) => setDeployRootDir(e.target.value)}
                       placeholder="./"
-                      className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
                     />
                   </div>
                   
                   <div className="space-y-1">
-                    <Label htmlFor="portOverride" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Container Port Override</Label>
+                    <Label htmlFor="portOverride" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Container Port Override</Label>
                     <Input
                       id="portOverride"
                       value={deployPortOverride}
                       onChange={(e) => setDeployPortOverride(e.target.value.replace(/\D/g, ""))}
                       placeholder="e.g. 3000"
-                      className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="installCmd" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Install Command</Label>
+                  <Label htmlFor="installCmd" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Install Command</Label>
                   <Input
                     id="installCmd"
                     value={deployInstallCommand}
                     onChange={(e) => setDeployInstallCommand(e.target.value)}
                     placeholder="Optional: custom package installation override"
-                    className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                    className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label htmlFor="buildCmd" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Build Command Override</Label>
+                    <Label htmlFor="buildCmd" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Build Command Override</Label>
                     <Input
                       id="buildCmd"
                       value={deployBuildCommand}
                       onChange={(e) => setDeployBuildCommand(e.target.value)}
                       placeholder="e.g. npm run build"
-                      className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="startCmd" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Start Command Override</Label>
+                    <Label htmlFor="startCmd" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Start Command Override</Label>
                     <Input
                       id="startCmd"
                       value={deployStartCommand}
                       onChange={(e) => setDeployStartCommand(e.target.value)}
                       placeholder="e.g. node dist/main.js"
-                      className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
+                      className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
                     />
                   </div>
                 </div>
@@ -322,11 +325,11 @@ export default function DeployPage() {
             {step === 3 && (
               <div className="space-y-4 animate-in fade-in-50 duration-200">
                 <div className="flex justify-between items-center">
-                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Environment Variables</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Environment Variables</Label>
                   <Button
                     type="button"
                     onClick={() => setDeployEnvVars((prev) => [...prev, { key: "", value: "" }])}
-                    className="h-6 cursor-pointer rounded bg-secondary text-secondary-foreground text-[10px] px-2 hover:bg-secondary/85 flex items-center gap-1 font-semibold border-0"
+                    className="h-6 cursor-pointer rounded bg-secondary text-secondary-foreground text-xs px-2 hover:bg-secondary/85 flex items-center gap-1 font-semibold border-0"
                   >
                     <PlusIcon className="h-3 w-3" /> Add Var
                   </Button>
@@ -343,7 +346,7 @@ export default function DeployPage() {
                           setDeployEnvVars(updated)
                         }}
                         placeholder="VARIABLE_NAME"
-                        className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/45 focus-visible:ring-1 focus-visible:ring-primary flex-1 font-mono"
+                        className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/45 focus-visible:ring-1 focus-visible:ring-primary flex-1 font-mono"
                       />
                       <Input
                         value={env.value}
@@ -353,7 +356,7 @@ export default function DeployPage() {
                           setDeployEnvVars(updated)
                         }}
                         placeholder="value"
-                        className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/45 focus-visible:ring-1 focus-visible:ring-primary flex-1 font-mono"
+                        className="h-9 border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/45 focus-visible:ring-1 focus-visible:ring-primary flex-1 font-mono"
                       />
                       <Button
                         type="button"
@@ -368,7 +371,7 @@ export default function DeployPage() {
                     </div>
                   ))}
                   {deployEnvVars.length === 0 && (
-                    <div className="text-center py-8 text-xs text-muted-foreground/60 border border-dashed border-border/80 rounded-md">
+                    <div className="text-center py-8 text-sm text-muted-foreground/60 border border-dashed border-border/80 rounded-md">
                       No environment variables configured.
                     </div>
                   )}
@@ -389,7 +392,7 @@ export default function DeployPage() {
                 }
               }}
               variant="outline"
-              className="h-8 cursor-pointer rounded-md border-border bg-background px-3.5 text-xs text-foreground hover:bg-muted/30"
+              className="h-9 cursor-pointer rounded-md border-border bg-background px-3.5 text-sm text-foreground hover:bg-muted/30"
             >
               <ChevronLeftIcon className="h-3.5 w-3.5 mr-1" />
               {step === 1 ? "Cancel" : "Back"}
@@ -400,7 +403,7 @@ export default function DeployPage() {
                 <Button
                   type="button"
                   onClick={handleNext}
-                  className="h-8 cursor-pointer rounded-md bg-primary text-primary-foreground px-4 text-xs font-semibold hover:bg-primary/90"
+                  className="h-9 cursor-pointer rounded-md bg-primary text-primary-foreground px-4 text-sm font-semibold hover:bg-primary/90"
                 >
                   Next
                   <ChevronRightIcon className="h-3.5 w-3.5 ml-1" />
@@ -410,7 +413,7 @@ export default function DeployPage() {
                   type="button"
                   onClick={handleDeploy}
                   disabled={isDeploying}
-                  className="h-8 cursor-pointer rounded-md bg-primary text-primary-foreground px-5 text-xs font-semibold hover:bg-primary/90 flex items-center gap-1.5"
+                  className="h-9 cursor-pointer rounded-md bg-primary text-primary-foreground px-5 text-sm font-semibold hover:bg-primary/90 flex items-center gap-1.5"
                 >
                   {isDeploying ? (
                     "Deploying..."
