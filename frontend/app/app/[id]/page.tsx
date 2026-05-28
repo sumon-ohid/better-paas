@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { AppShell, ToastContainer, useToast, StatusDot } from "@/components/app-shell"
+import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { api, createRuntimeLogsWs } from "@/lib/api"
 import type { App, DeploymentRecord, LogEntry } from "@/lib/types"
 
@@ -52,6 +53,7 @@ function AppDetailPage() {
   const [isRedeploying, setIsRedeploying] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [expandedDepl, setExpandedDepl] = useState<string | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   // ── Config edit states ─────────────────────────────────────────────────────
   const [gitRepo, setGitRepo] = useState("")
@@ -505,7 +507,7 @@ function AppDetailPage() {
                   Edit Configuration
                 </Button>
                 <Button
-                  onClick={handleDelete}
+                  onClick={() => setShowDeleteModal(true)}
                   variant="outline"
                   className="h-8 text-xs border-rose-500/30 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
                 >
@@ -808,6 +810,13 @@ function AppDetailPage() {
       </div>
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        appName={app?.name ?? ""}
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </AppShell>
   )
 }

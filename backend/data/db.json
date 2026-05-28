@@ -1,22 +1,5 @@
 {
-  "apps": [
-    {
-      "id": "h9mv7o12vb",
-      "name": "new2",
-      "status": "running",
-      "gitRepo": "https://github.com/NishargShah/nextjs-fullstack-typescript-boilerplate",
-      "branch": "master",
-      "port": 9498,
-      "url": "http://h9mv7o12vb.10.0.0.3.sslip.io",
-      "createdAt": "2026-05-28T12:32:29.545535+02:00",
-      "rootDir": "",
-      "envVars": {},
-      "buildCommand": "",
-      "startCommand": "",
-      "installCommand": "",
-      "portOverride": 0
-    }
-  ],
+  "apps": [],
   "deployments": [
     {
       "id": "v2c87cm9su",
