@@ -52,9 +52,9 @@ function AppDetailPage() {
   )
 
   // ── Actions ────────────────────────────────────────────────────────────────
-  const [isToggling, setIsToggling] = useState(false)
-  const [isRedeploying, setIsRedeploying] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+    const [isToggling, setIsToggling] = useState(false)
+    const [isRedeploying, setIsRedeploying] = useState(false)
+    const [isSaving, setIsSaving] = useState(false)
   const [expandedDepl, setExpandedDepl] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
 
@@ -215,30 +215,30 @@ function AppDetailPage() {
     } catch (err) {
       showToast("Error", `Failed to ${action} container.`, "destructive")
       console.error(err)
-    } finally {
-      setIsToggling(false)
-    }
-  }
-
-  const handleRedeploy = async () => {
-    if (!app) return
-    setIsRedeploying(true)
-    try {
-      await api.apps.redeploy(app.id)
-      showToast("Redeploy Started", `Triggering new build for ${app.name}...`)
-      fetchData()
-      setTab("logs")
-      setTimeout(() => connectLogs(), 500)
-    } catch (err) {
-      showToast("Error", "Failed to trigger redeployment.", "destructive")
-      console.error(err)
-    } finally {
-      setIsRedeploying(false)
-    }
-  }
-
-  const handleDelete = async () => {
-    if (!app) return
+     } finally {
+       setIsToggling(false)
+     }
+   }
+ 
+   const handleRedeploy = async () => {
+     if (!app) return
+     setIsRedeploying(true)
+     try {
+       await api.apps.redeploy(app.id)
+       showToast("Redeploy Started", `Triggering new build for ${app.name}...`)
+       fetchData()
+       setTab("logs")
+       setTimeout(() => connectLogs(), 500)
+     } catch (err) {
+       showToast("Error", "Failed to trigger redeployment.", "destructive")
+       console.error(err)
+     } finally {
+       setIsRedeploying(false)
+     }
+   }
+ 
+    const handleDelete = async () => {
+     if (!app) return
     try {
       await api.apps.delete(app.id)
       showToast("App Deleted", `${app.name} has been removed.`)
@@ -378,38 +378,38 @@ function AppDetailPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              {app.status === "running" ? (
+              <div className="flex items-center gap-2">
+                {app.status === "running" ? (
+                  <Button
+                    onClick={() => handleToggle("stop")}
+                    disabled={isToggling}
+                    variant="outline"
+                    className="h-7 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-600"
+                  >
+                    <SquareIcon className="h-3 w-3 mr-1" />
+                    Stop
+                  </Button>
+                ) : app.status === "stopped" ? (
+                  <Button
+                    onClick={() => handleToggle("start")}
+                    disabled={isToggling}
+                    variant="outline"
+                    className="h-7 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
+                  >
+                    <PlayIcon className="h-3 w-3 mr-1" />
+                    Start
+                  </Button>
+                ) : null}
                 <Button
-                  onClick={() => handleToggle("stop")}
-                  disabled={isToggling}
+                  onClick={handleRedeploy}
+                  disabled={isRedeploying || app.status === "building"}
                   variant="outline"
-                  className="h-7 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-600"
+                  className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
                 >
-                  <SquareIcon className="h-3 w-3 mr-1" />
-                  Stop
+                  <RefreshIcon className={`h-3 w-3 mr-1 ${isRedeploying ? "animate-spin" : ""}`} />
+                  {isRedeploying ? "Redeploying..." : "Redeploy"}
                 </Button>
-              ) : app.status === "stopped" ? (
-                <Button
-                  onClick={() => handleToggle("start")}
-                  disabled={isToggling}
-                  variant="outline"
-                  className="h-7 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
-                >
-                  <PlayIcon className="h-3 w-3 mr-1" />
-                  Start
-                </Button>
-              ) : null}
-
-              <Button
-                onClick={handleRedeploy}
-                disabled={isRedeploying || app.status === "building"}
-                className="h-7 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                <RefreshIcon className={`h-3 w-3 mr-1 ${isRedeploying ? "animate-spin" : ""}`} />
-                {isRedeploying ? "Redeploying..." : "Redeploy"}
-              </Button>
-            </div>
+              </div>
           </div>
 
           {/* Tabs */}
@@ -762,91 +762,133 @@ function AppDetailPage() {
             </div>
           )}
 
-          {/* ── Deployments ────────────────────────────────────────────── */}
-          {currentTab === "deployments" && (
-            <div className="h-full overflow-y-auto p-4 md:p-6 space-y-5 animate-in fade-in-50 duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-bold text-foreground">Deployment History</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {deployments.length} deployment{deployments.length !== 1 ? "s" : ""} recorded.
-                  </p>
-                </div>
-                <Button
-                  onClick={handleRedeploy}
-                  disabled={isRedeploying || app.status === "building"}
-                  className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <RefreshIcon className={`h-3 w-3 mr-1 ${isRedeploying ? "animate-spin" : ""}`} />
-                  {isRedeploying ? "Redeploying..." : "Redeploy"}
-                </Button>
-              </div>
-
-              {deployments.length === 0 ? (
-                <div className="py-16 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
-                  <RefreshIcon className="h-6 w-6 mx-auto mb-3 opacity-20" />
-                  No deployments recorded for this project yet.
-                </div>
-              ) : (
-                <div className="overflow-hidden rounded-lg border border-border bg-card/72 backdrop-blur-xl divide-y divide-border/40">
-                  <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground bg-muted/20">
-                    <span>#</span>
-                    <span>Deployment ID</span>
-                    <span>Status</span>
-                    <span>Duration</span>
-                    <span>Started</span>
-                  </div>
-                  {deployments.map((dep, idx) => (
-                    <div key={dep.id}>
-                      <div
-                        className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-4 py-3 items-center hover:bg-accent/30 transition-colors cursor-pointer group"
-                        onClick={() => setExpandedDepl(expandedDepl === dep.id ? null : dep.id)}
-                      >
-                        <span className="text-xs font-mono text-muted-foreground w-6 text-right">
-                          {deployments.length - idx}
-                        </span>
-                        <span className="text-sm font-mono text-foreground truncate">{dep.id}</span>
-                        <span
-                          className={`text-xs font-mono px-2 py-0.5 rounded-full w-fit ${
-                            dep.status === "success"
-                              ? "bg-[#69d1a7]/15 text-[#69d1a7]"
-                              : "bg-rose-500/15 text-rose-400"
-                          }`}
-                        >
-                          {dep.status}
-                        </span>
-                        <span className="text-xs font-mono text-muted-foreground">{dep.duration}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(dep.createdAt).toLocaleString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      {expandedDepl === dep.id && (
-                        <div className="border-t border-border/30 bg-[#f8f9fc] dark:bg-[#080910] px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300 max-h-80 overflow-y-auto space-y-0.5">
-                          {dep.logs.length === 0 ? (
-                            <span className="text-muted-foreground/40 dark:text-slate-600 italic">No log output recorded.</span>
-                          ) : (
-                            dep.logs.map((line, i) => (
-                              <div key={i} className="flex gap-4">
-                                <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-8 text-right shrink-0">
-                                  {i + 1}
-                                </span>
-                                <span className={lineColor(line)}>{line}</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+           {/* ── Deployments ────────────────────────────────────────────── */}
+           {currentTab === "deployments" && (
+             <div className="h-full overflow-y-auto p-4 md:p-6 space-y-4 animate-in fade-in-50 duration-200">
+               <div>
+                 <h2 className="text-sm font-bold text-foreground">Deployment History</h2>
+                 <p className="text-xs text-muted-foreground mt-0.5">
+                   {deployments.length} deployment{deployments.length !== 1 ? "s" : ""} recorded.
+                 </p>
+               </div>
+ 
+               {deployments.length === 0 ? (
+                 <div className="py-16 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
+                   <RefreshIcon className="h-6 w-6 mx-auto mb-3 opacity-20" />
+                   No deployments recorded for this project yet.
+                 </div>
+               ) : (
+                 <div className="space-y-3">
+                   {deployments.map((dep, idx) => {
+                     const isExpanded = expandedDepl === dep.id
+                     const isSuccess = dep.status === "success"
+                     const deployNumber = deployments.length - idx
+                     
+                     return (
+                       <div
+                         key={dep.id}
+                         className="rounded-xl border border-border bg-card/72 backdrop-blur-xl overflow-hidden transition-shadow hover:shadow-sm"
+                       >
+                         {/* Header row */}
+                         <div
+                           className="flex items-center gap-3 px-4 py-3 cursor-pointer group"
+                           onClick={() => setExpandedDepl(isExpanded ? null : dep.id)}
+                         >
+                           {/* Status indicator */}
+                           <div className={`shrink-0 h-8 w-8 rounded-lg flex items-center justify-center ${
+                             isSuccess 
+                               ? "bg-emerald-500/10 dark:bg-[#69d1a7]/10" 
+                               : "bg-rose-500/10"
+                           }`}>
+                             {isSuccess ? (
+                               <CheckIcon className="h-4 w-4 text-emerald-600 dark:text-[#69d1a7]" />
+                             ) : (
+                               <XIcon className="h-4 w-4 text-rose-500" />
+                             )}
+                           </div>
+                           
+                           {/* Main info */}
+                           <div className="flex-1 min-w-0">
+                             <div className="flex items-center gap-2">
+                               <span className="text-xs font-mono text-muted-foreground">
+                                 #{deployNumber}
+                               </span>
+                               <span className="text-sm font-medium text-foreground truncate">
+                                 {dep.id.slice(0, 12)}...
+                               </span>
+                             </div>
+                             <div className="flex items-center gap-3 mt-0.5">
+                               <span className="text-[11px] text-muted-foreground">
+                                 {new Date(dep.createdAt).toLocaleString(undefined, {
+                                   month: "short",
+                                   day: "numeric",
+                                   hour: "2-digit",
+                                   minute: "2-digit",
+                                 })}
+                               </span>
+                               <span className="text-[11px] text-muted-foreground/60">·</span>
+                               <span className="text-[11px] font-mono text-muted-foreground">
+                                 {dep.duration}
+                               </span>
+                             </div>
+                           </div>
+                           
+                           {/* Status badge */}
+                           <span className={`shrink-0 text-[11px] font-mono px-2 py-0.5 rounded-full ${
+                             isSuccess
+                               ? "bg-emerald-500/10 text-emerald-600 dark:bg-[#69d1a7]/15 dark:text-[#69d1a7]"
+                               : "bg-rose-500/10 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
+                           }`}>
+                             {isSuccess ? "Success" : "Failed"}
+                           </span>
+                           
+                           {/* Expand chevron */}
+                           <ChevronLeftIcon className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                             isExpanded ? "-rotate-90" : "rotate-180"
+                           }`} />
+                         </div>
+                         
+                         {/* Expanded log output */}
+                         {isExpanded && (
+                           <div className="border-t border-border/30 bg-[#f8f9fc] dark:bg-[#080910]">
+                             <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
+                               <span className="text-[11px] font-mono text-muted-foreground/50 dark:text-slate-500">
+                                 Build log · {dep.logs.length} lines
+                               </span>
+                               <button
+                                 onClick={(e) => {
+                                   e.stopPropagation()
+                                   router.push(`/logs?appId=${appId}&mode=build`)
+                                 }}
+                                 className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer transition-colors"
+                               >
+                                 <TerminalIcon className="h-3 w-3" />
+                                 Open full log
+                               </button>
+                             </div>
+                             <div className="px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300 max-h-80 overflow-y-auto space-y-0.5">
+                               {dep.logs.length === 0 ? (
+                                 <span className="text-muted-foreground/40 dark:text-slate-600 italic">No log output recorded.</span>
+                               ) : (
+                                 dep.logs.map((line, i) => (
+                                   <div key={i} className="flex gap-4">
+                                     <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-8 text-right shrink-0">
+                                       {i + 1}
+                                     </span>
+                                     <span className={lineColor(line)}>{line}</span>
+                                   </div>
+                                 ))
+                               )}
+                             </div>
+                           </div>
+                         )}
+                       </div>
+                     )
+                   })}
+                 </div>
+               )}
+             </div>
+           )}
         </div>
       </div>
 
