@@ -213,8 +213,8 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
   }
 
   return (
-    <SidebarProvider>
-      <div className="relative flex min-h-screen w-full overflow-hidden bg-background text-foreground transition-colors duration-200 selection:bg-primary/20">
+    <SidebarProvider className="h-screen overflow-hidden">
+      <div className="relative flex h-screen w-full overflow-hidden bg-background text-foreground transition-colors duration-200 selection:bg-primary/20">
         {/* Ambient background glow */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_55%_-20%,rgba(143,153,255,0.12),transparent_45rem)]" />
 
@@ -295,9 +295,9 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         </Sidebar>
 
         {/* Main Content Frame */}
-        <SidebarInset className="relative z-10 flex min-w-0 flex-1 flex-col bg-transparent">
-          {/* Header Bar */}
-          <header className="flex h-13.5 items-center justify-between border-b border-border bg-background/70 px-4 backdrop-blur-xl select-none">
+        <SidebarInset className="relative z-10 flex min-w-0 flex-1 flex-col bg-transparent overflow-hidden">
+          {/* Header Bar — pinned, never scrolls */}
+          <header className="shrink-0 flex h-14 items-center justify-between border-b border-border bg-background/70 px-4 backdrop-blur-xl select-none">
             <div className="flex items-center gap-2">
               <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer" />
               <div className="h-3.5 w-px bg-border" />
@@ -320,8 +320,8 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             </div>
           </header>
 
-          {/* Page Content */}
-          <main className="relative flex-1 overflow-y-auto">{children}</main>
+          {/* Page Content — scrolls independently */}
+          <main className="relative flex-1 overflow-y-auto min-h-0">{children}</main>
         </SidebarInset>
       </div>
 

@@ -249,21 +249,27 @@
     background: rgba(255, 255, 255, 0.16);
   }
 
+  html {
+    @apply font-sans scroll-smooth;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    overflow: hidden;
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
-    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
     letter-spacing: 0;
     background:
       radial-gradient(circle at 50% -16%, color-mix(in oklab, var(--primary) 18%, transparent) 0, transparent 48rem),
       radial-gradient(circle at 92% 8%, rgba(136, 162, 246, 0.06), transparent 36rem),
       var(--background);
   }
+
   code, kbd, samp, pre {
     font-family: var(--font-mono);
-  }
-  html {
-    @apply font-sans scroll-smooth;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   button,

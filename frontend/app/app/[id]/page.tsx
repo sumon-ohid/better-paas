@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { AppShell, ToastContainer, useToast, StatusDot } from "@/components/app-shell"
-import { api, createBuildLogsWs } from "@/lib/api"
+import { api, createRuntimeLogsWs } from "@/lib/api"
 import type { App, DeploymentRecord, LogEntry } from "@/lib/types"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
@@ -137,7 +137,7 @@ function AppDetailPage() {
     setLogsConnected(false)
     logBufferRef.current = []
 
-    const ws = createBuildLogsWs(appId)
+    const ws = createRuntimeLogsWs(appId)
     logsWsRef.current = ws
 
     ws.onopen = () => setLogsConnected(true)
@@ -426,10 +426,11 @@ function AppDetailPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="flex-1 flex flex-col min-h-0">
           {/* ── Overview ───────────────────────────────────────────────── */}
           {currentTab === "overview" && (
-            <div className="max-w-2xl space-y-6 animate-in fade-in-50 duration-200">
+            <div className="h-full overflow-y-auto p-4 md:p-6">
+              <div className="max-w-2xl space-y-6 animate-in fade-in-50 duration-200">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
@@ -513,11 +514,13 @@ function AppDetailPage() {
                 </Button>
               </div>
             </div>
+          </div>
           )}
 
           {/* ── Configuration ──────────────────────────────────────────── */}
           {currentTab === "config" && (
-            <div className="max-w-2xl space-y-5 animate-in fade-in-50 duration-200">
+            <div className="h-full overflow-y-auto p-4 md:p-6">
+              <div className="max-w-2xl space-y-5 animate-in fade-in-50 duration-200">
               <div className="space-y-1">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Git Repository URL
@@ -645,15 +648,16 @@ function AppDetailPage() {
                 </Button>
               </div>
             </div>
+          </div>
           )}
 
           {/* ── Logs ───────────────────────────────────────────────────── */}
           {currentTab === "logs" && (
-            <div className="h-full flex flex-col gap-3 animate-in fade-in-50 duration-200" style={{ minHeight: "60vh" }}>
-              <div className="flex items-center justify-between">
+            <div className="flex-1 flex flex-col min-h-0 p-4 md:p-6 animate-in fade-in-50 duration-200">
+              <div className="flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <TerminalIcon className="h-3.5 w-3.5" />
-                  <span>Build Logs</span>
+                  <span>Runtime Logs</span>
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${logsConnected ? "bg-[#69d1a7] animate-pulse" : "bg-muted-foreground/30"}`}
                   />
@@ -680,7 +684,7 @@ function AppDetailPage() {
                 </div>
               </div>
 
-              <div className="flex-1 bg-[#080910] border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed">
+              <div className="flex-1 mt-4 min-h-0 bg-[#080910] border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed">
                 <div className="h-full overflow-y-auto p-4 space-y-0.5">
                   {logs.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-500 select-none">
@@ -690,7 +694,7 @@ function AppDetailPage() {
                       ) : (
                         <span className="flex items-center gap-2">
                           <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
-                          Connecting to log stream…
+                          Connecting to runtime log stream…
                         </span>
                       )}
                     </div>
@@ -717,7 +721,7 @@ function AppDetailPage() {
 
           {/* ── Deployments ────────────────────────────────────────────── */}
           {currentTab === "deployments" && (
-            <div className="space-y-5 animate-in fade-in-50 duration-200">
+            <div className="h-full overflow-y-auto p-4 md:p-6 space-y-5 animate-in fade-in-50 duration-200">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-bold text-foreground">Deployment History</h2>
