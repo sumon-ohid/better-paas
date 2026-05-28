@@ -41,6 +41,8 @@ func main() {
 	// Git helpers
 	mux.HandleFunc("/api/git/branches", handleGitBranches)
 	mux.HandleFunc("/api/git/repos", handleGitRepos)
+	mux.HandleFunc("/api/git/contents", handleGitContents)
+	mux.HandleFunc("/api/git/file", handleGitFile)
 	mux.HandleFunc("/api/git/token", handleGitTokenGet)
 	mux.HandleFunc("/api/git/token/save", handleGitTokenSet)
 	mux.HandleFunc("/api/git/token/delete", handleGitTokenDelete)

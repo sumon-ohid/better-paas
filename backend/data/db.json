@@ -15,22 +15,6 @@
       "startCommand": "uvicorn main:app --host 0.0.0.0 --port $PORT",
       "installCommand": "",
       "portOverride": 8000
-    },
-    {
-      "id": "dobgi5lh9u",
-      "name": "ibsstudenthub",
-      "status": "failed",
-      "gitRepo": "https://github.com/sumon-ohid/ibs_student_hub.git",
-      "branch": "main",
-      "port": 9690,
-      "url": "http://dobgi5lh9u.10.0.0.3.sslip.io",
-      "createdAt": "2026-05-28T19:40:12.17097+02:00",
-      "rootDir": "",
-      "envVars": {},
-      "buildCommand": "",
-      "startCommand": "",
-      "installCommand": "",
-      "portOverride": 0
     }
   ],
   "deployments": [

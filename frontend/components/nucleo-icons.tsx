@@ -14,6 +14,8 @@ import {
   Copy,
   Cpu,
   ExternalLink,
+  Folder,
+  Home,
   LayoutGrid,
   HelpCircle,
   Info,
@@ -52,8 +54,10 @@ type NucleoIconName =
   | "copy"
   | "cpu"
   | "external"
+  | "folder"
   | "grid"
   | "help"
+  | "house"
   | "keyboard"
   | "layers"
   | "list"
@@ -95,7 +99,9 @@ const iconMap: Record<NucleoIconName, React.FC<any>> = {
   copy: Copy,
   cpu: Cpu,
   external: ExternalLink,
+  folder: Folder,
   grid: LayoutGrid,
+  house: Home,
   help: HelpCircle,
   info: Info,
   keyboard: Keyboard,

@@ -1,6 +1,6 @@
 // Typed API client for the PaaS backend
 
-import type { App, DeployRequest, DeploymentRecord, UpdateRequest } from "./types"
+import type { App, DeployRequest, DeploymentRecord, UpdateRequest, GitHubContent, GitHubFile } from "./types"
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"
 
@@ -58,6 +58,10 @@ export const api = {
       description: string
       updated_at: string
     }>>("/api/git/repos"),
+    contents: (repo: string, branch: string, path?: string) =>
+      req<GitHubContent[]>(`/api/git/contents?repo=${encodeURIComponent(repo)}&branch=${encodeURIComponent(branch)}&path=${encodeURIComponent(path || "")}`),
+    file: (repo: string, branch: string, path: string) =>
+      req<GitHubFile>(`/api/git/file?repo=${encodeURIComponent(repo)}&branch=${encodeURIComponent(branch)}&path=${encodeURIComponent(path)}`),
   },
 
   system: {

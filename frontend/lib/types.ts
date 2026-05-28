@@ -74,3 +74,19 @@ export interface GitHubRepo {
   description: string
   updated_at: string
 }
+
+export interface GitHubContent {
+  name: string
+  path: string
+  type: "file" | "dir"
+}
+
+export interface GitHubFile {
+  name: string
+  path: string
+  type: string
+  content: string
+  encoding: string
+  size: number
+  download_url: string
+}

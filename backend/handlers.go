@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -508,6 +509,180 @@ func handleDeploymentHistory(w http.ResponseWriter, r *http.Request) {
 	deploymentsLock.Unlock()
 
 	jsonOK(w, result)
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/git/contents?repo=owner/repo&path=...&branch=...
+// ---------------------------------------------------------------------------
+
+type GitHubContent struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Type string `json:"type"` // "file" or "dir"
+}
+
+func handleGitContents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	repo := r.URL.Query().Get("repo")
+	path := r.URL.Query().Get("path")
+	branch := r.URL.Query().Get("branch")
+	if repo == "" {
+		jsonError(w, "Missing repo parameter", http.StatusBadRequest)
+		return
+	}
+	if branch == "" {
+		branch = "main"
+	}
+
+	githubTokenLock.RLock()
+	tok := githubToken
+	githubTokenLock.RUnlock()
+
+	var url string
+	if path == "" {
+		url = fmt.Sprintf("https://api.github.com/repos/%s/contents?ref=%s", repo, branch)
+	} else {
+		url = fmt.Sprintf("https://api.github.com/repos/%s/contents/%s?ref=%s", repo, path, branch)
+	}
+	ghReq, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		jsonError(w, "Failed to create request", http.StatusInternalServerError)
+		return
+	}
+	if tok != "" {
+		ghReq.Header.Set("Authorization", "Bearer "+tok)
+	}
+	ghReq.Header.Set("Accept", "application/vnd.github.v3+json")
+	ghReq.Header.Set("User-Agent", "BaaS-Deploy")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(ghReq)
+	if err != nil {
+		jsonError(w, "Failed to reach GitHub API", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		jsonError(w, fmt.Sprintf("GitHub API error: %s", string(body)), resp.StatusCode)
+		return
+	}
+
+	// GitHub returns either an array (directory) or an object (file)
+	var contents []GitHubContent
+	if err := json.NewDecoder(resp.Body).Decode(&contents); err != nil {
+		// Try single file response
+		resp.Body.Close()
+		ghReq2, _ := http.NewRequest("GET", url, nil)
+		if tok != "" {
+			ghReq2.Header.Set("Authorization", "Bearer "+tok)
+		}
+		ghReq2.Header.Set("Accept", "application/vnd.github.v3+json")
+		ghReq2.Header.Set("User-Agent", "BaaS-Deploy")
+		resp2, _ := client.Do(ghReq2)
+		if resp2 != nil {
+			defer resp2.Body.Close()
+			var single GitHubContent
+			if json.NewDecoder(resp2.Body).Decode(&single) == nil {
+				contents = []GitHubContent{single}
+			}
+		}
+	}
+
+	// Ensure we never return null
+	if contents == nil {
+		contents = []GitHubContent{}
+	}
+
+	jsonOK(w, contents)
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/git/file?repo=owner/repo&path=package.json&branch=...
+// ---------------------------------------------------------------------------
+
+type GitHubFile struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Type        string `json:"type"`
+	Content     string `json:"content"`
+	Encoding    string `json:"encoding"`
+	Size        int    `json:"size"`
+	DownloadURL string `json:"download_url"`
+}
+
+func handleGitFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	repo := r.URL.Query().Get("repo")
+	path := r.URL.Query().Get("path")
+	branch := r.URL.Query().Get("branch")
+	if repo == "" || path == "" {
+		jsonError(w, "Missing repo or path parameter", http.StatusBadRequest)
+		return
+	}
+	if branch == "" {
+		branch = "main"
+	}
+
+	githubTokenLock.RLock()
+	tok := githubToken
+	githubTokenLock.RUnlock()
+
+	var url string
+	if path == "" {
+		url = fmt.Sprintf("https://api.github.com/repos/%s/contents?ref=%s", repo, branch)
+	} else {
+		url = fmt.Sprintf("https://api.github.com/repos/%s/contents/%s?ref=%s", repo, path, branch)
+	}
+	ghReq, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		jsonError(w, "Failed to create request", http.StatusInternalServerError)
+		return
+	}
+	if tok != "" {
+		ghReq.Header.Set("Authorization", "Bearer "+tok)
+	}
+	ghReq.Header.Set("Accept", "application/vnd.github.v3+json")
+	ghReq.Header.Set("User-Agent", "BaaS-Deploy")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(ghReq)
+	if err != nil {
+		jsonError(w, "Failed to reach GitHub API", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		jsonError(w, fmt.Sprintf("GitHub API error: %s", string(body)), resp.StatusCode)
+		return
+	}
+
+	var file GitHubFile
+	if err := json.NewDecoder(resp.Body).Decode(&file); err != nil {
+		jsonError(w, "Failed to parse GitHub response", http.StatusInternalServerError)
+		return
+	}
+
+	// Decode base64 content if present
+	if file.Encoding == "base64" && file.Content != "" {
+		decoded, err := base64.StdEncoding.DecodeString(file.Content)
+		if err == nil {
+			file.Content = string(decoded)
+		}
+	}
+
+	jsonOK(w, file)
 }
 
 // ---------------------------------------------------------------------------

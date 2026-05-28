@@ -14,6 +14,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NucleoIcon } from "@/components/nucleo-icons"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import type { GitHubRepo, GitHubContent } from "@/lib/types"
 import { GitHubConnectModal } from "@/components/github-connect-modal"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
@@ -37,7 +45,6 @@ import { Fastapi } from "@/components/ui/svgs/fastapi"
 import { Java } from "@/components/ui/svgs/java"
 import { Microsoft } from "@/components/ui/svgs/microsoft"
 import { api } from "@/lib/api"
-import type { GitHubRepo } from "@/lib/types"
 
 // Framework definitions (18 supported frameworks)
 const FRAMEWORKS = [
@@ -283,8 +290,8 @@ function FallbackIcon({ label }: { label: string; color: string }) {
   )
 }
 
-// Detect framework from repo name / description keywords
-function detectFramework(repo: GitHubRepo | null): (typeof FRAMEWORKS)[0] | null {
+// Fallback: detect framework from repo name / description keywords
+function detectFrameworkByName(repo: GitHubRepo | null): (typeof FRAMEWORKS)[0] | null {
   if (!repo) return null
   const name = repo.name.toLowerCase()
   const desc = (repo.description || "").toLowerCase()
@@ -298,6 +305,137 @@ function detectFramework(repo: GitHubRepo | null): (typeof FRAMEWORKS)[0] | null
   return null
 }
 
+// Smart detection: scans repo root files for framework-specific configs + package.json deps
+async function detectFrameworkByFiles(
+  repo: GitHubRepo,
+  branch: string,
+): Promise<(typeof FRAMEWORKS)[0] | null> {
+  try {
+    console.log("[FrameworkScan] scanning:", repo.full_name, "branch:", branch)
+    const contents = await api.git.contents(repo.full_name, branch, "")
+    console.log("[FrameworkScan] root contents:", contents.map((c) => c.name))
+    const fileNames = new Set(contents.map((c) => c.name.toLowerCase()))
+
+    // 1. Config file detection (most accurate)
+    if (
+      fileNames.has("next.config.js") ||
+      fileNames.has("next.config.ts") ||
+      fileNames.has("next.config.mjs")
+    ) {
+      return FRAMEWORKS.find((f) => f.id === "nextjs") || null
+    }
+    if (fileNames.has("svelte.config.js") || fileNames.has("svelte.config.ts")) {
+      return FRAMEWORKS.find((f) => f.id === "svelte") || null
+    }
+    if (fileNames.has("astro.config.mjs")) {
+      return FRAMEWORKS.find((f) => f.id === "astro") || null
+    }
+    if (
+      fileNames.has("vite.config.js") ||
+      fileNames.has("vite.config.ts") ||
+      fileNames.has("vite.config.mjs")
+    ) {
+      return FRAMEWORKS.find((f) => f.id === "vite") || null
+    }
+    if (fileNames.has("remix.config.js")) {
+      return FRAMEWORKS.find((f) => f.id === "remix") || null
+    }
+
+    // 2. package.json dependency scanning
+    if (fileNames.has("package.json")) {
+      const pkgFile = await api.git.file(repo.full_name, branch, "package.json")
+      console.log("[FrameworkScan] package.json size:", pkgFile.size)
+      const pkg = JSON.parse(pkgFile.content || "{}")
+      const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }
+      const depNames = Object.keys(deps).map((d) => d.toLowerCase())
+
+      if (depNames.includes("next"))
+        return FRAMEWORKS.find((f) => f.id === "nextjs") || null
+      if (depNames.includes("@sveltejs/kit"))
+        return FRAMEWORKS.find((f) => f.id === "svelte") || null
+      if (depNames.includes("astro"))
+        return FRAMEWORKS.find((f) => f.id === "astro") || null
+      if (depNames.includes("vite"))
+        return FRAMEWORKS.find((f) => f.id === "vite") || null
+      if (
+        depNames.includes("@remix-run/dev") ||
+        depNames.includes("@remix-run/react") ||
+        depNames.includes("remix")
+      )
+        return FRAMEWORKS.find((f) => f.id === "remix") || null
+      if (depNames.includes("react-scripts"))
+        return FRAMEWORKS.find((f) => f.id === "react") || null
+      if (depNames.includes("express"))
+        return FRAMEWORKS.find((f) => f.id === "node") || null
+      if (depNames.includes("fastify"))
+        return FRAMEWORKS.find((f) => f.id === "node") || null
+      if (
+        depNames.includes("@nestjs/cli") ||
+        depNames.includes("@nestjs/core")
+      )
+        return FRAMEWORKS.find((f) => f.id === "node") || null
+      // Generic Node.js if package.json exists with some deps
+      if (depNames.length > 0) return FRAMEWORKS.find((f) => f.id === "node") || null
+    }
+
+    // 3. Python detection
+    if (fileNames.has("requirements.txt")) {
+      const reqFile = await api.git.file(repo.full_name, branch, "requirements.txt")
+      const content = (reqFile.content || "").toLowerCase()
+      if (content.includes("django"))
+        return FRAMEWORKS.find((f) => f.id === "django") || null
+      if (content.includes("flask"))
+        return FRAMEWORKS.find((f) => f.id === "flask") || null
+      if (content.includes("fastapi"))
+        return FRAMEWORKS.find((f) => f.id === "fastapi") || null
+      return FRAMEWORKS.find((f) => f.id === "python") || null
+    }
+    if (fileNames.has("pyproject.toml")) {
+      const pyFile = await api.git.file(repo.full_name, branch, "pyproject.toml")
+      const content = (pyFile.content || "").toLowerCase()
+      if (content.includes("django"))
+        return FRAMEWORKS.find((f) => f.id === "django") || null
+      if (content.includes("flask"))
+        return FRAMEWORKS.find((f) => f.id === "flask") || null
+      if (content.includes("fastapi"))
+        return FRAMEWORKS.find((f) => f.id === "fastapi") || null
+      return FRAMEWORKS.find((f) => f.id === "python") || null
+    }
+
+    // 4. Other language detection
+    if (fileNames.has("go.mod"))
+      return FRAMEWORKS.find((f) => f.id === "go") || null
+    if (fileNames.has("cargo.toml"))
+      return FRAMEWORKS.find((f) => f.id === "rust") || null
+    if (fileNames.has("composer.json"))
+      return FRAMEWORKS.find((f) => f.id === "php") || null
+    if (fileNames.has("gemfile"))
+      return FRAMEWORKS.find((f) => f.id === "ruby") || null
+    if (fileNames.has("mix.exs"))
+      return FRAMEWORKS.find((f) => f.id === "elixir") || null
+    if (fileNames.has("pom.xml") || fileNames.has("build.gradle"))
+      return FRAMEWORKS.find((f) => f.id === "java") || null
+    if (
+      [...fileNames].some(
+        (f) => f.endsWith(".csproj") || f.endsWith(".sln"),
+      )
+    )
+      return FRAMEWORKS.find((f) => f.id === "dotnet") || null
+
+    // 5. Bun detection
+    if (fileNames.has("bun.lockb"))
+      return FRAMEWORKS.find((f) => f.id === "bun") || null
+
+    // 6. Deno detection
+    if (fileNames.has("deno.json") || fileNames.has("deno.jsonc"))
+      return FRAMEWORKS.find((f) => f.id === "deno") || null
+  } catch (err) {
+    console.error("[FrameworkScan] error:", err)
+  }
+
+  return null
+}
+
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
@@ -307,6 +445,7 @@ const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
 
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 
 export default function DeployPage() {
   const router = useRouter()
@@ -337,6 +476,7 @@ export default function DeployPage() {
 
   // ── Detected framework ─────────────────────────────────────────────────────
   const [detectedFramework, setDetectedFramework] = useState<(typeof FRAMEWORKS)[0] | null>(null)
+  const [isDetectingFramework, setIsDetectingFramework] = useState(false)
 
   // ── Manual public repo input ───────────────────────────────────────────────
   const [manualGitUrl, setManualGitUrl] = useState("")
@@ -345,6 +485,13 @@ export default function DeployPage() {
   // ── Bulk env paste ─────────────────────────────────────────────────────────
   const [showBulkEnv, setShowBulkEnv] = useState(false)
   const [bulkEnvText, setBulkEnvText] = useState("")
+
+  // ── Folder browser ─────────────────────────────────────────────────────────
+  const [showFolderBrowser, setShowFolderBrowser] = useState(false)
+  const [folderBrowserPath, setFolderBrowserPath] = useState("")
+  const [folderBrowserContents, setFolderBrowserContents] = useState<GitHubContent[]>([])
+  const [folderBrowserLoading, setFolderBrowserLoading] = useState(false)
+  const [folderBrowserBreadcrumbs, setFolderBrowserBreadcrumbs] = useState<string[]>([])
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [isDeploying, setIsDeploying] = useState(false)
@@ -378,17 +525,8 @@ export default function DeployPage() {
     }
   }
 
-  const handleRepoSelect = (repoFullName: string) => {
-    const repo = repos.find((r) => r.full_name === repoFullName) || null
-    setSelectedRepo(repo)
-    setBranches([])
-    setSelectedBranch("")
-    setErrorMsg("")
-
-    // Detect framework
-    const fw = detectFramework(repo)
+  const applyDetectedFramework = (fw: (typeof FRAMEWORKS)[0] | null) => {
     setDetectedFramework(fw)
-
     if (fw) {
       setDeployBuildCommand(fw.buildCmd)
       setDeployStartCommand(fw.startCmd)
@@ -400,27 +538,56 @@ export default function DeployPage() {
       setDeployInstallCommand("")
       setDeployPortOverride("")
     }
+  }
+
+  const handleRepoSelect = (repoFullName: string) => {
+    const repo = repos.find((r) => r.full_name === repoFullName) || null
+    setSelectedRepo(repo)
+    setBranches([])
+    setSelectedBranch("")
+    setErrorMsg("")
+    setDetectedFramework(null)
+    setIsDetectingFramework(false)
+
+    // Instant fallback detection from name/description
+    const fwFallback = detectFrameworkByName(repo)
+    applyDetectedFramework(fwFallback)
 
     // Derive app name from repo name
     if (repo) {
       setDeployName(repo.name.toLowerCase().replace(/[^a-z0-9-]/g, ""))
     }
 
-    // Fetch branches
+    // Fetch branches + smart file detection
     if (repo) {
       setIsFetchingBranches(true)
       api.git
         .branches(repo.clone_url)
-        .then((list) => {
+        .then(async (list) => {
           setBranches(list)
-          if (list.includes("main")) setSelectedBranch("main")
-          else if (list.includes("master")) setSelectedBranch("master")
-          else if (list.length > 0) setSelectedBranch(list[0])
+          const defaultBranch = list.includes("main")
+            ? "main"
+            : list.includes("master")
+              ? "master"
+              : list[0] || "main"
+          setSelectedBranch(defaultBranch)
+
+          // Smart file-based detection (async, updates UI if better match found)
+          if (defaultBranch) {
+            setIsDetectingFramework(true)
+            const fwSmart = await detectFrameworkByFiles(repo, defaultBranch)
+            setIsDetectingFramework(false)
+            if (fwSmart) {
+              applyDetectedFramework(fwSmart)
+            }
+          }
         })
         .catch((err) => {
           setErrorMsg(`Failed to fetch branches: ${err.message}`)
         })
-        .finally(() => setIsFetchingBranches(false))
+        .finally(() => {
+          setIsFetchingBranches(false)
+        })
     }
   }
 
@@ -435,6 +602,53 @@ export default function DeployPage() {
     } catch {
       // Ignore
     }
+  }
+
+  // ── Folder browser logic ───────────────────────────────────────────────────
+  const openFolderBrowser = async () => {
+    if (!selectedRepo || !selectedBranch) return
+    setShowFolderBrowser(true)
+    setFolderBrowserPath("")
+    setFolderBrowserBreadcrumbs([])
+    await loadFolderContents("")
+  }
+
+  const loadFolderContents = async (path: string) => {
+    if (!selectedRepo || !selectedBranch) return
+    setFolderBrowserLoading(true)
+    try {
+      const data = await api.git.contents(selectedRepo.full_name, selectedBranch, path)
+      setFolderBrowserContents(data ?? [])
+      setFolderBrowserPath(path)
+    } catch (err) {
+      console.error("Failed to load folder contents:", err)
+      setFolderBrowserContents([])
+    } finally {
+      setFolderBrowserLoading(false)
+    }
+  }
+
+  const navigateIntoFolder = (folderName: string) => {
+    const newPath = folderBrowserPath ? `${folderBrowserPath}/${folderName}` : folderName
+    setFolderBrowserBreadcrumbs((prev) => [...prev, folderName])
+    loadFolderContents(newPath)
+  }
+
+  const navigateToBreadcrumb = (index: number) => {
+    if (index === -1) {
+      setFolderBrowserBreadcrumbs([])
+      loadFolderContents("")
+    } else {
+      const newCrumbs = folderBrowserBreadcrumbs.slice(0, index + 1)
+      setFolderBrowserBreadcrumbs(newCrumbs)
+      const newPath = newCrumbs.join("/")
+      loadFolderContents(newPath)
+    }
+  }
+
+  const selectFolder = (path: string) => {
+    setDeployRootDir(path)
+    setShowFolderBrowser(false)
   }
 
   const parseEnvBlock = (text: string): Array<{ key: string; value: string }> => {
@@ -477,6 +691,7 @@ export default function DeployPage() {
 
     setErrorMsg("")
     setIsFetchingBranches(true)
+    setIsDetectingFramework(false)
 
     // Derive repo name from URL
     const parts = cleanUrl.split("/")
@@ -495,23 +710,29 @@ export default function DeployPage() {
     setSelectedRepo(repoObj)
     setDeployName(repoName.toLowerCase().replace(/[^a-z0-9-]/g, ""))
 
-    // Detect framework
-    const fw = detectFramework(repoObj)
-    setDetectedFramework(fw)
-    if (fw) {
-      setDeployBuildCommand(fw.buildCmd)
-      setDeployStartCommand(fw.startCmd)
-      setDeployInstallCommand(fw.installCmd)
-      setDeployPortOverride(String(fw.port))
-    }
+    // Instant fallback detection from name/description
+    const fwFallback = detectFrameworkByName(repoObj)
+    applyDetectedFramework(fwFallback)
 
-    // Fetch branches
+    // Fetch branches + smart file detection
     try {
       const list = await api.git.branches(repoObj.clone_url)
       setBranches(list)
-      if (list.includes("main")) setSelectedBranch("main")
-      else if (list.includes("master")) setSelectedBranch("master")
-      else if (list.length > 0) setSelectedBranch(list[0])
+      const defaultBranch = list.includes("main")
+        ? "main"
+        : list.includes("master")
+          ? "master"
+          : list[0] || "main"
+      setSelectedBranch(defaultBranch)
+
+      if (defaultBranch) {
+        setIsDetectingFramework(true)
+        const fwSmart = await detectFrameworkByFiles(repoObj, defaultBranch)
+        setIsDetectingFramework(false)
+        if (fwSmart) {
+          applyDetectedFramework(fwSmart)
+        }
+      }
     } catch (err) {
       setErrorMsg(`Failed to fetch branches: ${err instanceof Error ? err.message : "Unknown error"}`)
     } finally {
@@ -833,7 +1054,15 @@ export default function DeployPage() {
                       />
                     </div>
 
-                    {detectedFramework && (
+                    {isDetectingFramework ? (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border">
+                        <RefreshIcon className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <div>
+                          <p className="text-xs font-medium text-foreground">Scanning repository…</p>
+                          <p className="text-[10px] text-muted-foreground">Detecting framework from files</p>
+                        </div>
+                      </div>
+                    ) : detectedFramework ? (
                       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border">
                         {detectedFramework.icon ? (
                           <detectedFramework.icon className="h-5 w-5 shrink-0" />
@@ -845,7 +1074,7 @@ export default function DeployPage() {
                           <p className="text-[10px] text-muted-foreground">Build and start commands auto-configured</p>
                         </div>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -854,7 +1083,15 @@ export default function DeployPage() {
             {/* ── STEP 2: Build Config ─────────────────────────────────────── */}
             {step === 2 && (
               <div className="space-y-4 animate-in fade-in-50 duration-200">
-                {detectedFramework && (
+                {isDetectingFramework ? (
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
+                    <RefreshIcon className="h-4 w-4 animate-spin text-primary" />
+                    <div>
+                      <p className="text-xs font-medium text-foreground">Scanning repository…</p>
+                      <p className="text-[10px] text-muted-foreground">Detecting framework from files</p>
+                    </div>
+                  </div>
+                ) : detectedFramework ? (
                   <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
                     {detectedFramework.icon ? (
                       <detectedFramework.icon className="h-5 w-5 shrink-0" />
@@ -870,13 +1107,23 @@ export default function DeployPage() {
                       </p>
                     </div>
                   </div>
-                )}
+                ) : null}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Root Directory
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Root Directory
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={openFolderBrowser}
+                        disabled={!selectedRepo || !selectedBranch}
+                        className="text-[10px] text-primary hover:underline disabled:opacity-40 disabled:pointer-events-none"
+                      >
+                        Browse…
+                      </button>
+                    </div>
                     <Input
                       value={deployRootDir}
                       onChange={(e) => setDeployRootDir(e.target.value)}
@@ -1161,6 +1408,103 @@ export default function DeployPage() {
           </div>
         </div>
       )}
+
+      {/* Folder Browser Modal */}
+      <Dialog open={showFolderBrowser} onOpenChange={setShowFolderBrowser}>
+        <DialogContent className="sm:max-w-md max-h-[70vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold">Select Root Directory</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Choose the directory containing your project files.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground overflow-x-auto pb-1 px-6">
+            <button
+              className={`hover:text-foreground flex items-center gap-0.5 shrink-0 ${folderBrowserPath === "" ? "font-medium text-foreground" : ""}`}
+              onClick={() => navigateToBreadcrumb(-1)}
+            >
+              <NucleoIcon name="house" className="h-3 w-3" />
+              Root
+            </button>
+            {folderBrowserBreadcrumbs.map((crumb, i) => (
+              <React.Fragment key={i}>
+                <ChevronRightIcon className="h-3 w-3 shrink-0" />
+                <button
+                  className={`hover:text-foreground shrink-0 ${i === folderBrowserBreadcrumbs.length - 1 ? "font-medium text-foreground" : ""}`}
+                  onClick={() => navigateToBreadcrumb(i)}
+                >
+                  {crumb}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Current selection indicator */}
+          {folderBrowserPath && (
+            <div className="text-xs px-2 py-1 mx-6 bg-primary/5 border border-primary/20 rounded text-primary font-medium">
+              Selected: ./{folderBrowserPath}
+            </div>
+          )}
+
+          {/* Folder list */}
+          <div className="flex-1 overflow-y-auto border border-border rounded-md mx-6">
+            {folderBrowserLoading ? (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                <RefreshIcon className="h-4 w-4 animate-spin mr-2" />
+                Loading folders…
+              </div>
+            ) : folderBrowserContents.filter((i) => i.type === "dir").length === 0 ? (
+              <div className="text-center py-12 text-sm text-muted-foreground">
+                No subdirectories found.
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {folderBrowserContents
+                  .filter((item) => item.type === "dir")
+                  .map((item) => (
+                    <div
+                      key={item.path}
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 cursor-pointer group"
+                      onClick={() => navigateIntoFolder(item.name)}
+                    >
+                      <div className="flex items-center gap-2 text-sm text-foreground">
+                        <FolderIcon className="h-4 w-4 text-muted-foreground group-hover:text-amber-400" />
+                        {item.name}
+                      </div>
+                      <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between pt-3 border-t border-border/40 px-6 pb-6">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setDeployRootDir("")
+                setShowFolderBrowser(false)
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear selection
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => selectFolder(folderBrowserPath)}
+              className="text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Select {folderBrowserPath || "Root (./)"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   )
 }
