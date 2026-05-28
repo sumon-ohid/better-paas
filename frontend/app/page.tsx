@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
@@ -19,8 +18,6 @@ const SquareIcon = (props: IconProps) => <NucleoIcon {...props} name="square" />
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
-const ListIcon = (props: IconProps) => <NucleoIcon {...props} name="list" />
-const LayoutGridIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 const TrashIcon2 = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 
@@ -36,7 +33,6 @@ function ApplicationsDashboard() {
     activeApps: 0,
     timestamp: new Date().toISOString(),
   })
-  const [viewMode, setViewMode] = useState<"list" | "board">("list")
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [deleteTarget, setDeleteTarget] = useState<App | null>(null)
@@ -209,39 +205,13 @@ function ApplicationsDashboard() {
               <span>Prune Docker</span>
             </button>
 
-            {/* View toggle */}
-            <div className="flex items-center overflow-hidden rounded-md border border-border bg-muted/15">
-              <button
-                onClick={() => setViewMode("list")}
-                className={`flex items-center gap-1.5 px-2.5 py-1 cursor-pointer transition-all ${
-                  viewMode === "list"
-                    ? "bg-accent text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <ListIcon className="h-3.5 w-3.5" />
-                <span>List</span>
-              </button>
-              <button
-                onClick={() => setViewMode("board")}
-                className={`flex items-center gap-1.5 px-2.5 py-1 border-l border-border cursor-pointer transition-all ${
-                  viewMode === "board"
-                    ? "bg-accent text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <LayoutGridIcon className="h-3.5 w-3.5" />
-                <span>Board</span>
-              </button>
-            </div>
+
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-4 md:p-6 space-y-4">
-          {/* List View */}
-          {viewMode === "list" && (
-            <div className="overflow-hidden rounded-lg border border-border bg-card/72 backdrop-blur-xl">
+        <div className="p-4 md:p-6">
+          <div className="overflow-hidden rounded-lg border border-border bg-card/72 backdrop-blur-xl">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border/80 bg-muted/20 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
@@ -357,74 +327,7 @@ function ApplicationsDashboard() {
                   )}
                 </tbody>
               </table>
-            </div>
-          )}
-
-          {/* Board View */}
-          {viewMode === "board" && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start select-none">
-              {[
-                { id: "building", label: "Building", color: "bg-[#e7be75]" },
-                { id: "running", label: "Running", color: "bg-[#69d1a7]" },
-                { id: "stopped", label: "Paused", color: "bg-muted-foreground/55" },
-                { id: "failed", label: "Failed", color: "bg-[#f26d78]" },
-              ].map((col) => {
-                const colApps = filteredApps.filter((a) => a.status === col.id)
-                return (
-                  <div
-                    key={col.id}
-                    className="flex min-h-[400px] flex-col space-y-3 rounded-lg border border-border/70 bg-card/55 p-3 backdrop-blur-xl"
-                  >
-                    <div className="flex items-center justify-between px-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`h-2 w-2 rounded-full ${col.color}`} />
-                        <span className="text-sm font-semibold text-foreground">{col.label}</span>
-                      </div>
-                      <span className="text-xs font-mono text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded-sm">
-                        {colApps.length}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {colApps.length === 0 ? (
-                        <div className="border border-dashed border-border/50 rounded-md py-6 text-center text-xs text-muted-foreground/60">
-                          No services
-                        </div>
-                      ) : (
-                        colApps.map((app) => (
-                          <Card
-                            key={app.id}
-                            onClick={() => router.push(`/app/${app.id}`)}
-                            className="group cursor-pointer space-y-3 border-border/80 bg-background/55 p-3 transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/45 hover:bg-accent/20 hover:shadow-[0_14px_34px_rgba(0,0,0,.16)]"
-                          >
-                            <div className="flex justify-between items-start">
-                              <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                                {app.name}
-                              </span>
-                              <span className="text-[11px] font-mono text-muted-foreground bg-muted/40 px-1.5 rounded">
-                                :{app.port}
-                              </span>
-                            </div>
-                            <span className="text-xs text-muted-foreground/80 font-mono block truncate">
-                              {app.gitRepo}
-                            </span>
-                            <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1 font-mono">
-                                <GitBranchIcon className="h-3 w-3" />
-                                {app.branch}
-                              </span>
-                              <span className="text-[11px]">
-                                {new Date(app.createdAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </Card>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
