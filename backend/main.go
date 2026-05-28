@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -80,9 +81,68 @@ var (
 	startTime = time.Now()
 )
 
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "127.0.0.1"
+	}
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return "127.0.0.1"
+}
+
+func rebuildCaddyfile() {
+	appsLock.Lock()
+	defer appsLock.Unlock()
+
+	var sb strings.Builder
+	sb.WriteString("# Auto-generated Caddyfile - DO NOT EDIT\n\n")
+	sb.WriteString("{\n\tadmin 127.0.0.1:2019\n}\n\n")
+
+	ip := getLocalIP()
+
+	for _, app := range apps {
+		if app.Status == "running" || app.Status == "building" {
+			sb.WriteString(fmt.Sprintf("http://%s.%s.sslip.io {\n", app.ID, ip))
+			sb.WriteString(fmt.Sprintf("\treverse_proxy localhost:%d\n", app.Port))
+			sb.WriteString("}\n\n")
+		}
+	}
+
+	err := os.WriteFile("Caddyfile", []byte(sb.String()), 0644)
+	if err != nil {
+		log.Printf("Error writing Caddyfile: %v", err)
+	} else {
+		log.Println("Caddyfile rebuilt successfully")
+	}
+}
+
 func main() {
 	// Create builds directory
 	os.MkdirAll("builds", 0755)
+
+	// Rebuild Caddyfile on startup
+	rebuildCaddyfile()
+
+	// Start Caddy subprocess if caddy is in PATH
+	if _, err := exec.LookPath("caddy"); err == nil {
+		log.Println("Caddy detected, launching dynamic reverse proxy...")
+		caddyCmd := exec.Command("caddy", "run", "--config", "Caddyfile", "--watch")
+		go func() {
+			caddyCmd.Stdout = os.Stdout
+			caddyCmd.Stderr = os.Stderr
+			if err := caddyCmd.Run(); err != nil {
+				log.Printf("Caddy proxy stopped: %v", err)
+			}
+		}()
+	} else {
+		log.Println("⚠️  Caddy reverse proxy not detected in PATH. Dynamic subdomain routing (sslip.io) will not work. Please install caddy.")
+	}
 
 	http.HandleFunc("/api/apps", handleApps)
 	http.HandleFunc("/api/deploy", handleDeploy)
@@ -229,7 +289,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	appsLock.Lock()
-	appID := fmt.Sprintf("app-%d", len(apps)+1)
+	appID := fmt.Sprintf("app%d", len(apps)+1)
 	newApp := App{
 		ID:             appID,
 		Name:           req.Name,
@@ -247,9 +307,13 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		InstallCommand: req.InstallCommand,
 		PortOverride:   req.PortOverride,
 	}
-	newApp.URL = fmt.Sprintf("http://localhost:%d", newApp.Port)
+	ip := getLocalIP()
+	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
 	apps = append(apps, newApp)
 	appsLock.Unlock()
+
+	// Rebuild Caddyfile routing for the new building app
+	rebuildCaddyfile()
 
 	// Initialize logs channel
 	buildLogsLock.Lock()
@@ -785,6 +849,9 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	appsLock.Unlock()
 
+	// Rebuild Caddyfile routing to remove the deleted app
+	rebuildCaddyfile()
+
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 }
 
@@ -831,11 +898,16 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 			apps[i].StartCommand = req.StartCommand
 			apps[i].InstallCommand = req.InstallCommand
 			apps[i].PortOverride = req.PortOverride
+			ip := getLocalIP()
+			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
 			targetApp = &apps[i]
 			break
 		}
 	}
 	appsLock.Unlock()
+
+	// Rebuild Caddyfile routing for the updated app settings
+	rebuildCaddyfile()
 
 	if targetApp == nil {
 		http.Error(w, "App not found", http.StatusNotFound)
@@ -873,11 +945,16 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 	for i, app := range apps {
 		if app.ID == req.ID {
 			apps[i].Status = "building"
+			ip := getLocalIP()
+			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
 			targetApp = &apps[i]
 			break
 		}
 	}
 	appsLock.Unlock()
+
+	// Rebuild Caddyfile routing for the building redeployed app
+	rebuildCaddyfile()
 
 	if targetApp == nil {
 		http.Error(w, "App not found", http.StatusNotFound)
