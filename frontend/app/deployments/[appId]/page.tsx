@@ -260,10 +260,10 @@ export default function ProjectDeploymentsPage() {
 
                 {/* ── Expanded log output ───────────────────────────── */}
                 {expanded === dep.id && (
-                  <div className="border-t border-border/30 bg-[#080910]">
+                  <div className="border-t border-border/30 bg-[#f8f9fc] dark:bg-[#080910]">
                     {/* Log toolbar */}
                     <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
-                      <span className="text-[11px] font-mono text-slate-500">
+                      <span className="text-[11px] font-mono text-muted-foreground/50 dark:text-slate-500">
                         Build log · {dep.logs.length} lines · {dep.duration}
                       </span>
                       <button
@@ -271,7 +271,7 @@ export default function ProjectDeploymentsPage() {
                           e.stopPropagation()
                           router.push(`/logs?appId=${appId}&mode=build`)
                         }}
-                        className="flex items-center gap-1 text-[11px] font-mono text-slate-500 hover:text-slate-300 cursor-pointer transition-colors"
+                        className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer transition-colors"
                       >
                         <TerminalIcon className="h-3 w-3" />
                         Open full log
@@ -279,26 +279,26 @@ export default function ProjectDeploymentsPage() {
                     </div>
 
                     {/* Log lines */}
-                    <div className="px-4 py-3 font-mono text-xs text-slate-300 max-h-96 overflow-y-auto space-y-0.5">
+                    <div className="px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300 max-h-96 overflow-y-auto space-y-0.5">
                       {dep.logs.length === 0 ? (
-                        <span className="text-slate-600 italic">No log output recorded.</span>
+                        <span className="text-muted-foreground/40 dark:text-slate-600 italic">No log output recorded.</span>
                       ) : (
                         dep.logs.map((line, i) => (
-                          <div key={i} className="flex gap-4 group/line hover:bg-white/[0.02] rounded -mx-1 px-1">
-                            <span className="select-none text-slate-600 w-8 text-right shrink-0 group-hover/line:text-slate-500">
+                          <div key={i} className="flex gap-4 group/line hover:bg-foreground/[0.02] dark:hover:bg-white/[0.02] rounded -mx-1 px-1">
+                            <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-8 text-right shrink-0 group-hover/line:text-muted-foreground/60 dark:group-hover/line:text-slate-500">
                               {i + 1}
                             </span>
                             <span
                               className={
                                 line.startsWith("✖") || line.includes("Error") || line.includes("failed")
-                                  ? "text-rose-400"
+                                  ? "text-rose-600 dark:text-rose-400"
                                   : line.startsWith("✅") || line.startsWith("✔") || line.includes("successfully")
-                                    ? "text-[#93e0c0]"
+                                    ? "text-emerald-600 dark:text-[#93e0c0]"
                                     : line.startsWith("📦") || line.startsWith("🔍") ||
                                         line.startsWith("🚀") || line.startsWith("🧹") ||
                                         line.startsWith("✨") || line.startsWith("💡")
-                                      ? "text-amber-300"
-                                      : "text-slate-300"
+                                      ? "text-amber-600 dark:text-amber-300"
+                                      : "text-foreground dark:text-slate-300"
                               }
                             >
                               {line}

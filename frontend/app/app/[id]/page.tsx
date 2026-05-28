@@ -292,8 +292,8 @@ function AppDetailPage() {
   }
 
   const lineColor = (msg: string) => {
-    if (msg.startsWith("✖") || msg.includes(" Error") || msg.includes("failed")) return "text-rose-400"
-    if (msg.startsWith("✅") || msg.startsWith("✔") || msg.includes("successfully")) return "text-[#93e0c0]"
+    if (msg.startsWith("✖") || msg.includes(" Error") || msg.includes("failed")) return "text-rose-600 dark:text-rose-400"
+    if (msg.startsWith("✅") || msg.startsWith("✔") || msg.includes("successfully")) return "text-emerald-600 dark:text-[#93e0c0]"
     if (
       msg.startsWith("📦") ||
       msg.startsWith("🔍") ||
@@ -304,8 +304,8 @@ function AppDetailPage() {
       msg.startsWith("⚠️") ||
       msg.startsWith("📂")
     )
-      return "text-amber-300"
-    return "text-slate-200"
+      return "text-amber-600 dark:text-amber-300"
+    return "text-foreground dark:text-slate-200"
   }
 
   if (loading) {
@@ -727,10 +727,10 @@ function AppDetailPage() {
                 </div>
               </div>
 
-              <div className="flex-1 mt-4 min-h-0 bg-[#080910] border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed">
+              <div className="flex-1 mt-4 min-h-0 bg-[#f8f9fc] dark:bg-[#080910] border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed">
                 <div className="h-full overflow-y-auto p-4 space-y-0.5">
                   {logs.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-500 select-none">
+                    <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 dark:text-slate-500 select-none">
                       <TerminalIcon className={`h-8 w-8 opacity-25 ${logsConnected ? "animate-pulse" : ""}`} />
                       {logsConnected ? (
                         <span>Connected — waiting for output…</span>
@@ -744,11 +744,11 @@ function AppDetailPage() {
                   ) : (
                     <>
                       {logs.map((log, i) => (
-                        <div key={i} className="flex gap-4 group hover:bg-white/[0.02] rounded px-1 -mx-1">
-                          <span className="select-none text-slate-600 w-10 text-right shrink-0 group-hover:text-slate-500 transition-colors">
+                        <div key={i} className="flex gap-4 group hover:bg-foreground/[0.02] dark:hover:bg-white/[0.02] rounded px-1 -mx-1">
+                          <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-10 text-right shrink-0 group-hover:text-muted-foreground/60 dark:group-hover:text-slate-500 transition-colors">
                             {i + 1}
                           </span>
-                          <span className="select-none text-slate-600 shrink-0">
+                          <span className="select-none text-muted-foreground/40 dark:text-slate-600 shrink-0">
                             {new Date(log.timestamp).toLocaleTimeString()}
                           </span>
                           <span className={`${lineColor(log.message)} break-all`}>{log.message}</span>
@@ -826,13 +826,13 @@ function AppDetailPage() {
                         </span>
                       </div>
                       {expandedDepl === dep.id && (
-                        <div className="border-t border-border/30 bg-[#080910] px-4 py-3 font-mono text-xs text-slate-300 max-h-80 overflow-y-auto space-y-0.5">
+                        <div className="border-t border-border/30 bg-[#f8f9fc] dark:bg-[#080910] px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300 max-h-80 overflow-y-auto space-y-0.5">
                           {dep.logs.length === 0 ? (
-                            <span className="text-slate-600 italic">No log output recorded.</span>
+                            <span className="text-muted-foreground/40 dark:text-slate-600 italic">No log output recorded.</span>
                           ) : (
                             dep.logs.map((line, i) => (
                               <div key={i} className="flex gap-4">
-                                <span className="select-none text-slate-600 w-8 text-right shrink-0">
+                                <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-8 text-right shrink-0">
                                   {i + 1}
                                 </span>
                                 <span className={lineColor(line)}>{line}</span>
