@@ -96,6 +96,15 @@ func getLocalIP() string {
 	return "127.0.0.1"
 }
 
+func generateRandomID() string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, 10)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
 func rebuildCaddyfile() {
 	appsLock.Lock()
 	defer appsLock.Unlock()
@@ -123,6 +132,9 @@ func rebuildCaddyfile() {
 }
 
 func main() {
+	// Seed random number generator
+	rand.Seed(time.Now().UnixNano())
+
 	// Create builds directory
 	os.MkdirAll("builds", 0755)
 
@@ -289,7 +301,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	appsLock.Lock()
-	appID := fmt.Sprintf("app%d", len(apps)+1)
+	appID := generateRandomID()
 	newApp := App{
 		ID:             appID,
 		Name:           req.Name,

@@ -4,7 +4,7 @@
 	admin 127.0.0.1:2019
 }
 
-http://app1.10.0.0.3.sslip.io {
-	reverse_proxy localhost:9876
+http://cqw1vare6w.10.0.0.3.sslip.io {
+	reverse_proxy localhost:9387
 }
 
