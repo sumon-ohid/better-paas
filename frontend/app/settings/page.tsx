@@ -62,7 +62,7 @@ export default function SettingsPage() {
               </Label>
               <Input
                 defaultValue="30s"
-                className="bg-background border-border text-foreground text-sm max-w-xs"
+                className="bg-background border-border ml-2 text-foreground text-sm max-w-xs"
               />
               <p className="text-[11px] text-muted-foreground/60">
                 Maximum time Caddy reverse proxy will wait for backend response.
@@ -74,7 +74,7 @@ export default function SettingsPage() {
               </Label>
               <Input
                 defaultValue="2"
-                className="bg-background border-border text-foreground text-sm max-w-xs"
+                className="bg-background ml-2 border-border text-foreground text-sm max-w-xs"
               />
               <p className="text-[11px] text-muted-foreground/60">
                 Number of parallel Nixpacks builds allowed simultaneously.
@@ -84,7 +84,7 @@ export default function SettingsPage() {
               <Label className="text-xs font-semibold text-muted-foreground">
                 Container Restart Policy
               </Label>
-              <select className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground max-w-xs w-full outline-none focus:border-primary/50">
+              <select className="rounded-md border ml-2 border-border bg-background px-2 py-1.5 text-sm text-foreground max-w-xs w-full outline-none focus:border-primary/50">
                 <option>unless-stopped</option>
                 <option>always</option>
                 <option>on-failure</option>

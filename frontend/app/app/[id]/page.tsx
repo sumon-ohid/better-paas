@@ -474,15 +474,21 @@ function AppDetailPage() {
                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
                      Git Repository
                    </span>
-                   <div className="flex items-center gap-2">
-                     {app.gitRepo.includes("github.com") && (
-                       <>
-                         <GithubLight className="h-4 w-4 shrink-0 dark:hidden" />
-                         <GithubDark className="h-4 w-4 shrink-0 hidden dark:block" />
-                       </>
-                     )}
-                     <span className="text-sm font-mono text-foreground truncate block">{app.gitRepo}</span>
-                   </div>
+                    <a
+                      href={app.gitRepo}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm font-mono text-foreground hover:text-primary transition-colors truncate"
+                    >
+                      {app.gitRepo.includes("github.com") && (
+                        <>
+                          <GithubLight className="h-4 w-4 shrink-0 dark:hidden" />
+                          <GithubDark className="h-4 w-4 shrink-0 hidden dark:block" />
+                        </>
+                      )}
+                      <span className="truncate block">{app.gitRepo}</span>
+                      <ExternalIcon className="h-3 w-3 opacity-60 shrink-0" />
+                    </a>
                  </Card>
 
                 <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
@@ -538,19 +544,30 @@ function AppDetailPage() {
                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                    Git Repository URL
                  </Label>
-                  <div className="relative">
-                    {app?.gitRepo?.includes("github.com") && (
-                      <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none z-10">
-                        <GithubLight className="h-4 w-4 dark:hidden" />
-                        <GithubDark className="h-4 w-4 hidden dark:block" />
-                      </div>
-                    )}
-                   <Input
-                     value={gitRepo}
-                     onChange={(e) => setGitRepo(e.target.value)}
-                     className={`h-9 text-sm ${app?.gitRepo?.includes("github.com") ? "pl-9" : ""}`}
-                   />
-                 </div>
+                   <div className="relative flex items-center gap-2">
+                     <div className="relative flex-1">
+                       {app?.gitRepo?.includes("github.com") && (
+                         <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                           <GithubLight className="h-4 w-4 dark:hidden" />
+                           <GithubDark className="h-4 w-4 hidden dark:block" />
+                         </div>
+                       )}
+                       <Input
+                         value={gitRepo}
+                         onChange={(e) => setGitRepo(e.target.value)}
+                         className={`h-9 text-sm ${app?.gitRepo?.includes("github.com") ? "pl-7" : ""}`}
+                       />
+                     </div>
+                     <a
+                       href={app.gitRepo}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="h-9 w-9 rounded-md border border-border bg-muted/20 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors shrink-0"
+                       title="Open repository"
+                     >
+                       <ExternalIcon className="h-3.5 w-3.5" />
+                     </a>
+                   </div>
                </div>
 
               <div className="grid grid-cols-2 gap-4">

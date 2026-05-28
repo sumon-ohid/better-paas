@@ -426,10 +426,17 @@ export function AppDetailDrawer({
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground font-medium">Repository URL</span>
-                  <span className="font-mono text-xs text-foreground max-w-[180px] truncate">{app.gitRepo}</span>
-                </div>
+                 <div className="flex justify-between items-center">
+                   <span className="text-muted-foreground font-medium">Repository URL</span>
+                   <a
+                     href={app.gitRepo}
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     className="font-mono text-xs text-foreground max-w-[180px] truncate hover:text-primary transition-colors"
+                   >
+                     {app.gitRepo}
+                   </a>
+                 </div>
 
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground font-medium">Branch</span>

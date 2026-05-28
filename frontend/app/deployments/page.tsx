@@ -123,9 +123,15 @@ export default function DeploymentsIndexPage() {
                       <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                         {app.name}
                       </div>
-                      <div className="text-[11px] font-mono text-muted-foreground truncate max-w-xs">
-                        {app.gitRepo}
-                      </div>
+                       <a
+                         href={app.gitRepo}
+                         target="_blank"
+                         rel="noopener noreferrer"
+                         onClick={(e) => e.stopPropagation()}
+                         className="text-[11px] font-mono text-muted-foreground hover:text-primary transition-colors truncate max-w-xs block"
+                       >
+                         {app.gitRepo}
+                       </a>
                     </div>
                   </div>
 

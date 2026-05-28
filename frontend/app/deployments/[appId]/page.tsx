@@ -97,16 +97,23 @@ export default function ProjectDeploymentsPage() {
                   </span>
                 )}
               </h1>
-              {app && (
-                <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                  {app.gitRepo}
-                  {app.branch && (
-                    <span className="ml-2 inline-flex items-center gap-1">
-                      <GitBranchIcon className="h-3 w-3" />
-                      {app.branch}
-                    </span>
-                  )}
-                </p>
+               {app && (
+                 <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                   <a
+                     href={app.gitRepo}
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     className="hover:text-primary transition-colors"
+                   >
+                     {app.gitRepo}
+                   </a>
+                   {app.branch && (
+                     <span className="ml-2 inline-flex items-center gap-1">
+                       <GitBranchIcon className="h-3 w-3" />
+                       {app.branch}
+                     </span>
+                   )}
+                 </p>
               )}
             </div>
           </div>

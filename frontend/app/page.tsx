@@ -161,7 +161,13 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
 
       {/* Repository */}
       <td className="py-3 px-4">
-        <span className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+        <a
+          href={app.gitRepo}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-primary transition-colors"
+        >
           {isGitHubRepo(app.gitRepo) ? (
             <>
               <GithubLight className="h-4 w-4 shrink-0 dark:hidden" />
@@ -171,7 +177,7 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
             <GitBranchIcon className="h-3 w-3" />
           )}
           <span className="truncate max-w-[140px]">{repoName}</span>
-        </span>
+        </a>
       </td>
 
       {/* Branch */}
