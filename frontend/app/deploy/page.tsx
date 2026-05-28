@@ -23,28 +23,61 @@ import { NextjsIconDark } from "@/components/ui/svgs/nextjsIconDark"
 import { Vite } from "@/components/ui/svgs/vite"
 import { Python } from "@/components/ui/svgs/python"
 import { Golang } from "@/components/ui/svgs/golang"
+import { Svelte } from "@/components/ui/svgs/svelte"
+import { AstroIconDark } from "@/components/ui/svgs/astroIconDark"
+import { Bun } from "@/components/ui/svgs/bun"
+import { DenoDark } from "@/components/ui/svgs/denoDark"
+import { PhpDark } from "@/components/ui/svgs/phpDark"
+import { RustDark } from "@/components/ui/svgs/rustDark"
+import { Ruby } from "@/components/ui/svgs/ruby"
+import { RemixDark } from "@/components/ui/svgs/remixDark"
+import { Django } from "@/components/ui/svgs/django"
+import { FlaskDark } from "@/components/ui/svgs/flaskDark"
+import { Fastapi } from "@/components/ui/svgs/fastapi"
 import { api } from "@/lib/api"
 import type { GitHubRepo } from "@/lib/types"
 
-// Framework detectors
+// Framework definitions (18 supported frameworks)
 const FRAMEWORKS = [
   {
     id: "nextjs",
     name: "Next.js",
     color: "text-foreground",
     icon: NextjsIconDark,
-    detectors: ["next.config.js", "next.config.ts", "next.config.mjs"],
+    keywords: ["next", "nextjs"],
     buildCmd: "npm run build",
     startCmd: "npm start",
     installCmd: "npm install",
     port: 3000,
   },
   {
+    id: "svelte",
+    name: "Svelte / SvelteKit",
+    color: "text-[#ff3e00]",
+    icon: Svelte,
+    keywords: ["svelte", "sveltekit"],
+    buildCmd: "npm run build",
+    startCmd: "npm start",
+    installCmd: "npm install",
+    port: 4173,
+  },
+  {
+    id: "astro",
+    name: "Astro",
+    color: "text-[#e83e8c]",
+    icon: AstroIconDark,
+    keywords: ["astro"],
+    buildCmd: "npm run build",
+    startCmd: "npm start",
+    installCmd: "npm install",
+    port: 4321,
+  },
+  {
     id: "vite",
     name: "Vite",
     color: "text-[#646cff]",
     icon: Vite,
-    detectors: ["vite.config.js", "vite.config.ts", "vite.config.mjs"],
+    keywords: ["vite"],
     buildCmd: "npm run build",
     startCmd: "npx serve dist",
     installCmd: "npm install",
@@ -55,10 +88,32 @@ const FRAMEWORKS = [
     name: "React (CRA)",
     color: "text-[#61dafb]",
     icon: ReactLight,
-    detectors: ["react-scripts"],
+    keywords: ["react"],
     buildCmd: "npm run build",
     startCmd: "npx serve build",
     installCmd: "npm install",
+    port: 3000,
+  },
+  {
+    id: "remix",
+    name: "Remix",
+    color: "text-[#121212]",
+    icon: RemixDark,
+    keywords: ["remix"],
+    buildCmd: "npm run build",
+    startCmd: "npm start",
+    installCmd: "npm install",
+    port: 3000,
+  },
+  {
+    id: "bun",
+    name: "Bun",
+    color: "text-[#fbf0df]",
+    icon: Bun,
+    keywords: ["bun"],
+    buildCmd: "bun run build",
+    startCmd: "bun run start",
+    installCmd: "bun install",
     port: 3000,
   },
   {
@@ -66,18 +121,62 @@ const FRAMEWORKS = [
     name: "Node.js Server",
     color: "text-[#68a063]",
     icon: Nodejs,
-    detectors: ["server.js", "app.js", "index.js", "main.js"],
+    keywords: ["node", "express", "fastify", "nestjs"],
     buildCmd: "",
     startCmd: "node server.js",
     installCmd: "npm install",
     port: 3000,
   },
   {
+    id: "deno",
+    name: "Deno",
+    color: "text-[#70ffaf]",
+    icon: DenoDark,
+    keywords: ["deno"],
+    buildCmd: "deno task build",
+    startCmd: "deno task start",
+    installCmd: "deno cache deps.ts",
+    port: 8000,
+  },
+  {
+    id: "django",
+    name: "Django",
+    color: "text-[#44b78b]",
+    icon: Django,
+    keywords: ["django"],
+    buildCmd: "",
+    startCmd: "python manage.py runserver 0.0.0.0:$PORT",
+    installCmd: "pip install -r requirements.txt",
+    port: 8000,
+  },
+  {
+    id: "flask",
+    name: "Flask",
+    color: "text-[#f2f2f2]",
+    icon: FlaskDark,
+    keywords: ["flask"],
+    buildCmd: "",
+    startCmd: "python app.py",
+    installCmd: "pip install -r requirements.txt",
+    port: 5000,
+  },
+  {
+    id: "fastapi",
+    name: "FastAPI",
+    color: "text-[#009688]",
+    icon: Fastapi,
+    keywords: ["fastapi"],
+    buildCmd: "",
+    startCmd: "uvicorn main:app --host 0.0.0.0 --port $PORT",
+    installCmd: "pip install -r requirements.txt",
+    port: 8000,
+  },
+  {
     id: "python",
     name: "Python",
     color: "text-[#3776ab]",
     icon: Python,
-    detectors: ["app.py", "main.py", "server.py", "manage.py", "requirements.txt"],
+    keywords: ["python"],
     buildCmd: "",
     startCmd: "python app.py",
     installCmd: "pip install -r requirements.txt",
@@ -88,26 +187,78 @@ const FRAMEWORKS = [
     name: "Go",
     color: "text-[#00add8]",
     icon: Golang,
-    detectors: ["main.go", "go.mod"],
+    keywords: ["go", "golang"],
     buildCmd: "go build -o app",
     startCmd: "./app",
     installCmd: "go mod download",
     port: 8080,
   },
+  {
+    id: "php",
+    name: "PHP",
+    color: "text-[#777bb4]",
+    icon: PhpDark,
+    keywords: ["php", "laravel", "symfony"],
+    buildCmd: "",
+    startCmd: "php -S 0.0.0.0:$PORT",
+    installCmd: "composer install",
+    port: 8000,
+  },
+  {
+    id: "rust",
+    name: "Rust",
+    color: "text-[#dea584]",
+    icon: RustDark,
+    keywords: ["rust"],
+    buildCmd: "cargo build --release",
+    startCmd: "./target/release/app",
+    installCmd: "cargo fetch",
+    port: 8080,
+  },
+  {
+    id: "ruby",
+    name: "Ruby on Rails",
+    color: "text-[#cc342d]",
+    icon: Ruby,
+    keywords: ["ruby", "rails", "sinatra"],
+    buildCmd: "",
+    startCmd: "bundle exec rails server -b 0.0.0.0 -p $PORT",
+    installCmd: "bundle install",
+    port: 3000,
+  },
+  {
+    id: "elixir",
+    name: "Elixir / Phoenix",
+    color: "text-[#7e66a0]",
+    icon: null as any,
+    keywords: ["elixir", "phoenix"],
+    buildCmd: "mix assets.deploy",
+    startCmd: "mix phx.server",
+    installCmd: "mix deps.get",
+    port: 4000,
+  },
 ]
 
-// ── Detect framework from repo data ──────────────────────────────────────────
+// Styled fallback for frameworks without svgl assets (Elixir/Phoenix only)
+function FallbackIcon({ label }: { label: string; color: string }) {
+  return (
+    <div className="h-5 w-5 rounded-md flex items-center justify-center text-[9px] font-bold border border-purple-400/40 text-purple-400 bg-purple-400/10">
+      {label.slice(0, 2).toUpperCase()}
+    </div>
+  )
+}
+
+// Detect framework from repo name / description keywords
 function detectFramework(repo: GitHubRepo | null): (typeof FRAMEWORKS)[0] | null {
   if (!repo) return null
   const name = repo.name.toLowerCase()
   const desc = (repo.description || "").toLowerCase()
+  const text = `${name} ${desc}`
 
   for (const fw of FRAMEWORKS) {
-    if (fw.id === "nextjs" && (name.includes("next") || desc.includes("next.js"))) return fw
-    if (fw.id === "vite" && (name.includes("vite") || desc.includes("vite"))) return fw
-    if (fw.id === "react" && (name.includes("react") || desc.includes("react"))) return fw
-    if (fw.id === "go" && (name.includes("go-") || name.startsWith("go") || desc.includes("golang"))) return fw
-    if (fw.id === "python" && (name.includes("python") || name.includes("django") || name.includes("flask"))) return fw
+    for (const kw of fw.keywords) {
+      if (text.includes(kw)) return fw
+    }
   }
   return null
 }
@@ -459,8 +610,8 @@ export default function DeployPage() {
                       onClick={() => setShowGitHubModal(true)}
                       className="h-9 text-sm flex items-center gap-2 justify-center mx-auto"
                     >
-                      <GithubLight className="h-4 w-4 dark:hidden" />
-                      <GithubDark className="h-4 w-4 hidden dark:block" />
+                      <GithubLight className="h-4 w-4 hidden dark:block" />
+                      <GithubDark className="h-4 w-4 dark:hidden" />
                       Connect GitHub
                     </Button>
                     <button
@@ -649,7 +800,11 @@ export default function DeployPage() {
 
                     {detectedFramework && (
                       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border">
-                        <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                        {detectedFramework.icon ? (
+                          <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                        ) : (
+                          <FallbackIcon label={detectedFramework.name} color="" />
+                        )}
                         <div>
                           <p className="text-xs font-medium text-foreground">{detectedFramework.name} detected</p>
                           <p className="text-[10px] text-muted-foreground">Build and start commands auto-configured</p>
@@ -666,7 +821,11 @@ export default function DeployPage() {
               <div className="space-y-4 animate-in fade-in-50 duration-200">
                 {detectedFramework && (
                   <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
-                    <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                    {detectedFramework.icon ? (
+                      <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                    ) : (
+                      <FallbackIcon label={detectedFramework.name} color="" />
+                    )}
                     <div>
                       <p className="text-xs font-medium text-foreground">
                         {detectedFramework.name} project detected
