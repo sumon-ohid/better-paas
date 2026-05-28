@@ -145,14 +145,14 @@ function LogsPage() {
 
   const lineColor = (msg: string) => {
     if (msg.startsWith("✖") || msg.includes(" Error") || msg.includes("failed"))
-      return "text-rose-400"
+      return "text-rose-600 dark:text-rose-400"
     if (msg.startsWith("✅") || msg.startsWith("✔") || msg.includes("successfully"))
-      return "text-[#93e0c0]"
+      return "text-emerald-600 dark:text-[#93e0c0]"
     if (msg.startsWith("📦") || msg.startsWith("🔍") || msg.startsWith("🚀") ||
         msg.startsWith("🧹") || msg.startsWith("✨") || msg.startsWith("💡") ||
         msg.startsWith("⚠️") || msg.startsWith("📂"))
-      return "text-amber-300"
-    return "text-slate-200"
+      return "text-amber-600 dark:text-amber-300"
+    return "text-foreground dark:text-slate-200"
   }
 
   return (
@@ -301,9 +301,9 @@ function LogsPage() {
         </div>
 
         {/* ── Terminal — fills remaining height ────────────────────────── */}
-        <div className="flex-1 overflow-y-auto bg-[#080910] font-mono text-xs leading-relaxed">
+        <div className="flex-1 overflow-y-auto bg-[#f8f9fc] dark:bg-[#080910] font-mono text-xs leading-relaxed">
           {logs.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-500 select-none">
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 dark:text-slate-500 select-none">
               <TerminalIcon
                 className={`h-8 w-8 opacity-25 ${connected ? "animate-pulse" : ""}`}
               />
@@ -321,13 +321,13 @@ function LogsPage() {
           ) : (
             <div className="p-4 space-y-0.5">
               {logs.map((log, i) => (
-                <div key={i} className="flex gap-4 group hover:bg-white/[0.02] rounded px-1 -mx-1">
+                <div key={i} className="flex gap-4 group hover:bg-foreground/[0.02] dark:hover:bg-white/[0.02] rounded px-1 -mx-1">
                   {/* Line number */}
-                  <span className="select-none shrink-0 w-10 text-right text-slate-600 group-hover:text-slate-500 transition-colors">
+                  <span className="select-none shrink-0 w-10 text-right text-muted-foreground/40 dark:text-slate-600 group-hover:text-muted-foreground/60 dark:group-hover:text-slate-500 transition-colors">
                     {i + 1}
                   </span>
                   {/* Timestamp */}
-                  <span className="select-none shrink-0 text-slate-600">
+                  <span className="select-none shrink-0 text-muted-foreground/40 dark:text-slate-600">
                     {new Date(log.timestamp).toLocaleTimeString()}
                   </span>
                   {/* Message */}
@@ -340,7 +340,7 @@ function LogsPage() {
         </div>
 
         {/* ── Status bar ───────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between border-t border-border/50 bg-[#080910] px-4 py-1.5 text-[11px] font-mono text-slate-600 shrink-0 select-none">
+        <div className="flex items-center justify-between border-t border-border/50 bg-[#f8f9fc] dark:bg-[#080910] px-4 py-1.5 text-[11px] font-mono text-muted-foreground/40 dark:text-slate-600 shrink-0 select-none">
           <span>
             {selectedApp
               ? `${selectedApp.name} · port ${selectedApp.port}`
@@ -361,7 +361,7 @@ function LogsPage() {
 
 export default function LogsRoute() {
   return (
-    <Suspense fallback={<div className="h-screen bg-[#080910]" />}>
+    <Suspense fallback={<div className="h-screen bg-[#f8f9fc] dark:bg-[#080910]" />}>
       <LogsPage />
     </Suspense>
   )
