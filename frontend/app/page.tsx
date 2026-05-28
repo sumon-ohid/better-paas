@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, Suspense } from "react"
 import { useTheme } from "next-themes"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -10,6 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Progress, ProgressIndicator } from "@/components/ui/progress"
 import { Kbd } from "@/components/ui/kbd"
 import { NucleoIcon } from "@/components/nucleo-icons"
+import { AppDetailDrawer } from "@/components/app-detail-drawer"
+import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { 
   SidebarProvider, 
   Sidebar, 
@@ -57,6 +60,12 @@ interface App {
   port: number
   url: string
   createdAt: string
+  rootDir?: string
+  envVars?: Record<string, string>
+  buildCommand?: string
+  startCommand?: string
+  installCommand?: string
+  portOverride?: number
 }
 
 interface ServerStats {
@@ -79,8 +88,9 @@ interface ToastMessage {
   type?: "default" | "destructive"
 }
 
-export default function Page() {
+function DashboardContent() {
   const { resolvedTheme, setTheme } = useTheme()
+  const router = useRouter()
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [apps, setApps] = useState<App[]>([])
   const [stats, setStats] = useState<ServerStats>({
@@ -95,11 +105,7 @@ export default function Page() {
   const [cpuHistory, setCpuHistory] = useState<number[]>(Array(15).fill(0))
   const [memHistory, setMemHistory] = useState<number[]>(Array(15).fill(0))
   
-  const [deployName, setDeployName] = useState("")
-  const [deployGit, setDeployGit] = useState("")
-  const [deployBranch, setDeployBranch] = useState("main")
-  const [isDeploying, setIsDeploying] = useState(false)
-  const [openDeploy, setOpenDeploy] = useState(false)
+
   
   // Navigation active state: "apps" | "metrics" | "logs" | "settings"
   const [currentNav, setCurrentNav] = useState<"apps" | "metrics" | "logs" | "settings">("apps")
@@ -115,6 +121,7 @@ export default function Page() {
   const [selectedApp, setSelectedApp] = useState<App | null>(null)
   const [showDetailDrawer, setShowDetailDrawer] = useState(false)
   const [copiedAppId, setCopiedAppId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<App | null>(null)
   
   // Dialog overlays
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -129,12 +136,18 @@ export default function Page() {
   
   // Logs state
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [logsConnected, setLogsConnected] = useState(false)
   
   // WebSocket references
   const statsWsRef = useRef<WebSocket | null>(null)
   const logsWsRef = useRef<WebSocket | null>(null)
   const logTerminalEndRef = useRef<HTMLDivElement | null>(null)
   const appsRef = useRef<App[]>([])
+  const logBufferRef = useRef<{ message: string; timestamp: string }[]>([])
+  const flushTimerRef = useRef<NodeJS.Timeout | null>(null)
+  // Guards against re-connecting to the same appId
+  const activeLogAppIdRef = useRef<string | null>(null)
+  const handledQueryAppIdRef = useRef<string | null>(null)
 
   // Trigger custom toast notification
   const showToast = React.useCallback((title: string, description: string, type: "default" | "destructive" = "default") => {
@@ -158,6 +171,103 @@ export default function Page() {
     }
   }
 
+  // Connect WebSocket log stream with batching to avoid lag
+  const connectLogsStream = React.useCallback((appId?: string) => {
+    console.log('[connectLogsStream] called with appId:', appId)
+    const targetId = appId ?? null
+
+    // Already connected to the exact same app — do nothing
+    if (
+      activeLogAppIdRef.current === targetId &&
+      logsWsRef.current &&
+      logsWsRef.current.readyState === WebSocket.OPEN
+    ) {
+      return
+    }
+
+    // Tear down any existing connection
+    if (logsWsRef.current) {
+      logsWsRef.current.onclose = null // prevent old onclose from firing
+      logsWsRef.current.close()
+      logsWsRef.current = null
+    }
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current)
+      flushTimerRef.current = null
+    }
+
+    activeLogAppIdRef.current = targetId
+    setLogs([])
+    setLogsConnected(false)
+    logBufferRef.current = []
+
+    const wsHost = typeof window !== "undefined" ? window.location.hostname : "localhost"
+    const wsUrl = appId
+      ? `ws://${wsHost}:8080/ws/logs?appId=${appId}`
+      : `ws://${wsHost}:8080/ws/logs`
+    console.log('[WS logs] Connecting to:', wsUrl)
+    const logsWs = new WebSocket(wsUrl)
+    logsWsRef.current = logsWs
+
+    logsWs.onopen = () => {
+      console.log('[WS logs] opened for', appId)
+      setLogsConnected(true)
+    }
+
+    logsWs.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      logBufferRef.current.push({ message: data.message, timestamp: data.timestamp })
+
+      if (!flushTimerRef.current) {
+        flushTimerRef.current = setTimeout(() => {
+          setLogs((prev) => [...prev, ...logBufferRef.current])
+          logBufferRef.current = []
+          flushTimerRef.current = null
+        }, 100) // batch every 100ms
+      }
+    }
+
+    logsWs.onclose = (event) => {
+      console.log('[WS logs] closed for', appId, 'code:', event.code, 'reason:', event.reason)
+      setLogsConnected(false)
+      // Flush any remaining buffered logs
+      if (logBufferRef.current.length > 0) {
+        setLogs((prev) => [...prev, ...logBufferRef.current])
+        logBufferRef.current = []
+      }
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current)
+        flushTimerRef.current = null
+      }
+    }
+
+    logsWs.onerror = (err) => {
+      console.error('[WS logs] error for', appId, 'error:', err)
+      setLogsConnected(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const searchParams = useSearchParams()
+  const queryAppId = searchParams.get("app")
+  const queryTab = searchParams.get("tab")
+
+  useEffect(() => {
+    if (!queryAppId) return
+    if (apps.length === 0) return
+    if (handledQueryAppIdRef.current === queryAppId) return
+
+    const found = apps.find((a) => a.id === queryAppId)
+    if (found) {
+      handledQueryAppIdRef.current = queryAppId
+      setSelectedApp(found)
+      if (queryTab === "logs") {
+        setCurrentNav("logs")
+        connectLogsStream(found.id)
+      }
+    }
+  }, [queryAppId, queryTab, apps, connectLogsStream])
+
   useEffect(() => {
     appsRef.current = apps
   }, [apps])
@@ -167,7 +277,8 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchApps()
     
-    const statsWs = new WebSocket("ws://localhost:8080/ws/stats")
+    const wsHost = typeof window !== "undefined" ? window.location.hostname : "localhost"
+    const statsWs = new WebSocket(`ws://${wsHost}:8080/ws/stats`)
     statsWsRef.current = statsWs
     
     statsWs.onmessage = (event) => {
@@ -210,6 +321,32 @@ export default function Page() {
     }
   }, [logs])
 
+  // Cleanup logs WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (logsWsRef.current) {
+        logsWsRef.current.close()
+        logsWsRef.current = null
+      }
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current)
+        flushTimerRef.current = null
+      }
+    }
+  }, [])
+
+  // Auto-connect logs when on logs tab with a selected app but no active connection
+  useEffect(() => {
+    if (
+      currentNav === "logs" &&
+      selectedApp &&
+      (!logsWsRef.current || logsWsRef.current.readyState !== WebSocket.OPEN) &&
+      activeLogAppIdRef.current !== selectedApp.id
+    ) {
+      connectLogsStream(selectedApp.id)
+    }
+  }, [currentNav, selectedApp, connectLogsStream])
+
   // Keyboard Shortcuts Engine
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -243,7 +380,6 @@ export default function Page() {
         setShowShortcuts(false)
         setShowCommandPalette(false)
         setShowDetailDrawer(false)
-        setOpenDeploy(false)
         setPendingKey(null)
         return
       }
@@ -303,7 +439,7 @@ export default function Page() {
       }
       if (e.key.toLowerCase() === "c") {
         e.preventDefault()
-        setOpenDeploy(true)
+        router.push("/deploy")
         return
       }
       if (e.key === "?") {
@@ -324,68 +460,7 @@ export default function Page() {
   }, [pendingKey, resolvedTheme, showCommandPalette, setTheme, showToast])
 
   // Trigger app deployment
-  const handleDeploy = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!deployName || !deployGit) {
-      showToast("Validation error", "Please specify both app name and Git repository link.", "destructive")
-      return
-    }
 
-    try {
-      setIsDeploying(true)
-      const res = await fetch("http://localhost:8080/api/deploy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: deployName,
-          gitRepo: deployGit,
-          branch: deployBranch,
-        }),
-      })
-
-      if (res.ok) {
-        const newApp = await res.json()
-        setApps((prev) => [...prev, newApp])
-        setSelectedApp(newApp)
-        setCurrentNav("logs")
-        setLogs([])
-        setOpenDeploy(false)
-        
-        connectLogsStream()
-        
-        showToast("Deployment Triggered", `Application ${deployName} build pipeline successfully queued.`)
-
-        setDeployName("")
-        setDeployGit("")
-      } else {
-        showToast("Deployment failed", "Could not initialize builder deployment setup.", "destructive")
-      }
-    } catch (err) {
-      console.error("Connection to Go backend failed:", err)
-      const simulatedApp: App = {
-        id: `sim-app-${apps.length + 1}`,
-        name: deployName,
-        status: "building",
-        gitRepo: deployGit,
-        branch: deployBranch,
-        port: 8081,
-        url: `https://${deployName}.local.test`,
-        createdAt: new Date().toISOString(),
-      }
-      setApps((prev) => [...prev, simulatedApp])
-      setSelectedApp(simulatedApp)
-      setCurrentNav("logs")
-      setLogs([])
-      setOpenDeploy(false)
-      simulateLocalLogs(simulatedApp.id)
-      
-      showToast("Simulation active", "Go backend offline, simulated building process started.")
-      setDeployName("")
-      setDeployGit("")
-    } finally {
-      setIsDeploying(false)
-    }
-  }
 
   const handleTogglePause = async (id: string, action: "stop" | "start") => {
     try {
@@ -423,9 +498,6 @@ export default function Page() {
   }
 
   const handleDeleteApp = async (id: string) => {
-    if (!confirm("Are you sure you want to permanently delete this application container and its build folder?")) {
-      return
-    }
     try {
       const res = await fetch("http://localhost:8080/api/apps/delete", {
         method: "POST",
@@ -435,6 +507,7 @@ export default function Page() {
       if (res.ok) {
         showToast("App Deleted", "Application container and workspace folder permanently purged.")
         setShowDetailDrawer(false)
+        setDeleteTarget(null)
         fetchApps()
       } else {
         showToast("Error", "Failed to delete application container.", "destructive")
@@ -443,26 +516,13 @@ export default function Page() {
       console.error(err)
       setApps((prev) => prev.filter((app) => app.id !== id))
       setShowDetailDrawer(false)
+      setDeleteTarget(null)
       showToast("App Deleted", "[Simulated] Container removed from dashboard view.")
     }
   }
 
-  // Connect WebSocket log stream
-  const connectLogsStream = () => {
-    if (logsWsRef.current) {
-      logsWsRef.current.close()
-    }
-    const logsWs = new WebSocket("ws://localhost:8080/ws/logs")
-    logsWsRef.current = logsWs
-
-    logsWs.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      setLogs((prev) => [...prev, { message: data.message, timestamp: data.timestamp }])
-    }
-
-    logsWs.onclose = () => {
-      fetchApps()
-    }
+  const openDeleteModal = (app: App) => {
+    setDeleteTarget(app)
   }
 
   // Fallback logs simulation
@@ -508,7 +568,7 @@ export default function Page() {
 
   // Commands config for Palette
   const allCommands = React.useMemo(() => [
-    { label: "Deploy new service", shortcut: "C", action: () => setOpenDeploy(true) },
+    { label: "Deploy new service", shortcut: "C", action: () => router.push("/deploy") },
     { label: "Switch to List View", shortcut: "V L", action: () => setViewMode("list") },
     { label: "Switch to Board View", shortcut: "V B", action: () => setViewMode("board") },
     { label: "Toggle Dark/Light Mode", shortcut: "D", action: () => setTheme(resolvedTheme === "dark" ? "light" : "dark") },
@@ -736,7 +796,7 @@ export default function Page() {
             {/* Breadcrumb Info / Deploy trigger */}
             <div className="flex items-center gap-2">
               <Button 
-                onClick={() => setOpenDeploy(true)}
+                onClick={() => router.push("/deploy")}
                 className="flex h-7 cursor-pointer items-center gap-1 rounded-md border border-primary/30 bg-primary px-2.5 text-[11px] font-medium text-primary-foreground shadow-[0_0_24px_rgba(143,153,255,.22)] hover:bg-primary/90"
               >
                 <PlusIcon className="h-3.5 w-3.5" />
@@ -907,16 +967,7 @@ export default function Page() {
                                     onClick={() => {
                                       setSelectedApp(app);
                                       setCurrentNav("logs");
-                                      setLogs([]);
-                                      if (app.status === "building") {
-                                        connectLogsStream();
-                                      } else {
-                                        setLogs([
-                                          { message: "[sys] Fetching active container diagnostics log...", timestamp: new Date().toISOString() },
-                                          { message: `[sys] Container port routing configured on :${app.port}`, timestamp: new Date().toISOString() },
-                                          { message: "[sys] Health probe state: ACTIVE / OPTIMAL", timestamp: new Date().toISOString() }
-                                        ]);
-                                      }
+                                      connectLogsStream(app.id);
                                     }}
                                     variant="ghost" 
                                     size="icon" 
@@ -926,7 +977,7 @@ export default function Page() {
                                     <TerminalIcon className="h-3 w-3" />
                                   </Button>
                                   <Button 
-                                    onClick={() => handleDeleteApp(app.id)}
+                                    onClick={() => openDeleteModal(app)}
                                     variant="ghost" 
                                     size="icon" 
                                     className="h-6 w-6 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer"
@@ -1118,8 +1169,19 @@ export default function Page() {
                   <div className="p-4 font-mono text-[11px] text-foreground/90 h-[450px] overflow-y-auto space-y-1.5 leading-relaxed">
                     {logs.length === 0 ? (
                       <div className="text-muted-foreground italic h-full flex flex-col items-center justify-center gap-2 select-none">
-                        <TerminalIcon className="h-6 w-6 opacity-35" />
-                        <span>No active container build stream logs captured. Select &quot;Logs&quot; on a service widget.</span>
+                        <TerminalIcon className={`h-6 w-6 opacity-35 ${logsConnected ? "animate-pulse" : ""}`} />
+                        {selectedApp ? (
+                          logsConnected ? (
+                            <span>Connected — waiting for log output...</span>
+                          ) : (
+                            <span className="flex items-center gap-1.5">
+                              <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
+                              Connecting to log stream...
+                            </span>
+                          )
+                        ) : (
+                          <span>No active container selected. Click the terminal icon on a service to view logs.</span>
+                        )}
                       </div>
                     ) : (
                       logs.map((log, index) => (
@@ -1166,173 +1228,28 @@ export default function Page() {
             )}
 
             {/* Sliding Drawer details panel (Linear style side pane) */}
-            {showDetailDrawer && selectedApp && (
-              <>
-                {/* Backdrop overlay */}
-                <div 
-                  className="fixed inset-0 z-30 bg-black/15 backdrop-blur-[1px] transition-all"
-                  onClick={() => setShowDetailDrawer(false)}
-                />
-                {/* Drawer main panel */}
-                <div className="fixed top-0 right-0 bottom-0 z-40 flex w-[380px] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto border-l border-border bg-card/95 shadow-2xl backdrop-blur-xl animate-in slide-in-from-right duration-200">
-                  
-                  {/* Drawer Header */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      {renderStatusDot(selectedApp.status)}
-                      <span className="font-semibold text-xs text-foreground uppercase font-mono">{selectedApp.status}</span>
-                    </div>
-                    <button 
-                      onClick={() => setShowDetailDrawer(false)}
-                      className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors duration-150"
-                    >
-                      <XIcon className="h-4 w-4" />
-                    </button>
-                  </div>
+            <AppDetailDrawer
+              app={selectedApp}
+              isOpen={showDetailDrawer}
+              onClose={() => setShowDetailDrawer(false)}
+              onTogglePause={handleTogglePause}
+              onDelete={handleDeleteApp}
+              onViewLogs={(app) => {
+                setSelectedApp(app)
+                setCurrentNav("logs")
+                connectLogsStream(app.id)
+              }}
+              onUpdateAppList={fetchApps}
+              stats={stats}
+            />
 
-                  {/* Drawer Content */}
-                  <div className="p-4 flex-1 space-y-6">
-                    
-                    {/* App Name */}
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Service Title</span>
-                      <h2 className="text-lg font-bold text-foreground">{selectedApp.name}</h2>
-                    </div>
-
-                    {/* Quick Access Actions */}
-                    <div className="space-y-2 pt-2">
-                      {selectedApp.status === "running" ? (
-                        <Button 
-                          onClick={() => handleTogglePause(selectedApp.id, "stop")}
-                          className="h-8 w-full cursor-pointer rounded-md border border-[#e7be75]/25 bg-[#e7be75]/10 text-xs font-semibold text-[#e7be75] transition-colors hover:bg-[#e7be75]/15"
-                        >
-                          <SquareIcon className="h-3.5 w-3.5 mr-1.5" />
-                          Pause Container
-                        </Button>
-                      ) : selectedApp.status === "stopped" ? (
-                        <Button 
-                          onClick={() => handleTogglePause(selectedApp.id, "start")}
-                          className="h-8 w-full cursor-pointer rounded-md border border-[#69d1a7]/25 bg-[#69d1a7]/10 text-xs font-semibold text-[#69d1a7] transition-colors hover:bg-[#69d1a7]/15"
-                        >
-                          <PlayIcon className="h-3.5 w-3.5 mr-1.5" />
-                          Start Container
-                        </Button>
-                      ) : (
-                        <Button disabled className="w-full opacity-50 text-xs h-8 rounded">
-                          Container Transitioning
-                        </Button>
-                      )}
-                      
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button 
-                          onClick={() => {
-                            setCurrentNav("logs");
-                            setShowDetailDrawer(false);
-                            setLogs([]);
-                            if (selectedApp.status === "building") {
-                              connectLogsStream();
-                            } else {
-                              setLogs([
-                                { message: "[sys] Initializing remote logs capture daemon...", timestamp: new Date().toISOString() },
-                                { message: `[sys] Container mapped successfully to port: ${selectedApp.port}`, timestamp: new Date().toISOString() },
-                                { message: "[sys] Service state verified: HEALTHY", timestamp: new Date().toISOString() }
-                              ]);
-                            }
-                          }}
-                          className="h-8 cursor-pointer rounded-md border border-border bg-muted/40 text-xs font-semibold text-foreground transition-colors hover:bg-accent/55"
-                        >
-                          <TerminalIcon className="h-3.5 w-3.5 mr-1.5" />
-                          Logs console
-                        </Button>
-                        
-                        <Button 
-                          onClick={() => handleDeleteApp(selectedApp.id)}
-                          className="h-8 cursor-pointer rounded-md border border-[#f26d78]/25 bg-[#f26d78]/10 text-xs font-semibold text-[#f26d78] transition-colors hover:bg-[#f26d78]/15"
-                        >
-                          <Trash2Icon className="h-3.5 w-3.5 mr-1.5" />
-                          Purge service
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Metadata details */}
-                    <div className="space-y-3.5 pt-4 border-t border-border text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground font-medium">Domain Url</span>
-                        <div className="flex items-center gap-1.5">
-                          <a 
-                            href={selectedApp.url} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="text-foreground hover:underline flex items-center gap-1 font-mono text-[11px]"
-                          >
-                            <span>Live preview</span>
-                            <ExternalLinkIcon className="h-3 w-3" />
-                          </a>
-                          <button 
-                            onClick={() => handleCopy(selectedApp.url, selectedApp.id)}
-                            className="h-5 w-5 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-                          >
-                            {copiedAppId === selectedApp.id ? <CheckIcon className="h-3 w-3 text-[#69d1a7]" /> : <CopyIcon className="h-3 w-3" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground font-medium">Repository URL</span>
-                        <span className="font-mono text-[11px] text-foreground max-w-[180px] truncate">{selectedApp.gitRepo}</span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground font-medium">Branch</span>
-                        <span className="inline-flex items-center gap-1 font-mono text-[10px] bg-muted/40 border border-border px-1.5 py-0.5 rounded text-muted-foreground">
-                          <GitBranchIcon className="h-2.5 w-2.5" />
-                          {selectedApp.branch}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground font-medium">Port Routing</span>
-                        <span className="font-mono text-[11px] text-foreground">{selectedApp.port}</span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground font-medium">Provisioned At</span>
-                        <span className="text-foreground">{new Date(selectedApp.createdAt).toLocaleString()}</span>
-                      </div>
-                    </div>
-
-                    {/* Resource diagnostics */}
-                    {selectedApp.status === "running" && (
-                      <div className="space-y-4 pt-4 border-t border-border">
-                        <div className="space-y-1">
-                          <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Resource Allocation</span>
-                          <span className="text-xs text-muted-foreground block">Active container resource consumption logs</span>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-1.5 text-xs">
-                              <CpuIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">CPU usage</span>
-                            </div>
-                            <span className="font-mono text-xs font-semibold">{stats.cpuUsage.toFixed(1)}%</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-1.5 text-xs">
-                              <ServerIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">RAM usage</span>
-                            </div>
-                            <span className="font-mono text-xs font-semibold">{stats.memoryUsage.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
-                </div>
-              </>
-            )}
+            {/* Delete confirmation modal (table-level) */}
+            <DeleteConfirmModal
+              isOpen={!!deleteTarget}
+              appName={deleteTarget?.name ?? ""}
+              onConfirm={() => handleDeleteApp(deleteTarget!.id)}
+              onCancel={() => setDeleteTarget(null)}
+            />
 
             {/* Custom Keyboard Shortcuts Guide modal overlay */}
             {showShortcuts && (
@@ -1507,88 +1424,7 @@ export default function Page() {
               </div>
             )}
 
-            {/* Deploy Dialog (Redesigned like Linear's New Issue modal) */}
-            <Dialog open={openDeploy} onOpenChange={setOpenDeploy}>
-              <DialogContent className="w-full max-w-md border border-border bg-card/95 text-card-foreground shadow-2xl backdrop-blur-xl">
-                <DialogHeader className="p-4 border-b border-border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <DialogTitle className="text-sm font-bold">Deploy New Service</DialogTitle>
-                      <DialogDescription className="text-[11px] text-muted-foreground mt-0.5">
-                        Configure Git repository details to compile and run your server container.
-                      </DialogDescription>
-                    </div>
-                  </div>
-                </DialogHeader>
-                
-                <form onSubmit={handleDeploy} className="p-4 space-y-4">
-                  <div className="space-y-1">
-                    <Label htmlFor="name" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">App Name</Label>
-                    <Input
-                      id="name"
-                      value={deployName}
-                      onChange={(e) => setDeployName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                      placeholder="e.g. user-management-api"
-                      className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <Label htmlFor="git" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Git Repository URL</Label>
-                    <Input
-                      id="git"
-                      value={deployGit}
-                      onChange={(e) => setDeployGit(e.target.value)}
-                      placeholder="github.com/org/repo"
-                      className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label htmlFor="branch" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Branch</Label>
-                      <Input
-                        id="branch"
-                        value={deployBranch}
-                        onChange={(e) => setDeployBranch(e.target.value)}
-                        placeholder="main"
-                        className="h-8 border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Build Engine</Label>
-                      <div className="h-8 px-3 bg-muted border border-border rounded flex items-center text-[10px] text-muted-foreground font-mono">
-                        Nixpacks v1.0
-                      </div>
-                    </div>
-                  </div>
 
-                  <DialogFooter className="pt-3 border-t border-border flex items-center justify-between sm:justify-between">
-                    <span className="text-[10px] text-muted-foreground/80 hidden sm:inline-flex items-center gap-1 font-mono">
-                      <span>Enter</span><span>to deploy</span>
-                    </span>
-                    <div className="flex gap-2 ml-auto">
-                      <Button 
-                        type="button" 
-                        onClick={() => setOpenDeploy(false)} 
-                        className="h-8 cursor-pointer rounded-md border border-border bg-muted px-3 text-xs font-semibold text-foreground hover:bg-muted/70"
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={isDeploying} 
-                        className="h-8 cursor-pointer rounded-md bg-primary px-4.5 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-                      >
-                        {isDeploying ? "Deploying..." : "Start Deploy"}
-                      </Button>
-                    </div>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
 
           </main>
         </SidebarInset>
@@ -1620,5 +1456,18 @@ export default function Page() {
         ))}
       </div>
     </SidebarProvider>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0b0c10] text-[#f1f3f9] flex flex-col items-center justify-center font-mono text-xs gap-3">
+        <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span>Initializing Hypervisor Dashboard...</span>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }

@@ -8,9 +8,11 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,14 +26,36 @@ var upgrader = websocket.Upgrader{
 }
 
 type App struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Status    string    `json:"status"` // "running", "building", "stopped", "failed"
-	GitRepo   string    `json:"gitRepo"`
-	Branch    string    `json:"branch"`
-	Port      int       `json:"port"`
-	URL       string    `json:"url"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Status         string            `json:"status"` // "running", "building", "stopped", "failed"
+	GitRepo        string            `json:"gitRepo"`
+	Branch         string            `json:"branch"`
+	Port           int               `json:"port"`
+	URL            string            `json:"url"`
+	CreatedAt      time.Time         `json:"createdAt"`
+	GitToken       string            `json:"-"` // Omit sensitive token from JSON outputs
+	RootDir        string            `json:"rootDir"`
+	EnvVars        map[string]string `json:"envVars"`
+	BuildCommand   string            `json:"buildCommand"`
+	StartCommand   string            `json:"startCommand"`
+	InstallCommand string            `json:"installCommand"`
+	PortOverride   int               `json:"portOverride"`
+}
+
+func formatGitURL(gitURL, token string) string {
+	if token == "" {
+		return gitURL
+	}
+	// URL escape the token to handle any special characters
+	escapedToken := url.QueryEscape(token)
+	if strings.HasPrefix(gitURL, "https://") {
+		return "https://" + escapedToken + "@" + strings.TrimPrefix(gitURL, "https://")
+	}
+	if strings.HasPrefix(gitURL, "http://") {
+		return "http://" + escapedToken + "@" + strings.TrimPrefix(gitURL, "http://")
+	}
+	return "https://" + escapedToken + "@" + gitURL
 }
 
 type ServerStats struct {
@@ -49,7 +73,9 @@ var (
 	// A map of active deployment build logs channels key = appId
 	buildLogsLock sync.RWMutex
 	buildLogs     = make(map[string][]string)
-	logHubs       = make(map[string]chan string)
+
+	subscribersLock sync.Mutex
+	subscribers     = make(map[string]map[chan string]bool)
 	
 	startTime = time.Now()
 )
@@ -61,16 +87,88 @@ func main() {
 	http.HandleFunc("/api/apps", handleApps)
 	http.HandleFunc("/api/deploy", handleDeploy)
 	http.HandleFunc("/api/health", handleHealth)
+	http.HandleFunc("/api/git/branches", handleGitBranches)
 	http.HandleFunc("/api/apps/stop", handleStop)
 	http.HandleFunc("/api/apps/start", handleStart)
 	http.HandleFunc("/api/apps/delete", handleDelete)
+	http.HandleFunc("/api/apps/update", handleUpdate)
+	http.HandleFunc("/api/apps/redeploy", handleRedeploy)
 	http.HandleFunc("/ws/stats", handleStatsWS)
 	http.HandleFunc("/ws/logs", handleLogsWS)
+	http.HandleFunc("/ws/runtime-logs", handleRuntimeLogsWS)
 
 	fmt.Println("🚀 Real Go PaaS Engine running on http://localhost:8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
+}
+
+func handleGitBranches(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		GitRepo  string `json:"gitRepo"`
+		GitToken string `json:"gitToken"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	gitURL := req.GitRepo
+	if len(gitURL) > 0 && gitURL[0] != '/' && !filepath.IsAbs(gitURL) {
+		if !strings.HasPrefix(gitURL, "http") && !strings.HasPrefix(gitURL, "git") {
+			gitURL = "https://" + gitURL
+		}
+	}
+
+	authenticatedURL := formatGitURL(gitURL, req.GitToken)
+
+	cmd := exec.Command("git", "ls-remote", "--heads", authenticatedURL)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch branches: %s", string(output)), http.StatusInternalServerError)
+		return
+	}
+
+	var branches []string
+	scanner := bufio.NewScanner(strings.NewReader(string(output)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			ref := parts[1]
+			if strings.HasPrefix(ref, "refs/heads/") {
+				branch := strings.TrimPrefix(ref, "refs/heads/")
+				branches = append(branches, branch)
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		http.Error(w, "Error parsing branches", http.StatusInternalServerError)
+		return
+	}
+
+	// Default to main/master if no branches were found, but typically we return the slice
+	if len(branches) == 0 {
+		branches = []string{"main", "master"}
+	}
+
+	json.NewEncoder(w).Encode(branches)
 }
 
 func handleApps(w http.ResponseWriter, r *http.Request) {
@@ -104,9 +202,16 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name    string `json:"name"`
-		GitRepo string `json:"gitRepo"`
-		Branch  string `json:"branch"`
+		Name           string            `json:"name"`
+		GitRepo        string            `json:"gitRepo"`
+		Branch         string            `json:"branch"`
+		GitToken       string            `json:"gitToken"`
+		RootDir        string            `json:"rootDir"`
+		EnvVars        map[string]string `json:"envVars"`
+		BuildCommand   string            `json:"buildCommand"`
+		StartCommand   string            `json:"startCommand"`
+		InstallCommand string            `json:"installCommand"`
+		PortOverride   int               `json:"portOverride"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -118,7 +223,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	gitURL := req.GitRepo
 	if len(gitURL) > 0 && gitURL[0] != '/' && !filepath.IsAbs(gitURL) {
 		// If it's a short github path e.g. "github.com/foo/bar", prepend https://
-		if gitURL[0:4] != "http" && gitURL[0:3] != "git" {
+		if !strings.HasPrefix(gitURL, "http") && !strings.HasPrefix(gitURL, "git") {
 			gitURL = "https://" + gitURL
 		}
 	}
@@ -126,14 +231,21 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	appsLock.Lock()
 	appID := fmt.Sprintf("app-%d", len(apps)+1)
 	newApp := App{
-		ID:        appID,
-		Name:      req.Name,
-		Status:    "building",
-		GitRepo:   req.GitRepo,
-		Branch:    req.Branch,
-		Port:      rand.Intn(1000) + 9000, // Allocate dynamic host port
-		URL:       fmt.Sprintf("http://localhost:%d", 0), // Will update with final port later
-		CreatedAt: time.Now(),
+		ID:             appID,
+		Name:           req.Name,
+		Status:         "building",
+		GitRepo:        req.GitRepo,
+		Branch:         req.Branch,
+		Port:           rand.Intn(1000) + 9000, // Allocate dynamic host port
+		URL:            "",
+		CreatedAt:      time.Now(),
+		GitToken:       req.GitToken,
+		RootDir:        req.RootDir,
+		EnvVars:        req.EnvVars,
+		BuildCommand:   req.BuildCommand,
+		StartCommand:   req.StartCommand,
+		InstallCommand: req.InstallCommand,
+		PortOverride:   req.PortOverride,
 	}
 	newApp.URL = fmt.Sprintf("http://localhost:%d", newApp.Port)
 	apps = append(apps, newApp)
@@ -141,7 +253,6 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 
 	// Initialize logs channel
 	buildLogsLock.Lock()
-	logHubs[appID] = make(chan string, 100)
 	buildLogs[appID] = []string{}
 	buildLogsLock.Unlock()
 
@@ -155,28 +266,25 @@ func logToBuild(appID, message string) {
 	log.Printf("[%s] %s\n", appID, message)
 	buildLogsLock.Lock()
 	buildLogs[appID] = append(buildLogs[appID], message)
-	ch, ok := logHubs[appID]
 	buildLogsLock.Unlock()
 
+	subscribersLock.Lock()
+	subs, ok := subscribers[appID]
 	if ok {
-		select {
-		case ch <- message:
-		default:
-			// Non-blocking if channel is full
+		for ch := range subs {
+			select {
+			case ch <- message:
+			default:
+				// Non-blocking if client channel is full
+			}
 		}
 	}
+	subscribersLock.Unlock()
 }
-
 func runPaaSDeployment(app App, gitURL string) {
 	defer func() {
-		// Clean up channels after build session ends
+		// Clean up after build session ends
 		time.Sleep(3 * time.Second)
-		buildLogsLock.Lock()
-		if ch, ok := logHubs[app.ID]; ok {
-			close(ch)
-			delete(logHubs, app.ID)
-		}
-		buildLogsLock.Unlock()
 	}()
 
 	logToBuild(app.ID, fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
@@ -187,7 +295,8 @@ func runPaaSDeployment(app App, gitURL string) {
 
 	// 1. Clone repository
 	logToBuild(app.ID, fmt.Sprintf("📦 Cloning repository %s [branch: %s]...", gitURL, app.Branch))
-	cloneCmd := exec.Command("git", "clone", gitURL, buildDir, "--branch", app.Branch, "--depth", "1")
+	authenticatedURL := formatGitURL(gitURL, app.GitToken)
+	cloneCmd := exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
 	if output, err := cloneCmd.CombinedOutput(); err != nil {
 		logToBuild(app.ID, fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, string(output)))
 		updateAppStatus(app.ID, "failed")
@@ -230,11 +339,31 @@ func runPaaSDeployment(app App, gitURL string) {
 		}
 	}
 
+	// Determine subdirectory to build
+	buildSubDir := buildDir
+	if app.RootDir != "" && app.RootDir != "." && app.RootDir != "./" {
+		buildSubDir = filepath.Join(buildDir, app.RootDir)
+		logToBuild(app.ID, fmt.Sprintf("📂 Using sub-directory build context: %s", app.RootDir))
+	}
+
 	// 2. Build Container Image using Nixpacks
 	logToBuild(app.ID, "🔍 Analyzing workspace configurations with Nixpacks...")
-	nixpacksCmd := exec.Command("nixpacks", "build", buildDir, "--name", app.Name, 
-		"--env", "NIXPACKS_NODE_VERSION=22",
-	)
+
+	nixpacksArgs := []string{"build", buildSubDir, "--name", app.Name, "--env", "NIXPACKS_NODE_VERSION=22"}
+	for k, v := range app.EnvVars {
+		nixpacksArgs = append(nixpacksArgs, "--env", fmt.Sprintf("%s=%s", k, v))
+	}
+	if app.InstallCommand != "" {
+		nixpacksArgs = append(nixpacksArgs, "--install-cmd", app.InstallCommand)
+	}
+	if app.BuildCommand != "" {
+		nixpacksArgs = append(nixpacksArgs, "--build-cmd", app.BuildCommand)
+	}
+	if app.StartCommand != "" {
+		nixpacksArgs = append(nixpacksArgs, "--start-cmd", app.StartCommand)
+	}
+
+	nixpacksCmd := exec.Command("nixpacks", nixpacksArgs...)
 	
 	stdout, err := nixpacksCmd.StdoutPipe()
 	if err != nil {
@@ -275,8 +404,20 @@ func runPaaSDeployment(app App, gitURL string) {
 	stopCmd.Run() // Ignore errors if container does not exist
 
 	// 4. Run Docker Container
-	logToBuild(app.ID, fmt.Sprintf("🚀 Deploying container container port routing (host :%d -> container :%d)...", app.Port, app.Port))
-	runCmd := exec.Command("docker", "run", "-d", "-p", fmt.Sprintf("%d:%d", app.Port, app.Port), "-e", fmt.Sprintf("PORT=%d", app.Port), "--name", app.Name, app.Name)
+	containerPort := app.Port
+	if app.PortOverride > 0 {
+		containerPort = app.PortOverride
+	}
+
+	logToBuild(app.ID, fmt.Sprintf("🚀 Deploying container (host :%d -> container :%d)...", app.Port, containerPort))
+
+	runArgs := []string{"run", "-d", "-p", fmt.Sprintf("%d:%d", app.Port, containerPort), "-e", fmt.Sprintf("PORT=%d", containerPort)}
+	for k, v := range app.EnvVars {
+		runArgs = append(runArgs, "-e", fmt.Sprintf("%s=%s", k, v))
+	}
+	runArgs = append(runArgs, "--name", app.Name, app.Name)
+
+	runCmd := exec.Command("docker", runArgs...)
 	if output, err := runCmd.CombinedOutput(); err != nil {
 		logToBuild(app.ID, fmt.Sprintf("✖ Container startup failed: %v\nOutput: %s", err, string(output)))
 		updateAppStatus(app.ID, "failed")
@@ -358,25 +499,57 @@ func handleStatsWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogsWS(w http.ResponseWriter, r *http.Request) {
+	// Get target app ID from query parameter
+	appID := r.URL.Query().Get("appId")
+	log.Printf("[WS logs] Incoming connection request for appId: %q", appID)
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		log.Printf("[WS logs] Upgrade failed: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		log.Printf("[WS logs] Connection closed for appId: %q", appID)
+		conn.Close()
+	}()
 
-	// Get latest app ID
 	appsLock.Lock()
-	if len(apps) == 0 {
-		appsLock.Unlock()
-		return
+	if appID == "" && len(apps) > 0 {
+		appID = apps[len(apps)-1].ID
 	}
-	latestAppID := apps[len(apps)-1].ID
 	appsLock.Unlock()
 
+	if appID == "" {
+		log.Printf("[WS logs] Empty appID, returning")
+		return
+	}
+
+	clientChan := make(chan string, 200)
+
+	// Fetch existing logs under read lock
 	buildLogsLock.RLock()
-	existingLogs := buildLogs[latestAppID]
-	ch, ok := logHubs[latestAppID]
+	var existingLogs []string
+	if rawLogs, exists := buildLogs[appID]; exists {
+		existingLogs = make([]string, len(rawLogs))
+		copy(existingLogs, rawLogs)
+	}
 	buildLogsLock.RUnlock()
+
+	// Register subscriber
+	subscribersLock.Lock()
+	if subscribers[appID] == nil {
+		subscribers[appID] = make(map[chan string]bool)
+	}
+	subscribers[appID][clientChan] = true
+	subscribersLock.Unlock()
+
+	defer func() {
+		subscribersLock.Lock()
+		if subscribers[appID] != nil {
+			delete(subscribers[appID], clientChan)
+		}
+		subscribersLock.Unlock()
+	}()
 
 	// Stream existing logs first
 	for _, logLine := range existingLogs {
@@ -390,12 +563,8 @@ func handleLogsWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if !ok {
-		return
-	}
-
 	// Stream incoming logs in real-time
-	for logLine := range ch {
+	for logLine := range clientChan {
 		msg := map[string]string{
 			"message":   logLine,
 			"timestamp": time.Now().Format(time.RFC3339),
@@ -585,4 +754,229 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	appsLock.Unlock()
 
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+}
+
+func handleUpdate(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID             string            `json:"id"`
+		GitRepo        string            `json:"gitRepo"`
+		Branch         string            `json:"branch"`
+		RootDir        string            `json:"rootDir"`
+		EnvVars        map[string]string `json:"envVars"`
+		BuildCommand   string            `json:"buildCommand"`
+		StartCommand   string            `json:"startCommand"`
+		InstallCommand string            `json:"installCommand"`
+		PortOverride   int               `json:"portOverride"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	appsLock.Lock()
+	var targetApp *App
+	for i, app := range apps {
+		if app.ID == req.ID {
+			apps[i].GitRepo = req.GitRepo
+			apps[i].Branch = req.Branch
+			apps[i].RootDir = req.RootDir
+			apps[i].EnvVars = req.EnvVars
+			apps[i].BuildCommand = req.BuildCommand
+			apps[i].StartCommand = req.StartCommand
+			apps[i].InstallCommand = req.InstallCommand
+			apps[i].PortOverride = req.PortOverride
+			targetApp = &apps[i]
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	if targetApp == nil {
+		http.Error(w, "App not found", http.StatusNotFound)
+		return
+	}
+
+	json.NewEncoder(w).Encode(targetApp)
+}
+
+func handleRedeploy(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID string `json:"id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	appsLock.Lock()
+	var targetApp *App
+	for i, app := range apps {
+		if app.ID == req.ID {
+			apps[i].Status = "building"
+			targetApp = &apps[i]
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	if targetApp == nil {
+		http.Error(w, "App not found", http.StatusNotFound)
+		return
+	}
+
+	// Reinitialize logs channel
+	buildLogsLock.Lock()
+	buildLogs[targetApp.ID] = []string{} // Clear logs for new build
+	buildLogsLock.Unlock()
+
+	// Async deploy
+	go runPaaSDeployment(*targetApp, targetApp.GitRepo)
+
+	json.NewEncoder(w).Encode(targetApp)
+}
+
+func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
+	appID := r.URL.Query().Get("appId")
+	log.Printf("[WS runtime-logs] Incoming connection request for appId: %q", appID)
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("[WS runtime-logs] Upgrade failed: %v", err)
+		return
+	}
+	defer func() {
+		log.Printf("[WS runtime-logs] Connection closed for appId: %q", appID)
+		conn.Close()
+	}()
+
+	appsLock.Lock()
+	var targetApp *App
+	for i, app := range apps {
+		if app.ID == appID {
+			targetApp = &apps[i]
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	if targetApp == nil {
+		log.Printf("[WS runtime-logs] App %q not found", appID)
+		sendErrorMessage(conn, fmt.Sprintf("Application %s not found.", appID))
+		return
+	}
+
+	if targetApp.Status == "building" {
+		sendErrorMessage(conn, "Application is currently building. Live runtime logs will stream once the container starts.")
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			appsLock.Lock()
+			currentStatus := ""
+			for _, app := range apps {
+				if app.ID == appID {
+					currentStatus = app.Status
+					break
+				}
+			}
+			appsLock.Unlock()
+			if currentStatus != "building" {
+				break
+			}
+		}
+	}
+
+	// Double check if it is running now
+	appsLock.Lock()
+	status := ""
+	name := ""
+	for _, app := range apps {
+		if app.ID == appID {
+			status = app.Status
+			name = app.Name
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	if status != "running" && status != "stopped" && status != "failed" {
+		sendErrorMessage(conn, fmt.Sprintf("Application is in state: %s. No runtime logs available.", status))
+		return
+	}
+
+	// Run docker logs --tail 200 -f targetApp.Name
+	cmd := exec.Command("docker", "logs", "--tail", "200", "-f", name)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Printf("[WS runtime-logs] Failed to pipe stdout: %v", err)
+		sendErrorMessage(conn, fmt.Sprintf("Failed to get container logs: %v", err))
+		return
+	}
+	cmd.Stderr = cmd.Stdout
+
+	if err := cmd.Start(); err != nil {
+		log.Printf("[WS runtime-logs] Failed to start docker logs: %v", err)
+		sendErrorMessage(conn, fmt.Sprintf("Failed to stream container logs. Is the container running/created? Error: %v", err))
+		return
+	}
+	defer func() {
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
+		cmd.Wait()
+	}()
+
+	// Read output and write to WS
+	reader := bufio.NewReader(stdout)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
+		}
+
+		msg := map[string]string{
+			"message":   strings.TrimSuffix(line, "\n"),
+			"timestamp": time.Now().Format(time.RFC3339),
+		}
+		data, _ := json.Marshal(msg)
+		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			return
+		}
+	}
+}
+
+func sendErrorMessage(conn *websocket.Conn, text string) {
+	msg := map[string]string{
+		"message":   text,
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+	data, _ := json.Marshal(msg)
+	conn.WriteMessage(websocket.TextMessage, data)
 }
