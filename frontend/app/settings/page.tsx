@@ -5,6 +5,13 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "@/components/ui/select"
 import { AppShell, ToastContainer, useToast } from "@/components/app-shell"
 import { api } from "@/lib/api"
 import { NucleoIcon } from "@/components/nucleo-icons"
@@ -17,6 +24,7 @@ export default function SettingsPage() {
   const { toasts, showToast, dismissToast } = useToast()
   const [pruning, setPruning] = useState(false)
   const [pruneOutput, setPruneOutput] = useState("")
+  const [restartPolicy, setRestartPolicy] = useState("unless-stopped")
 
   const handlePrune = async () => {
     setPruning(true)
@@ -81,15 +89,20 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">
+              <Label className="text-xs font-semibold text-muted-foreground mr-2">
                 Container Restart Policy
               </Label>
-              <select className="rounded-md border ml-2 border-border bg-background px-2 py-1.5 text-sm text-foreground max-w-xs w-full outline-none focus:border-primary/50">
-                <option>unless-stopped</option>
-                <option>always</option>
-                <option>on-failure</option>
-                <option>no</option>
-              </select>
+              <Select value={restartPolicy} onValueChange={(v) => v && setRestartPolicy(v)}>
+                <SelectTrigger className="max-w-xs w-full">
+                  <SelectValue placeholder="Select restart policy" />
+                </SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="unless-stopped">unless-stopped</SelectItem>
+                  <SelectItem value="always">always</SelectItem>
+                  <SelectItem value="on-failure">on-failure</SelectItem>
+                  <SelectItem value="no">no</SelectItem>
+                </SelectPopup>
+              </Select>
             </div>
             <div className="pt-2">
               <Button className="h-8 cursor-pointer rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90">
