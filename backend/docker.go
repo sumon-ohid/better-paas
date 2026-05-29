@@ -604,18 +604,19 @@ func finishDeployment(app App, deployLogs []string, status string, startedAt tim
 	go notifyDeploy(app, record)
 }
 
-// patchPackageJSON sanitizes a Node.js package.json for Nixpacks compatibility.
-// It strips engine/packageManager restrictions from the root manifest *and*
-// from every workspace package, because pnpm enforces engines.node across the
-// whole workspace — a single package pinned to a Node version the builder
-// doesn't provide fails the entire `pnpm install`.
+// patchPackageJSON sanitizes Node.js package.json files for Nixpacks
+// compatibility. It relaxes the engines constraint on the root manifest *and*
+// every workspace package, because pnpm enforces engines.node across the whole
+// workspace — a single package pinned to a Node version the builder doesn't
+// provide fails the entire install. The "packageManager" field is preserved so
+// Nixpacks still provisions the correct package-manager binary.
 func patchPackageJSON(appID, buildDir string, logger func(string)) {
 	// Patch the root manifest and capture workspace globs.
 	rootPkg, _ := patchSinglePackageJSON(filepath.Join(buildDir, "package.json"))
 
-	// Walk workspace packages and strip their engines too.
+	// Walk workspace packages and relax their engines too.
 	patched := 0
-	for _, dir := range workspacePackageDirs(buildDir, rootPkg) {
+	for _, dir := range allWorkspacePackageDirs(buildDir, rootPkg) {
 		if _, ok := patchSinglePackageJSON(filepath.Join(dir, "package.json")); ok {
 			patched++
 		}
@@ -644,9 +645,16 @@ func patchPackageJSON(appID, buildDir string, logger func(string)) {
 	}
 }
 
-// patchSinglePackageJSON removes engines/packageManager from one package.json.
-// It returns the parsed manifest (pre-deletion fields aside) and whether the
-// file existed and was rewritten.
+// patchSinglePackageJSON relaxes the engines constraint on one package.json so
+// the builder isn't blocked by a Node version it can't provide (we resolve the
+// actual Node version separately in detectNodeVersion).
+//
+// It deliberately PRESERVES the "packageManager" field: that field is how
+// Nixpacks decides which package manager binary (pnpm/yarn/bun) to install into
+// the build image. Deleting it makes Nixpacks fall back to npm, so a forced
+// "pnpm install" then fails with "pnpm: command not found".
+//
+// Returns the parsed manifest and whether the file existed and was readable.
 func patchSinglePackageJSON(pkgPath string) (map[string]interface{}, bool) {
 	data, err := os.ReadFile(pkgPath)
 	if err != nil {
@@ -657,12 +665,8 @@ func patchSinglePackageJSON(pkgPath string) (map[string]interface{}, bool) {
 		return nil, false
 	}
 
-	_, hadEngines := pkg["engines"]
-	_, hadPM := pkg["packageManager"]
-	delete(pkg, "engines")
-	delete(pkg, "packageManager")
-
-	if hadEngines || hadPM {
+	if _, hadEngines := pkg["engines"]; hadEngines {
+		delete(pkg, "engines")
 		if updated, err := json.MarshalIndent(pkg, "", "  "); err == nil {
 			os.WriteFile(pkgPath, updated, 0644)
 		}
@@ -729,6 +733,117 @@ func workspacePackageDirs(buildDir string, rootPkg map[string]interface{}) []str
 	return dirs
 }
 
+// allWorkspacePackageDirs returns the directories of every workspace package,
+// merging two sources of truth:
+//   - the "workspaces" field in the root package.json (npm/yarn), and
+//   - the "packages:" globs in pnpm-workspace.yaml (pnpm).
+//
+// pnpm monorepos (like the one this fixes) declare packages ONLY in
+// pnpm-workspace.yaml, so reading package.json alone misses apps/* entirely —
+// which is why a nested app's engines.node went undetected.
+func allWorkspacePackageDirs(buildDir string, rootPkg map[string]interface{}) []string {
+	seen := make(map[string]bool)
+	var out []string
+	addAll := func(dirs []string) {
+		for _, d := range dirs {
+			if !seen[d] {
+				seen[d] = true
+				out = append(out, d)
+			}
+		}
+	}
+	addAll(workspacePackageDirs(buildDir, rootPkg))
+	addAll(pnpmWorkspacePackageDirs(buildDir))
+	return out
+}
+
+// pnpmWorkspacePackageDirs parses pnpm-workspace.yaml's "packages:" list and
+// expands the globs to concrete directories. It uses a minimal line parser
+// (no YAML dependency): it reads the indented "- <glob>" entries under the
+// top-level "packages:" key and stops at the next top-level key. Negation
+// entries ("!") are ignored.
+func pnpmWorkspacePackageDirs(buildDir string) []string {
+	var data []byte
+	for _, name := range []string{"pnpm-workspace.yaml", "pnpm-workspace.yml"} {
+		if b, err := os.ReadFile(filepath.Join(buildDir, name)); err == nil {
+			data = b
+			break
+		}
+	}
+	if data == nil {
+		return nil
+	}
+
+	var patterns []string
+	inPackages := false
+	for _, raw := range strings.Split(string(data), "\n") {
+		line := strings.TrimRight(raw, "\r")
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		indented := line != strings.TrimLeft(line, " \t")
+
+		if !indented {
+			// A new top-level key ends the packages block.
+			inPackages = strings.HasPrefix(trimmed, "packages:")
+			continue
+		}
+		if !inPackages || !strings.HasPrefix(trimmed, "-") {
+			continue
+		}
+		val := strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
+		val = strings.Trim(val, `"'`)
+		if val == "" || strings.HasPrefix(val, "!") {
+			continue
+		}
+		patterns = append(patterns, val)
+	}
+
+	return expandWorkspaceGlobs(buildDir, patterns)
+}
+
+// expandWorkspaceGlobs turns workspace patterns (supporting a trailing "/*"
+// one level deep, and literal paths) into absolute directories under buildDir.
+func expandWorkspaceGlobs(buildDir string, patterns []string) []string {
+	var dirs []string
+	seen := make(map[string]bool)
+	add := func(rel string) {
+		rel = strings.TrimSuffix(strings.TrimPrefix(rel, "./"), "/")
+		if rel == "" || seen[rel] {
+			return
+		}
+		seen[rel] = true
+		dirs = append(dirs, filepath.Join(buildDir, rel))
+	}
+	for _, pat := range patterns {
+		switch {
+		case strings.HasSuffix(pat, "/**"):
+			pat = strings.TrimSuffix(pat, "/**")
+			fallthrough
+		case strings.HasSuffix(pat, "/*"):
+			base := strings.TrimSuffix(pat, "/*")
+			if base == "" || strings.Contains(base, "*") {
+				continue
+			}
+			entries, err := os.ReadDir(filepath.Join(buildDir, base))
+			if err != nil {
+				continue
+			}
+			for _, e := range entries {
+				if e.IsDir() {
+					add(filepath.Join(base, e.Name()))
+				}
+			}
+		default:
+			if !strings.Contains(pat, "*") {
+				add(pat)
+			}
+		}
+	}
+	return dirs
+}
+
 // ---------------------------------------------------------------------------
 // Node version & package-manager detection
 // ---------------------------------------------------------------------------
@@ -740,9 +855,12 @@ func workspacePackageDirs(buildDir string, rootPkg map[string]interface{}) []str
 
 var nodeMajorRe = regexp.MustCompile(`(\d+)`)
 
-// detectNodeVersion scans buildSubDir (root + workspace packages) for the
-// largest engines.node minimum and returns it as a major version string. Falls
-// back to `fallback` when nothing is declared or parsing fails.
+// detectNodeVersion determines the Node major version to build with. It honors,
+// in priority order:
+//  1. The highest engines.node minimum across the root + all workspace packages
+//     (so a workspace pinned to >=24 isn't silently downgraded).
+//  2. A .nvmrc file at the build root (which Nixpacks also respects).
+//  3. The provided fallback.
 func detectNodeVersion(buildSubDir, fallback string) string {
 	best := 0
 
@@ -760,19 +878,44 @@ func detectNodeVersion(buildSubDir, fallback string) string {
 		}
 	}
 
-	if rootPkg := readPackageJSON(filepath.Join(buildSubDir, "package.json")); rootPkg != nil {
+	rootPkg := readPackageJSON(filepath.Join(buildSubDir, "package.json"))
+	if rootPkg != nil {
 		consider(rootPkg)
-		for _, dir := range workspacePackageDirs(buildSubDir, rootPkg) {
-			if wp := readPackageJSON(filepath.Join(dir, "package.json")); wp != nil {
-				consider(wp)
-			}
+	}
+	// Scan every workspace package (npm/yarn "workspaces" + pnpm-workspace.yaml).
+	for _, dir := range allWorkspacePackageDirs(buildSubDir, rootPkg) {
+		if wp := readPackageJSON(filepath.Join(dir, "package.json")); wp != nil {
+			consider(wp)
 		}
 	}
 
 	if best > 0 {
 		return strconv.Itoa(best)
 	}
+
+	// .nvmrc fallback (e.g. a bare "24" or "v24.1.0" or "lts/*").
+	if v := nodeMajorFromNvmrc(filepath.Join(buildSubDir, ".nvmrc")); v > 0 {
+		return strconv.Itoa(v)
+	}
+
 	return fallback
+}
+
+// nodeMajorFromNvmrc reads a .nvmrc and returns its Node major version, or 0 if
+// absent/unparseable. Alias lines like "lts/*" yield 0 (no concrete version).
+func nodeMajorFromNvmrc(path string) int {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	s := strings.TrimSpace(string(data))
+	s = strings.TrimPrefix(s, "v")
+	if m := nodeMajorRe.FindString(s); m != "" {
+		if maj, err := strconv.Atoi(m); err == nil {
+			return maj
+		}
+	}
+	return 0
 }
 
 // minNodeMajor extracts the lowest acceptable Node major version from a semver

@@ -514,10 +514,35 @@ async function collectSubdirCandidates(
   return out.filter((p) => rootDirs.has(p.split("/")[0].toLowerCase())).slice(0, 12)
 }
 
+// isWorkspaceRoot reports whether the repo root defines a package-manager
+// workspace (pnpm-workspace.yaml, or a "workspaces" field in package.json).
+// For such monorepos the build MUST run from the repo root — that's where the
+// lockfile, the "packageManager" field, and workspace/catalog resolution live.
+function isWorkspaceRoot(
+  rootContents: GitHubContent[],
+  rootPkg: Record<string, unknown> | null,
+): boolean {
+  const names = new Set(rootContents.map((c) => c.name.toLowerCase()))
+  if (names.has("pnpm-workspace.yaml") || names.has("pnpm-workspace.yml")) return true
+  if (rootPkg) {
+    const ws = rootPkg.workspaces
+    if (Array.isArray(ws) && ws.length > 0) return true
+    if (ws && typeof ws === "object" && Array.isArray((ws as { packages?: unknown }).packages))
+      return true
+  }
+  return false
+}
+
 // detectFrameworkByFiles scans the repo root and, for full-stack/monorepo
 // layouts, common subdirectories to find the most specific framework. It
 // returns the matched framework together with the directory it was found in so
 // the caller can pre-fill the build root.
+//
+// Key rule: if the repo is a workspace monorepo, the build root stays at the
+// repo root even when the app lives in a subdirectory, because the package
+// manager (pnpm/yarn/npm workspaces) resolves dependencies, catalogs, and the
+// lockfile from the root. Only NON-workspace repos (e.g. an independent API at
+// the root + a separate frontend dir) build from the subdirectory.
 async function detectFrameworkByFiles(
   repo: GitHubRepo,
   branch: string,
@@ -526,6 +551,18 @@ async function detectFrameworkByFiles(
     console.log("[FrameworkScan] scanning:", repo.full_name, "branch:", branch)
     const rootContents = await safeContents(repo, branch, "")
     console.log("[FrameworkScan] root contents:", rootContents.map((c) => c.name))
+
+    // Fetch the root package.json once to detect workspaces.
+    let rootPkg: Record<string, unknown> | null = null
+    if (rootContents.some((c) => c.name.toLowerCase() === "package.json")) {
+      try {
+        const f = await api.git.file(repo.full_name, branch, "package.json")
+        rootPkg = JSON.parse(f.content || "{}")
+      } catch {
+        rootPkg = null
+      }
+    }
+    const monorepo = isWorkspaceRoot(rootContents, rootPkg)
 
     const rootMatch = await detectInDir(repo, branch, "", rootContents)
 
@@ -543,8 +580,17 @@ async function detectFrameworkByFiles(
       if (contents.length === 0) continue
       const sub = await detectInDir(repo, branch, dir, contents)
       if (sub && sub.confidence === "high" && sub.framework.id !== "node") {
-        console.log("[FrameworkScan] matched", sub.framework.id, "in subdir:", dir)
-        return { framework: sub.framework, rootDir: dir }
+        // In a monorepo, build from the root (workspace tooling targets the
+        // app via its own scripts); otherwise build from the app's subdir.
+        const rootDir = monorepo ? "" : dir
+        console.log(
+          "[FrameworkScan] matched",
+          sub.framework.id,
+          "in subdir:",
+          dir,
+          monorepo ? "(monorepo → build from root)" : "(build from subdir)",
+        )
+        return { framework: sub.framework, rootDir }
       }
     }
 

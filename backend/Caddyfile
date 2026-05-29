@@ -4,3 +4,7 @@
 	admin 127.0.0.1:2019
 }
 
+http://tit62lwie6.10.0.0.3.sslip.io {
+	reverse_proxy localhost:9790
+}
+
