@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -25,6 +26,11 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// decodeJSON decodes a request body into v.
+func decodeJSON(r *http.Request, v interface{}) error {
+	return json.NewDecoder(r.Body).Decode(v)
 }
 
 // ---------------------------------------------------------------------------
@@ -98,6 +104,13 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		StartCommand   string            `json:"startCommand"`
 		InstallCommand string            `json:"installCommand"`
 		PortOverride   int               `json:"portOverride"`
+		Domains        []string          `json:"domains"`
+		Memory         string            `json:"memory"`
+		CPUs           string            `json:"cpus"`
+		Volumes        []string          `json:"volumes"`
+		HealthPath     string            `json:"healthPath"`
+		SecretKeys     []string          `json:"secretKeys"`
+		AutoDeploy     bool              `json:"autoDeploy"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -112,6 +125,15 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 
 	if !validAppName(req.Name) {
 		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
+		return
+	}
+
+	if err := validateResourceLimits(req.Memory, req.CPUs); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validateDomains(req.Domains); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -135,6 +157,14 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		StartCommand:   req.StartCommand,
 		InstallCommand: req.InstallCommand,
 		PortOverride:   req.PortOverride,
+		Domains:        req.Domains,
+		Memory:         req.Memory,
+		CPUs:           req.CPUs,
+		Volumes:        req.Volumes,
+		HealthPath:     req.HealthPath,
+		SecretKeys:     req.SecretKeys,
+		AutoDeploy:     req.AutoDeploy,
+		WebhookSecret:  generateRandomID() + generateRandomID(), // 20-char webhook secret
 	}
 	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
 	apps = append(apps, newApp)
@@ -196,7 +226,8 @@ func handleStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exec.Command("docker", "stop", app.Name).Run()
+	exec.Command("docker", "stop", app.containerName()).Run()
+	stopRuntimeLogCapture(req.ID)
 
 	appsLock.Lock()
 	for i := range apps {
@@ -236,10 +267,11 @@ func handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if out, err := exec.Command("docker", "start", app.Name).CombinedOutput(); err != nil {
+	if out, err := exec.Command("docker", "start", app.containerName()).CombinedOutput(); err != nil {
 		jsonError(w, fmt.Sprintf("Failed to start container: %v — %s", err, out), http.StatusInternalServerError)
 		return
 	}
+	startRuntimeLogCapture(app.ID, app.containerName())
 
 	appsLock.Lock()
 	for i := range apps {
@@ -279,9 +311,14 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ── Stop and remove container + image ────────────────────────────────────
+	// ── Stop and remove container(s) + image(s) ──────────────────────────────
+	// Remove the active container, the legacy-named container (if any), and all
+	// images tagged for this app (every per-deploy tag).
+	stopRuntimeLogCapture(app.ID)
+	exec.Command("docker", "rm", "-f", app.containerName()).Run()
 	exec.Command("docker", "rm", "-f", app.Name).Run()
-	exec.Command("docker", "rmi", "-f", app.Name).Run()
+	removeAppContainers(app.ID)
+	removeAppImages(app.Name)
 
 	// ── Remove build directory ───────────────────────────────────────────────
 	buildDir := filepath.Join("builds", app.Name)
@@ -294,6 +331,9 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	if err := os.RemoveAll(logDir); err != nil {
 		log.Printf("[delete] warning: failed to remove log dir %s: %v", logDir, err)
 	}
+	// Remove persisted runtime logs.
+	os.Remove(runtimeLogPath(app.ID))
+	os.Remove(runtimeLogPath(app.ID) + ".1")
 
 	appsLock.Lock()
 	for i, a := range apps {
@@ -309,6 +349,9 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := dbDeleteDeploymentsForApp(req.ID); err != nil {
 		log.Printf("[db] failed to delete deployments: %v", err)
+	}
+	if err := dbDeleteCronJobsForApp(req.ID); err != nil {
+		log.Printf("[db] failed to delete cron jobs: %v", err)
 	}
 
 	rebuildCaddyfile()
@@ -335,10 +378,26 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		StartCommand   string            `json:"startCommand"`
 		InstallCommand string            `json:"installCommand"`
 		PortOverride   int               `json:"portOverride"`
+		Domains        []string          `json:"domains"`
+		Memory         string            `json:"memory"`
+		CPUs           string            `json:"cpus"`
+		Volumes        []string          `json:"volumes"`
+		HealthPath     string            `json:"healthPath"`
+		SecretKeys     []string          `json:"secretKeys"`
+		AutoDeploy     *bool             `json:"autoDeploy"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "Bad request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := validateResourceLimits(req.Memory, req.CPUs); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validateDomains(req.Domains); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -351,14 +410,25 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 			apps[i].GitRepo = req.GitRepo
 			apps[i].Branch = req.Branch
 			apps[i].RootDir = req.RootDir
-			apps[i].EnvVars = req.EnvVars
+			apps[i].EnvVars = mergeEnvVars(apps[i].EnvVars, req.EnvVars, req.SecretKeys)
 			apps[i].BuildCommand = req.BuildCommand
 			apps[i].StartCommand = req.StartCommand
 			apps[i].InstallCommand = req.InstallCommand
 			apps[i].PortOverride = req.PortOverride
+			apps[i].Domains = req.Domains
+			apps[i].Memory = req.Memory
+			apps[i].CPUs = req.CPUs
+			apps[i].Volumes = req.Volumes
+			apps[i].HealthPath = req.HealthPath
+			apps[i].SecretKeys = req.SecretKeys
+			if req.AutoDeploy != nil {
+				apps[i].AutoDeploy = *req.AutoDeploy
+			}
 			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
+			full := apps[i] // full copy WITH secrets for DB persistence
 			clone := apps[i].Public()
 			updated = &clone
+			_ = full
 			break
 		}
 	}
@@ -369,8 +439,11 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := dbSaveApp(*updated); err != nil {
-		log.Printf("[db] failed to save app: %v", err)
+	// Persist the full (unredacted) app, not the public view.
+	if full := findApp(req.ID); full != nil {
+		if err := dbSaveApp(*full); err != nil {
+			log.Printf("[db] failed to save app: %v", err)
+		}
 	}
 	rebuildCaddyfile()
 	jsonOK(w, updated)
@@ -432,6 +505,7 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 		Status:    "building",
 		LogFile:   logFile,
 		CreatedAt: time.Now(),
+		Trigger:   "manual",
 	}
 	if err := dbCreateDeployment(dep); err != nil {
 		log.Printf("[db] failed to create deployment: %v", err)
@@ -440,7 +514,7 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 	rebuildCaddyfile()
 	jsonOK(w, targetApp.Public())
 
-	go runPaaSDeployment(*targetApp, normalizeGitURL(targetApp.GitRepo), deployID, logFile)
+	go runDeployment(*targetApp, normalizeGitURL(targetApp.GitRepo), deployID, logFile, "manual", "")
 }
 
 // ---------------------------------------------------------------------------
@@ -838,6 +912,245 @@ func handleGitTokenDelete(w http.ResponseWriter, r *http.Request) {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// POST /api/apps/rollback — re-release a previous deployment's image
+// ---------------------------------------------------------------------------
+
+func handleRollback(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID           string `json:"id"`           // app id
+		DeploymentID string `json:"deploymentId"` // deployment to roll back to
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	app := findApp(req.ID)
+	if app == nil {
+		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+
+	target, err := dbGetDeployment(req.DeploymentID)
+	if err != nil || target == nil {
+		jsonError(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	if target.AppID != app.ID {
+		jsonError(w, "Deployment does not belong to this app", http.StatusBadRequest)
+		return
+	}
+	if target.Image == "" {
+		jsonError(w, "This deployment has no stored image to roll back to", http.StatusBadRequest)
+		return
+	}
+
+	appsLock.Lock()
+	for i := range apps {
+		if apps[i].ID == req.ID {
+			apps[i].Status = "building"
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	buildLogsLock.Lock()
+	buildLogs[app.ID] = []string{}
+	buildLogsLock.Unlock()
+
+	_ = dbUpdateAppStatus(req.ID, "building")
+
+	deployID := generateRandomID()
+	logFile := filepath.Join("data", "logs", req.ID, deployID+".log")
+	os.MkdirAll(filepath.Dir(logFile), 0755)
+	dep := DeploymentRecord{
+		ID:        deployID,
+		AppID:     req.ID,
+		AppName:   app.Name,
+		Status:    "building",
+		LogFile:   logFile,
+		CreatedAt: time.Now(),
+		Trigger:   "rollback",
+	}
+	_ = dbCreateDeployment(dep)
+	rebuildCaddyfile()
+	jsonOK(w, app.Public())
+
+	go runDeployment(*app, normalizeGitURL(app.GitRepo), deployID, logFile, "rollback", target.Image)
+}
+
+// ---------------------------------------------------------------------------
+// GET  /api/apps/webhook?id=<appID>   — fetch webhook URL + secret
+// POST /api/apps/webhook/regenerate   — rotate the webhook secret
+// ---------------------------------------------------------------------------
+
+func handleWebhookInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := r.URL.Query().Get("id")
+	app := findApp(id)
+	if app == nil {
+		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+	jsonOK(w, map[string]string{
+		"url":    fmt.Sprintf("%s/api/webhooks/github/%s", externalBaseURL(r), app.ID),
+		"secret": app.WebhookSecret,
+		"event":  "push",
+	})
+}
+
+func handleWebhookRegenerate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	app := findApp(req.ID)
+	if app == nil {
+		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+	newSecret := generateRandomID() + generateRandomID()
+	appsLock.Lock()
+	for i := range apps {
+		if apps[i].ID == req.ID {
+			apps[i].WebhookSecret = newSecret
+			break
+		}
+	}
+	appsLock.Unlock()
+	if full := findApp(req.ID); full != nil {
+		_ = dbSaveApp(*full)
+	}
+	jsonOK(w, map[string]string{"secret": newSecret})
+}
+
+// externalBaseURL best-effort reconstructs the externally visible base URL for
+// building webhook links (honors X-Forwarded-* when behind a proxy).
+func externalBaseURL(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if trustProxy {
+		if p := r.Header.Get("X-Forwarded-Proto"); p != "" {
+			scheme = strings.Split(p, ",")[0]
+		}
+	}
+	host := r.Host
+	if trustProxy {
+		if h := r.Header.Get("X-Forwarded-Host"); h != "" {
+			host = strings.Split(h, ",")[0]
+		}
+	}
+	return fmt.Sprintf("%s://%s", scheme, strings.TrimSpace(host))
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/metrics/apps — per-container resource usage
+// ---------------------------------------------------------------------------
+
+func handlePerAppMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	jsonOK(w, collectPerAppMetrics())
+}
+
+// ---------------------------------------------------------------------------
+// Notification config: GET /api/notifications, POST /api/notifications/save
+// ---------------------------------------------------------------------------
+
+func handleNotificationsGet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	jsonOK(w, getNotificationConfig())
+}
+
+func handleNotificationsSave(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var cfg NotificationConfig
+	if err := decodeJSON(r, &cfg); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	if err := saveNotificationConfig(cfg); err != nil {
+		jsonError(w, "Failed to save", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, cfg)
+}
+
+// POST /api/notifications/test — send a test notification.
+func handleNotificationsTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	cfg := getNotificationConfig()
+	text := "🔔 Better-PaaS test notification — your webhook is configured correctly."
+	if cfg.SlackWebhookURL != "" {
+		postJSON(cfg.SlackWebhookURL, map[string]string{"text": text})
+	}
+	if cfg.GenericURL != "" {
+		postJSON(cfg.GenericURL, map[string]string{"text": text, "test": "true"})
+	}
+	jsonOK(w, map[string]string{"status": "sent"})
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/apps/runtime-logs?id=<appID>&lines=N — persisted runtime logs
+// ---------------------------------------------------------------------------
+
+func handleRuntimeLogHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		jsonError(w, "Missing id", http.StatusBadRequest)
+		return
+	}
+	lines := 500
+	if n := r.URL.Query().Get("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	logs, err := readRuntimeLog(id, lines)
+	if err != nil {
+		jsonError(w, "Failed to read runtime logs", http.StatusInternalServerError)
+		return
+	}
+	if logs == nil {
+		logs = []string{}
+	}
+	jsonOK(w, map[string]interface{}{"logs": logs})
+}
+
+// findApp returns a copy of the app with the given id, or nil.
 func findApp(id string) *App {
 	appsLock.Lock()
 	defer appsLock.Unlock()

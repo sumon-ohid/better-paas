@@ -15,6 +15,16 @@ export interface App {
   startCommand?: string
   installCommand?: string
   portOverride?: number
+  // New capabilities
+  domains?: string[]
+  memory?: string
+  cpus?: string
+  volumes?: string[]
+  healthPath?: string
+  secretKeys?: string[]
+  autoDeploy?: boolean
+  activeImage?: string
+  activeDeployId?: string
 }
 
 export interface ServerStats {
@@ -23,6 +33,17 @@ export interface ServerStats {
   diskUsage: number
   activeApps: number
   timestamp: string
+}
+
+export interface PerAppMetrics {
+  appId: string
+  name: string
+  cpuPercent: number
+  memUsageMb: number
+  memLimitMb: number
+  memPercent: number
+  netRxMb: number
+  netTxMb: number
 }
 
 export interface LogEntry {
@@ -38,6 +59,9 @@ export interface DeploymentRecord {
   logs: string[]
   createdAt: string
   duration: string
+  image?: string
+  trigger?: string
+  commit?: string
 }
 
 export interface DeployRequest {
@@ -51,6 +75,13 @@ export interface DeployRequest {
   startCommand?: string
   installCommand?: string
   portOverride?: number
+  domains?: string[]
+  memory?: string
+  cpus?: string
+  volumes?: string[]
+  healthPath?: string
+  secretKeys?: string[]
+  autoDeploy?: boolean
 }
 
 export interface UpdateRequest {
@@ -63,6 +94,56 @@ export interface UpdateRequest {
   startCommand?: string
   installCommand?: string
   portOverride?: number
+  domains?: string[]
+  memory?: string
+  cpus?: string
+  volumes?: string[]
+  healthPath?: string
+  secretKeys?: string[]
+  autoDeploy?: boolean
+}
+
+export interface Addon {
+  id: string
+  type: "postgres" | "redis" | "mysql" | string
+  name: string
+  containerName: string
+  status: string
+  volume: string
+  port: number
+  connEnv?: Record<string, string>
+  createdAt: string
+}
+
+export interface CronJob {
+  id: string
+  appId: string
+  appName: string
+  schedule: string
+  command: string
+  enabled: boolean
+  lastRun: string
+  lastStatus: string
+  createdAt: string
+}
+
+export interface NotificationConfig {
+  slackWebhookUrl: string
+  genericUrl: string
+  onSuccess: boolean
+  onFailure: boolean
+}
+
+export interface BackupInfo {
+  name: string
+  sizeBytes: number
+  createdAt: string
+}
+
+export interface WebhookInfo {
+  url: string
+  secret: string
+  event: string
 }
 
 export interface GitHubRepo {

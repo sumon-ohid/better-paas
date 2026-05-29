@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -35,6 +36,18 @@ func main() {
 	// Start sampling real host metrics (CPU/memory/disk) for the stats stream.
 	startMetricsSampler()
 
+	// Restore managed add-on containers (databases/caches).
+	reconcileAddons()
+
+	// Begin persistent runtime-log capture for already-running apps.
+	startAllRuntimeLogCaptures()
+
+	// Start the cron scheduler for scheduled jobs.
+	startCronScheduler()
+
+	// Start automatic backups if configured (BACKUP_INTERVAL_HOURS).
+	startBackupScheduler()
+
 	// Start Caddy reverse proxy subprocess
 	startCaddySubprocess()
 
@@ -49,6 +62,9 @@ func main() {
 	mux.HandleFunc("/api/apps/delete", handleDelete)
 	mux.HandleFunc("/api/apps/update", handleUpdate)
 	mux.HandleFunc("/api/apps/redeploy", handleRedeploy)
+	mux.HandleFunc("/api/apps/rollback", handleRollback)
+	mux.HandleFunc("/api/apps/webhook", handleWebhookInfo)
+	mux.HandleFunc("/api/apps/webhook/regenerate", handleWebhookRegenerate)
 
 	// Git helpers
 	mux.HandleFunc("/api/git/branches", handleGitBranches)
@@ -59,11 +75,40 @@ func main() {
 	mux.HandleFunc("/api/git/token/save", handleGitTokenSet)
 	mux.HandleFunc("/api/git/token/delete", handleGitTokenDelete)
 
+	// Managed add-ons (databases/caches)
+	mux.HandleFunc("/api/addons", handleAddons)
+	mux.HandleFunc("/api/addons/create", handleAddonCreate)
+	mux.HandleFunc("/api/addons/delete", handleAddonDelete)
+	mux.HandleFunc("/api/addons/attach", handleAddonAttach)
+
+	// Scheduled jobs (cron)
+	mux.HandleFunc("/api/cron", handleCronList)
+	mux.HandleFunc("/api/cron/create", handleCronCreate)
+	mux.HandleFunc("/api/cron/update", handleCronUpdate)
+	mux.HandleFunc("/api/cron/delete", handleCronDelete)
+	mux.HandleFunc("/api/cron/run", handleCronRunNow)
+
+	// Notifications
+	mux.HandleFunc("/api/notifications", handleNotificationsGet)
+	mux.HandleFunc("/api/notifications/save", handleNotificationsSave)
+	mux.HandleFunc("/api/notifications/test", handleNotificationsTest)
+
+	// Backups
+	mux.HandleFunc("/api/backups", handleBackupsList)
+	mux.HandleFunc("/api/backups/create", handleBackupCreate)
+	mux.HandleFunc("/api/backups/download", handleBackupDownload)
+	mux.HandleFunc("/api/backups/delete", handleBackupDelete)
+
 	// System
 	mux.HandleFunc("/api/health", handleHealth)
 	mux.HandleFunc("/api/auth/verify", handleAuthVerify)
 	mux.HandleFunc("/api/docker/prune", handleDockerPrune)
 	mux.HandleFunc("/api/deployments/history", handleDeploymentHistory)
+	mux.HandleFunc("/api/metrics/apps", handlePerAppMetrics)
+	mux.HandleFunc("/api/apps/runtime-logs", handleRuntimeLogHistory)
+
+	// Public webhook endpoint (authenticated by per-app HMAC signature).
+	mux.HandleFunc("/api/webhooks/github/", handleGitHubWebhook)
 
 	// WebSockets (auth enforced inside each handler via ?token=).
 	mux.HandleFunc("/ws/stats", handleStatsWS)
@@ -113,6 +158,20 @@ func listenAddr() string {
 	return ":8080"
 }
 
+// envInt reads an integer environment variable, returning def when unset or
+// unparseable.
+func envInt(key string, def int) int {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return def
+	}
+	return n
+}
+
 // publicPaths are reachable without an admin token.
 var publicPaths = map[string]bool{
 	"/api/health":      true,
@@ -121,12 +180,14 @@ var publicPaths = map[string]bool{
 
 // authGate enforces bearer-token auth on every API route except public ones.
 // WebSocket routes authenticate themselves (token query param) since browsers
-// cannot attach Authorization headers to WS handshakes.
+// cannot attach Authorization headers to WS handshakes. The GitHub webhook
+// endpoint is also exempt: it is authenticated per-app by HMAC signature.
 func authGate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodOptions ||
 			publicPaths[r.URL.Path] ||
-			strings.HasPrefix(r.URL.Path, "/ws/") {
+			strings.HasPrefix(r.URL.Path, "/ws/") ||
+			strings.HasPrefix(r.URL.Path, "/api/webhooks/") {
 			next.ServeHTTP(w, r)
 			return
 		}

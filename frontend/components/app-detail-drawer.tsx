@@ -38,6 +38,13 @@ interface App {
   startCommand?: string
   installCommand?: string
   portOverride?: number
+  domains?: string[]
+  memory?: string
+  cpus?: string
+  volumes?: string[]
+  healthPath?: string
+  secretKeys?: string[]
+  autoDeploy?: boolean
 }
 
 interface ServerStats {
@@ -72,6 +79,7 @@ export function AppDetailDrawer({
   const [activeTab, setActiveTab] = useState<"overview" | "logs" | "settings">("overview")
   const [runtimeLogs, setRuntimeLogs] = useState<{ message: string; timestamp: string }[]>([])
   const [runtimeLogsConnected, setRuntimeLogsConnected] = useState(false)
+  const [appMetrics, setAppMetrics] = useState<{ cpuPercent: number; memUsageMb: number; memLimitMb: number; memPercent: number } | null>(null)
   const runtimeLogsWsRef = useRef<WebSocket | null>(null)
   const runtimeLogEndRef = useRef<HTMLDivElement | null>(null)
 
@@ -152,6 +160,40 @@ export function AppDetailDrawer({
       setActiveTab("overview")
     }
   }, [isOpen])
+
+  // Load webhook info when entering the settings tab.
+  useEffect(() => {
+    if (isOpen && activeTab === "settings" && app) {
+      loadWebhook()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeTab, app?.id])
+
+  // Poll per-container metrics while the drawer is open for a running app.
+  useEffect(() => {
+    if (!isOpen || !app || app.status !== "running") {
+      setAppMetrics(null)
+      return
+    }
+    let cancelled = false
+    const fetchMetrics = async () => {
+      try {
+        const all = await api.system.appMetrics()
+        if (cancelled) return
+        const m = all.find((x) => x.appId === app.id)
+        setAppMetrics(m ? { cpuPercent: m.cpuPercent, memUsageMb: m.memUsageMb, memLimitMb: m.memLimitMb, memPercent: m.memPercent } : null)
+      } catch {
+        // ignore
+      }
+    }
+    fetchMetrics()
+    const t = setInterval(fetchMetrics, 4000)
+    return () => {
+      cancelled = true
+      clearInterval(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, app?.id, app?.status])
   const [copied, setCopied] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isRedeploying, setIsRedeploying] = useState(false)
@@ -166,6 +208,17 @@ export function AppDetailDrawer({
   const [startCommand, setStartCommand] = useState("")
   const [installCommand, setInstallCommand] = useState("")
   const [portOverride, setPortOverride] = useState("")
+  const [memory, setMemory] = useState("")
+  const [cpus, setCpus] = useState("")
+  const [healthPath, setHealthPath] = useState("")
+  const [domains, setDomains] = useState("")
+  const [volumes, setVolumes] = useState("")
+  const [autoDeploy, setAutoDeploy] = useState(false)
+
+  // Webhook info
+  const [webhookUrl, setWebhookUrl] = useState("")
+  const [webhookSecret, setWebhookSecret] = useState("")
+  const [webhookCopied, setWebhookCopied] = useState(false)
 
   useEffect(() => {
     if (app) {
@@ -178,7 +231,13 @@ export function AppDetailDrawer({
       setStartCommand(app.startCommand || "")
       setInstallCommand(app.installCommand || "")
       setPortOverride(app.portOverride ? app.portOverride.toString() : "")
-      
+      setMemory(app.memory || "")
+      setCpus(app.cpus || "")
+      setHealthPath(app.healthPath || "")
+      setDomains((app.domains || []).join(", "))
+      setVolumes((app.volumes || []).join(", "))
+      setAutoDeploy(!!app.autoDeploy)
+
       const loadedVars: { key: string; value: string }[] = []
       if (app.envVars) {
         Object.entries(app.envVars).forEach(([k, v]) => {
@@ -217,6 +276,13 @@ export function AppDetailDrawer({
         startCommand,
         installCommand,
         portOverride: portOverride ? parseInt(portOverride, 10) : 0,
+        memory: memory.trim(),
+        cpus: cpus.trim(),
+        healthPath: healthPath.trim(),
+        domains: domains.split(/[\n,]/).map((d) => d.trim()).filter(Boolean),
+        volumes: volumes.split(/[\n,]/).map((v) => v.trim()).filter(Boolean),
+        secretKeys: app.secretKeys || [],
+        autoDeploy,
       })
       await onUpdateAppList()
       setActiveTab("overview")
@@ -226,6 +292,32 @@ export function AppDetailDrawer({
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const loadWebhook = async () => {
+    try {
+      const info = await api.apps.webhook(app.id)
+      setWebhookUrl(info.url)
+      setWebhookSecret(info.secret)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleRegenerateWebhook = async () => {
+    try {
+      const res = await api.apps.regenerateWebhook(app.id)
+      setWebhookSecret(res.secret)
+    } catch (err) {
+      console.error(err)
+      alert("Failed to regenerate webhook secret.")
+    }
+  }
+
+  const copyWebhook = () => {
+    navigator.clipboard.writeText(`${webhookUrl}\nSecret: ${webhookSecret}`)
+    setWebhookCopied(true)
+    setTimeout(() => setWebhookCopied(false), 2000)
   }
 
   const handleRedeploy = async () => {
@@ -480,15 +572,24 @@ export function AppDetailDrawer({
                         <CpuIcon className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-muted-foreground">CPU usage</span>
                       </div>
-                      <span className="font-mono text-sm font-semibold">{stats.cpuUsage.toFixed(1)}%</span>
+                      <span className="font-mono text-sm font-semibold">
+                        {appMetrics ? `${appMetrics.cpuPercent.toFixed(1)}%` : `${stats.cpuUsage.toFixed(1)}%`}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-1.5 text-sm">
                         <ServerIcon className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-muted-foreground">RAM usage</span>
                       </div>
-                      <span className="font-mono text-sm font-semibold">{stats.memoryUsage.toFixed(1)}%</span>
+                      <span className="font-mono text-sm font-semibold">
+                        {appMetrics
+                          ? `${appMetrics.memUsageMb.toFixed(0)}${appMetrics.memLimitMb > 0 ? ` / ${appMetrics.memLimitMb.toFixed(0)} MB` : " MB"}`
+                          : `${stats.memoryUsage.toFixed(1)}%`}
+                      </span>
                     </div>
+                    <p className="text-[10px] text-muted-foreground/50">
+                      {appMetrics ? "Live container usage" : "Host-level usage (container stats unavailable)"}
+                    </p>
                   </div>
                 </div>
               )}
@@ -497,7 +598,7 @@ export function AppDetailDrawer({
 
           {activeTab === "logs" && (
             <div className="space-y-4 animate-in fade-in-50 duration-200 flex flex-col h-full">
-              <div className="flex flex-col h-full min-h-[400px] bg-[#090a0f] border border-border/80 rounded-lg overflow-hidden font-mono text-xs text-slate-100 font-mono">
+              <div className="flex flex-col h-full min-h-[400px] bg-[#090a0f] border border-border/80 rounded-lg overflow-hidden font-mono text-xs text-slate-100">
                 <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/10 text-[11px] uppercase font-bold text-slate-400 select-none">
                   <span>Container Runtime Output</span>
                   <span className="flex items-center gap-1.5">
@@ -617,6 +718,102 @@ export function AppDetailDrawer({
                     placeholder="Execution script"
                     className="h-9 border-border bg-background text-sm"
                   />
+                </div>
+              </div>
+
+              {/* Resource limits */}
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Memory Limit</Label>
+                  <Input
+                    value={memory}
+                    onChange={(e) => setMemory(e.target.value)}
+                    placeholder="e.g. 512m, 1g"
+                    className="h-9 border-border bg-background text-sm font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">CPU Limit</Label>
+                  <Input
+                    value={cpus}
+                    onChange={(e) => setCpus(e.target.value)}
+                    placeholder="e.g. 0.5, 1, 2"
+                    className="h-9 border-border bg-background text-sm font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Health Check Path</Label>
+                <Input
+                  value={healthPath}
+                  onChange={(e) => setHealthPath(e.target.value)}
+                  placeholder="/health (blank = TCP check)"
+                  className="h-9 border-border bg-background text-sm font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Custom Domains</Label>
+                <Input
+                  value={domains}
+                  onChange={(e) => setDomains(e.target.value)}
+                  placeholder="app.example.com, www.example.com"
+                  className="h-9 border-border bg-background text-sm font-mono"
+                />
+                <p className="text-[10px] text-muted-foreground/60">Comma-separated. HTTPS issued automatically. Point DNS here first.</p>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Persistent Volumes</Label>
+                <Input
+                  value={volumes}
+                  onChange={(e) => setVolumes(e.target.value)}
+                  placeholder="myapp-data:/data"
+                  className="h-9 border-border bg-background text-sm font-mono"
+                />
+              </div>
+
+              {/* Auto-deploy + webhook */}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoDeploy}
+                    onChange={(e) => setAutoDeploy(e.target.checked)}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span className="text-xs font-medium text-foreground">Auto-deploy on git push</span>
+                </label>
+
+                <div className="rounded-md border border-border bg-muted/20 p-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">GitHub Webhook</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={copyWebhook}
+                        className="text-[10px] text-primary hover:underline"
+                      >
+                        {webhookCopied ? "Copied!" : "Copy"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRegenerateWebhook}
+                        className="text-[10px] text-muted-foreground hover:text-foreground"
+                      >
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1 font-mono text-[10px] text-muted-foreground break-all">
+                    <div><span className="text-foreground/80 font-semibold">URL: </span><span className="select-all">{webhookUrl || "—"}</span></div>
+                    <div><span className="text-foreground/80 font-semibold">Secret: </span><span className="select-all">{webhookSecret || "—"}</span></div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
+                    Add this as a <span className="font-mono">push</span> webhook (content type
+                    <span className="font-mono"> application/json</span>) in your repo settings, then enable auto-deploy.
+                  </p>
                 </div>
               </div>
 

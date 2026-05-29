@@ -1,6 +1,19 @@
 // Typed API client for the PaaS backend
 
-import type { App, DeployRequest, DeploymentRecord, UpdateRequest, GitHubContent, GitHubFile } from "./types"
+import type {
+  App,
+  DeployRequest,
+  DeploymentRecord,
+  UpdateRequest,
+  GitHubContent,
+  GitHubFile,
+  PerAppMetrics,
+  Addon,
+  CronJob,
+  NotificationConfig,
+  BackupInfo,
+  WebhookInfo,
+} from "./types"
 import { getToken } from "./auth"
 
 // Resolve the backend base URL.
@@ -77,6 +90,88 @@ export const api = {
       req<App>("/api/apps/update", { method: "POST", body: JSON.stringify(data) }),
     redeploy: (id: string) =>
       req<App>("/api/apps/redeploy", { method: "POST", body: JSON.stringify({ id }) }),
+    rollback: (id: string, deploymentId: string) =>
+      req<App>("/api/apps/rollback", {
+        method: "POST",
+        body: JSON.stringify({ id, deploymentId }),
+      }),
+    webhook: (id: string) => req<WebhookInfo>(`/api/apps/webhook?id=${encodeURIComponent(id)}`),
+    regenerateWebhook: (id: string) =>
+      req<{ secret: string }>("/api/apps/webhook/regenerate", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
+    runtimeLogs: (id: string, lines = 500) =>
+      req<{ logs: string[] }>(
+        `/api/apps/runtime-logs?id=${encodeURIComponent(id)}&lines=${lines}`,
+      ),
+  },
+
+  // ── Managed add-ons (databases / caches) ────────────────────────────────────
+  addons: {
+    list: () => req<Addon[]>("/api/addons"),
+    create: (type: string, name: string) =>
+      req<Addon>("/api/addons/create", {
+        method: "POST",
+        body: JSON.stringify({ type, name }),
+      }),
+    delete: (id: string, deleteData = false) =>
+      req<{ status: string }>("/api/addons/delete", {
+        method: "POST",
+        body: JSON.stringify({ id, deleteData }),
+      }),
+    attach: (addonId: string, appId: string) =>
+      req<App>("/api/addons/attach", {
+        method: "POST",
+        body: JSON.stringify({ addonId, appId }),
+      }),
+  },
+
+  // ── Scheduled jobs (cron) ───────────────────────────────────────────────────
+  cron: {
+    list: () => req<CronJob[]>("/api/cron"),
+    create: (appId: string, schedule: string, command: string) =>
+      req<CronJob>("/api/cron/create", {
+        method: "POST",
+        body: JSON.stringify({ appId, schedule, command }),
+      }),
+    update: (data: { id: string; schedule?: string; command?: string; enabled?: boolean }) =>
+      req<CronJob>("/api/cron/update", { method: "POST", body: JSON.stringify(data) }),
+    delete: (id: string) =>
+      req<{ status: string }>("/api/cron/delete", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
+    run: (id: string) =>
+      req<{ status: string }>("/api/cron/run", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
+  },
+
+  // ── Deploy notifications ────────────────────────────────────────────────────
+  notifications: {
+    get: () => req<NotificationConfig>("/api/notifications"),
+    save: (cfg: NotificationConfig) =>
+      req<NotificationConfig>("/api/notifications/save", {
+        method: "POST",
+        body: JSON.stringify(cfg),
+      }),
+    test: () =>
+      req<{ status: string }>("/api/notifications/test", { method: "POST" }),
+  },
+
+  // ── Backups ─────────────────────────────────────────────────────────────────
+  backups: {
+    list: () => req<BackupInfo[]>("/api/backups"),
+    create: () => req<BackupInfo>("/api/backups/create", { method: "POST" }),
+    delete: (name: string) =>
+      req<{ status: string }>("/api/backups/delete", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }),
+    downloadUrl: (name: string) =>
+      `${BASE_URL}/api/backups/download?name=${encodeURIComponent(name)}`,
   },
 
   git: {
@@ -113,6 +208,7 @@ export const api = {
       req<{ status: string; timestamp: string; uptime: string }>("/api/health"),
     prune: () =>
       req<{ status: string; output: string }>("/api/docker/prune", { method: "POST" }),
+    appMetrics: () => req<PerAppMetrics[]>("/api/metrics/apps"),
   },
 
   deployments: {

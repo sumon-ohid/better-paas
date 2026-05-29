@@ -64,6 +64,18 @@ export default function ProjectDeploymentsPage() {
     }
   }
 
+  const handleRollback = async (dep: DeploymentRecord) => {
+    if (!app) return
+    if (!confirm(`Roll back ${app.name} to deployment ${dep.id}? This re-releases the image from that deploy.`)) return
+    try {
+      await api.apps.rollback(app.id, dep.id)
+      router.push(`/logs?appId=${app.id}&mode=build`)
+    } catch (err) {
+      console.error("Rollback failed", err)
+      alert(err instanceof Error ? err.message : "Rollback failed.")
+    }
+  }
+
   return (
     <AppShell>
       <div className="p-4 md:p-6 space-y-6">
@@ -249,17 +261,33 @@ export default function ProjectDeploymentsPage() {
                     <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                       <span className="text-[11px] font-mono text-muted-foreground/50 dark:text-slate-500">
                         Build log · {dep.logs.length} lines · {dep.duration}
+                        {dep.trigger && <span className="ml-2">· {dep.trigger}</span>}
+                        {dep.commit && <span className="ml-2">· {dep.commit.slice(0, 7)}</span>}
                       </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/logs?appId=${appId}&mode=build`)
-                        }}
-                        className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer transition-colors"
-                      >
-                        <TerminalIcon className="h-3 w-3" />
-                        Open full log
-                      </button>
+                      <div className="flex items-center gap-3">
+                        {dep.image && dep.status === "success" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRollback(dep)
+                            }}
+                            className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-primary dark:text-slate-500 dark:hover:text-primary cursor-pointer transition-colors"
+                          >
+                            <RefreshIcon className="h-3 w-3" />
+                            Roll back to this
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            router.push(`/logs?appId=${appId}&mode=build`)
+                          }}
+                          className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer transition-colors"
+                        >
+                          <TerminalIcon className="h-3 w-3" />
+                          Open full log
+                        </button>
+                      </div>
                     </div>
 
                     {/* Log lines */}

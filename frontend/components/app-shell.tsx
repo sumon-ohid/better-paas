@@ -30,6 +30,9 @@ const KeyboardIcon = (props: IconProps) => <NucleoIcon {...props} name="keyboard
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 const HelpCircleIcon = (props: IconProps) => <NucleoIcon {...props} name="help" />
 const SpinIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
+const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
+const ArchiveIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 
 interface NavItem {
   id: string
@@ -79,6 +82,24 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
       icon: <TerminalIcon className="h-3.5 w-3.5" />,
       href: "/logs",
       badge: hasActiveLogs ? "●" : undefined,
+    },
+    {
+      id: "addons",
+      label: "Databases",
+      icon: <DatabaseIcon className="h-3.5 w-3.5" />,
+      href: "/addons",
+    },
+    {
+      id: "cron",
+      label: "Scheduled Jobs",
+      icon: <ClockIcon className="h-3.5 w-3.5" />,
+      href: "/cron",
+    },
+    {
+      id: "backups",
+      label: "Backups",
+      icon: <ArchiveIcon className="h-3.5 w-3.5" />,
+      href: "/backups",
     },
     {
       id: "settings",

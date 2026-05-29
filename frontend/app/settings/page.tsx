@@ -27,6 +27,7 @@ import { AppShell, useToast } from "@/components/app-shell"
 import { api } from "@/lib/api"
 import { useAuth } from "@/components/auth-gate"
 import { NucleoIcon } from "@/components/nucleo-icons"
+import type { NotificationConfig } from "@/lib/types"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const TrashIcon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
@@ -34,6 +35,7 @@ const SettingsIcon = (props: IconProps) => <NucleoIcon {...props} name="settings
 const InfoIcon = (props: IconProps) => <NucleoIcon {...props} name="info" />
 const AlertTriangleIcon = (props: IconProps) => <NucleoIcon {...props} name="triangle-alert" />
 const LockIcon = (props: IconProps) => <NucleoIcon {...props} name="lock" />
+const BellIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
 
 export default function SettingsPage() {
   const { showToast } = useToast()
@@ -42,6 +44,43 @@ export default function SettingsPage() {
   const [pruneOutput, setPruneOutput] = useState("")
   const [showPruneModal, setShowPruneModal] = useState(false)
   const [restartPolicy, setRestartPolicy] = useState("unless-stopped")
+
+  // Notifications
+  const [notif, setNotif] = useState<NotificationConfig>({
+    slackWebhookUrl: "",
+    genericUrl: "",
+    onSuccess: true,
+    onFailure: true,
+  })
+  const [savingNotif, setSavingNotif] = useState(false)
+
+  React.useEffect(() => {
+    api.notifications
+      .get()
+      .then(setNotif)
+      .catch(() => {})
+  }, [])
+
+  const handleSaveNotif = async () => {
+    setSavingNotif(true)
+    try {
+      await api.notifications.save(notif)
+      showToast("Saved", "Notification settings updated.", "success")
+    } catch {
+      showToast("Save failed", "Could not save notification settings.", "destructive")
+    } finally {
+      setSavingNotif(false)
+    }
+  }
+
+  const handleTestNotif = async () => {
+    try {
+      await api.notifications.test()
+      showToast("Test sent", "Check your Slack/webhook endpoint.", "success")
+    } catch {
+      showToast("Test failed", "Could not send test notification.", "destructive")
+    }
+  }
 
   const handlePrune = async () => {
     setPruning(true)
@@ -99,7 +138,7 @@ export default function SettingsPage() {
             </Alert>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">
+              <Label className="text-xs mr-4 font-semibold text-muted-foreground">
                 Proxy Timeout Limit
               </Label>
               <Input defaultValue="30s" disabled className="max-w-xs text-sm" />
@@ -108,7 +147,7 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">
+              <Label className="text-xs mr-4 font-semibold text-muted-foreground">
                 Builder Concurrency Limit
               </Label>
               <Input defaultValue="2" disabled className="max-w-xs text-sm" />
@@ -117,7 +156,7 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">
+              <Label className="text-xs mr-4 font-semibold text-muted-foreground">
                 Container Restart Policy
               </Label>
               <Select value={restartPolicy} onValueChange={(v) => v && setRestartPolicy(v)} disabled>
@@ -174,6 +213,67 @@ export default function SettingsPage() {
                 {pruneOutput}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Deploy Notifications */}
+        <Card>
+          <CardHeader className="border-b border-border/40">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BellIcon className="h-4 w-4 text-muted-foreground" />
+              Deploy Notifications
+            </CardTitle>
+            <CardDescription>
+              Get notified on Slack or a custom webhook when deployments succeed or fail.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Slack Incoming Webhook URL</Label>
+              <Input
+                value={notif.slackWebhookUrl}
+                onChange={(e) => setNotif((n) => ({ ...n, slackWebhookUrl: e.target.value }))}
+                placeholder="https://hooks.slack.com/services/..."
+                className="text-sm font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Generic Webhook URL (JSON POST)</Label>
+              <Input
+                value={notif.genericUrl}
+                onChange={(e) => setNotif((n) => ({ ...n, genericUrl: e.target.value }))}
+                placeholder="https://example.com/hooks/deploy"
+                className="text-sm font-mono"
+              />
+            </div>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notif.onSuccess}
+                  onChange={(e) => setNotif((n) => ({ ...n, onSuccess: e.target.checked }))}
+                  className="h-4 w-4 accent-primary"
+                />
+                Notify on success
+              </label>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notif.onFailure}
+                  onChange={(e) => setNotif((n) => ({ ...n, onFailure: e.target.checked }))}
+                  className="h-4 w-4 accent-primary"
+                />
+                Notify on failure
+              </label>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button onClick={handleSaveNotif} loading={savingNotif}>
+                Save notifications
+              </Button>
+              <Button variant="outline" onClick={handleTestNotif}>
+                Send test
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

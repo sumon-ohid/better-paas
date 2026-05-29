@@ -72,13 +72,64 @@ CREATE TABLE IF NOT EXISTS deployments (
 
 CREATE INDEX IF NOT EXISTS idx_deployments_app_id ON deployments(app_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS addons (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    name TEXT NOT NULL,
+    container_name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    volume TEXT,
+    port INTEGER NOT NULL,
+    conn_env TEXT,
+    created_at DATETIME NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cron_jobs (
+    id TEXT PRIMARY KEY,
+    app_id TEXT NOT NULL,
+    app_name TEXT NOT NULL,
+    schedule TEXT NOT NULL,
+    command TEXT NOT NULL,
+    enabled INTEGER DEFAULT 1,
+    last_run DATETIME,
+    last_status TEXT,
+    created_at DATETIME NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cron_app_id ON cron_jobs(app_id);
+
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT
 );
 `
-	_, err := sqliteDB.Exec(schema)
-	return err
+	if _, err := sqliteDB.Exec(schema); err != nil {
+		return err
+	}
+
+	// Additive column migrations for existing databases. Each is idempotent:
+	// errors from a column that already exists are ignored.
+	addColumns := []struct{ table, col, def string }{
+		{"apps", "domains", "TEXT"},
+		{"apps", "memory", "TEXT"},
+		{"apps", "cpus", "TEXT"},
+		{"apps", "volumes", "TEXT"},
+		{"apps", "health_path", "TEXT"},
+		{"apps", "active_container", "TEXT"},
+		{"apps", "active_image", "TEXT"},
+		{"apps", "active_deploy_id", "TEXT"},
+		{"apps", "secret_keys", "TEXT"},
+		{"apps", "webhook_secret", "TEXT"},
+		{"apps", "auto_deploy", "INTEGER DEFAULT 0"},
+		{"deployments", "image", "TEXT"},
+		{"deployments", "trigger", "TEXT"},
+		{"deployments", "commit_sha", "TEXT"},
+	}
+	for _, c := range addColumns {
+		// SQLite has no "ADD COLUMN IF NOT EXISTS"; ignore the duplicate error.
+		_, _ = sqliteDB.Exec("ALTER TABLE " + c.table + " ADD COLUMN " + c.col + " " + c.def)
+	}
+	return nil
 }
 
 // migrateFromJSON imports data from the legacy db.json file, then renames it.
@@ -165,7 +216,7 @@ func loadStateFromDB() {
 	apps = []App{}
 	buildLogs = make(map[string][]string)
 
-	rows, err := sqliteDB.Query(`SELECT id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override FROM apps`)
+	rows, err := sqliteDB.Query(`SELECT id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override, domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy FROM apps`)
 	if err != nil {
 		log.Printf("[db] failed to load apps: %v", err)
 		return
@@ -175,7 +226,11 @@ func loadStateFromDB() {
 	for rows.Next() {
 		var a App
 		var envJSON string
-		err := rows.Scan(&a.ID, &a.Name, &a.Status, &a.GitRepo, &a.Branch, &a.Port, &a.URL, &a.CreatedAt, &a.GitToken, &a.RootDir, &envJSON, &a.BuildCommand, &a.StartCommand, &a.InstallCommand, &a.PortOverride)
+		var domainsJSON, volumesJSON, secretKeysJSON sql.NullString
+		var memory, cpus, healthPath, activeContainer, activeImage, activeDeployID, webhookSecret sql.NullString
+		var autoDeploy sql.NullBool
+		err := rows.Scan(&a.ID, &a.Name, &a.Status, &a.GitRepo, &a.Branch, &a.Port, &a.URL, &a.CreatedAt, &a.GitToken, &a.RootDir, &envJSON, &a.BuildCommand, &a.StartCommand, &a.InstallCommand, &a.PortOverride,
+			&domainsJSON, &memory, &cpus, &volumesJSON, &healthPath, &activeContainer, &activeImage, &activeDeployID, &secretKeysJSON, &webhookSecret, &autoDeploy)
 		if err != nil {
 			log.Printf("[db] failed to scan app: %v", err)
 			continue
@@ -183,6 +238,23 @@ func loadStateFromDB() {
 		if envJSON != "" {
 			_ = json.Unmarshal([]byte(envJSON), &a.EnvVars)
 		}
+		if domainsJSON.Valid && domainsJSON.String != "" {
+			_ = json.Unmarshal([]byte(domainsJSON.String), &a.Domains)
+		}
+		if volumesJSON.Valid && volumesJSON.String != "" {
+			_ = json.Unmarshal([]byte(volumesJSON.String), &a.Volumes)
+		}
+		if secretKeysJSON.Valid && secretKeysJSON.String != "" {
+			_ = json.Unmarshal([]byte(secretKeysJSON.String), &a.SecretKeys)
+		}
+		a.Memory = memory.String
+		a.CPUs = cpus.String
+		a.HealthPath = healthPath.String
+		a.ActiveContainer = activeContainer.String
+		a.ActiveImage = activeImage.String
+		a.ActiveDeployID = activeDeployID.String
+		a.WebhookSecret = decryptSecret(webhookSecret.String)
+		a.AutoDeploy = autoDeploy.Bool
 		a.GitToken = decryptSecret(a.GitToken)
 		apps = append(apps, a)
 		buildLogs[a.ID] = []string{}
@@ -213,10 +285,15 @@ func dbSaveApp(app App) error {
 
 func dbSaveAppTx(tx *sql.Tx, app App) error {
 	envJSON, _ := json.Marshal(app.EnvVars)
+	domainsJSON, _ := json.Marshal(app.Domains)
+	volumesJSON, _ := json.Marshal(app.Volumes)
+	secretKeysJSON, _ := json.Marshal(app.SecretKeys)
 	encToken := encryptSecret(app.GitToken)
+	encWebhook := encryptSecret(app.WebhookSecret)
 	_, err := tx.Exec(`
-		INSERT INTO apps (id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO apps (id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override,
+			domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name,
 			status=excluded.status,
@@ -230,8 +307,20 @@ func dbSaveAppTx(tx *sql.Tx, app App) error {
 			build_command=excluded.build_command,
 			start_command=excluded.start_command,
 			install_command=excluded.install_command,
-			port_override=excluded.port_override
-	`, app.ID, app.Name, app.Status, app.GitRepo, app.Branch, app.Port, app.URL, app.CreatedAt, encToken, app.RootDir, string(envJSON), app.BuildCommand, app.StartCommand, app.InstallCommand, app.PortOverride)
+			port_override=excluded.port_override,
+			domains=excluded.domains,
+			memory=excluded.memory,
+			cpus=excluded.cpus,
+			volumes=excluded.volumes,
+			health_path=excluded.health_path,
+			active_container=excluded.active_container,
+			active_image=excluded.active_image,
+			active_deploy_id=excluded.active_deploy_id,
+			secret_keys=excluded.secret_keys,
+			webhook_secret=excluded.webhook_secret,
+			auto_deploy=excluded.auto_deploy
+	`, app.ID, app.Name, app.Status, app.GitRepo, app.Branch, app.Port, app.URL, app.CreatedAt, encToken, app.RootDir, string(envJSON), app.BuildCommand, app.StartCommand, app.InstallCommand, app.PortOverride,
+		string(domainsJSON), app.Memory, app.CPUs, string(volumesJSON), app.HealthPath, app.ActiveContainer, app.ActiveImage, app.ActiveDeployID, string(secretKeysJSON), encWebhook, app.AutoDeploy)
 	return err
 }
 
@@ -251,35 +340,60 @@ func dbUpdateAppStatus(id, status string) error {
 
 func dbCreateDeployment(dep DeploymentRecord) error {
 	_, err := sqliteDB.Exec(`
-		INSERT INTO deployments (id, app_id, app_name, status, log_file, created_at, duration)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO deployments (id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			status=excluded.status,
-			duration=excluded.duration
-	`, dep.ID, dep.AppID, dep.AppName, dep.Status, dep.LogFile, dep.CreatedAt, dep.Duration)
+			duration=excluded.duration,
+			image=excluded.image,
+			commit_sha=excluded.commit_sha
+	`, dep.ID, dep.AppID, dep.AppName, dep.Status, dep.LogFile, dep.CreatedAt, dep.Duration, dep.Image, dep.Trigger, dep.Commit)
 	return err
 }
 
 func dbGetLatestDeployment(appID string) (*DeploymentRecord, error) {
 	var d DeploymentRecord
+	var image, trigger, commit sql.NullString
 	err := sqliteDB.QueryRow(`
-		SELECT id, app_id, app_name, status, log_file, created_at, duration
+		SELECT id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha
 		FROM deployments
 		WHERE app_id = ?
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, appID).Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration)
+	`, appID).Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration, &image, &trigger, &commit)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	d.Image, d.Trigger, d.Commit = image.String, trigger.String, commit.String
+	return &d, nil
+}
+
+// dbGetDeployment returns a single deployment by ID (used for rollback).
+func dbGetDeployment(id string) (*DeploymentRecord, error) {
+	var d DeploymentRecord
+	var image, trigger, commit sql.NullString
+	err := sqliteDB.QueryRow(`
+		SELECT id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha
+		FROM deployments WHERE id = ?
+	`, id).Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration, &image, &trigger, &commit)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	d.Image, d.Trigger, d.Commit = image.String, trigger.String, commit.String
+	if d.LogFile != "" {
+		d.Logs, _ = readLogFile(d.LogFile)
+	}
 	return &d, nil
 }
 
 func dbLoadDeployments() ([]DeploymentRecord, error) {
-	rows, err := sqliteDB.Query(`SELECT id, app_id, app_name, status, log_file, created_at, duration FROM deployments ORDER BY created_at DESC`)
+	rows, err := sqliteDB.Query(`SELECT id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha FROM deployments ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -288,10 +402,12 @@ func dbLoadDeployments() ([]DeploymentRecord, error) {
 	var result []DeploymentRecord
 	for rows.Next() {
 		var d DeploymentRecord
-		err := rows.Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration)
+		var image, trigger, commit sql.NullString
+		err := rows.Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration, &image, &trigger, &commit)
 		if err != nil {
 			continue
 		}
+		d.Image, d.Trigger, d.Commit = image.String, trigger.String, commit.String
 		if d.LogFile != "" {
 			d.Logs, _ = readLogFile(d.LogFile)
 		}
@@ -375,6 +491,116 @@ func appendLogFile(path string, line string) error {
 	}
 	defer f.Close()
 	_, err = f.WriteString(line + "\n")
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// Addon CRUD
+// ---------------------------------------------------------------------------
+
+func dbSaveAddon(a Addon) error {
+	connJSON, _ := json.Marshal(a.ConnEnv)
+	_, err := sqliteDB.Exec(`
+		INSERT INTO addons (id, type, name, container_name, status, volume, port, conn_env, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			status=excluded.status,
+			conn_env=excluded.conn_env
+	`, a.ID, a.Type, a.Name, a.ContainerName, a.Status, a.Volume, a.Port, encryptSecret(string(connJSON)), a.CreatedAt)
+	return err
+}
+
+func dbLoadAddons() ([]Addon, error) {
+	rows, err := sqliteDB.Query(`SELECT id, type, name, container_name, status, volume, port, conn_env, created_at FROM addons ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []Addon
+	for rows.Next() {
+		var a Addon
+		var connEnc sql.NullString
+		if err := rows.Scan(&a.ID, &a.Type, &a.Name, &a.ContainerName, &a.Status, &a.Volume, &a.Port, &connEnc, &a.CreatedAt); err != nil {
+			continue
+		}
+		if connEnc.Valid && connEnc.String != "" {
+			_ = json.Unmarshal([]byte(decryptSecret(connEnc.String)), &a.ConnEnv)
+		}
+		result = append(result, a)
+	}
+	return result, nil
+}
+
+func dbGetAddon(id string) (*Addon, error) {
+	var a Addon
+	var connEnc sql.NullString
+	err := sqliteDB.QueryRow(`SELECT id, type, name, container_name, status, volume, port, conn_env, created_at FROM addons WHERE id = ?`, id).
+		Scan(&a.ID, &a.Type, &a.Name, &a.ContainerName, &a.Status, &a.Volume, &a.Port, &connEnc, &a.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if connEnc.Valid && connEnc.String != "" {
+		_ = json.Unmarshal([]byte(decryptSecret(connEnc.String)), &a.ConnEnv)
+	}
+	return &a, nil
+}
+
+func dbDeleteAddon(id string) error {
+	_, err := sqliteDB.Exec(`DELETE FROM addons WHERE id = ?`, id)
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// Cron job CRUD
+// ---------------------------------------------------------------------------
+
+func dbSaveCronJob(c CronJob) error {
+	_, err := sqliteDB.Exec(`
+		INSERT INTO cron_jobs (id, app_id, app_name, schedule, command, enabled, last_run, last_status, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			schedule=excluded.schedule,
+			command=excluded.command,
+			enabled=excluded.enabled,
+			last_run=excluded.last_run,
+			last_status=excluded.last_status
+	`, c.ID, c.AppID, c.AppName, c.Schedule, c.Command, c.Enabled, c.LastRun, c.LastStatus, c.CreatedAt)
+	return err
+}
+
+func dbLoadCronJobs() ([]CronJob, error) {
+	rows, err := sqliteDB.Query(`SELECT id, app_id, app_name, schedule, command, enabled, last_run, last_status, created_at FROM cron_jobs ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []CronJob
+	for rows.Next() {
+		var c CronJob
+		var lastRun sql.NullTime
+		var lastStatus sql.NullString
+		if err := rows.Scan(&c.ID, &c.AppID, &c.AppName, &c.Schedule, &c.Command, &c.Enabled, &lastRun, &lastStatus, &c.CreatedAt); err != nil {
+			continue
+		}
+		c.LastRun = lastRun.Time
+		c.LastStatus = lastStatus.String
+		result = append(result, c)
+	}
+	return result, nil
+}
+
+func dbDeleteCronJob(id string) error {
+	_, err := sqliteDB.Exec(`DELETE FROM cron_jobs WHERE id = ?`, id)
+	return err
+}
+
+func dbDeleteCronJobsForApp(appID string) error {
+	_, err := sqliteDB.Exec(`DELETE FROM cron_jobs WHERE app_id = ?`, appID)
 	return err
 }
 

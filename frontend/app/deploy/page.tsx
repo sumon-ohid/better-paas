@@ -476,6 +476,14 @@ export default function DeployPage() {
   const [deployInstallCommand, setDeployInstallCommand] = useState("")
   const [deployEnvVars, setDeployEnvVars] = useState<{ key: string; value: string }[]>([])
 
+  // ── Advanced config (resource limits, domains, volumes, health, auto-deploy) ─
+  const [deployMemory, setDeployMemory] = useState("")
+  const [deployCpus, setDeployCpus] = useState("")
+  const [deployHealthPath, setDeployHealthPath] = useState("")
+  const [deployDomains, setDeployDomains] = useState("")
+  const [deployVolumes, setDeployVolumes] = useState("")
+  const [deployAutoDeploy, setDeployAutoDeploy] = useState(false)
+
   // ── Detected framework ─────────────────────────────────────────────────────
   const [detectedFramework, setDetectedFramework] = useState<(typeof FRAMEWORKS)[0] | null>(null)
   const [isDetectingFramework, setIsDetectingFramework] = useState(false)
@@ -783,6 +791,18 @@ export default function DeployPage() {
         startCommand: deployStartCommand,
         installCommand: deployInstallCommand,
         portOverride: deployPortOverride ? parseInt(deployPortOverride, 10) : 0,
+        memory: deployMemory.trim(),
+        cpus: deployCpus.trim(),
+        healthPath: deployHealthPath.trim(),
+        domains: deployDomains
+          .split(/[\n,]/)
+          .map((d) => d.trim())
+          .filter(Boolean),
+        volumes: deployVolumes
+          .split(/[\n,]/)
+          .map((v) => v.trim())
+          .filter(Boolean),
+        autoDeploy: deployAutoDeploy,
       })
       router.push(`/logs?appId=${newApp.id}&mode=build`)
     } catch (err) {
@@ -847,7 +867,7 @@ export default function DeployPage() {
 
             {/* ── STEP 1: Repository Selection ─────────────────────────────── */}
             {step === 1 && (
-              <div className="space-y-5 animate-in fade-in-50 duration-200 max-h-[calc(100vh-260px)] overflow-y-auto pr-1">
+              <div className="space-y-5 animate-in fade-in-50 duration-200 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
                 {/* When no repo selected and not connected: show CTA */}
                 {!gitHubConnected && !selectedRepo && (
                   <div className="py-8 space-y-4 text-center">
@@ -1077,7 +1097,7 @@ export default function DeployPage() {
 
             {/* ── STEP 2: Build Config ─────────────────────────────────────── */}
             {step === 2 && (
-              <div className="space-y-4 animate-in fade-in-50 duration-200">
+              <div className="space-y-4 animate-in fade-in-50 duration-200 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
                 {isDetectingFramework ? (
                   <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
                     <RefreshIcon className="h-4 w-4 animate-spin text-primary" />
@@ -1175,12 +1195,104 @@ export default function DeployPage() {
                     />
                   </div>
                 </div>
+
+                {/* Advanced: resource limits, health check, domains, volumes */}
+                <div className="pt-2 mt-2 border-t border-border/40 space-y-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                    Advanced (optional)
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Memory Limit
+                      </Label>
+                      <Input
+                        value={deployMemory}
+                        onChange={(e) => setDeployMemory(e.target.value)}
+                        placeholder="e.g. 512m, 1g"
+                        className="h-9 text-sm font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        CPU Limit
+                      </Label>
+                      <Input
+                        value={deployCpus}
+                        onChange={(e) => setDeployCpus(e.target.value)}
+                        placeholder="e.g. 0.5, 1, 2"
+                        className="h-9 text-sm font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Health Check Path
+                    </Label>
+                    <Input
+                      value={deployHealthPath}
+                      onChange={(e) => setDeployHealthPath(e.target.value)}
+                      placeholder="/health (blank = TCP check)"
+                      className="h-9 text-sm font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground/60">
+                      Probed before traffic is switched to a new deploy (zero-downtime).
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Custom Domains
+                    </Label>
+                    <Input
+                      value={deployDomains}
+                      onChange={(e) => setDeployDomains(e.target.value)}
+                      placeholder="app.example.com, www.example.com"
+                      className="h-9 text-sm font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground/60">
+                      Comma-separated. HTTPS certs are issued automatically by Caddy. Point DNS to this server first.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Persistent Volumes
+                    </Label>
+                    <Input
+                      value={deployVolumes}
+                      onChange={(e) => setDeployVolumes(e.target.value)}
+                      placeholder="myapp-data:/data"
+                      className="h-9 text-sm font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground/60">
+                      Comma-separated <span className="font-mono">name:/container/path</span>. Survives redeploys.
+                    </p>
+                  </div>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer rounded-lg border border-border bg-card/40 px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={deployAutoDeploy}
+                      onChange={(e) => setDeployAutoDeploy(e.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <div>
+                      <p className="text-xs font-medium text-foreground">Auto-deploy on push</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Redeploy automatically when you push to this branch (set up the webhook after deploying).
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
             )}
 
             {/* ── STEP 3: Environment ──────────────────────────────────────── */}
             {step === 3 && (
-              <div className="space-y-4 animate-in fade-in-50 duration-200">
+              <div className="space-y-4 animate-in fade-in-50 duration-200 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
                 <div className="flex justify-between items-center">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Environment Variables

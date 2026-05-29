@@ -27,20 +27,45 @@ func getLocalIP() string {
 
 // rebuildCaddyfile regenerates the Caddyfile from the current app list.
 // It must be called whenever apps are added, removed, or change status.
+//
+// Each app gets:
+//   - an http:// sslip.io wildcard-style host (always, no TLS needed)
+//   - one TLS site block per custom domain, which triggers Caddy's automatic
+//     HTTPS (Let's Encrypt) for that hostname.
 func rebuildCaddyfile() {
 	appsLock.Lock()
 	defer appsLock.Unlock()
 
 	var sb strings.Builder
 	sb.WriteString("# Auto-generated Caddyfile - DO NOT EDIT\n\n")
-	sb.WriteString("{\n\tadmin 127.0.0.1:2019\n}\n\n")
+	sb.WriteString("{\n\tadmin 127.0.0.1:2019\n")
+	if email := strings.TrimSpace(os.Getenv("ACME_EMAIL")); email != "" {
+		sb.WriteString(fmt.Sprintf("\temail %s\n", email))
+	}
+	sb.WriteString("}\n\n")
 
 	ip := getLocalIP()
 
 	for _, app := range apps {
-		if app.Status == "running" || app.Status == "building" {
-			sb.WriteString(fmt.Sprintf("http://%s.%s.sslip.io {\n", app.ID, ip))
-			sb.WriteString(fmt.Sprintf("\treverse_proxy localhost:%d\n", app.Port))
+		if app.Status != "running" && app.Status != "building" {
+			continue
+		}
+
+		upstream := fmt.Sprintf("localhost:%d", app.Port)
+
+		// Default sslip.io host over plain HTTP.
+		sb.WriteString(fmt.Sprintf("http://%s.%s.sslip.io {\n", app.ID, ip))
+		sb.WriteString(fmt.Sprintf("\treverse_proxy %s\n", upstream))
+		sb.WriteString("}\n\n")
+
+		// Custom domains: bare hostname → Caddy auto-provisions a TLS cert.
+		for _, d := range app.Domains {
+			d = strings.TrimSpace(d)
+			if d == "" {
+				continue
+			}
+			sb.WriteString(fmt.Sprintf("%s {\n", d))
+			sb.WriteString(fmt.Sprintf("\treverse_proxy %s\n", upstream))
 			sb.WriteString("}\n\n")
 		}
 	}

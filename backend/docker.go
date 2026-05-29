@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -178,11 +179,19 @@ func runDockerPrune() (string, error) {
 	return string(output), err
 }
 
-// runPaaSDeployment clones, builds with Nixpacks, and runs the container.
+// runPaaSDeployment clones, builds with Nixpacks, and runs the container using
+// a zero-downtime cutover: the new container is started on a fresh port and
+// health-checked before Caddy is switched to it and the old container removed.
 func runPaaSDeployment(app App, gitURL, deployID, logFile string) {
+	runDeployment(app, gitURL, deployID, logFile, "manual", "")
+}
+
+// runDeployment is the full build+release pipeline. trigger records how it was
+// initiated ("manual","webhook","rollback") and rollbackImage, when non-empty,
+// skips the build and re-releases an existing image tag.
+func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage string) {
 	startedAt := time.Now()
 
-	// Seed the deployment record in DB immediately.
 	dep := DeploymentRecord{
 		ID:        deployID,
 		AppID:     app.ID,
@@ -190,144 +199,356 @@ func runPaaSDeployment(app App, gitURL, deployID, logFile string) {
 		Status:    "building",
 		LogFile:   logFile,
 		CreatedAt: startedAt,
+		Trigger:   trigger,
 	}
 	if err := dbCreateDeployment(dep); err != nil {
 		log.Printf("[db] failed to create deployment: %v", err)
 	}
 
-	// Collect in-memory logs for the final record.
 	var deployLogs []string
+	var commitSHA string
 	localLog := func(msg string) {
 		logToBuild(app.ID, msg, logFile)
 		deployLogs = append(deployLogs, msg)
 	}
 
-	localLog(fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
-	buildDir := filepath.Join("builds", app.Name)
-
-	// Delete existing build folder
-	os.RemoveAll(buildDir)
-
-	// ── 1. Clone repository ──────────────────────────────────────────────────
-	localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, app.Branch))
-	authenticatedURL := formatGitURL(gitURL, app.GitToken)
-	cloneCmd := exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
-	if output, err := cloneCmd.CombinedOutput(); err != nil {
-		localLog(fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, string(output)))
-		finishDeployment(app, deployLogs, "failed", startedAt, deployID, logFile)
-		return
-	}
-	localLog("✔ Repository cloned successfully.")
-
-	// ── 2. Patch package.json ────────────────────────────────────────────────
-	patchPackageJSON(app.ID, buildDir, localLog)
-
-	// ── 3. Determine build subdirectory ─────────────────────────────────────
-	buildSubDir := buildDir
-	if app.RootDir != "" && app.RootDir != "." && app.RootDir != "./" {
-		buildSubDir = filepath.Join(buildDir, app.RootDir)
-		localLog(fmt.Sprintf("📂 Using sub-directory build context: %s", app.RootDir))
+	finish := func(status, image string) {
+		finishDeployment(app, deployLogs, status, startedAt, deployID, logFile, image, trigger, commitSHA)
 	}
 
-	// ── 4. Remove restrictive .dockerignore ──────────────────────────────────
-	dockerignorePath := filepath.Join(buildSubDir, ".dockerignore")
-	if _, err := os.Stat(dockerignorePath); err == nil {
-		os.Rename(dockerignorePath, dockerignorePath+".bak")
-		localLog("📝 Removed restrictive .dockerignore for Nixpacks build")
-	}
+	image := rollbackImage
 
-	// ── 5. Build with Nixpacks ───────────────────────────────────────────────
-	localLog("🔍 Analyzing workspace with Nixpacks...")
-	nixpacksArgs := []string{"build", buildSubDir, "--name", app.Name, "--env", "NIXPACKS_NODE_VERSION=22"}
-	for k, v := range app.EnvVars {
-		nixpacksArgs = append(nixpacksArgs, "--env", fmt.Sprintf("%s=%s", k, v))
-	}
-	if app.InstallCommand != "" {
-		nixpacksArgs = append(nixpacksArgs, "--install-cmd", app.InstallCommand)
-	}
-	if app.BuildCommand != "" {
-		nixpacksArgs = append(nixpacksArgs, "--build-cmd", app.BuildCommand)
-	}
-	if app.StartCommand != "" {
-		nixpacksArgs = append(nixpacksArgs, "--start-cmd", app.StartCommand)
-	}
-
-	nixpacksCmd := exec.Command("nixpacks", nixpacksArgs...)
-	stdout, err := nixpacksCmd.StdoutPipe()
-	if err != nil {
-		localLog(fmt.Sprintf("✖ Failed to open Nixpacks output: %v", err))
-		finishDeployment(app, deployLogs, "failed", startedAt, deployID, logFile)
-		return
-	}
-	nixpacksCmd.Stderr = nixpacksCmd.Stdout
-
-	if err := nixpacksCmd.Start(); err != nil {
-		localLog(fmt.Sprintf("✖ Failed to start Nixpacks: %v", err))
-		finishDeployment(app, deployLogs, "failed", startedAt, deployID, logFile)
-		return
-	}
-
-	reader := bufio.NewReader(stdout)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err != io.EOF {
-				localLog(fmt.Sprintf("✖ Output read error: %v", err))
-			}
-			break
+	if rollbackImage != "" {
+		// ── Rollback path: reuse an existing image, no clone/build ───────────
+		localLog(fmt.Sprintf("⏪ Rolling back %s to image %s", app.Name, rollbackImage))
+		if !dockerImageExists(rollbackImage) {
+			localLog(fmt.Sprintf("✖ Image %s no longer exists; cannot roll back.", rollbackImage))
+			finish("failed", "")
+			return
 		}
-		localLog(strings.TrimRight(line, "\n"))
+	} else {
+		// ── 1. Clone repository ──────────────────────────────────────────────
+		localLog(fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
+		buildDir := filepath.Join("builds", app.Name)
+		os.RemoveAll(buildDir)
+
+		localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, app.Branch))
+		authenticatedURL := formatGitURL(gitURL, app.GitToken)
+		cloneCmd := exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
+		if output, err := cloneCmd.CombinedOutput(); err != nil {
+			localLog(fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, string(output)))
+			finish("failed", "")
+			return
+		}
+		commitSHA = gitHeadCommit(buildDir)
+		if commitSHA != "" {
+			localLog(fmt.Sprintf("✔ Repository cloned (commit %s).", shortSHA(commitSHA)))
+		} else {
+			localLog("✔ Repository cloned successfully.")
+		}
+
+		// ── 2. Patch package.json ────────────────────────────────────────────
+		patchPackageJSON(app.ID, buildDir, localLog)
+
+		// ── 3. Determine build subdirectory ──────────────────────────────────
+		buildSubDir := buildDir
+		if app.RootDir != "" && app.RootDir != "." && app.RootDir != "./" {
+			buildSubDir = filepath.Join(buildDir, app.RootDir)
+			localLog(fmt.Sprintf("📂 Using sub-directory build context: %s", app.RootDir))
+		}
+
+		// ── 4. Remove restrictive .dockerignore ──────────────────────────────
+		dockerignorePath := filepath.Join(buildSubDir, ".dockerignore")
+		if _, err := os.Stat(dockerignorePath); err == nil {
+			os.Rename(dockerignorePath, dockerignorePath+".bak")
+			localLog("📝 Removed restrictive .dockerignore for Nixpacks build")
+		}
+
+		// ── 5. Build with Nixpacks → unique image tag per deploy ──────────────
+		image = fmt.Sprintf("%s:%s", app.Name, deployID)
+		localLog("🔍 Analyzing workspace with Nixpacks...")
+		nixpacksArgs := []string{"build", buildSubDir, "--name", image, "--env", "NIXPACKS_NODE_VERSION=22"}
+		for k, v := range app.EnvVars {
+			nixpacksArgs = append(nixpacksArgs, "--env", fmt.Sprintf("%s=%s", k, v))
+		}
+		if app.InstallCommand != "" {
+			nixpacksArgs = append(nixpacksArgs, "--install-cmd", app.InstallCommand)
+		}
+		if app.BuildCommand != "" {
+			nixpacksArgs = append(nixpacksArgs, "--build-cmd", app.BuildCommand)
+		}
+		if app.StartCommand != "" {
+			nixpacksArgs = append(nixpacksArgs, "--start-cmd", app.StartCommand)
+		}
+
+		nixpacksCmd := exec.Command("nixpacks", nixpacksArgs...)
+		stdout, err := nixpacksCmd.StdoutPipe()
+		if err != nil {
+			localLog(fmt.Sprintf("✖ Failed to open Nixpacks output: %v", err))
+			finish("failed", "")
+			return
+		}
+		nixpacksCmd.Stderr = nixpacksCmd.Stdout
+
+		if err := nixpacksCmd.Start(); err != nil {
+			localLog(fmt.Sprintf("✖ Failed to start Nixpacks: %v", err))
+			finish("failed", "")
+			return
+		}
+
+		reader := bufio.NewReader(stdout)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if err != io.EOF {
+					localLog(fmt.Sprintf("✖ Output read error: %v", err))
+				}
+				break
+			}
+			localLog(strings.TrimRight(line, "\n"))
+		}
+
+		if err := nixpacksCmd.Wait(); err != nil {
+			localLog(fmt.Sprintf("✖ Nixpacks build failed: %v", err))
+			finish("failed", "")
+			return
+		}
+		localLog("✔ Docker image built successfully!")
 	}
 
-	if err := nixpacksCmd.Wait(); err != nil {
-		localLog(fmt.Sprintf("✖ Nixpacks build failed: %v", err))
-		finishDeployment(app, deployLogs, "failed", startedAt, deployID, logFile)
-		return
-	}
-	localLog("✔ Docker image built successfully!")
-
-	// ── 6. Stop and remove existing container ───────────────────────────────
-	localLog("🧹 Pruning previous container instances...")
-	exec.Command("docker", "rm", "-f", app.Name).Run()
-
-	// ── 7. Run the container ─────────────────────────────────────────────────
+	// ── 6. Start the NEW container on a fresh port (zero-downtime) ───────────
 	containerPort := app.Port
 	if app.PortOverride > 0 {
 		containerPort = app.PortOverride
 	}
 
-	localLog(fmt.Sprintf("🚀 Starting container (host :%d → container :%d)...", app.Port, containerPort))
+	appsLock.Lock()
+	newHostPort := allocatePort()
+	appsLock.Unlock()
+
+	newContainer := fmt.Sprintf("%s-%s", app.Name, deployID)
+	oldContainer := app.containerName()
+	oldPort := app.Port
+
+	localLog(fmt.Sprintf("🚀 Starting new container %q (host :%d → container :%d)...", newContainer, newHostPort, containerPort))
+	if err := startContainer(app, image, newContainer, newHostPort, containerPort); err != nil {
+		localLog(fmt.Sprintf("✖ Container startup failed: %v", err))
+		exec.Command("docker", "rm", "-f", newContainer).Run()
+		finish("failed", "")
+		return
+	}
+
+	// ── 7. Health check before cutover ───────────────────────────────────────
+	localLog("🩺 Waiting for the new container to become healthy...")
+	if err := waitHealthy(newHostPort, app.HealthPath, 30*time.Second, localLog); err != nil {
+		localLog(fmt.Sprintf("✖ Health check failed: %v", err))
+		localLog("↩ Keeping the previous version live; discarding the failed container.")
+		exec.Command("docker", "rm", "-f", newContainer).Run()
+		finish("failed", "")
+		return
+	}
+	localLog("✔ New container is healthy.")
+
+	// ── 8. Cutover: point Caddy at the new container, then retire the old ────
+	appsLock.Lock()
+	for i := range apps {
+		if apps[i].ID == app.ID {
+			apps[i].Port = newHostPort
+			apps[i].ActiveContainer = newContainer
+			apps[i].ActiveImage = image
+			apps[i].ActiveDeployID = deployID
+			apps[i].Status = "running"
+			app = apps[i] // refresh local copy for the DB save below
+			break
+		}
+	}
+	appsLock.Unlock()
+	if err := dbSaveApp(app); err != nil {
+		log.Printf("[db] failed to save app after cutover: %v", err)
+	}
+	rebuildCaddyfile()
+	localLog(fmt.Sprintf("🔀 Traffic switched to the new container (port %d).", newHostPort))
+
+	// Begin persistent runtime-log capture for the new container.
+	startRuntimeLogCapture(app.ID, newContainer)
+
+	// Retire the previous container (best-effort).
+	if oldContainer != "" && oldContainer != newContainer {
+		exec.Command("docker", "rm", "-f", oldContainer).Run()
+		localLog(fmt.Sprintf("🧹 Removed previous container %q (was on port %d).", oldContainer, oldPort))
+	}
+
+	// Keep only the most recent images for rollback; prune older ones.
+	pruneOldImages(app.Name, 5, localLog)
+
+	localLog(fmt.Sprintf("✅ Deployment complete! App live at: %s", app.URL))
+	finish("success", image)
+}
+
+// startContainer runs an image as a detached container with the app's env,
+// resource limits, restart policy, and persistent volumes.
+func startContainer(app App, image, containerName string, hostPort, containerPort int) error {
 	runArgs := []string{
 		"run", "-d",
-		"-p", fmt.Sprintf("%d:%d", app.Port, containerPort),
+		"-p", fmt.Sprintf("%d:%d", hostPort, containerPort),
 		"-e", fmt.Sprintf("PORT=%d", containerPort),
 		"--restart", "unless-stopped",
+		"--label", "better-paas=1",
+		"--label", fmt.Sprintf("better-paas-app=%s", app.ID),
+	}
+	if app.Memory != "" {
+		runArgs = append(runArgs, "--memory", app.Memory)
+	}
+	if app.CPUs != "" {
+		runArgs = append(runArgs, "--cpus", app.CPUs)
 	}
 	for k, v := range app.EnvVars {
 		runArgs = append(runArgs, "-e", fmt.Sprintf("%s=%s", k, v))
 	}
-	runArgs = append(runArgs, "--name", app.Name, app.Name)
+	for _, vol := range app.Volumes {
+		if strings.TrimSpace(vol) != "" {
+			runArgs = append(runArgs, "-v", vol)
+		}
+	}
+	runArgs = append(runArgs, "--name", containerName, image)
 
 	if output, err := exec.Command("docker", runArgs...).CombinedOutput(); err != nil {
-		localLog(fmt.Sprintf("✖ Container startup failed: %v\nOutput: %s", err, string(output)))
-		finishDeployment(app, deployLogs, "failed", startedAt, deployID, logFile)
-		return
+		return fmt.Errorf("%v — %s", err, string(output))
 	}
 
-	localLog(fmt.Sprintf("✅ Deployment complete! App live at: %s", app.URL))
-	finishDeployment(app, deployLogs, "success", startedAt, deployID, logFile)
+	// Attach to the shared add-on network (best-effort) so the container can
+	// reach managed databases/caches by their container name. Published ports
+	// remain on the default bridge, so this is purely additive.
+	exec.Command("docker", "network", "connect", addonNetwork, containerName).Run()
+	return nil
+}
+
+// waitHealthy polls a container until it answers, or the timeout elapses. When
+// healthPath is set it expects an HTTP 2xx/3xx/4xx (any HTTP response means the
+// server is up); otherwise a successful TCP connect is sufficient.
+func waitHealthy(hostPort int, healthPath string, timeout time.Duration, logf func(string)) error {
+	deadline := time.Now().Add(timeout)
+	attempt := 0
+	for time.Now().Before(deadline) {
+		attempt++
+		if healthPath != "" {
+			url := fmt.Sprintf("http://127.0.0.1:%d%s", hostPort, ensureLeadingSlash(healthPath))
+			client := &http.Client{Timeout: 3 * time.Second}
+			resp, err := client.Get(url)
+			if err == nil {
+				resp.Body.Close()
+				if resp.StatusCode < 500 {
+					return nil
+				}
+			}
+		} else {
+			conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", hostPort), 2*time.Second)
+			if err == nil {
+				conn.Close()
+				return nil
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return fmt.Errorf("container did not become healthy within %s", timeout)
+}
+
+func ensureLeadingSlash(p string) string {
+	if !strings.HasPrefix(p, "/") {
+		return "/" + p
+	}
+	return p
+}
+
+// dockerImageExists reports whether an image tag is present locally.
+func dockerImageExists(image string) bool {
+	err := exec.Command("docker", "image", "inspect", image).Run()
+	return err == nil
+}
+
+// removeAppContainers force-removes every container labeled for the given app.
+func removeAppContainers(appID string) {
+	out, err := exec.Command("docker", "ps", "-aq", "--filter", "label=better-paas-app="+appID).Output()
+	if err != nil {
+		return
+	}
+	for _, id := range strings.Fields(string(out)) {
+		exec.Command("docker", "rm", "-f", id).Run()
+	}
+}
+
+// removeAppImages removes every image tagged under the app's repository name.
+func removeAppImages(appName string) {
+	out, err := exec.Command("docker", "images", "-q", appName).Output()
+	if err != nil {
+		return
+	}
+	seen := make(map[string]bool)
+	for _, id := range strings.Fields(string(out)) {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		exec.Command("docker", "rmi", "-f", id).Run()
+	}
+}
+
+// pruneOldImages keeps the newest `keep` images for an app (by tag) and removes
+// older ones so the disk doesn't fill with stale build artifacts.
+func pruneOldImages(appName string, keep int, logf func(string)) {
+	out, err := exec.Command("docker", "images", "--format", "{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}", appName).Output()
+	if err != nil {
+		return
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) <= keep {
+		return
+	}
+	// `docker images` already lists newest first; remove everything past `keep`.
+	for _, line := range lines[keep:] {
+		parts := strings.Split(line, "\t")
+		if len(parts) == 0 || parts[0] == "" {
+			continue
+		}
+		tag := parts[0]
+		if strings.HasSuffix(tag, ":<none>") {
+			continue
+		}
+		exec.Command("docker", "rmi", "-f", tag).Run()
+	}
+}
+
+// gitHeadCommit returns the HEAD commit SHA of a cloned repo, or "" on error.
+func gitHeadCommit(dir string) string {
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func shortSHA(sha string) string {
+	if len(sha) > 7 {
+		return sha[:7]
+	}
+	return sha
 }
 
 // finishDeployment updates app status, saves deployment record, and persists.
-func finishDeployment(app App, deployLogs []string, status string, startedAt time.Time, deployID, logFile string) {
+func finishDeployment(app App, deployLogs []string, status string, startedAt time.Time, deployID, logFile, image, trigger, commit string) {
 	duration := time.Since(startedAt).Round(time.Second).String()
 
 	finalStatus := "running"
 	if status == "failed" {
 		finalStatus = "failed"
+		// On a failed first deploy there is no previous container to fall back
+		// to, so reflect the failure. On a failed redeploy the old container is
+		// still serving, so keep the app "running".
+		if app.ActiveContainer != "" {
+			finalStatus = "running"
+		}
 	}
 
-	// Update app status in memory and DB.
 	appsLock.Lock()
 	for i := range apps {
 		if apps[i].ID == app.ID {
@@ -351,15 +572,20 @@ func finishDeployment(app App, deployLogs []string, status string, startedAt tim
 		CreatedAt: startedAt,
 		Duration:  duration,
 		Logs:      deployLogs,
+		Image:     image,
+		Trigger:   trigger,
+		Commit:    commit,
 	}
 
-	// Upsert final status to DB.
 	if err := dbCreateDeployment(record); err != nil {
 		log.Printf("[db] failed to save deployment: %v", err)
 	}
 	if err := dbPruneDeployments(100); err != nil {
 		log.Printf("[db] failed to prune deployments: %v", err)
 	}
+
+	// Fire deploy notifications (best-effort, non-blocking).
+	go notifyDeploy(app, record)
 }
 
 // patchPackageJSON sanitizes a Node.js package.json for Nixpacks compatibility.

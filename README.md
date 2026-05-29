@@ -48,6 +48,42 @@ Backend (see `backend/.env.example`):
 | `DASHBOARD_ORIGIN`      | reflected | Comma-separated allowed origins for CORS / WS.            |
 | `BETTER_PAAS_SECRET_KEY`| generated | 32-byte key (hex or base64) for at-rest secret encryption.|
 | `TRUST_PROXY`           | `false`   | Honor `X-Forwarded-For`/`X-Real-IP` (set when behind a proxy). |
+| `ACME_EMAIL`            | unset     | Email for Let's Encrypt registration (custom-domain HTTPS).|
+| `BACKUP_INTERVAL_HOURS` | `0`       | If >0, auto-snapshot `data/` every N hours (keeps last 10).|
+
+## Features
+
+Beyond Git-based deploys, the control plane supports:
+
+- **Auto-deploy on git push** — each app exposes a GitHub webhook
+  (`/api/webhooks/github/<appID>`) authenticated by a per-app HMAC secret. Push
+  to the configured branch and the app redeploys. Set it up from an app's
+  "Modify Config" tab and toggle "Auto-deploy on git push".
+- **Automatic HTTPS + custom domains** — add domains to an app and Caddy issues
+  Let's Encrypt certificates automatically. Point the domain's DNS at this
+  server first, then set `ACME_EMAIL` for expiry notices.
+- **Zero-downtime deploys + rollback** — each build is tagged
+  `name:<deployID>`. New containers start on a fresh port and are health-checked
+  before Caddy switches traffic and the old container is retired. Roll back to
+  any prior successful deploy from the deployment history.
+- **Resource limits** — set per-app memory (`512m`, `1g`) and CPU (`0.5`, `2`)
+  caps, enforced via `docker run --memory/--cpus`.
+- **Persistent volumes** — declare `name:/container/path` volumes that survive
+  redeploys for stateful apps.
+- **Managed databases** — one-click Postgres, Redis, and MySQL containers on a
+  shared internal network. Attach one to an app to inject connection env vars.
+- **Per-app metrics** — live CPU/memory per container (via `docker stats`) in
+  the app drawer, in addition to host-level metrics.
+- **Scheduled jobs (cron)** — run commands inside an app's container on a cron
+  schedule (e.g. migrations, cleanup).
+- **Deploy notifications** — Slack and/or generic webhook notifications on
+  deploy success/failure (configure in Settings).
+- **Runtime log persistence** — container stdout/stderr is captured to disk so
+  logs survive restarts, with live streaming over WebSocket.
+- **Backups** — snapshot the `data/` directory (DB, tokens, logs) on demand or
+  on a schedule, and download the archive from the dashboard.
+- **Secret env vars** — mark env var keys as secret so their values are redacted
+  in API responses (mirroring how deploy tokens are handled).
 
 Frontend (see `frontend/.env.example`):
 
