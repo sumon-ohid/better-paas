@@ -263,12 +263,8 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 
 		// ── 3. Detect required Node version, THEN patch package.json ──────────
 		// Detection must happen before patching, because patchPackageJSON strips
-		// the engines/packageManager fields we read here.
+		// the engines field that tells us which Node version the app needs.
 		nodeVersion := detectNodeVersion(buildSubDir, defaultNodeVersion)
-		installOverride := ""
-		if app.InstallCommand == "" {
-			installOverride = defaultInstallCommand(buildSubDir)
-		}
 		patchPackageJSON(app.ID, buildDir, localLog)
 
 		// ── 4. Remove restrictive .dockerignore ──────────────────────────────
@@ -282,21 +278,14 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		image = fmt.Sprintf("%s:%s", app.Name, deployID)
 		localLog("🔍 Analyzing workspace with Nixpacks...")
 
-		// nodeVersion and pkgManager were detected in step 3, before engines
-		// were stripped, so genuine requirements (e.g. a workspace pinned to
-		// >=24) are honored instead of silently downgraded.
+		// nodeVersion was detected in step 3, before engines were stripped, so
+		// genuine requirements (e.g. a workspace pinned to >=24) are honored
+		// instead of silently downgraded.
 		localLog(fmt.Sprintf("🟢 Using Node.js %s", nodeVersion))
 
 		nixpacksArgs := []string{"build", buildSubDir, "--name", image, "--env", "NIXPACKS_NODE_VERSION=" + nodeVersion}
 		for k, v := range app.EnvVars {
 			nixpacksArgs = append(nixpacksArgs, "--env", fmt.Sprintf("%s=%s", k, v))
-		}
-		// Default the package manager to pnpm for Node apps unless the repo
-		// already commits to a different one (yarn/bun lockfile) or the user
-		// supplied their own install command.
-		if installOverride != "" {
-			localLog(fmt.Sprintf("📦 Install command: %s", installOverride))
-			nixpacksArgs = append(nixpacksArgs, "--install-cmd", installOverride)
 		}
 		if app.InstallCommand != "" {
 			nixpacksArgs = append(nixpacksArgs, "--install-cmd", app.InstallCommand)
@@ -826,28 +815,6 @@ func minNodeMajor(rangeStr string) int {
 	return best
 }
 
-// defaultInstallCommand returns the install command to force on Nixpacks based
-// on the project's package manager. pnpm is the default for Node projects; we
-// defer to an existing yarn/bun lockfile so we don't fight a repo's own choice.
-// Returns "" for non-Node projects (no package.json) so other ecosystems use
-// Nixpacks' native detection untouched.
-func defaultInstallCommand(buildSubDir string) string {
-	if _, err := os.Stat(filepath.Join(buildSubDir, "package.json")); err != nil {
-		return "" // not a Node project
-	}
-	switch {
-	case fileExists(filepath.Join(buildSubDir, "yarn.lock")):
-		return "yarn install"
-	case fileExists(filepath.Join(buildSubDir, "bun.lockb")):
-		return "bun install"
-	default:
-		// pnpm-lock.yaml present, npm lockfile present, or no lockfile at all —
-		// standardize on pnpm. --no-frozen-lockfile keeps installs resilient when
-		// a lockfile is missing or out of sync with the manifest.
-		return "pnpm install --no-frozen-lockfile"
-	}
-}
-
 // readPackageJSON parses a package.json file, returning nil on any error.
 func readPackageJSON(path string) map[string]interface{} {
 	data, err := os.ReadFile(path)
@@ -859,10 +826,4 @@ func readPackageJSON(path string) map[string]interface{} {
 		return nil
 	}
 	return pkg
-}
-
-// fileExists reports whether a regular file or directory exists at path.
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }
