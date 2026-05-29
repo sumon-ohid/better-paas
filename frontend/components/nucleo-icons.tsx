@@ -23,6 +23,7 @@ import {
   Layers,
   List,
   Loader,
+  Lock,
   Minus,
   Ellipsis,
   Eye,
@@ -62,6 +63,7 @@ type NucleoIconName =
   | "layers"
   | "list"
   | "loader"
+  | "lock"
   | "minus"
   | "eye"
   | "more-horizontal"
@@ -85,7 +87,7 @@ type NucleoIconProps = SVGProps<SVGSVGElement> & {
   name: NucleoIconName
 }
 
-const iconMap: Record<NucleoIconName, React.FC<any>> = {
+const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   activity: Activity,
   branch: GitBranch,
   check: Check,
@@ -108,6 +110,7 @@ const iconMap: Record<NucleoIconName, React.FC<any>> = {
   layers: Layers,
   list: List,
   loader: Loader,
+  lock: Lock,
   minus: Minus,
   eye: Eye,
   "more-horizontal": Ellipsis,

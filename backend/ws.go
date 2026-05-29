@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -15,9 +16,25 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin:     checkWSOrigin,
 	ReadBufferSize:  1024,
 	WriteBufferSize: 4096,
+}
+
+// checkWSOrigin restricts WebSocket upgrades to the configured dashboard
+// origin(s) when DASHBOARD_ORIGIN is set. When unset, any origin is allowed at
+// the handshake level — the per-connection token check (wsAuthOK) is the
+// primary defense against cross-site WebSocket hijacking.
+func checkWSOrigin(r *http.Request) bool {
+	allowed := parseAllowedOrigins(os.Getenv("DASHBOARD_ORIGIN"))
+	if len(allowed) == 0 {
+		return true
+	}
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true // non-browser client (e.g. CLI)
+	}
+	return originAllowed(origin, allowed)
 }
 
 // wsSend sends a JSON-encoded log message over the WebSocket.
@@ -35,6 +52,10 @@ func wsSend(conn *websocket.Conn, message string) error {
 // ---------------------------------------------------------------------------
 
 func handleLogsWS(w http.ResponseWriter, r *http.Request) {
+	if !wsAuthOK(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	appID := r.URL.Query().Get("appId")
 	log.Printf("[WS/logs] Connect for appId=%q", appID)
 
@@ -62,35 +83,32 @@ func handleLogsWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Register subscriber and capture existing logs atomically
+	// Replay existing logs from the deployment's log file.
+	dep, err := dbGetLatestDeployment(appID)
+	if err == nil && dep != nil && dep.LogFile != "" {
+		lines, _ := readLogFile(dep.LogFile)
+		for _, line := range lines {
+			if err := wsSend(conn, line); err != nil {
+				return
+			}
+		}
+	}
+
+	// Register subscriber and capture any live log lines.
 	clientChan := make(chan string, 256)
 
-	buildLogsLock.RLock()
 	subscribersLock.Lock()
-
-	existing := make([]string, len(buildLogs[appID]))
-	copy(existing, buildLogs[appID])
-
 	if subscribers[appID] == nil {
 		subscribers[appID] = make(map[chan string]bool)
 	}
 	subscribers[appID][clientChan] = true
-
 	subscribersLock.Unlock()
-	buildLogsLock.RUnlock()
 
 	defer func() {
 		subscribersLock.Lock()
 		delete(subscribers[appID], clientChan)
 		subscribersLock.Unlock()
 	}()
-
-	// Replay existing logs
-	for _, line := range existing {
-		if err := wsSend(conn, line); err != nil {
-			return
-		}
-	}
 
 	// Disconnect detection goroutine
 	closed := make(chan struct{})
@@ -124,6 +142,10 @@ func handleLogsWS(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
+	if !wsAuthOK(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	appID := r.URL.Query().Get("appId")
 	log.Printf("[WS/runtime-logs] Connect for appId=%q", appID)
 
@@ -229,6 +251,10 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 func handleStatsWS(w http.ResponseWriter, r *http.Request) {
+	if !wsAuthOK(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
@@ -296,3 +322,4 @@ func getHostDiskUsage() float64 {
 	fmt.Sscanf(pctStr, "%f", &pct)
 	return pct
 }
+

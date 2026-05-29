@@ -28,7 +28,6 @@ const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
-const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
 
 export type AppTab = "overview" | "config" | "logs" | "deployments"
 
@@ -110,6 +109,8 @@ function AppDetailPage() {
   }, [appId])
 
   useEffect(() => {
+    // fetchData is async; setState runs after awaits, not synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
   }, [fetchData])
 
@@ -178,6 +179,8 @@ function AppDetailPage() {
 
   useEffect(() => {
     if (currentTab === "logs" && appId) {
+      // connectLogs sets state inside async WS callbacks, not synchronously.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       connectLogs()
     }
     return () => {

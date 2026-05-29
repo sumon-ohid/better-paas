@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
+import { api, createRuntimeLogsWs } from "@/lib/api"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
@@ -19,7 +20,6 @@ const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 const CpuIcon = (props: IconProps) => <NucleoIcon {...props} name="cpu" />
 const ServerIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
 const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
-const SettingsIcon = (props: IconProps) => <NucleoIcon {...props} name="settings" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const RefreshCwIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 
@@ -88,11 +88,7 @@ export function AppDetailDrawer({
     setRuntimeLogs([])
     setRuntimeLogsConnected(false)
 
-    const wsHost = typeof window !== "undefined" ? window.location.hostname : "localhost"
-    const wsUrl = `ws://${wsHost}:8080/ws/runtime-logs?appId=${appId}`
-    console.log('[WS runtime-logs] Connecting to:', wsUrl)
-
-    const ws = new WebSocket(wsUrl)
+    const ws = createRuntimeLogsWs(appId)
     runtimeLogsWsRef.current = ws
 
     ws.onopen = () => {
@@ -124,6 +120,8 @@ export function AppDetailDrawer({
 
   useEffect(() => {
     if (isOpen && activeTab === "logs" && app) {
+      // connectRuntimeLogs manages WS lifecycle; state updates fire in callbacks.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       connectRuntimeLogs(app.id)
     } else {
       if (runtimeLogsWsRef.current) {
@@ -138,6 +136,7 @@ export function AppDetailDrawer({
         runtimeLogsWsRef.current = null
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, activeTab, app?.id])
 
   useEffect(() => {
@@ -148,6 +147,8 @@ export function AppDetailDrawer({
 
   useEffect(() => {
     if (isOpen) {
+      // Reset to the overview tab whenever the drawer opens.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab("overview")
     }
   }, [isOpen])
@@ -168,6 +169,8 @@ export function AppDetailDrawer({
 
   useEffect(() => {
     if (app) {
+      // Intentionally syncs the edit form to the selected app's props.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGitRepo(app.gitRepo || "")
       setBranch(app.branch || "main")
       setRootDir(app.rootDir || "")
@@ -204,31 +207,22 @@ export function AppDetailDrawer({
     })
 
     try {
-      const res = await fetch("http://localhost:8080/api/apps/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: app.id,
-          gitRepo,
-          branch,
-          rootDir,
-          envVars: envVarsRecord,
-          buildCommand,
-          startCommand,
-          installCommand,
-          portOverride: portOverride ? parseInt(portOverride, 10) : 0,
-        })
+      await api.apps.update({
+        id: app.id,
+        gitRepo,
+        branch,
+        rootDir,
+        envVars: envVarsRecord,
+        buildCommand,
+        startCommand,
+        installCommand,
+        portOverride: portOverride ? parseInt(portOverride, 10) : 0,
       })
-
-      if (res.ok) {
-        await onUpdateAppList()
-        setActiveTab("overview")
-      } else {
-        alert("Failed to update application settings.")
-      }
+      await onUpdateAppList()
+      setActiveTab("overview")
     } catch (err) {
       console.error(err)
-      alert("Error contacting the backend.")
+      alert("Failed to update application settings.")
     } finally {
       setIsSaving(false)
     }
@@ -237,19 +231,10 @@ export function AppDetailDrawer({
   const handleRedeploy = async () => {
     setIsRedeploying(true)
     try {
-      const res = await fetch("http://localhost:8080/api/apps/redeploy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: app.id })
-      })
-      if (res.ok) {
-        const updatedApp = await res.json()
-        await onUpdateAppList()
-        onViewLogs(updatedApp, true)
-        onClose()
-      } else {
-        alert("Redeployment failed to trigger.")
-      }
+      const updatedApp = await api.apps.redeploy(app.id)
+      await onUpdateAppList()
+      onViewLogs(updatedApp, true)
+      onClose()
     } catch (err) {
       console.error(err)
       alert("Error starting redeployment.")

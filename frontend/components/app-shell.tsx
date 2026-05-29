@@ -27,9 +27,8 @@ const SettingsIcon = (props: IconProps) => <NucleoIcon {...props} name="settings
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 const KeyboardIcon = (props: IconProps) => <NucleoIcon {...props} name="keyboard" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
-const ListIcon = (props: IconProps) => <NucleoIcon {...props} name="list" />
 const HelpCircleIcon = (props: IconProps) => <NucleoIcon {...props} name="help" />
-const HistoryIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const SpinIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 
 interface NavItem {
   id: string
@@ -609,8 +608,6 @@ export function LogTerminal({
   label?: string
 }) {
   const endRef = useRef<HTMLDivElement>(null)
-  const TermIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
-  const SpinIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -620,7 +617,7 @@ export function LogTerminal({
     <div className="h-full bg-[#090a0f] font-mono text-xs text-slate-100 overflow-y-auto p-4 space-y-1.5 leading-relaxed">
       {logs.length === 0 ? (
         <div className="text-slate-400 italic h-full flex flex-col items-center justify-center gap-2 select-none">
-          <TermIcon className={`h-6 w-6 opacity-45 ${connected ? "animate-pulse" : ""}`} />
+          <TerminalIcon className={`h-6 w-6 opacity-45 ${connected ? "animate-pulse" : ""}`} />
           {connected ? (
             <span>Connected — waiting for log output...</span>
           ) : (

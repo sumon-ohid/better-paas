@@ -51,6 +51,8 @@ function LogsPage() {
   }, [])
 
   useEffect(() => {
+    // fetchApps is async; setState runs after awaits, not synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchApps()
   }, [fetchApps])
 
@@ -116,6 +118,8 @@ function LogsPage() {
 
   // Connect when app or mode changes
   useEffect(() => {
+    // connectStream resets/sets state inside async WS lifecycle callbacks.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (selectedAppId) connectStream(selectedAppId, logMode)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAppId, logMode])

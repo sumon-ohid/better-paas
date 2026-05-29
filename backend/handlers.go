@@ -27,6 +27,36 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 }
 
 // ---------------------------------------------------------------------------
+// GitHub API Types
+// ---------------------------------------------------------------------------
+
+type GitHubRepo struct {
+	FullName    string `json:"full_name"`
+	Name        string `json:"name"`
+	CloneURL    string `json:"clone_url"`
+	HTMLURL     string `json:"html_url"`
+	Private     bool   `json:"private"`
+	Description string `json:"description"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+type GitHubContent struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Type string `json:"type"` // "file" or "dir"
+}
+
+type GitHubFile struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Type        string `json:"type"`
+	Content     string `json:"content"`
+	Encoding    string `json:"encoding"`
+	Size        int    `json:"size"`
+	DownloadURL string `json:"download_url"`
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/apps
 // ---------------------------------------------------------------------------
 
@@ -79,6 +109,11 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !validAppName(req.Name) {
+		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
+		return
+	}
+
 	gitURL := normalizeGitURL(req.GitRepo)
 	ip := getLocalIP()
 
@@ -104,18 +139,38 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 
-	// Initialise build log buffer
+	if err := dbSaveApp(newApp); err != nil {
+		log.Printf("[db] failed to save app: %v", err)
+	}
+
+	// Initialize build log buffer.
 	buildLogsLock.Lock()
 	buildLogs[appID] = []string{}
 	buildLogsLock.Unlock()
 
-	saveDB()
 	rebuildCaddyfile()
+
+	// Create deployment record and log file upfront.
+	deployID := generateRandomID()
+	logFile := filepath.Join("data", "logs", appID, deployID+".log")
+	os.MkdirAll(filepath.Dir(logFile), 0755)
+
+	dep := DeploymentRecord{
+		ID:        deployID,
+		AppID:     appID,
+		AppName:   newApp.Name,
+		Status:    "building",
+		LogFile:   logFile,
+		CreatedAt: time.Now(),
+	}
+	if err := dbCreateDeployment(dep); err != nil {
+		log.Printf("[db] failed to create deployment: %v", err)
+	}
 
 	jsonOK(w, newApp.Public())
 
-	// Run deployment asynchronously
-	go runPaaSDeployment(newApp, gitURL)
+	// Run deployment asynchronously.
+	go runPaaSDeployment(newApp, gitURL, deployID, logFile)
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +206,9 @@ func handleStop(w http.ResponseWriter, r *http.Request) {
 	}
 	appsLock.Unlock()
 
-	saveDB()
+	if err := dbUpdateAppStatus(req.ID, "stopped"); err != nil {
+		log.Printf("[db] failed to update app status: %v", err)
+	}
 	rebuildCaddyfile()
 	jsonOK(w, map[string]string{"status": "stopped"})
 }
@@ -192,7 +249,9 @@ func handleStart(w http.ResponseWriter, r *http.Request) {
 	}
 	appsLock.Unlock()
 
-	saveDB()
+	if err := dbUpdateAppStatus(req.ID, "running"); err != nil {
+		log.Printf("[db] failed to update app status: %v", err)
+	}
 	rebuildCaddyfile()
 	jsonOK(w, map[string]string{"status": "running"})
 }
@@ -229,6 +288,12 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[delete] warning: failed to remove build dir %s: %v", buildDir, err)
 	}
 
+	// ── Remove log files ─────────────────────────────────────────────────────
+	logDir := filepath.Join("data", "logs", app.ID)
+	if err := os.RemoveAll(logDir); err != nil {
+		log.Printf("[delete] warning: failed to remove log dir %s: %v", logDir, err)
+	}
+
 	appsLock.Lock()
 	for i, a := range apps {
 		if a.ID == req.ID {
@@ -238,7 +303,13 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	appsLock.Unlock()
 
-	saveDB()
+	if err := dbDeleteApp(req.ID); err != nil {
+		log.Printf("[db] failed to delete app: %v", err)
+	}
+	if err := dbDeleteDeploymentsForApp(req.ID); err != nil {
+		log.Printf("[db] failed to delete deployments: %v", err)
+	}
+
 	rebuildCaddyfile()
 	jsonOK(w, map[string]string{"status": "deleted"})
 }
@@ -266,7 +337,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, "Bad request", http.StatusBadRequest)
+		jsonError(w, "Bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -297,7 +368,9 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	saveDB()
+	if err := dbSaveApp(*updated); err != nil {
+		log.Printf("[db] failed to save app: %v", err)
+	}
 	rebuildCaddyfile()
 	jsonOK(w, updated)
 }
@@ -338,17 +411,35 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clear old build logs
+	// Clear old build logs.
 	buildLogsLock.Lock()
 	buildLogs[targetApp.ID] = []string{}
 	buildLogsLock.Unlock()
 
-	saveDB()
-	rebuildCaddyfile()
+	if err := dbUpdateAppStatus(req.ID, "building"); err != nil {
+		log.Printf("[db] failed to update app status: %v", err)
+	}
 
+	// Create new deployment record.
+	deployID := generateRandomID()
+	logFile := filepath.Join("data", "logs", req.ID, deployID+".log")
+	os.MkdirAll(filepath.Dir(logFile), 0755)
+	dep := DeploymentRecord{
+		ID:        deployID,
+		AppID:     req.ID,
+		AppName:   targetApp.Name,
+		Status:    "building",
+		LogFile:   logFile,
+		CreatedAt: time.Now(),
+	}
+	if err := dbCreateDeployment(dep); err != nil {
+		log.Printf("[db] failed to create deployment: %v", err)
+	}
+
+	rebuildCaddyfile()
 	jsonOK(w, targetApp.Public())
 
-	go runPaaSDeployment(*targetApp, normalizeGitURL(targetApp.GitRepo))
+	go runPaaSDeployment(*targetApp, normalizeGitURL(targetApp.GitRepo), deployID, logFile)
 }
 
 // ---------------------------------------------------------------------------
@@ -398,18 +489,7 @@ func handleGitBranches(w http.ResponseWriter, r *http.Request) {
 
 // ---------------------------------------------------------------------------
 // POST /api/git/repos
-// Fetches repositories for the authenticated GitHub user.
 // ---------------------------------------------------------------------------
-
-type GitHubRepo struct {
-	FullName    string `json:"full_name"`
-	Name        string `json:"name"`
-	CloneURL    string `json:"clone_url"`
-	HTMLURL     string `json:"html_url"`
-	Private     bool   `json:"private"`
-	Description string `json:"description"`
-	UpdatedAt   string `json:"updated_at"`
-}
 
 func handleGitRepos(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -426,7 +506,6 @@ func handleGitRepos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Call GitHub API
 	ghReq, err := http.NewRequest("GET", "https://api.github.com/user/repos?sort=updated&per_page=100&affiliation=owner,collaborator", nil)
 	if err != nil {
 		jsonError(w, "Failed to create request", http.StatusInternalServerError)
@@ -472,6 +551,33 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// POST /api/auth/verify — validates an admin token (used by the login screen).
+// ---------------------------------------------------------------------------
+
+func handleAuthVerify(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Accept the token either as a bearer header or in the JSON body.
+	tok := bearerFromRequest(r)
+	if tok == "" {
+		var req struct {
+			Token string `json:"token"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		tok = req.Token
+	}
+
+	if !validToken(tok) {
+		jsonError(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+	jsonOK(w, map[string]bool{"valid": true})
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/docker/prune
 // ---------------------------------------------------------------------------
 
@@ -503,23 +609,18 @@ func handleDeploymentHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deploymentsLock.Lock()
-	result := make([]DeploymentRecord, len(deployments))
-	copy(result, deployments)
-	deploymentsLock.Unlock()
+	deps, err := dbLoadDeployments()
+	if err != nil {
+		jsonError(w, fmt.Sprintf("Failed to load deployments: %v", err), http.StatusInternalServerError)
+		return
+	}
 
-	jsonOK(w, result)
+	jsonOK(w, deps)
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/git/contents?repo=owner/repo&path=...&branch=...
+// GET /api/git/contents
 // ---------------------------------------------------------------------------
-
-type GitHubContent struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-	Type string `json:"type"` // "file" or "dir"
-}
 
 func handleGitContents(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -573,10 +674,8 @@ func handleGitContents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// GitHub returns either an array (directory) or an object (file)
 	var contents []GitHubContent
 	if err := json.NewDecoder(resp.Body).Decode(&contents); err != nil {
-		// Try single file response
 		resp.Body.Close()
 		ghReq2, _ := http.NewRequest("GET", url, nil)
 		if tok != "" {
@@ -594,7 +693,6 @@ func handleGitContents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Ensure we never return null
 	if contents == nil {
 		contents = []GitHubContent{}
 	}
@@ -603,18 +701,8 @@ func handleGitContents(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/git/file?repo=owner/repo&path=package.json&branch=...
+// GET /api/git/file
 // ---------------------------------------------------------------------------
-
-type GitHubFile struct {
-	Name        string `json:"name"`
-	Path        string `json:"path"`
-	Type        string `json:"type"`
-	Content     string `json:"content"`
-	Encoding    string `json:"encoding"`
-	Size        int    `json:"size"`
-	DownloadURL string `json:"download_url"`
-}
 
 func handleGitFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -674,7 +762,6 @@ func handleGitFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Decode base64 content if present
 	if file.Encoding == "base64" && file.Content != "" {
 		decoded, err := base64.StdEncoding.DecodeString(file.Content)
 		if err == nil {
@@ -723,7 +810,9 @@ func handleGitTokenSet(w http.ResponseWriter, r *http.Request) {
 	githubToken = req.Token
 	githubTokenLock.Unlock()
 
-	saveDB()
+	if err := dbSetToken(req.Token); err != nil {
+		log.Printf("[db] failed to save token: %v", err)
+	}
 
 	jsonOK(w, map[string]string{"status": "saved"})
 }
@@ -738,7 +827,9 @@ func handleGitTokenDelete(w http.ResponseWriter, r *http.Request) {
 	githubToken = ""
 	githubTokenLock.Unlock()
 
-	saveDB()
+	if err := dbSetToken(""); err != nil {
+		log.Printf("[db] failed to clear token: %v", err)
+	}
 
 	jsonOK(w, map[string]string{"status": "deleted"})
 }
@@ -747,7 +838,6 @@ func handleGitTokenDelete(w http.ResponseWriter, r *http.Request) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// findApp returns a copy of the App with the given ID, or nil.
 func findApp(id string) *App {
 	appsLock.Lock()
 	defer appsLock.Unlock()

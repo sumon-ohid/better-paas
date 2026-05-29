@@ -29,6 +29,8 @@ export function DeleteConfirmModal({
   // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
+      // Resets the confirmation form each time the modal opens.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInputValue("")
       setIsDeleting(false)
       setCopied(false)

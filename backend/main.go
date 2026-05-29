@@ -3,22 +3,31 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
-	"time"
+	"strings"
 )
 
 func main() {
-	// Seed random
-	rand.Seed(time.Now().UnixNano())
-
 	// Create required directories
 	os.MkdirAll("builds", 0755)
-	os.MkdirAll("data", 0755)
+	// data/ holds the SQLite DB (with stored tokens) and admin_token.txt, so
+	// restrict it to the owner.
+	os.MkdirAll("data", 0700)
 
-	// Load persisted state from disk
-	loadDB()
+	// Initialize SQLite and restore state
+	initDB()
+
+	// CLI subcommands (run after initDB so the token store is available).
+	// These let operators retrieve or rotate the admin token without the
+	// dashboard — useful on a headless VPS regardless of how it was deployed.
+	if len(os.Args) > 1 {
+		runCLI(os.Args[1:])
+		return
+	}
+
+	// Load or provision the admin token (must run after initDB).
+	initAuth()
 
 	// Rebuild Caddyfile from loaded apps
 	rebuildCaddyfile()
@@ -49,27 +58,99 @@ func main() {
 
 	// System
 	mux.HandleFunc("/api/health", handleHealth)
+	mux.HandleFunc("/api/auth/verify", handleAuthVerify)
 	mux.HandleFunc("/api/docker/prune", handleDockerPrune)
 	mux.HandleFunc("/api/deployments/history", handleDeploymentHistory)
 
-	// WebSockets
+	// WebSockets (auth enforced inside each handler via ?token=).
 	mux.HandleFunc("/ws/stats", handleStatsWS)
 	mux.HandleFunc("/ws/logs", handleLogsWS)
 	mux.HandleFunc("/ws/runtime-logs", handleRuntimeLogsWS)
 
-	// Apply CORS middleware
-	handler := corsMiddleware(mux)
+	// Auth gate, then CORS. Health stays public for uptime probes.
+	authed := authGate(mux)
+	limited := limitBody(authed)
+	throttled := rateLimit(limited)
+	handler := corsMiddleware(throttled)
 
-	fmt.Println("🚀 PaaS Engine running on http://localhost:8080")
-	if err := http.ListenAndServe(":8080", handler); err != nil {
+	addr := listenAddr()
+	fmt.Printf("🚀 PaaS Engine running on http://%s\n", addr)
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
 
-// corsMiddleware adds CORS headers to every response.
-func corsMiddleware(next http.Handler) http.Handler {
+// trustProxy controls whether X-Forwarded-For / X-Real-IP headers are honored
+// for client-IP resolution (only enable when behind a trusted reverse proxy,
+// otherwise clients could spoof their IP to evade rate limits).
+var trustProxy = strings.EqualFold(strings.TrimSpace(os.Getenv("TRUST_PROXY")), "true") ||
+	os.Getenv("TRUST_PROXY") == "1"
+
+// maxRequestBody caps JSON request bodies to defend against memory-exhaustion.
+// WebSocket upgrades are exempt (they are long-lived streams).
+const maxRequestBody = 2 << 20 // 2 MiB
+
+func limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if r.Body != nil && !strings.HasPrefix(r.URL.Path, "/ws/") {
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// listenAddr returns the address the API listens on. Defaults to all
+// interfaces on :8080 (the dashboard needs remote access for self-hosting),
+// but can be overridden via LISTEN_ADDR (e.g. "127.0.0.1:8080" when fronted
+// by a reverse proxy).
+func listenAddr() string {
+	if a := strings.TrimSpace(os.Getenv("LISTEN_ADDR")); a != "" {
+		return a
+	}
+	return ":8080"
+}
+
+// publicPaths are reachable without an admin token.
+var publicPaths = map[string]bool{
+	"/api/health":      true,
+	"/api/auth/verify": true,
+}
+
+// authGate enforces bearer-token auth on every API route except public ones.
+// WebSocket routes authenticate themselves (token query param) since browsers
+// cannot attach Authorization headers to WS handshakes.
+func authGate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions ||
+			publicPaths[r.URL.Path] ||
+			strings.HasPrefix(r.URL.Path, "/ws/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !validToken(bearerFromRequest(r)) {
+			jsonError(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// corsMiddleware adds CORS headers. The allowed origin is reflected from the
+// request (or restricted to DASHBOARD_ORIGIN, comma-separated, when set).
+// Credentials are NOT enabled because auth uses bearer tokens, not cookies, so
+// a malicious origin still cannot forge an authenticated request.
+func corsMiddleware(next http.Handler) http.Handler {
+	allowed := parseAllowedOrigins(os.Getenv("DASHBOARD_ORIGIN"))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		w.Header().Set("Vary", "Origin")
+		if originAllowed(origin, allowed) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else if len(allowed) == 0 && origin != "" {
+			// No explicit allow-list configured: reflect origin (safe under
+			// bearer-token auth, no ambient credentials are exposed).
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
@@ -78,4 +159,31 @@ func corsMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func parseAllowedOrigins(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func originAllowed(origin string, allowed []string) bool {
+	if origin == "" {
+		return false
+	}
+	for _, a := range allowed {
+		if a == origin || a == "*" {
+			return true
+		}
+	}
+	return false
 }

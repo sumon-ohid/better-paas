@@ -1,19 +1,63 @@
 // Typed API client for the PaaS backend
 
 import type { App, DeployRequest, DeploymentRecord, UpdateRequest, GitHubContent, GitHubFile } from "./types"
+import { getToken } from "./auth"
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"
+// Resolve the backend base URL.
+//
+// Priority:
+//   1. NEXT_PUBLIC_API_URL (explicit override for custom deployments)
+//   2. Same host as the dashboard, port 8080 (correct for self-hosted: the
+//      browser may be remote, so "localhost" would be wrong)
+//   3. http://localhost:8080 (SSR / build-time fallback)
+export function getApiBase(): string {
+  const explicit = process.env.NEXT_PUBLIC_API_URL
+  if (explicit) return explicit.replace(/\/$/, "")
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8080`
+  }
+  return "http://localhost:8080"
+}
+
+const BASE_URL = getApiBase()
+
+export class ApiError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+    this.name = "ApiError"
+  }
+}
 
 async function req<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getToken()
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  }
+  if (token) headers["Authorization"] = `Bearer ${token}`
+
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers,
   })
   if (!res.ok) {
     const body = await res.text()
-    throw new Error(body || `HTTP ${res.status}`)
+    throw new ApiError(body || `HTTP ${res.status}`, res.status)
   }
   return res.json() as Promise<T>
+}
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
+export const authApi = {
+  // Validates a token against the backend without persisting it.
+  verify: (token: string) =>
+    req<{ valid: boolean }>("/api/auth/verify", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
 }
 
 // ── Apps ─────────────────────────────────────────────────────────────────────
@@ -79,19 +123,28 @@ export const api = {
 // ── WebSocket helpers ─────────────────────────────────────────────────────────
 
 export function getWsBase(): string {
-  if (typeof window === "undefined") return "ws://localhost:8080"
-  const host = window.location.hostname
-  return `ws://${host}:8080`
+  const base = getApiBase()
+  // Convert http(s):// → ws(s)://
+  return base.replace(/^http/, "ws")
+}
+
+// Appends the admin token to a WS URL so the backend can authenticate the
+// handshake (browsers cannot set headers on WebSocket connections).
+function withToken(url: string): string {
+  const token = getToken()
+  if (!token) return url
+  const sep = url.includes("?") ? "&" : "?"
+  return `${url}${sep}token=${encodeURIComponent(token)}`
 }
 
 export function createBuildLogsWs(appId: string): WebSocket {
-  return new WebSocket(`${getWsBase()}/ws/logs?appId=${appId}`)
+  return new WebSocket(withToken(`${getWsBase()}/ws/logs?appId=${appId}`))
 }
 
 export function createRuntimeLogsWs(appId: string): WebSocket {
-  return new WebSocket(`${getWsBase()}/ws/runtime-logs?appId=${appId}`)
+  return new WebSocket(withToken(`${getWsBase()}/ws/runtime-logs?appId=${appId}`))
 }
 
 export function createStatsWs(): WebSocket {
-  return new WebSocket(`${getWsBase()}/ws/stats`)
+  return new WebSocket(withToken(`${getWsBase()}/ws/stats`))
 }

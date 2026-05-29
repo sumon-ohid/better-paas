@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -47,6 +47,8 @@ import { Microsoft } from "@/components/ui/svgs/microsoft"
 import { api } from "@/lib/api"
 
 // Framework definitions (18 supported frameworks)
+type FrameworkIcon = React.FC<React.SVGProps<SVGSVGElement>>
+
 const FRAMEWORKS = [
   {
     id: "nextjs",
@@ -239,7 +241,7 @@ const FRAMEWORKS = [
     id: "elixir",
     name: "Elixir / Phoenix",
     color: "text-[#7e66a0]",
-    icon: null as any,
+    icon: null as FrameworkIcon | null,
     keywords: ["elixir", "phoenix"],
     buildCmd: "mix assets.deploy",
     startCmd: "mix phx.server",
@@ -272,7 +274,7 @@ const FRAMEWORKS = [
     id: "staticfile",
     name: "Static Site",
     color: "text-[#00d8ff]",
-    icon: null as any,
+    icon: null as FrameworkIcon | null,
     keywords: ["static", "jekyll", "hugo", "eleventy", "gatsby"],
     buildCmd: "",
     startCmd: "python -m http.server $PORT",
@@ -442,7 +444,6 @@ const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-left" />
 const ChevronRightIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-right" />
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
-const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
 
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
@@ -497,6 +498,20 @@ export default function DeployPage() {
   const [isDeploying, setIsDeploying] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
 
+  // ── Repo loading ───────────────────────────────────────────────────────────
+  const loadRepos = useCallback(async () => {
+    setIsLoadingRepos(true)
+    try {
+      const data = await api.git.repos()
+      setRepos(data)
+    } catch (err) {
+      console.error("Failed to load repos:", err)
+      setErrorMsg("Failed to load repositories. Your token may have expired.")
+    } finally {
+      setIsLoadingRepos(false)
+    }
+  }, [])
+
   // ── Check token on mount ───────────────────────────────────────────────────
   useEffect(() => {
     api.git
@@ -510,20 +525,7 @@ export default function DeployPage() {
       .catch(() => {
         // No saved token
       })
-  }, [])
-
-  const loadRepos = async () => {
-    setIsLoadingRepos(true)
-    try {
-      const data = await api.git.repos()
-      setRepos(data)
-    } catch (err) {
-      console.error("Failed to load repos:", err)
-      setErrorMsg("Failed to load repositories. Your token may have expired.")
-    } finally {
-      setIsLoadingRepos(false)
-    }
-  }
+  }, [loadRepos])
 
   const applyDetectedFramework = (fw: (typeof FRAMEWORKS)[0] | null) => {
     setDetectedFramework(fw)
@@ -770,32 +772,23 @@ export default function DeployPage() {
 
     try {
       setIsDeploying(true)
-      const res = await fetch("http://localhost:8080/api/deploy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: deployName,
-          gitRepo: selectedRepo.clone_url,
-          branch: selectedBranch,
-          rootDir: deployRootDir,
-          envVars: envVarsRecord,
-          buildCommand: deployBuildCommand,
-          startCommand: deployStartCommand,
-          installCommand: deployInstallCommand,
-          portOverride: deployPortOverride ? parseInt(deployPortOverride, 10) : 0,
-        }),
+      const newApp = await api.apps.deploy({
+        name: deployName,
+        gitRepo: selectedRepo.clone_url,
+        branch: selectedBranch,
+        rootDir: deployRootDir,
+        envVars: envVarsRecord,
+        buildCommand: deployBuildCommand,
+        startCommand: deployStartCommand,
+        installCommand: deployInstallCommand,
+        portOverride: deployPortOverride ? parseInt(deployPortOverride, 10) : 0,
       })
-
-      if (res.ok) {
-        const newApp = await res.json()
-        router.push(`/logs?appId=${newApp.id}&mode=build`)
-      } else {
-        const text = await res.text()
-        setErrorMsg(`Deployment submission failed: ${text}`)
-      }
+      router.push(`/logs?appId=${newApp.id}&mode=build`)
     } catch (err) {
       console.error(err)
-      setErrorMsg("Backend connection failed.")
+      setErrorMsg(
+        `Deployment submission failed: ${err instanceof Error ? err.message : "Backend connection failed."}`,
+      )
     } finally {
       setIsDeploying(false)
     }

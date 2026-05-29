@@ -2,6 +2,7 @@ import { Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthGate } from "@/components/auth-gate"
 import { cn } from "@/lib/utils";
 
 const interHeading = Inter({subsets:['latin'],variable:'--font-heading'});
@@ -27,7 +28,9 @@ export default function RootLayout({
       className={cn("antialiased", "font-sans", inter.variable, interHeading.variable, geistMono.variable)}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <AuthGate>{children}</AuthGate>
+        </ThemeProvider>
       </body>
     </html>
   )

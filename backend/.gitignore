@@ -1,1 +1,27 @@
-builds
+# Build artifacts / compiled binaries
+baas
+server
+*.exe
+
+# Runtime data (database, logs, build workspaces, secrets)
+builds/
+data/
+Caddyfile
+
+# Logs
+*.log
+
+# SQLite
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Legacy migration leftovers
+db.json
+db.json.migrated
+
+# Secrets
+admin_token.txt
+.env
+.env.*

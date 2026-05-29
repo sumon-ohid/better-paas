@@ -1,9 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
-	"os"
 	"sync"
 	"time"
 )
@@ -56,6 +53,7 @@ type DeploymentRecord struct {
 	AppName   string    `json:"appName"`
 	Status    string    `json:"status"` // "success","failed"
 	Logs      []string  `json:"logs"`
+	LogFile   string    `json:"-"`      // internal path, never sent to client
 	CreatedAt time.Time `json:"createdAt"`
 	Duration  string    `json:"duration"`
 }
@@ -63,6 +61,8 @@ type DeploymentRecord struct {
 // ---------------------------------------------------------------------------
 // Global State
 // ---------------------------------------------------------------------------
+
+const maxBuildLogLines = 5000
 
 var (
 	appsLock sync.Mutex
@@ -74,94 +74,8 @@ var (
 	subscribersLock sync.Mutex
 	subscribers     = make(map[string]map[chan string]bool)
 
-	deploymentsLock sync.Mutex
-	deployments     = []DeploymentRecord{}
-
 	githubTokenLock sync.RWMutex
 	githubToken     = ""
 
 	startTime = time.Now()
 )
-
-// ---------------------------------------------------------------------------
-// Persistence
-// ---------------------------------------------------------------------------
-
-const dbPath = "data/db.json"
-
-type dbState struct {
-	Apps        []App              `json:"apps"`
-	Deployments []DeploymentRecord `json:"deployments"`
-	GitHubToken string             `json:"gitHubToken,omitempty"`
-}
-
-// loadDB reads the JSON database from disk and restores state.
-func loadDB() {
-	appsLock.Lock()
-	deploymentsLock.Lock()
-	githubTokenLock.Lock()
-	defer appsLock.Unlock()
-	defer deploymentsLock.Unlock()
-	defer githubTokenLock.Unlock()
-
-	os.MkdirAll("data", 0755)
-
-	file, err := os.ReadFile(dbPath)
-	if err != nil {
-		log.Printf("No existing database, starting fresh (%v)", err)
-		return
-	}
-
-	var state dbState
-	if err := json.Unmarshal(file, &state); err != nil {
-		log.Printf("Error parsing database: %v", err)
-		return
-	}
-
-	apps = state.Apps
-	deployments = state.Deployments
-	githubToken = state.GitHubToken
-
-	// Restore empty build log entries for all known apps
-	buildLogsLock.Lock()
-	for _, app := range apps {
-		buildLogs[app.ID] = []string{}
-	}
-	buildLogsLock.Unlock()
-
-	log.Printf("✅ Loaded %d apps, %d deployments from database", len(apps), len(deployments))
-}
-
-// saveDB atomically writes state to disk.
-// Callers must NOT hold appsLock or deploymentsLock.
-func saveDB() {
-	appsLock.Lock()
-	deploymentsLock.Lock()
-	githubTokenLock.RLock()
-
-	state := dbState{
-		Apps:        apps,
-		Deployments: deployments,
-		GitHubToken: githubToken,
-	}
-
-	githubTokenLock.RUnlock()
-	appsLock.Unlock()
-	deploymentsLock.Unlock()
-
-	data, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		log.Printf("Error encoding database: %v", err)
-		return
-	}
-
-	tmpPath := dbPath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
-		log.Printf("Error writing temp database: %v", err)
-		return
-	}
-
-	if err := os.Rename(tmpPath, dbPath); err != nil {
-		log.Printf("Error persisting database: %v", err)
-	}
-}

@@ -35,6 +35,8 @@ export default function DeploymentsIndexPage() {
   }, [])
 
   useEffect(() => {
+    // fetchData is async; setState runs after awaits, not synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
   }, [fetchData])
 

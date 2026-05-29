@@ -2,11 +2,12 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -15,12 +16,17 @@ import (
 	"time"
 )
 
-// generateRandomID returns a 10-character lowercase alphanumeric string.
+// generateRandomID returns a 10-character lowercase alphanumeric string using
+// a cryptographically secure source. IDs form part of the public per-app URL,
+// so they must not be predictable.
 func generateRandomID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, 10)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatalf("[id] failed to read secure random: %v", err)
+	}
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		b[i] = charset[int(b[i])%len(charset)]
 	}
 	return string(b)
 }
@@ -51,15 +57,27 @@ func normalizeGitURL(raw string) string {
 	return raw
 }
 
-// logToBuild appends a log line to the in-memory build log and broadcasts
-// it to any connected WebSocket subscribers.
-func logToBuild(appID, message string) {
+// logToBuild appends a log line to the in-memory ring buffer, persists it to
+// disk, and broadcasts it to any connected WebSocket subscribers.
+func logToBuild(appID, message, logFile string) {
 	log.Printf("[%s] %s", appID, message)
 
+	// Persist to disk.
+	if logFile != "" {
+		_ = appendLogFile(logFile, message)
+	}
+
+	// Maintain in-memory ring buffer for WebSocket replay.
 	buildLogsLock.Lock()
-	buildLogs[appID] = append(buildLogs[appID], message)
+	buf := buildLogs[appID]
+	buf = append(buf, message)
+	if len(buf) > maxBuildLogLines {
+		buf = buf[len(buf)-maxBuildLogLines:]
+	}
+	buildLogs[appID] = buf
 	buildLogsLock.Unlock()
 
+	// Broadcast to subscribers.
 	subscribersLock.Lock()
 	for ch := range subscribers[appID] {
 		select {
@@ -70,7 +88,7 @@ func logToBuild(appID, message string) {
 	subscribersLock.Unlock()
 }
 
-// updateAppStatus updates app status and persists to disk.
+// updateAppStatus updates app status in memory and DB, then rebuilds Caddyfile.
 func updateAppStatus(appID, status string) {
 	appsLock.Lock()
 	for i := range apps {
@@ -80,13 +98,70 @@ func updateAppStatus(appID, status string) {
 		}
 	}
 	appsLock.Unlock()
-	saveDB()
+
+	if err := dbUpdateAppStatus(appID, status); err != nil {
+		log.Printf("[db] failed to update app status: %v", err)
+	}
 	rebuildCaddyfile()
 }
 
-// allocatePort picks a random port in [9000, 9999].
+// allocatePort picks a free host port in [9000, 9999], avoiding ports already
+// assigned to other apps and ports currently bound on the host.
+//
+// IMPORTANT: callers must hold appsLock, since this reads the apps slice.
 func allocatePort() int {
-	return rand.Intn(1000) + 9000
+	inUse := make(map[int]bool, len(apps))
+	for _, a := range apps {
+		inUse[a.Port] = true
+	}
+
+	const lo, hi = 9000, 9999
+	// Try random ports first to reduce clustering.
+	for attempt := 0; attempt < 200; attempt++ {
+		p := lo + secureIntn(hi-lo+1)
+		if !inUse[p] && portFree(p) {
+			return p
+		}
+	}
+	// Deterministic fallback: first free port in range.
+	for p := lo; p <= hi; p++ {
+		if !inUse[p] && portFree(p) {
+			return p
+		}
+	}
+	// Last resort: a port not tracked in memory (host check may have raced).
+	for p := lo; p <= hi; p++ {
+		if !inUse[p] {
+			return p
+		}
+	}
+	return lo
+}
+
+// secureIntn returns a crypto-random int in [0, n).
+func secureIntn(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		return 0
+	}
+	v := int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3])
+	if v < 0 {
+		v = -v
+	}
+	return v % n
+}
+
+// portFree reports whether a TCP port can currently be bound on the host.
+func portFree(port int) bool {
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return false
+	}
+	_ = ln.Close()
+	return true
 }
 
 // runDockerPrune runs docker system prune -f --volumes and returns output.
@@ -97,13 +172,26 @@ func runDockerPrune() (string, error) {
 }
 
 // runPaaSDeployment clones, builds with Nixpacks, and runs the container.
-func runPaaSDeployment(app App, gitURL string) {
+func runPaaSDeployment(app App, gitURL, deployID, logFile string) {
 	startedAt := time.Now()
 
-	// Collect all logs for the deployment record
+	// Seed the deployment record in DB immediately.
+	dep := DeploymentRecord{
+		ID:        deployID,
+		AppID:     app.ID,
+		AppName:   app.Name,
+		Status:    "building",
+		LogFile:   logFile,
+		CreatedAt: startedAt,
+	}
+	if err := dbCreateDeployment(dep); err != nil {
+		log.Printf("[db] failed to create deployment: %v", err)
+	}
+
+	// Collect in-memory logs for the final record.
 	var deployLogs []string
 	localLog := func(msg string) {
-		logToBuild(app.ID, msg)
+		logToBuild(app.ID, msg, logFile)
 		deployLogs = append(deployLogs, msg)
 	}
 
@@ -119,7 +207,7 @@ func runPaaSDeployment(app App, gitURL string) {
 	cloneCmd := exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
 	if output, err := cloneCmd.CombinedOutput(); err != nil {
 		localLog(fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, string(output)))
-		finishDeployment(app, deployLogs, "failed", startedAt)
+		finishDeployment(app, deployLogs, "failed", startedAt, deployID, logFile)
 		return
 	}
 	localLog("✔ Repository cloned successfully.")
@@ -135,8 +223,6 @@ func runPaaSDeployment(app App, gitURL string) {
 	}
 
 	// ── 4. Remove restrictive .dockerignore ──────────────────────────────────
-	// Some repos ignore everything (e.g. `**`) which blocks Nixpacks from
-	// including its generated .nixpacks/ files in the Docker build context.
 	dockerignorePath := filepath.Join(buildSubDir, ".dockerignore")
 	if _, err := os.Stat(dockerignorePath); err == nil {
 		os.Rename(dockerignorePath, dockerignorePath+".bak")
@@ -163,14 +249,14 @@ func runPaaSDeployment(app App, gitURL string) {
 	stdout, err := nixpacksCmd.StdoutPipe()
 	if err != nil {
 		localLog(fmt.Sprintf("✖ Failed to open Nixpacks output: %v", err))
-		finishDeployment(app, deployLogs, "failed", startedAt)
+		finishDeployment(app, deployLogs, "failed", startedAt, deployID, logFile)
 		return
 	}
 	nixpacksCmd.Stderr = nixpacksCmd.Stdout
 
 	if err := nixpacksCmd.Start(); err != nil {
 		localLog(fmt.Sprintf("✖ Failed to start Nixpacks: %v", err))
-		finishDeployment(app, deployLogs, "failed", startedAt)
+		finishDeployment(app, deployLogs, "failed", startedAt, deployID, logFile)
 		return
 	}
 
@@ -188,7 +274,7 @@ func runPaaSDeployment(app App, gitURL string) {
 
 	if err := nixpacksCmd.Wait(); err != nil {
 		localLog(fmt.Sprintf("✖ Nixpacks build failed: %v", err))
-		finishDeployment(app, deployLogs, "failed", startedAt)
+		finishDeployment(app, deployLogs, "failed", startedAt, deployID, logFile)
 		return
 	}
 	localLog("✔ Docker image built successfully!")
@@ -217,16 +303,16 @@ func runPaaSDeployment(app App, gitURL string) {
 
 	if output, err := exec.Command("docker", runArgs...).CombinedOutput(); err != nil {
 		localLog(fmt.Sprintf("✖ Container startup failed: %v\nOutput: %s", err, string(output)))
-		finishDeployment(app, deployLogs, "failed", startedAt)
+		finishDeployment(app, deployLogs, "failed", startedAt, deployID, logFile)
 		return
 	}
 
 	localLog(fmt.Sprintf("✅ Deployment complete! App live at: %s", app.URL))
-	finishDeployment(app, deployLogs, "success", startedAt)
+	finishDeployment(app, deployLogs, "success", startedAt, deployID, logFile)
 }
 
 // finishDeployment updates app status, saves deployment record, and persists.
-func finishDeployment(app App, logs []string, status string, startedAt time.Time) {
+func finishDeployment(app App, deployLogs []string, status string, startedAt time.Time, deployID, logFile string) {
 	duration := time.Since(startedAt).Round(time.Second).String()
 
 	finalStatus := "running"
@@ -234,6 +320,7 @@ func finishDeployment(app App, logs []string, status string, startedAt time.Time
 		finalStatus = "failed"
 	}
 
+	// Update app status in memory and DB.
 	appsLock.Lock()
 	for i := range apps {
 		if apps[i].ID == app.ID {
@@ -243,26 +330,29 @@ func finishDeployment(app App, logs []string, status string, startedAt time.Time
 	}
 	appsLock.Unlock()
 
+	if err := dbUpdateAppStatus(app.ID, finalStatus); err != nil {
+		log.Printf("[db] failed to update app status: %v", err)
+	}
+	rebuildCaddyfile()
+
 	record := DeploymentRecord{
-		ID:        generateRandomID(),
+		ID:        deployID,
 		AppID:     app.ID,
 		AppName:   app.Name,
 		Status:    status,
-		Logs:      logs,
-		CreatedAt: time.Now(),
+		LogFile:   logFile,
+		CreatedAt: startedAt,
 		Duration:  duration,
+		Logs:      deployLogs,
 	}
 
-	deploymentsLock.Lock()
-	deployments = append([]DeploymentRecord{record}, deployments...) // newest first
-	// Cap history at 100 records
-	if len(deployments) > 100 {
-		deployments = deployments[:100]
+	// Upsert final status to DB.
+	if err := dbCreateDeployment(record); err != nil {
+		log.Printf("[db] failed to save deployment: %v", err)
 	}
-	deploymentsLock.Unlock()
-
-	saveDB()
-	rebuildCaddyfile()
+	if err := dbPruneDeployments(100); err != nil {
+		log.Printf("[db] failed to prune deployments: %v", err)
+	}
 }
 
 // patchPackageJSON sanitizes a Node.js package.json for Nixpacks compatibility.

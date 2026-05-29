@@ -14,14 +14,17 @@ import {
 } from "@/components/ui/select"
 import { AppShell, ToastContainer, useToast } from "@/components/app-shell"
 import { api } from "@/lib/api"
+import { useAuth } from "@/components/auth-gate"
 import { NucleoIcon } from "@/components/nucleo-icons"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const TrashIcon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const SettingsIcon = (props: IconProps) => <NucleoIcon {...props} name="settings" />
+const LockIcon = (props: IconProps) => <NucleoIcon {...props} name="lock" />
 
 export default function SettingsPage() {
   const { toasts, showToast, dismissToast } = useToast()
+  const { signOut } = useAuth()
   const [pruning, setPruning] = useState(false)
   const [pruneOutput, setPruneOutput] = useState("")
   const [restartPolicy, setRestartPolicy] = useState("unless-stopped")

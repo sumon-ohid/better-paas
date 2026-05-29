@@ -12,7 +12,6 @@ type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const CpuIcon = (props: IconProps) => <NucleoIcon {...props} name="cpu" />
 const ServerIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
-const ActivityIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
 
 export default function HealthPage() {
   const { toasts, dismissToast } = useToast()
@@ -39,6 +38,9 @@ export default function HealthPage() {
   }, [])
 
   useEffect(() => {
+    // fetchData is async; stats updates arrive via WS callbacks. Neither sets
+    // state synchronously during the effect body.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
 
     const ws = createStatsWs()

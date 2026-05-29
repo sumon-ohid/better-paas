@@ -376,6 +376,7 @@ print_summary() {
   echo -e "  ${CYAN}API:${NC}        http://localhost:8080"
   echo -e "  ${CYAN}Logs dir:${NC}   $BACKEND_DIR/data/"
   echo ""
+  print_admin_token
   echo -e "  ${YELLOW}Deployed apps are accessible at:${NC}"
   echo -e "  http://[app-id].[server-ip].sslip.io"
   echo ""
@@ -384,6 +385,34 @@ print_summary() {
     echo -e "  sudo systemctl status antigravity-backend"
     echo -e "  sudo systemctl status antigravity-frontend"
     echo -e "  journalctl -u antigravity-backend -f"
+  fi
+  echo ""
+}
+
+# print_admin_token surfaces the auto-generated admin token so the operator can
+# sign in to the dashboard. The backend writes it to data/admin_token.txt on
+# first run.
+print_admin_token() {
+  local token_file="$DATA_DIR/admin_token.txt"
+  # Give the backend a moment to start and generate the token on first run.
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [ -f "$token_file" ] && break
+    sleep 1
+  done
+
+  if [ -f "$token_file" ]; then
+    echo -e "${YELLOW}─────────────────────────────────────────────────────────────${NC}"
+    echo -e "  ${YELLOW}🔑  ADMIN TOKEN — you need this to LOG IN to the dashboard${NC}"
+    echo ""
+    echo -e "      ${GREEN}$(cat "$token_file")${NC}"
+    echo ""
+    echo -e "  ${CYAN}Paste it into the sign-in screen at http://localhost:3000${NC}"
+    echo -e "  ${CYAN}Saved at: $token_file${NC}"
+    echo -e "  ${CYAN}Show again later:  cd $BACKEND_DIR && ./server token${NC}"
+    echo -e "${YELLOW}─────────────────────────────────────────────────────────────${NC}"
+  else
+    echo -e "  ${YELLOW}🔑  ADMIN TOKEN (needed to log in):${NC} run ${CYAN}cd $BACKEND_DIR && ./server token${NC}"
+    echo -e "      or check the backend logs / $token_file"
   fi
   echo ""
 }

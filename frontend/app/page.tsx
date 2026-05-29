@@ -2,18 +2,16 @@
 
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
-import { AppShell, ToastContainer, useToast, StatusDot } from "@/components/app-shell"
+import { AppShell, ToastContainer, useToast } from "@/components/app-shell"
 import { api } from "@/lib/api"
-import type { App, ServerStats } from "@/lib/types"
+import type { App } from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
-const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
 const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
@@ -290,20 +288,10 @@ function ApplicationsDashboard() {
   const { toasts, showToast, dismissToast } = useToast()
 
   const [apps, setApps] = useState<App[]>([])
-  const [stats, setStats] = useState<ServerStats>({
-    cpuUsage: 0,
-    memoryUsage: 0,
-    diskUsage: 0,
-    activeApps: 0,
-    timestamp: new Date().toISOString(),
-  })
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [deleteTarget, setDeleteTarget] = useState<App | null>(null)
   const [showPruneModal, setShowPruneModal] = useState(false)
-
-  const appsRef = useRef<App[]>([])
-  const statsWsRef = useRef<WebSocket | null>(null)
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -316,32 +304,12 @@ function ApplicationsDashboard() {
     }
   }, [])
 
-  useEffect(() => {
-    appsRef.current = apps
-  }, [apps])
-
-  // ── WebSocket: Stats ───────────────────────────────────────────────────────
+  // ── Fetch apps + poll while building ─────────────────────────────────────────
 
   useEffect(() => {
+    // fetchApps is async; setState runs after awaits, not synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchApps()
-
-    const wsHost = typeof window !== "undefined" ? window.location.hostname : "localhost"
-    const statsWs = new WebSocket(`ws://${wsHost}:8080/ws/stats`)
-    statsWsRef.current = statsWs
-
-    statsWs.onmessage = (event) => {
-      const data: ServerStats = JSON.parse(event.data)
-      setStats(data)
-    }
-
-    statsWs.onerror = () => {
-      console.warn("Stats WebSocket error, falling back to simulation")
-    }
-
-    return () => {
-      statsWs.onclose = null
-      statsWs.close()
-    }
   }, [fetchApps])
 
   // Poll while building
@@ -352,36 +320,7 @@ function ApplicationsDashboard() {
     return () => clearInterval(interval)
   }, [apps, fetchApps])
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (statsWsRef.current) {
-        statsWsRef.current.onclose = null
-        statsWsRef.current.close()
-      }
-    }
-  }, [])
-
   // ── Actions ────────────────────────────────────────────────────────────────
-
-  const handleTogglePause = async (id: string, action: "stop" | "start") => {
-    try {
-      if (action === "stop") {
-        await api.apps.stop(id)
-      } else {
-        await api.apps.start(id)
-      }
-      showToast(
-        action === "stop" ? "Container Stopped" : "Container Started",
-        `Application successfully ${action === "stop" ? "stopped" : "started"}.`,
-      )
-      fetchApps()
-    } catch (err) {
-      showToast("Error", `Failed to ${action} container.`, "destructive")
-      console.error(err)
-    }
-  }
-
   const handleDeleteApp = async (id: string) => {
     try {
       await api.apps.delete(id)
