@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -603,6 +603,28 @@ async function detectFrameworkByFiles(
   return null
 }
 
+// detectFrameworkForDir detects the framework for one specific directory only
+// (no monorepo/subdir traversal). It's used when the user manually changes the
+// build Root Directory, because the repo root and a subdirectory can be
+// completely different stacks (e.g. a Go API at the root with a Next.js app in
+// /frontend). Returns null when the directory has no recognizable framework.
+async function detectFrameworkForDir(
+  repo: GitHubRepo,
+  branch: string,
+  dir: string,
+): Promise<Framework | null> {
+  const normalized = dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()
+  try {
+    const contents = await safeContents(repo, branch, normalized)
+    if (contents.length === 0) return null
+    const match = await detectInDir(repo, branch, normalized, contents)
+    return match ? match.framework : null
+  } catch (err) {
+    console.error("[FrameworkScan] per-dir error:", err)
+    return null
+  }
+}
+
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
@@ -671,6 +693,10 @@ export default function DeployPage() {
   const [isDeploying, setIsDeploying] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
 
+  // Debounce timer for re-detecting the framework when the Root Directory input
+  // is edited by hand.
+  const rootDirDetectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // ── Repo loading ───────────────────────────────────────────────────────────
   const loadRepos = useCallback(async () => {
     setIsLoadingRepos(true)
@@ -699,6 +725,13 @@ export default function DeployPage() {
         // No saved token
       })
   }, [loadRepos])
+
+  // Clear any pending root-dir detection timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+    }
+  }, [])
 
   const applyDetectedFramework = (fw: (typeof FRAMEWORKS)[0] | null) => {
     setDetectedFramework(fw)
@@ -822,9 +855,50 @@ export default function DeployPage() {
     }
   }
 
+  // Re-detect the framework for a specific directory after the user changes the
+  // build Root Directory. The repo root and a subdirectory can hold different
+  // stacks, so the auto-configured build/start commands must follow the chosen
+  // directory. Falls back to the repo-wide scan when the directory is cleared
+  // (back to root).
+  const redetectForRootDir = useCallback(
+    async (dir: string) => {
+      if (!selectedRepo || !selectedBranch) return
+      const normalized = dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()
+
+      setIsDetectingFramework(true)
+      try {
+        if (!normalized || normalized === ".") {
+          // Back to repo root: rerun the full scan (handles monorepos/subdirs).
+          const detected = await detectFrameworkByFiles(selectedRepo, selectedBranch)
+          applyDetectedFramework(detected ? detected.framework : null)
+          return
+        }
+        const fwForDir = await detectFrameworkForDir(selectedRepo, selectedBranch, normalized)
+        // Only overwrite the build config when we positively recognize the
+        // directory's stack; otherwise leave the current commands untouched so
+        // we don't clobber a user's manual edits with an empty guess.
+        if (fwForDir) applyDetectedFramework(fwForDir)
+      } finally {
+        setIsDetectingFramework(false)
+      }
+    },
+    [selectedRepo, selectedBranch],
+  )
+
+  // Debounced re-detection driven by manual edits to the Root Directory input.
+  const handleRootDirChange = (value: string) => {
+    setDeployRootDir(value)
+    if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+    rootDirDetectTimer.current = setTimeout(() => {
+      redetectForRootDir(value)
+    }, 600)
+  }
+
   const selectFolder = (path: string) => {
     setDeployRootDir(path)
     setShowFolderBrowser(false)
+    if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+    redetectForRootDir(path)
   }
 
   const parseEnvBlock = (text: string): Array<{ key: string; value: string }> => {
@@ -1307,7 +1381,7 @@ export default function DeployPage() {
                     </div>
                     <Input
                       value={deployRootDir}
-                      onChange={(e) => setDeployRootDir(e.target.value)}
+                      onChange={(e) => handleRootDirChange(e.target.value)}
                       placeholder="./"
                       className="h-9 text-sm"
                     />
@@ -1762,6 +1836,8 @@ export default function DeployPage() {
               onClick={() => {
                 setDeployRootDir("")
                 setShowFolderBrowser(false)
+                if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+                redetectForRootDir("")
               }}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
