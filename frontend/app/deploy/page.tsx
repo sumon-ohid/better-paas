@@ -278,7 +278,10 @@ const FRAMEWORKS = [
     icon: null as FrameworkIcon | null,
     keywords: ["static", "jekyll", "hugo", "eleventy", "gatsby"],
     buildCmd: "",
-    startCmd: "python -m http.server $PORT",
+    // Leave the start command empty so Nixpacks' native staticfile provider
+    // serves the files with nginx (bound to $PORT). The image has no Python, so
+    // a "python -m http.server" command here would fail at runtime.
+    startCmd: "",
     installCmd: "",
     port: 8080,
   },
@@ -456,6 +459,13 @@ async function detectInDir(
   // 5. Bun / 6. Deno.
   if (fileNames.has("bun.lockb")) return high("bun")
   if (fileNames.has("deno.json") || fileNames.has("deno.jsonc")) return high("deno")
+
+  // 7. Static site — a plain index.html with no package.json or other language
+  // manifest. This is checked last so any real framework/manifest wins first;
+  // reaching here means the directory is just pre-built static files, which
+  // Nixpacks serves via its native nginx provider.
+  if (fileNames.has("index.html") || fileNames.has("index.htm"))
+    return high("staticfile")
 
   return null
 }
@@ -1097,7 +1107,7 @@ export default function DeployPage() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="pt-6 min-h-[300px]">
+          <CardContent className="pt-4 min-h-[320px]">
             {errorMsg && (
               <Alert variant="error" className="mb-4">
                 <NucleoIcon name="triangle-alert" />

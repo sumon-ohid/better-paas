@@ -20,3 +20,7 @@ http://yzruznmudq.10.0.0.3.sslip.io {
 	reverse_proxy localhost:9491
 }
 
+http://0jfvvwkq8m.10.0.0.3.sslip.io {
+	reverse_proxy localhost:9692
+}
+

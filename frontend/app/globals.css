@@ -185,47 +185,51 @@
 }
 
 .dark {
-    --destructive-foreground: #ff8f96;
-    --info: #8f99ff;
-    --info-foreground: #b7bcff;
-    --success: #69d1a7;
-    --success-foreground: #93e0c0;
-    --warning: #e7be75;
-    --warning-foreground: #f1d59c;
-    --accent: rgba(142, 152, 255, 0.095);
-    --accent-foreground: #f3f3f6;
-    --background: #08090d;
-    --border: rgba(255, 255, 255, 0.075);
-    --card: #0d0e13;
-    --card-foreground: #ededf2;
-    --destructive: #f26d78;
-    --foreground: #f3f3f6;
-    --input: rgba(255, 255, 255, 0.105);
-    --muted: rgba(255, 255, 255, 0.052);
-    --muted-foreground: #8e92a1;
-    --popover: #111219;
-    --popover-foreground: #f3f3f6;
-    --primary: #8f99ff;
-    --primary-foreground: #090a10;
-    --ring: rgba(143, 153, 255, 0.46);
+    /* Palette mapped from the HR workforce demo UI.
+       bg #0a0a0b · card #161617 · card-2 #1b1b1d · txt #ededed
+       sub white/46 · line white/7 · purple #8b7ff6 · green #5fe0a0
+       yellow #f5d04a · orange #f1542e */
+    --destructive-foreground: #f7b3a4;
+    --info: #8b7ff6;
+    --info-foreground: #b3aaf9;
+    --success: #5fe0a0;
+    --success-foreground: #8eecc0;
+    --warning: #f5d04a;
+    --warning-foreground: #f8dd7e;
+    --accent: rgba(255, 255, 255, 0.06);
+    --accent-foreground: #ededed;
+    --background: #0a0a0b;
+    --border: rgba(255, 255, 255, 0.07);
+    --card: #161617;
+    --card-foreground: #ededed;
+    --destructive: #f1542e;
+    --foreground: #ededed;
+    --input: rgba(255, 255, 255, 0.1);
+    --muted: rgba(255, 255, 255, 0.05);
+    --muted-foreground: rgba(255, 255, 255, 0.46);
+    --popover: #1b1b1d;
+    --popover-foreground: #ededed;
+    --primary: #8b7ff6;
+    --primary-foreground: #0a0a0b;
+    --ring: rgba(139, 127, 246, 0.5);
     --secondary: rgba(255, 255, 255, 0.055);
-    --secondary-foreground: #ededf2;
-    --chart-1: #8f99ff;
-    --chart-2: #6874e8;
-    --chart-3: #69d1a7;
-    --chart-4: #e7be75;
-    --chart-5: #ee7e96;
-    --code: #090a0f;
+    --secondary-foreground: #ededed;
+    --chart-1: #8b7ff6;
+    --chart-2: #5aa9f6;
+    --chart-3: #5fe0a0;
+    --chart-4: #f5d04a;
+    --chart-5: #f1542e;
+    --code: #0a0a0b;
     --code-foreground: var(--foreground);
-    --code-highlight: rgba(143, 153, 255, 0.11);
-    --sidebar: #0a0b10;
-    --sidebar-accent: rgba(143, 153, 255, 0.09);
-    --sidebar-accent-foreground: #f3f3f6;
+    --code-highlight: rgba(139, 127, 246, 0.12);
+    --sidebar: #0c0c0d;
+    --sidebar-accent: rgba(255, 255, 255, 0.06);
+    --sidebar-accent-foreground: #ededed;
     --sidebar-border: rgba(255, 255, 255, 0.07);
-    --sidebar-foreground: #8e92a1;
-    --sidebar-primary: #8f99ff;
-    --sidebar-primary-foreground: #090a10;
-    --sidebar-ring: rgba(143, 153, 255, 0.46);
+    --sidebar-foreground: rgba(255, 255, 255, 0.46);
+    --sidebar-primary: #8b7ff6;
+    --sidebar-primary-foreground: #0a0a0b;
+    --sidebar-ring: rgba(139, 127, 246, 0.5);
     --grid-line: rgba(255, 255, 255, 0.022);
     --grid-size: 28px;
 }
@@ -304,6 +308,52 @@
   button:active {
     transform: translateY(1px);
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Demo "du-card" treatment (dark mode).
+   - base fill + soft top-left spotlight glow baked into the background
+   - a gradient border ring that is bright/thicker at the top-left and fades out
+   Unlayered on purpose so it reliably overrides the `bg-card` utility.
+   Applies to the Card primitive ([data-slot="card"]) and any `.du-card` element.
+   ────────────────────────────────────────────────────────────────────────── */
+.dark [data-slot="card"],
+.dark .du-card {
+  background:
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.1),
+      rgba(255, 255, 255, 0.035) 26%,
+      rgba(255, 255, 255, 0) 46%
+    ),
+    var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+  isolation: isolate;
+}
+
+/* gradient border ring: bright at the top-left corner, fades out on all sides */
+.dark [data-slot="card"]::after,
+.dark .du-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.25px;
+  background: radial-gradient(
+    125% 125% at 0% 0%,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.18) 18%,
+    rgba(255, 255, 255, 0.05) 34%,
+    rgba(255, 255, 255, 0) 52%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
 }
 
 @layer utilities {

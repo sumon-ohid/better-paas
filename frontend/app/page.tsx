@@ -259,7 +259,7 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
       onClick={() => router.push(`/app/${app.id}`)}
     >
       {/* Project name — primary attention anchor */}
-      <TableCell className="py-3">
+      <TableCell className="py-4">
         <div className="flex items-center gap-2.5">
           <StatusDot status={app.status} />
           <span className="font-semibold text-base text-foreground group-hover:text-primary transition-colors">
@@ -268,32 +268,32 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
         </div>
       </TableCell>
 
-      <TableCell className="py-3">
+      <TableCell className="py-4">
         <StatusBadge status={app.status} />
       </TableCell>
 
-      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+      <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
         <UrlLink url={app.url} />
       </TableCell>
 
-      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+      <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
         <RepoLink gitRepo={app.gitRepo} />
       </TableCell>
 
-      <TableCell className="py-3">
+      <TableCell className="py-4">
         <Badge variant="outline" size="sm" className="gap-1 font-mono">
           <GitBranchIcon className="h-3 w-3" />
           {app.branch}
         </Badge>
       </TableCell>
 
-      <TableCell className="py-3">
+      <TableCell className="py-4">
         <span className="text-sm text-muted-foreground tabular-nums">
           {formatRelativeTime(app.createdAt)}
         </span>
       </TableCell>
 
-      <TableCell className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
+      <TableCell className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
         <AppActionsMenu
           app={app}
           onDelete={onDelete}
@@ -314,7 +314,7 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
   return (
     <div
       onClick={() => router.push(`/app/${app.id}`)}
-      className="cursor-pointer rounded-xl border border-border bg-card/72 p-4 backdrop-blur-xl transition-colors hover:border-primary/30"
+      className="du-card cursor-pointer rounded-xl p-4 transition-colors hover:border-primary/30"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -505,17 +505,17 @@ function ApplicationsDashboard() {
       {/* Content */}
       <div className="p-4 md:p-6">
         {/* Desktop table */}
-        <div className="hidden rounded-xl border border-border bg-card/72 backdrop-blur-xl md:block">
-          <Table>
+        <div className="du-card hidden overflow-hidden rounded-xl md:block">
+          <Table className="[&_td]:px-5 [&_th]:px-5">
             <TableHeader>
               <TableRow className="bg-muted/20 text-xs uppercase tracking-[0.08em] select-none">
-                <TableHead className="py-3">Project</TableHead>
-                <TableHead className="py-3">Status</TableHead>
-                <TableHead className="py-3">URL</TableHead>
-                <TableHead className="py-3">Repository</TableHead>
-                <TableHead className="py-3">Branch</TableHead>
-                <TableHead className="py-3">Deployed</TableHead>
-                <TableHead className="py-3 text-right">Actions</TableHead>
+                <TableHead className="py-3.5">Project</TableHead>
+                <TableHead className="py-3.5">Status</TableHead>
+                <TableHead className="py-3.5">URL</TableHead>
+                <TableHead className="py-3.5">Repository</TableHead>
+                <TableHead className="py-3.5">Branch</TableHead>
+                <TableHead className="py-3.5">Deployed</TableHead>
+                <TableHead className="py-3.5 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -543,7 +543,7 @@ function ApplicationsDashboard() {
               <Skeleton key={i} className="h-32 w-full rounded-xl" />
             ))
           ) : isEmpty ? (
-            <div className="rounded-xl border border-border bg-card/72">
+            <div className="du-card rounded-xl">
               <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
             </div>
           ) : (
