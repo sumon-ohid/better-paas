@@ -13,9 +13,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
+
+// defaultNodeVersion is the Node.js major used when a repo declares no
+// engines.node constraint. Nixpacks resolves this via NIXPACKS_NODE_VERSION.
+const defaultNodeVersion = "22"
+
 
 // generateRandomID returns a 10-character lowercase alphanumeric string using
 // a cryptographically secure source. IDs form part of the public per-app URL,
@@ -247,15 +254,22 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			localLog("✔ Repository cloned successfully.")
 		}
 
-		// ── 2. Patch package.json ────────────────────────────────────────────
-		patchPackageJSON(app.ID, buildDir, localLog)
-
-		// ── 3. Determine build subdirectory ──────────────────────────────────
+		// ── 2. Determine build subdirectory ──────────────────────────────────
 		buildSubDir := buildDir
 		if app.RootDir != "" && app.RootDir != "." && app.RootDir != "./" {
 			buildSubDir = filepath.Join(buildDir, app.RootDir)
 			localLog(fmt.Sprintf("📂 Using sub-directory build context: %s", app.RootDir))
 		}
+
+		// ── 3. Detect required Node version, THEN patch package.json ──────────
+		// Detection must happen before patching, because patchPackageJSON strips
+		// the engines/packageManager fields we read here.
+		nodeVersion := detectNodeVersion(buildSubDir, defaultNodeVersion)
+		installOverride := ""
+		if app.InstallCommand == "" {
+			installOverride = defaultInstallCommand(buildSubDir)
+		}
+		patchPackageJSON(app.ID, buildDir, localLog)
 
 		// ── 4. Remove restrictive .dockerignore ──────────────────────────────
 		dockerignorePath := filepath.Join(buildSubDir, ".dockerignore")
@@ -267,9 +281,22 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		// ── 5. Build with Nixpacks → unique image tag per deploy ──────────────
 		image = fmt.Sprintf("%s:%s", app.Name, deployID)
 		localLog("🔍 Analyzing workspace with Nixpacks...")
-		nixpacksArgs := []string{"build", buildSubDir, "--name", image, "--env", "NIXPACKS_NODE_VERSION=22"}
+
+		// nodeVersion and pkgManager were detected in step 3, before engines
+		// were stripped, so genuine requirements (e.g. a workspace pinned to
+		// >=24) are honored instead of silently downgraded.
+		localLog(fmt.Sprintf("🟢 Using Node.js %s", nodeVersion))
+
+		nixpacksArgs := []string{"build", buildSubDir, "--name", image, "--env", "NIXPACKS_NODE_VERSION=" + nodeVersion}
 		for k, v := range app.EnvVars {
 			nixpacksArgs = append(nixpacksArgs, "--env", fmt.Sprintf("%s=%s", k, v))
+		}
+		// Default the package manager to pnpm for Node apps unless the repo
+		// already commits to a different one (yarn/bun lockfile) or the user
+		// supplied their own install command.
+		if installOverride != "" {
+			localLog(fmt.Sprintf("📦 Install command: %s", installOverride))
+			nixpacksArgs = append(nixpacksArgs, "--install-cmd", installOverride)
 		}
 		if app.InstallCommand != "" {
 			nixpacksArgs = append(nixpacksArgs, "--install-cmd", app.InstallCommand)
@@ -589,42 +616,253 @@ func finishDeployment(app App, deployLogs []string, status string, startedAt tim
 }
 
 // patchPackageJSON sanitizes a Node.js package.json for Nixpacks compatibility.
+// It strips engine/packageManager restrictions from the root manifest *and*
+// from every workspace package, because pnpm enforces engines.node across the
+// whole workspace — a single package pinned to a Node version the builder
+// doesn't provide fails the entire `pnpm install`.
 func patchPackageJSON(appID, buildDir string, logger func(string)) {
-	pkgPath := filepath.Join(buildDir, "package.json")
-	if _, err := os.Stat(pkgPath); err != nil {
-		return
+	// Patch the root manifest and capture workspace globs.
+	rootPkg, _ := patchSinglePackageJSON(filepath.Join(buildDir, "package.json"))
+
+	// Walk workspace packages and strip their engines too.
+	patched := 0
+	for _, dir := range workspacePackageDirs(buildDir, rootPkg) {
+		if _, ok := patchSinglePackageJSON(filepath.Join(dir, "package.json")); ok {
+			patched++
+		}
+	}
+	if patched > 0 {
+		logger(fmt.Sprintf("📝 Relaxed engine constraints on %d workspace package(s)", patched))
 	}
 
+	// Monorepo start-script convenience (unchanged behaviour).
+	if rootPkg != nil {
+		scripts, _ := rootPkg["scripts"].(map[string]interface{})
+		if scripts == nil {
+			scripts = make(map[string]interface{})
+		}
+		if _, hasStart := scripts["start"]; !hasStart {
+			webPkgPath := filepath.Join(buildDir, "apps", "web", "package.json")
+			if _, err := os.Stat(webPkgPath); err == nil {
+				logger("💡 Monorepo detected at apps/web. Injecting root start command...")
+				scripts["start"] = "pnpm --filter @repo/web start"
+				rootPkg["scripts"] = scripts
+				if updated, err := json.MarshalIndent(rootPkg, "", "  "); err == nil {
+					os.WriteFile(filepath.Join(buildDir, "package.json"), updated, 0644)
+				}
+			}
+		}
+	}
+}
+
+// patchSinglePackageJSON removes engines/packageManager from one package.json.
+// It returns the parsed manifest (pre-deletion fields aside) and whether the
+// file existed and was rewritten.
+func patchSinglePackageJSON(pkgPath string) (map[string]interface{}, bool) {
 	data, err := os.ReadFile(pkgPath)
 	if err != nil {
-		return
+		return nil, false
 	}
-
 	var pkg map[string]interface{}
 	if err := json.Unmarshal(data, &pkg); err != nil {
-		return
+		return nil, false
 	}
 
-	// Strip restrictions that break Nixpacks
+	_, hadEngines := pkg["engines"]
+	_, hadPM := pkg["packageManager"]
 	delete(pkg, "engines")
 	delete(pkg, "packageManager")
 
-	scripts, _ := pkg["scripts"].(map[string]interface{})
-	if scripts == nil {
-		scripts = make(map[string]interface{})
-		pkg["scripts"] = scripts
+	if hadEngines || hadPM {
+		if updated, err := json.MarshalIndent(pkg, "", "  "); err == nil {
+			os.WriteFile(pkgPath, updated, 0644)
+		}
 	}
+	return pkg, true
+}
 
-	if _, hasStart := scripts["start"]; !hasStart {
-		logger("⚠️  No start script found. Checking for monorepo configuration...")
-		webPkgPath := filepath.Join(buildDir, "apps", "web", "package.json")
-		if _, err := os.Stat(webPkgPath); err == nil {
-			logger("💡 Monorepo detected at apps/web. Injecting root start command...")
-			scripts["start"] = "pnpm --filter @repo/web start"
+// workspacePackageDirs resolves the directories of workspace packages declared
+// in the root package.json ("workspaces" array or {packages:[...]}), expanding
+// trailing "/*" globs one level deep. Paths are returned absolute under
+// buildDir. Best-effort: unreadable or malformed entries are skipped.
+func workspacePackageDirs(buildDir string, rootPkg map[string]interface{}) []string {
+	if rootPkg == nil {
+		return nil
+	}
+	var patterns []string
+	switch ws := rootPkg["workspaces"].(type) {
+	case []interface{}:
+		for _, p := range ws {
+			if s, ok := p.(string); ok {
+				patterns = append(patterns, s)
+			}
+		}
+	case map[string]interface{}:
+		if pkgs, ok := ws["packages"].([]interface{}); ok {
+			for _, p := range pkgs {
+				if s, ok := p.(string); ok {
+					patterns = append(patterns, s)
+				}
+			}
 		}
 	}
 
-	if updated, err := json.MarshalIndent(pkg, "", "  "); err == nil {
-		os.WriteFile(pkgPath, updated, 0644)
+	var dirs []string
+	seen := make(map[string]bool)
+	add := func(rel string) {
+		rel = strings.TrimSuffix(strings.TrimPrefix(rel, "./"), "/")
+		if rel == "" || seen[rel] {
+			return
+		}
+		seen[rel] = true
+		dirs = append(dirs, filepath.Join(buildDir, rel))
 	}
+
+	for _, pat := range patterns {
+		if strings.HasSuffix(pat, "/*") {
+			base := strings.TrimSuffix(pat, "/*")
+			if base == "" || strings.Contains(base, "*") {
+				continue
+			}
+			entries, err := os.ReadDir(filepath.Join(buildDir, base))
+			if err != nil {
+				continue
+			}
+			for _, e := range entries {
+				if e.IsDir() {
+					add(filepath.Join(base, e.Name()))
+				}
+			}
+		} else if !strings.Contains(pat, "*") {
+			add(pat)
+		}
+	}
+	return dirs
+}
+
+// ---------------------------------------------------------------------------
+// Node version & package-manager detection
+// ---------------------------------------------------------------------------
+//
+// A full-stack repo often has multiple package.json files (root + workspace
+// packages). pnpm enforces engines.node across the whole workspace, so the
+// builder must use a Node version that satisfies the *highest* minimum any
+// package requires — otherwise `pnpm install` fails with ERR_PNPM_UNSUPPORTED_ENGINE.
+
+var nodeMajorRe = regexp.MustCompile(`(\d+)`)
+
+// detectNodeVersion scans buildSubDir (root + workspace packages) for the
+// largest engines.node minimum and returns it as a major version string. Falls
+// back to `fallback` when nothing is declared or parsing fails.
+func detectNodeVersion(buildSubDir, fallback string) string {
+	best := 0
+
+	consider := func(pkg map[string]interface{}) {
+		eng, ok := pkg["engines"].(map[string]interface{})
+		if !ok {
+			return
+		}
+		node, ok := eng["node"].(string)
+		if !ok {
+			return
+		}
+		if maj := minNodeMajor(node); maj > best {
+			best = maj
+		}
+	}
+
+	if rootPkg := readPackageJSON(filepath.Join(buildSubDir, "package.json")); rootPkg != nil {
+		consider(rootPkg)
+		for _, dir := range workspacePackageDirs(buildSubDir, rootPkg) {
+			if wp := readPackageJSON(filepath.Join(dir, "package.json")); wp != nil {
+				consider(wp)
+			}
+		}
+	}
+
+	if best > 0 {
+		return strconv.Itoa(best)
+	}
+	return fallback
+}
+
+// minNodeMajor extracts the lowest acceptable Node major version from a semver
+// range string such as ">=24.0.0", "^20.11", "18.x", or ">=20 <23". It returns
+// 0 when no concrete version can be determined.
+func minNodeMajor(rangeStr string) int {
+	rangeStr = strings.TrimSpace(rangeStr)
+	if rangeStr == "" || rangeStr == "*" {
+		return 0
+	}
+
+	// Split on || (OR ranges) and take the smallest minimum so we stay
+	// compatible with every alternative the author allows.
+	best := 0
+	for _, alt := range strings.Split(rangeStr, "||") {
+		// Within a single range, the binding lower bound is the largest of any
+		// >= / > / ^ / ~ / bare comparators present.
+		lower := 0
+		for _, tok := range strings.Fields(alt) {
+			m := nodeMajorRe.FindString(tok)
+			if m == "" {
+				continue
+			}
+			maj, err := strconv.Atoi(m)
+			if err != nil {
+				continue
+			}
+			// Ignore pure upper bounds ("<23", "<=22") for the minimum.
+			if strings.HasPrefix(strings.TrimSpace(tok), "<") {
+				continue
+			}
+			if maj > lower {
+				lower = maj
+			}
+		}
+		if lower > 0 && (best == 0 || lower < best) {
+			best = lower
+		}
+	}
+	return best
+}
+
+// defaultInstallCommand returns the install command to force on Nixpacks based
+// on the project's package manager. pnpm is the default for Node projects; we
+// defer to an existing yarn/bun lockfile so we don't fight a repo's own choice.
+// Returns "" for non-Node projects (no package.json) so other ecosystems use
+// Nixpacks' native detection untouched.
+func defaultInstallCommand(buildSubDir string) string {
+	if _, err := os.Stat(filepath.Join(buildSubDir, "package.json")); err != nil {
+		return "" // not a Node project
+	}
+	switch {
+	case fileExists(filepath.Join(buildSubDir, "yarn.lock")):
+		return "yarn install"
+	case fileExists(filepath.Join(buildSubDir, "bun.lockb")):
+		return "bun install"
+	default:
+		// pnpm-lock.yaml present, npm lockfile present, or no lockfile at all —
+		// standardize on pnpm. --no-frozen-lockfile keeps installs resilient when
+		// a lockfile is missing or out of sync with the manifest.
+		return "pnpm install --no-frozen-lockfile"
+	}
+}
+
+// readPackageJSON parses a package.json file, returning nil on any error.
+func readPackageJSON(path string) map[string]interface{} {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var pkg map[string]interface{}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil
+	}
+	return pkg
+}
+
+// fileExists reports whether a regular file or directory exists at path.
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
