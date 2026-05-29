@@ -3,7 +3,10 @@
 import React, { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
-import { AppShell, ToastContainer, useToast } from "@/components/app-shell"
+import { AppShell } from "@/components/app-shell"
+import { StatusDot } from "@/components/status-badge"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import type { App, DeploymentRecord } from "@/lib/types"
 
@@ -14,7 +17,6 @@ const ChevronRightIcon = (props: IconProps) => <NucleoIcon {...props} name="chev
 
 export default function DeploymentsIndexPage() {
   const router = useRouter()
-  const { toasts, dismissToast } = useToast()
   const [apps, setApps] = useState<App[]>([])
   const [deployments, setDeployments] = useState<DeploymentRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,18 +66,15 @@ export default function DeploymentsIndexPage() {
       <div className="p-4 md:p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-foreground">Deployments</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <h1>Deployments</h1>
+            <p className="text-sm text-muted-foreground">
               Select a project to view its deployment history.
             </p>
           </div>
-          <button
-            onClick={fetchData}
-            className="flex items-center gap-1.5 rounded-md border border-border bg-muted/15 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-all"
-          >
+          <Button variant="outline" size="sm" onClick={fetchData} className="gap-1.5">
             <RefreshIcon className="h-3.5 w-3.5" />
             Refresh
-          </button>
+          </Button>
         </div>
 
         {loading ? (
@@ -110,17 +109,7 @@ export default function DeploymentsIndexPage() {
                 >
                   {/* Project info */}
                   <div className="flex items-center gap-3">
-                    <div
-                      className={`h-2 w-2 rounded-full shrink-0 ${
-                        app.status === "running"
-                          ? "bg-[#69d1a7]"
-                          : app.status === "building"
-                            ? "bg-amber-400 animate-pulse"
-                            : app.status === "failed"
-                              ? "bg-rose-500"
-                              : "bg-muted-foreground/40"
-                      }`}
-                    />
+                    <StatusDot status={app.status} />
                     <div>
                       <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                         {app.name}
@@ -150,20 +139,18 @@ export default function DeploymentsIndexPage() {
                   </span>
 
                   {/* Total count */}
-                  <span className="text-xs font-mono text-muted-foreground bg-muted/30 px-2 py-0.5 rounded">
+                  <Badge variant="secondary" size="sm" className="font-mono">
                     {counts.total}
-                  </span>
+                  </Badge>
 
                   {/* Failed count */}
-                  <span
-                    className={`text-xs font-mono px-2 py-0.5 rounded ${
-                      counts.failed > 0
-                        ? "bg-rose-500/10 text-rose-400"
-                        : "text-muted-foreground bg-muted/30"
-                    }`}
+                  <Badge
+                    variant={counts.failed > 0 ? "error" : "secondary"}
+                    size="sm"
+                    className="font-mono"
                   >
                     {counts.failed}
-                  </span>
+                  </Badge>
 
                   <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </button>
@@ -172,8 +159,6 @@ export default function DeploymentsIndexPage() {
           </div>
         )}
       </div>
-
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </AppShell>
   )
 }

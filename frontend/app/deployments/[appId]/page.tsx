@@ -3,7 +3,10 @@
 import React, { useState, useEffect, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
-import { AppShell, ToastContainer, useToast } from "@/components/app-shell"
+import { AppShell } from "@/components/app-shell"
+import { StatusBadge } from "@/components/status-badge"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import type { App, DeploymentRecord } from "@/lib/types"
 
@@ -22,7 +25,6 @@ export default function ProjectDeploymentsPage() {
   const params = useParams()
   const appId = params.appId as string
 
-  const { toasts, dismissToast } = useToast()
   const [app, setApp] = useState<App | null>(null)
   const [deployments, setDeployments] = useState<DeploymentRecord[]>([])
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -81,23 +83,9 @@ export default function ProjectDeploymentsPage() {
             <span className="h-4 w-px bg-border" />
 
             <div>
-              <h1 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <h1 className="flex items-center gap-2">
                 {app?.name ?? appId}
-                {app && (
-                  <span
-                    className={`text-[11px] font-mono px-1.5 py-0.5 rounded-full ${
-                      app.status === "running"
-                        ? "bg-[#69d1a7]/15 text-[#69d1a7]"
-                        : app.status === "building"
-                          ? "bg-amber-400/15 text-amber-400"
-                          : app.status === "failed"
-                            ? "bg-rose-500/15 text-rose-400"
-                            : "bg-muted/40 text-muted-foreground"
-                    }`}
-                  >
-                    {app.status}
-                  </span>
-                )}
+                {app && <StatusBadge status={app.status} />}
               </h1>
                {app && (
                  <p className="text-xs font-mono text-muted-foreground mt-0.5">
@@ -122,34 +110,30 @@ export default function ProjectDeploymentsPage() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={fetchData}
-              className="flex items-center gap-1.5 rounded-md border border-border bg-muted/15 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-all"
-            >
+            <Button variant="outline" size="sm" onClick={fetchData} className="gap-1.5">
               <RefreshIcon className="h-3.5 w-3.5" />
               Refresh
-            </button>
+            </Button>
 
             {/* Live logs shortcut */}
             {app && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => router.push(`/logs?appId=${app.id}&mode=runtime`)}
-                className="flex items-center gap-1.5 rounded-md border border-border bg-muted/15 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-all"
+                className="gap-1.5"
               >
                 <TerminalIcon className="h-3.5 w-3.5" />
                 Live Logs
-              </button>
+              </Button>
             )}
 
             {/* Redeploy */}
             {app && (
-              <button
-                onClick={handleRedeploy}
-                className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs text-primary hover:bg-primary/20 cursor-pointer transition-all"
-              >
+              <Button size="sm" onClick={handleRedeploy} className="gap-1.5">
                 <PlayIcon className="h-3.5 w-3.5" />
                 Redeploy
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -162,12 +146,12 @@ export default function ProjectDeploymentsPage() {
               {
                 label: "Successful",
                 value: deployments.filter((d) => d.status === "success").length,
-                color: "text-[#69d1a7]",
+                color: "text-success",
               },
               {
                 label: "Failed",
                 value: deployments.filter((d) => d.status === "failed").length,
-                color: "text-rose-400",
+                color: "text-destructive",
               },
               {
                 label: "Last deploy",
@@ -224,12 +208,10 @@ export default function ProjectDeploymentsPage() {
                   </div>
 
                   {/* Status badge */}
-                  <div
-                    className={`flex items-center gap-1.5 text-xs font-mono px-2 py-0.5 rounded-full w-fit ${
-                      dep.status === "success"
-                        ? "bg-[#69d1a7]/15 text-[#69d1a7]"
-                        : "bg-rose-500/15 text-rose-400"
-                    }`}
+                  <Badge
+                    variant={dep.status === "success" ? "success" : "error"}
+                    size="sm"
+                    className="w-fit"
                   >
                     {dep.status === "success" ? (
                       <CheckIcon className="h-3 w-3" />
@@ -237,7 +219,7 @@ export default function ProjectDeploymentsPage() {
                       <XIcon className="h-3 w-3" />
                     )}
                     {dep.status}
-                  </div>
+                  </Badge>
 
                   {/* Duration */}
                   <span className="text-xs font-mono text-muted-foreground">{dep.duration}</span>
@@ -286,20 +268,20 @@ export default function ProjectDeploymentsPage() {
                         <span className="text-muted-foreground/40 dark:text-slate-600 italic">No log output recorded.</span>
                       ) : (
                         dep.logs.map((line, i) => (
-                          <div key={i} className="flex gap-4 group/line hover:bg-foreground/[0.02] dark:hover:bg-white/[0.02] rounded -mx-1 px-1">
+                          <div key={i} className="flex gap-4 group/line hover:bg-foreground/2 dark:hover:bg-white/2 rounded -mx-1 px-1">
                             <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-8 text-right shrink-0 group-hover/line:text-muted-foreground/60 dark:group-hover/line:text-slate-500">
                               {i + 1}
                             </span>
                             <span
                               className={
                                 line.startsWith("✖") || line.includes("Error") || line.includes("failed")
-                                  ? "text-rose-600 dark:text-rose-400"
+                                  ? "text-destructive"
                                   : line.startsWith("✅") || line.startsWith("✔") || line.includes("successfully")
-                                    ? "text-emerald-600 dark:text-[#93e0c0]"
+                                    ? "text-success"
                                     : line.startsWith("📦") || line.startsWith("🔍") ||
                                         line.startsWith("🚀") || line.startsWith("🧹") ||
                                         line.startsWith("✨") || line.startsWith("💡")
-                                      ? "text-amber-600 dark:text-amber-300"
+                                      ? "text-warning"
                                       : "text-foreground dark:text-slate-300"
                               }
                             >
@@ -316,8 +298,6 @@ export default function ProjectDeploymentsPage() {
           </div>
         )}
       </div>
-
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </AppShell>
   )
 }

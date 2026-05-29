@@ -2,6 +2,7 @@ import { Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ToastProvider } from "@/components/ui/toast"
 import { AuthGate } from "@/components/auth-gate"
 import { cn } from "@/lib/utils";
 
@@ -29,7 +30,9 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <AuthGate>{children}</AuthGate>
+          <ToastProvider>
+            <AuthGate>{children}</AuthGate>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

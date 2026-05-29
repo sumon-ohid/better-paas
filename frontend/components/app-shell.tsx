@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
 import { NucleoIcon } from "@/components/nucleo-icons"
+import { toastManager } from "@/components/ui/toast"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
@@ -215,23 +216,24 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
     <SidebarProvider className="h-screen overflow-hidden">
       <div className="relative flex h-screen w-full overflow-hidden bg-background text-foreground transition-colors duration-200 selection:bg-primary/20">
         {/* Ambient background glow */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_55%_-20%,rgba(143,153,255,0.12),transparent_45rem)]" />
+        {/* <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_55%_-20%,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_45rem)]" /> */}
 
         {/* Navigation Sidebar */}
         <Sidebar className="border-r border-sidebar-border bg-sidebar/82 backdrop-blur-xl">
-          <SidebarHeader className="flex flex-row items-center justify-between border-b border-sidebar-border px-4 py-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground font-semibold text-xs shadow-[0_0_28px_rgba(143,153,255,.28)] select-none">
+          <SidebarHeader className="relative flex flex-row items-center justify-between overflow-hidden border-b border-sidebar-border px-4 py-3">
+            <div className="pointer-events-none absolute inset-0 bg-pixel-grid opacity-60 mask-fade-b" />
+            <div className="relative flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shadow-[0_0_28px_rgba(143,153,255,.28)] select-none">
                 A
               </div>
               <div className="flex flex-col">
-                <span className="font-semibold text-sm leading-none text-foreground">
+                <span className="font-bold text-base leading-none text-foreground">
                   Antigravity
                 </span>
-                <span className="text-xs text-muted-foreground/80 font-mono mt-0.5">engine-01</span>
+                <span className="text-xs text-muted-foreground/80 font-mono mt-1">engine-01</span>
               </div>
             </div>
-            <div className="flex h-5 w-5 items-center justify-center rounded border border-border text-[11px] text-muted-foreground font-mono bg-muted/30 select-none">
+            <div className="relative flex h-5 w-5 items-center justify-center rounded border border-border text-xs text-muted-foreground font-mono bg-muted/30 select-none">
               w1
             </div>
           </SidebarHeader>
@@ -300,8 +302,8 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             <div className="flex items-center gap-2">
               <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer" />
               <div className="h-3.5 w-px bg-border" />
-              <span className="text-xs font-mono text-muted-foreground flex items-center gap-1.5 font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#69d1a7] animate-pulse" />
+              <span className="text-sm font-mono text-muted-foreground flex items-center gap-1.5 font-medium">
+                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                 Active Node: vps-us-east-1
               </span>
             </div>
@@ -463,94 +465,74 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
 }
 
 // ── Toast System ──────────────────────────────────────────────────────────────
+//
+// Thin wrapper over the shared base-ui toast manager (components/ui/toast.tsx).
+// Keeps the existing `useToast()` / `showToast(title, desc, type)` call sites
+// working while delegating rendering, stacking, swipe-to-dismiss, a11y, and the
+// success/error replay animations to the design-system primitive.
+
+export type ToastType = "default" | "destructive" | "success" | "warning"
 
 export interface Toast {
   id: string
   title: string
   description: string
-  type?: "default" | "destructive"
+  type?: ToastType
+}
+
+function mapType(type?: ToastType) {
+  switch (type) {
+    case "destructive":
+      return "error" as const
+    case "success":
+      return "success" as const
+    case "warning":
+      return "warning" as const
+    default:
+      return "info" as const
+  }
 }
 
 interface ToastContainerProps {
-  toasts: Toast[]
-  onDismiss: (id: string) => void
+  toasts?: Toast[]
+  onDismiss?: (id: string) => void
 }
 
-export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
-  const XIcon2 = (props: IconProps) => <NucleoIcon {...props} name="x" />
-  return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          className={`p-3.5 rounded-lg border shadow-2xl transition-all duration-300 pointer-events-auto flex justify-between items-start gap-3.5 ${
-            t.type === "destructive"
-              ? "bg-[#f26d78]/10 border-[#f26d78] text-[#ffc9cf]"
-              : "bg-card/95 border-border text-foreground backdrop-blur-xl"
-          }`}
-        >
-          <div className="space-y-0.5">
-            <h4 className="text-xs font-semibold leading-none">{t.title}</h4>
-            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{t.description}</p>
-          </div>
-          <button
-            onClick={() => onDismiss(t.id)}
-            className="text-muted-foreground/60 hover:text-foreground cursor-pointer"
-          >
-            <XIcon2 className="h-3 w-3" />
-          </button>
-        </div>
-      ))}
-    </div>
-  )
+/**
+ * Rendering now lives in the global <ToastProvider> (app/layout.tsx), so this
+ * is a no-op kept only for backward compatibility with any external imports.
+ */
+export function ToastContainer(_props: ToastContainerProps) {
+  void _props
+  return null
 }
-
-// ── useToast hook ─────────────────────────────────────────────────────────────
 
 export function useToast() {
-  const [toasts, setToasts] = useState<Toast[]>([])
-
   const showToast = useCallback(
-    (title: string, description: string, type: "default" | "destructive" = "default") => {
-      const id = Math.random().toString(36).substring(2, 9)
-      setToasts((prev) => [...prev, { id, title, description, type }])
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id))
-      }, 4000)
+    (title: string, description: string, type: ToastType = "default") => {
+      return toastManager.add({
+        title,
+        description,
+        type: mapType(type),
+        timeout: 4000,
+      })
     },
     [],
   )
 
   const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id))
+    toastManager.close(id)
   }, [])
 
-  return { toasts, showToast, dismissToast }
+  // `toasts` retained for API compatibility; the provider owns the real list.
+  return { toasts: [] as Toast[], showToast, dismissToast }
 }
 
 // ── Status Dot ────────────────────────────────────────────────────────────────
-
-export function StatusDot({ status }: { status: string }) {
-  switch (status) {
-    case "running":
-      return (
-        <span className="h-2 w-2 rounded-full bg-[#69d1a7] shadow-[0_0_10px_rgba(105,209,167,.35)]" />
-      )
-    case "building":
-      return (
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e7be75] opacity-60" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#e7be75]" />
-        </span>
-      )
-    case "failed":
-      return (
-        <span className="h-2 w-2 rounded-full bg-[#f26d78] shadow-[0_0_10px_rgba(242,109,120,.35)]" />
-      )
-    default:
-      return <span className="h-2 w-2 rounded-full bg-muted-foreground/55" />
-  }
-}
+// Re-exported from the centralized status component so existing imports
+// (`import { StatusDot } from "@/components/app-shell"`) keep working while the
+// implementation lives in one place.
+export { StatusDot } from "@/components/status-badge"
 
 // ── Sparkline ─────────────────────────────────────────────────────────────────
 

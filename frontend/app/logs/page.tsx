@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
-import { AppShell, useToast, ToastContainer } from "@/components/app-shell"
+import { AppShell } from "@/components/app-shell"
+import { StatusBadge } from "@/components/status-badge"
 import { api, createBuildLogsWs, createRuntimeLogsWs } from "@/lib/api"
 import type { App, LogEntry } from "@/lib/types"
 import {
@@ -26,7 +27,6 @@ type LogMode = "build" | "runtime"
 function LogsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { toasts, dismissToast } = useToast()
 
   const [apps, setApps] = useState<App[]>([])
   const [selectedAppId, setSelectedAppId] = useState<string>(searchParams.get("appId") ?? "")
@@ -149,13 +149,13 @@ function LogsPage() {
 
   const lineColor = (msg: string) => {
     if (msg.startsWith("✖") || msg.includes(" Error") || msg.includes("failed"))
-      return "text-rose-600 dark:text-rose-400"
+      return "text-destructive"
     if (msg.startsWith("✅") || msg.startsWith("✔") || msg.includes("successfully"))
-      return "text-emerald-600 dark:text-[#93e0c0]"
+      return "text-success"
     if (msg.startsWith("📦") || msg.startsWith("🔍") || msg.startsWith("🚀") ||
         msg.startsWith("🧹") || msg.startsWith("✨") || msg.startsWith("💡") ||
         msg.startsWith("⚠️") || msg.startsWith("📂"))
-      return "text-amber-600 dark:text-amber-300"
+      return "text-warning"
     return "text-foreground dark:text-slate-200"
   }
 
@@ -209,25 +209,10 @@ function LogsPage() {
           {/* App status + URL */}
           {selectedApp && (
             <div className="flex items-center gap-2">
-              <span
-                className={`text-[11px] font-mono px-1.5 py-0.5 rounded-full ${
-                  selectedApp.status === "running"
-                    ? "bg-[#69d1a7]/15 text-[#69d1a7]"
-                    : selectedApp.status === "building"
-                      ? "bg-amber-400/15 text-amber-400"
-                      : selectedApp.status === "failed"
-                        ? "bg-rose-500/15 text-rose-400"
-                        : "bg-muted/40 text-muted-foreground"
-                }`}
-              >
-                {selectedApp.status === "building" && (
-                  <span className="inline-block mr-1 animate-spin">⟳</span>
-                )}
-                {selectedApp.status}
-              </span>
+              <StatusBadge status={selectedApp.status} />
 
               {selectedApp.branch && (
-                <span className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
+                <span className="flex items-center gap-1 text-xs font-mono text-muted-foreground">
                   <GitBranchIcon className="h-3 w-3" />
                   {selectedApp.branch}
                 </span>
@@ -238,7 +223,7 @@ function LogsPage() {
                   href={selectedApp.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground hover:text-primary transition-colors"
+                  className="flex items-center gap-1 text-xs font-mono text-muted-foreground hover:text-primary transition-colors"
                 >
                   <ExternalIcon className="h-3 w-3" />
                   {selectedApp.url.replace("http://", "")}
@@ -294,7 +279,7 @@ function LogsPage() {
             <TerminalIcon className="h-3.5 w-3.5" />
             <span
               className={`h-1.5 w-1.5 rounded-full ${
-                connected ? "bg-[#69d1a7] animate-pulse" : "bg-muted-foreground/30"
+                connected ? "bg-success animate-pulse" : "bg-muted-foreground/30"
               }`}
             />
             <span>{connected ? "Live" : "Disconnected"}</span>
@@ -325,7 +310,7 @@ function LogsPage() {
           ) : (
             <div className="p-4 space-y-0.5">
               {logs.map((log, i) => (
-                <div key={i} className="flex gap-4 group hover:bg-foreground/[0.02] dark:hover:bg-white/[0.02] rounded px-1 -mx-1">
+                <div key={i} className="flex gap-4 group hover:bg-foreground/2 dark:hover:bg-white/2 rounded px-1 -mx-1">
                   {/* Line number */}
                   <span className="select-none shrink-0 w-10 text-right text-muted-foreground/40 dark:text-slate-600 group-hover:text-muted-foreground/60 dark:group-hover:text-slate-500 transition-colors">
                     {i + 1}
@@ -357,8 +342,6 @@ function LogsPage() {
           </span>
         </div>
       </div>
-
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </AppShell>
   )
 }

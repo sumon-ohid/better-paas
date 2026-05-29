@@ -13,6 +13,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import {
   Dialog,
@@ -795,8 +796,8 @@ export default function DeployPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
+    <main className="relative min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
+      <div className="relative w-full max-w-2xl">
         {/* Step Indicator */}
         <div className="flex items-center justify-between mb-8 px-2">
           {[
@@ -838,9 +839,10 @@ export default function DeployPage() {
 
           <CardContent className="pt-6 min-h-[300px]">
             {errorMsg && (
-              <div className="mb-4 p-3 rounded bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs leading-relaxed">
-                {errorMsg}
-              </div>
+              <Alert variant="error" className="mb-4">
+                <NucleoIcon name="triangle-alert" />
+                <AlertDescription>{errorMsg}</AlertDescription>
+              </Alert>
             )}
 
             {/* ── STEP 1: Repository Selection ─────────────────────────────── */}
@@ -878,8 +880,8 @@ export default function DeployPage() {
                     {/* Connected header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-md bg-emerald-500/10 flex items-center justify-center">
-                          <NucleoIcon name="check" className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <div className="h-6 w-6 rounded-md bg-success/10 flex items-center justify-center">
+                          <NucleoIcon name="check" className="h-3.5 w-3.5 text-success" />
                         </div>
                         <span className="text-sm font-medium text-foreground">GitHub connected</span>
                       </div>
@@ -894,7 +896,7 @@ export default function DeployPage() {
                         </button>
                         <button
                           onClick={handleDisconnect}
-                          className="text-xs text-rose-500 hover:text-rose-600 transition-colors"
+                          className="text-xs text-destructive-foreground hover:text-destructive transition-colors"
                         >
                           Disconnect
                         </button>
@@ -1271,7 +1273,7 @@ export default function DeployPage() {
                         type="button"
                         onClick={() => setDeployEnvVars((prev) => prev.filter((_, i) => i !== index))}
                         variant="ghost"
-                        className="h-8 w-8 hover:bg-rose-500/15 text-rose-400 hover:text-rose-500 p-0 shrink-0 border-0"
+                        className="h-8 w-8 hover:bg-destructive/10 text-destructive p-0 shrink-0 border-0"
                       >
                         <XIcon className="h-4 w-4" />
                       </Button>
@@ -1346,7 +1348,7 @@ export default function DeployPage() {
 
       {/* Public Repo URL Modal */}
       {showPublicRepoModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+        <div className="fixed inset-0 z-100 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowPublicRepoModal(false)} />
           <div className="relative w-full max-w-md mx-4 bg-popover border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150">
             <div className="px-6 py-4 border-b border-border/50 flex items-center justify-between">

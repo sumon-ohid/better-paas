@@ -7,7 +7,9 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NucleoIcon } from "@/components/nucleo-icons"
-import { AppShell, ToastContainer, useToast, StatusDot } from "@/components/app-shell"
+import { AppShell, useToast } from "@/components/app-shell"
+import { StatusBadge } from "@/components/status-badge"
+import { Badge } from "@/components/ui/badge"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { api, createRuntimeLogsWs } from "@/lib/api"
 import type { App, DeploymentRecord, LogEntry } from "@/lib/types"
@@ -36,7 +38,7 @@ function AppDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const appId = params.id as string
-  const { toasts, showToast, dismissToast } = useToast()
+  const { showToast } = useToast()
 
   const [app, setApp] = useState<App | null>(null)
   const [loading, setLoading] = useState(true)
@@ -295,8 +297,8 @@ function AppDetailPage() {
   }
 
   const lineColor = (msg: string) => {
-    if (msg.startsWith("✖") || msg.includes(" Error") || msg.includes("failed")) return "text-rose-600 dark:text-rose-400"
-    if (msg.startsWith("✅") || msg.startsWith("✔") || msg.includes("successfully")) return "text-emerald-600 dark:text-[#93e0c0]"
+    if (msg.startsWith("✖") || msg.includes(" Error") || msg.includes("failed")) return "text-destructive"
+    if (msg.startsWith("✅") || msg.startsWith("✔") || msg.includes("successfully")) return "text-success"
     if (
       msg.startsWith("📦") ||
       msg.startsWith("🔍") ||
@@ -307,7 +309,7 @@ function AppDetailPage() {
       msg.startsWith("⚠️") ||
       msg.startsWith("📂")
     )
-      return "text-amber-600 dark:text-amber-300"
+      return "text-warning"
     return "text-foreground dark:text-slate-200"
   }
 
@@ -348,33 +350,21 @@ function AppDetailPage() {
         <div className="border-b border-border bg-background/80 backdrop-blur-sm px-4 py-3 shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <button
+              <Button
+                variant={"link"}
                 onClick={() => router.push("/")}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
               >
                 <ChevronLeftIcon className="h-3.5 w-3.5" />
                 Dashboard
-              </button>
+              </Button>
               <span className="h-4 w-px bg-border" />
-              <div className="flex items-center gap-2">
-                <StatusDot status={app.status} />
-                <h1 className="text-base font-bold text-foreground">{app.name}</h1>
-                <span
-                  className={`text-[11px] font-mono px-1.5 py-0.5 rounded-full ${
-                    app.status === "running"
-                      ? "bg-[#69d1a7]/15 text-[#69d1a7]"
-                      : app.status === "building"
-                        ? "bg-amber-400/15 text-amber-400"
-                        : app.status === "failed"
-                          ? "bg-rose-500/15 text-rose-400"
-                          : "bg-muted/40 text-muted-foreground"
-                  }`}
-                >
-                  {app.status}
-                </span>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-xl font-bold text-foreground">{app.name}</h1>
+                <StatusBadge status={app.status} />
               </div>
               {app.branch && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
+                <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono text-muted-foreground">
                   <GitBranchIcon className="h-3 w-3" />
                   {app.branch}
                 </span>
@@ -458,7 +448,7 @@ function AppDetailPage() {
                       onClick={handleCopyUrl}
                       className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors border-0"
                     >
-                      {copied ? <CheckIcon className="h-3 w-3 text-[#69d1a7]" /> : <CopyIcon className="h-3 w-3" />}
+                      {copied ? <CheckIcon className="h-3 w-3 text-success" /> : <CopyIcon className="h-3 w-3" />}
                     </button>
                   </div>
                 </Card>
@@ -705,7 +695,7 @@ function AppDetailPage() {
                   <TerminalIcon className="h-3.5 w-3.5" />
                   <span>Runtime Logs</span>
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${logsConnected ? "bg-[#69d1a7] animate-pulse" : "bg-muted-foreground/30"}`}
+                    className={`h-1.5 w-1.5 rounded-full ${logsConnected ? "bg-success animate-pulse" : "bg-muted-foreground/30"}`}
                   />
                   <span>{logsConnected ? "Live" : "Disconnected"}</span>
                   {logs.length > 0 && (
@@ -747,7 +737,7 @@ function AppDetailPage() {
                   ) : (
                     <>
                       {logs.map((log, i) => (
-                        <div key={i} className="flex gap-4 group hover:bg-foreground/[0.02] dark:hover:bg-white/[0.02] rounded px-1 -mx-1">
+                        <div key={i} className="flex gap-4 group hover:bg-foreground/2 dark:hover:bg-white/2 rounded px-1 -mx-1">
                           <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-10 text-right shrink-0 group-hover:text-muted-foreground/60 dark:group-hover:text-slate-500 transition-colors">
                             {i + 1}
                           </span>
@@ -800,13 +790,13 @@ function AppDetailPage() {
                            {/* Status indicator */}
                            <div className={`shrink-0 h-8 w-8 rounded-lg flex items-center justify-center ${
                              isSuccess 
-                               ? "bg-emerald-500/10 dark:bg-[#69d1a7]/10" 
-                               : "bg-rose-500/10"
+                               ? "bg-success/10" 
+                               : "bg-destructive/10"
                            }`}>
                              {isSuccess ? (
-                               <CheckIcon className="h-4 w-4 text-emerald-600 dark:text-[#69d1a7]" />
+                               <CheckIcon className="h-4 w-4 text-success" />
                              ) : (
-                               <XIcon className="h-4 w-4 text-rose-500" />
+                               <XIcon className="h-4 w-4 text-destructive" />
                              )}
                            </div>
                            
@@ -837,13 +827,13 @@ function AppDetailPage() {
                            </div>
                            
                            {/* Status badge */}
-                           <span className={`shrink-0 text-[11px] font-mono px-2 py-0.5 rounded-full ${
-                             isSuccess
-                               ? "bg-emerald-500/10 text-emerald-600 dark:bg-[#69d1a7]/15 dark:text-[#69d1a7]"
-                               : "bg-rose-500/10 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
-                           }`}>
+                           <Badge
+                             variant={isSuccess ? "success" : "error"}
+                             size="sm"
+                             className="shrink-0"
+                           >
                              {isSuccess ? "Success" : "Failed"}
-                           </span>
+                           </Badge>
                            
                            {/* Expand chevron */}
                            <ChevronLeftIcon className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
@@ -894,8 +884,6 @@ function AppDetailPage() {
            )}
         </div>
       </div>
-
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       <DeleteConfirmModal
         isOpen={showDeleteModal}

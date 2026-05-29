@@ -1,10 +1,56 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback, Suspense } from "react"
+import React, { useState, useEffect, useCallback, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
-import { AppShell, ToastContainer, useToast } from "@/components/app-shell"
+import { AppShell, useToast } from "@/components/app-shell"
+import { StatusBadge, StatusDot } from "@/components/status-badge"
+import { compareByStatusPriority } from "@/lib/status"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/menu"
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@/components/ui/toggle-group"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogClose,
+} from "@/components/ui/alert-dialog"
 import { api } from "@/lib/api"
 import type { App } from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
@@ -20,12 +66,11 @@ const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal
 const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
-const TrashIcon2 = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const ExternalLinkIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
 const EyeIcon = (props: IconProps) => <NucleoIcon {...props} name="eye" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const MoreIcon = (props: IconProps) => <NucleoIcon {...props} name="more-horizontal" />
-
+const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -50,250 +95,289 @@ function isGitHubRepo(gitRepo: string): boolean {
 }
 
 function extractRepoName(gitRepo: string): string {
-  // Handle https://github.com/owner/repo.git or github.com/owner/repo
   const cleaned = gitRepo.replace(/\.git$/, "").replace(/^https?:\/\//, "")
   const parts = cleaned.split("/")
   if (parts.length >= 2) return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`
   return cleaned
 }
 
-function statusConfig(status: string) {
-  switch (status) {
-    case "running":
-      return { dot: "bg-[#69d1a7]", label: "bg-[#69d1a7]/15 text-[#69d1a7]", text: "Running" }
-    case "building":
-      return { dot: "bg-amber-400", label: "bg-amber-400/15 text-amber-400", text: "Building" }
-    case "stopped":
-      return { dot: "bg-muted-foreground/50", label: "bg-muted/50 text-muted-foreground", text: "Paused" }
-    case "failed":
-      return { dot: "bg-rose-500", label: "bg-rose-500/15 text-rose-400", text: "Failed" }
-    default:
-      return { dot: "bg-muted-foreground/50", label: "bg-muted/50 text-muted-foreground", text: status }
-  }
+const STATUS_FILTERS = ["all", "running", "building", "stopped", "failed"] as const
+
+function filterLabel(f: string) {
+  if (f === "all") return "All"
+  if (f === "stopped") return "Paused"
+  return f.charAt(0).toUpperCase() + f.slice(1)
 }
 
-// ── Individual App Row ───────────────────────────────────────────────────────
+// ── Repo cell (shared between table + cards) ──────────────────────────────────
+
+function RepoLink({ gitRepo }: { gitRepo: string }) {
+  return (
+    <a
+      href={gitRepo}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1.5 text-sm font-mono text-muted-foreground hover:text-primary transition-colors"
+    >
+      {isGitHubRepo(gitRepo) ? (
+        <>
+          <GithubLight className="h-4 w-4 shrink-0 dark:hidden" />
+          <GithubDark className="h-4 w-4 shrink-0 hidden dark:block" />
+        </>
+      ) : (
+        <GitBranchIcon className="h-3.5 w-3.5" />
+      )}
+      <span className="truncate max-w-[140px]">{extractRepoName(gitRepo)}</span>
+    </a>
+  )
+}
+
+function UrlLink({ url }: { url: string | undefined }) {
+  if (!url) return <span className="text-sm text-muted-foreground font-mono">—</span>
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 text-sm font-mono text-primary hover:underline transition-colors"
+    >
+      {url.replace("http://", "")}
+      <ExternalLinkIcon className="h-3 w-3 opacity-60" />
+    </a>
+  )
+}
+
+// ── Row action menu (shared) ──────────────────────────────────────────────────
+
+function AppActionsMenu({
+  app,
+  onDelete,
+  onToggle,
+  onRedeploy,
+}: {
+  app: App
+  onDelete: (app: App) => void
+  onToggle: (action: "stop" | "start") => void
+  onRedeploy: () => void
+}) {
+  const router = useRouter()
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Actions for ${app.name}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreIcon className="h-4 w-4" />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem onClick={() => router.push(`/app/${app.id}`)}>
+          <EyeIcon className="text-muted-foreground" />
+          View details
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push(`/app/${app.id}?tab=logs`)}>
+          <TerminalIcon className="text-muted-foreground" />
+          View logs
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {app.status === "running" ? (
+          <DropdownMenuItem onClick={() => onToggle("stop")}>
+            <SquareIcon className="text-warning" />
+            Stop container
+          </DropdownMenuItem>
+        ) : app.status === "stopped" ? (
+          <DropdownMenuItem onClick={() => onToggle("start")}>
+            <PlayIcon className="text-success" />
+            Start container
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem onClick={onRedeploy}>
+          <RefreshIcon className="text-muted-foreground" />
+          Redeploy
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onClick={() => onDelete(app)}>
+          <Trash2Icon />
+          Delete project
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function useAppActions() {
+  const { showToast } = useToast()
+
+  const toggle = useCallback(
+    async (app: App, action: "stop" | "start") => {
+      try {
+        if (action === "stop") await api.apps.stop(app.id)
+        else await api.apps.start(app.id)
+        showToast(
+          action === "stop" ? "Stopped" : "Started",
+          `${app.name} ${action}ed.`,
+          action === "stop" ? "warning" : "success",
+        )
+      } catch {
+        showToast("Error", `Failed to ${action} ${app.name}.`, "destructive")
+      }
+    },
+    [showToast],
+  )
+
+  const redeploy = useCallback(
+    async (app: App) => {
+      try {
+        await api.apps.redeploy(app.id)
+        showToast("Redeploying", `${app.name} rebuild triggered.`, "success")
+      } catch {
+        showToast("Error", "Redeploy failed.", "destructive")
+      }
+    },
+    [showToast],
+  )
+
+  return { toggle, redeploy }
+}
+
+// ── Desktop table row ─────────────────────────────────────────────────────────
 
 function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
   const router = useRouter()
-  const { showToast } = useToast()
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  const cfg = statusConfig(app.status)
-  const repoName = extractRepoName(app.gitRepo)
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!dropdownOpen) return
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
-  }, [dropdownOpen])
-
-  const handleToggle = async (action: "stop" | "start") => {
-    try {
-      if (action === "stop") await api.apps.stop(app.id)
-      else await api.apps.start(app.id)
-      showToast(action === "stop" ? "Stopped" : "Started", `${app.name} ${action}ed.`)
-    } catch {
-      showToast("Error", `Failed to ${action} ${app.name}.`, "destructive")
-    }
-  }
-
-  const handleRedeploy = async () => {
-    try {
-      await api.apps.redeploy(app.id)
-      showToast("Redeploying", `${app.name} rebuild triggered.`)
-    } catch {
-      showToast("Error", "Redeploy failed.", "destructive")
-    }
-  }
+  const { toggle, redeploy } = useAppActions()
 
   return (
-    <tr className="group border-b border-border/40 text-sm transition-colors hover:bg-accent/30">
-      {/* Project Name */}
-      <td className="py-3 px-4">
-        <button
-          onClick={() => router.push(`/app/${app.id}`)}
-          className="flex items-center gap-2.5 text-left cursor-pointer"
-        >
-          <span className={`h-2 w-2 rounded-full shrink-0 ${cfg.dot}`} />
-          <div className="flex flex-col">
-            <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
-              {app.name}
-            </span>
-          </div>
-        </button>
-      </td>
+    <TableRow
+      className="group cursor-pointer"
+      onClick={() => router.push(`/app/${app.id}`)}
+    >
+      {/* Project name — primary attention anchor */}
+      <TableCell className="py-3">
+        <div className="flex items-center gap-2.5">
+          <StatusDot status={app.status} />
+          <span className="font-semibold text-base text-foreground group-hover:text-primary transition-colors">
+            {app.name}
+          </span>
+        </div>
+      </TableCell>
 
-      {/* Status */}
-      <td className="py-3 px-4">
-        <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded-full ${cfg.label}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot} ${app.status === "building" ? "animate-pulse" : ""}`} />
-          {cfg.text}
-        </span>
-      </td>
+      <TableCell className="py-3">
+        <StatusBadge status={app.status} />
+      </TableCell>
 
-      {/* URL */}
-      <td className="py-3 px-4">
-        {app.url ? (
-          <a
-            href={app.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 text-xs font-mono text-primary hover:underline transition-colors"
-          >
-            {app.url.replace("http://", "")}
-            <ExternalLinkIcon className="h-3 w-3 opacity-60" />
-          </a>
-        ) : (
-          <span className="text-xs text-muted-foreground font-mono">—</span>
-        )}
-      </td>
+      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+        <UrlLink url={app.url} />
+      </TableCell>
 
-      {/* Repository */}
-      <td className="py-3 px-4">
-        <a
-          href={app.gitRepo}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-primary transition-colors"
-        >
-          {isGitHubRepo(app.gitRepo) ? (
-            <>
-              <GithubLight className="h-4 w-4 shrink-0 dark:hidden" />
-              <GithubDark className="h-4 w-4 shrink-0 hidden dark:block" />
-            </>
-          ) : (
-            <GitBranchIcon className="h-3 w-3" />
-          )}
-          <span className="truncate max-w-[140px]">{repoName}</span>
-        </a>
-      </td>
+      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+        <RepoLink gitRepo={app.gitRepo} />
+      </TableCell>
 
-      {/* Branch */}
-      <td className="py-3 px-4">
-        <span className="inline-flex items-center gap-1 text-[11px] font-mono bg-muted/40 border border-border px-1.5 py-0.5 rounded text-muted-foreground">
+      <TableCell className="py-3">
+        <Badge variant="outline" size="sm" className="gap-1 font-mono">
           <GitBranchIcon className="h-3 w-3" />
           {app.branch}
-        </span>
-      </td>
+        </Badge>
+      </TableCell>
 
-      {/* Deployed */}
-      <td className="py-3 px-4">
-        <span className="text-xs text-muted-foreground tabular-nums">
+      <TableCell className="py-3">
+        <span className="text-sm text-muted-foreground tabular-nums">
           {formatRelativeTime(app.createdAt)}
         </span>
-      </td>
+      </TableCell>
 
-      {/* Actions Dropdown */}
-      <td className="py-3 px-4 text-right">
-        <div className="relative inline-block" ref={dropdownRef}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setDropdownOpen((v) => !v)
-            }}
-            className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
-          >
-            <MoreIcon className="h-4 w-4" />
-          </button>
+      <TableCell className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
+        <AppActionsMenu
+          app={app}
+          onDelete={onDelete}
+          onToggle={(action) => toggle(app, action)}
+          onRedeploy={() => redeploy(app)}
+        />
+      </TableCell>
+    </TableRow>
+  )
+}
 
-          {dropdownOpen && (
-            <div className="absolute right-0 top-full mt-1 z-50 w-44 rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-100">
-              <div className="py-1">
-                <button
-                  onClick={() => {
-                    setDropdownOpen(false)
-                    router.push(`/app/${app.id}`)
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors cursor-pointer"
-                >
-                  <EyeIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  View Details
-                </button>
-                <button
-                  onClick={() => {
-                    setDropdownOpen(false)
-                    router.push(`/app/${app.id}?tab=logs`)
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors cursor-pointer"
-                >
-                  <TerminalIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  View Logs
-                </button>
-                <div className="my-1 border-t border-border" />
-                {app.status === "running" ? (
-                  <button
-                    onClick={() => {
-                      setDropdownOpen(false)
-                      handleToggle("stop")
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-amber-500 hover:bg-amber-500/10 transition-colors cursor-pointer"
-                  >
-                    <SquareIcon className="h-3.5 w-3.5" />
-                    Stop Container
-                  </button>
-                ) : app.status === "stopped" ? (
-                  <button
-                    onClick={() => {
-                      setDropdownOpen(false)
-                      handleToggle("start")
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer"
-                  >
-                    <PlayIcon className="h-3.5 w-3.5" />
-                    Start Container
-                  </button>
-                ) : null}
-                <button
-                  onClick={() => {
-                    setDropdownOpen(false)
-                    handleRedeploy()
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors cursor-pointer"
-                >
-                  <RefreshIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  Redeploy
-                </button>
-                <div className="my-1 border-t border-border" />
-                <button
-                  onClick={() => {
-                    setDropdownOpen(false)
-                    onDelete(app)
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                >
-                  <Trash2Icon className="h-3.5 w-3.5" />
-                  Delete Project
-                </button>
-              </div>
-            </div>
-          )}
+// ── Mobile card (responsive) ──────────────────────────────────────────────────
+
+function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
+  const router = useRouter()
+  const { toggle, redeploy } = useAppActions()
+
+  return (
+    <div
+      onClick={() => router.push(`/app/${app.id}`)}
+      className="cursor-pointer rounded-xl border border-border bg-card/72 p-4 backdrop-blur-xl transition-colors hover:border-primary/30"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <StatusDot status={app.status} />
+          <span className="font-semibold text-base text-foreground truncate">{app.name}</span>
         </div>
-      </td>
-    </tr>
+        <div onClick={(e) => e.stopPropagation()}>
+          <AppActionsMenu
+            app={app}
+            onDelete={onDelete}
+            onToggle={(action) => toggle(app, action)}
+            onRedeploy={() => redeploy(app)}
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <StatusBadge status={app.status} />
+        <Badge variant="outline" size="sm" className="gap-1 font-mono">
+          <GitBranchIcon className="h-3 w-3" />
+          {app.branch}
+        </Badge>
+        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+          {formatRelativeTime(app.createdAt)}
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3" onClick={(e) => e.stopPropagation()}>
+        <UrlLink url={app.url} />
+        <RepoLink gitRepo={app.gitRepo} />
+      </div>
+    </div>
+  )
+}
+
+// ── Loading skeleton ──────────────────────────────────────────────────────────
+
+function LoadingRows() {
+  return (
+    <>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <TableRow key={i}>
+          {Array.from({ length: 7 }).map((__, j) => (
+            <TableCell key={j} className="py-3.5">
+              <Skeleton className="h-4 w-full max-w-[120px]" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
   )
 }
 
 function ApplicationsDashboard() {
   const router = useRouter()
-  const { toasts, showToast, dismissToast } = useToast()
+  const { showToast } = useToast()
 
   const [apps, setApps] = useState<App[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [deleteTarget, setDeleteTarget] = useState<App | null>(null)
   const [showPruneModal, setShowPruneModal] = useState(false)
-
-  // ── Data fetching ──────────────────────────────────────────────────────────
 
   const fetchApps = useCallback(async () => {
     try {
@@ -301,13 +385,12 @@ function ApplicationsDashboard() {
       setApps(data)
     } catch (err) {
       console.error("Failed to fetch apps", err)
+    } finally {
+      setLoading(false)
     }
   }, [])
 
-  // ── Fetch apps + poll while building ─────────────────────────────────────────
-
   useEffect(() => {
-    // fetchApps is async; setState runs after awaits, not synchronously.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchApps()
   }, [fetchApps])
@@ -320,11 +403,10 @@ function ApplicationsDashboard() {
     return () => clearInterval(interval)
   }, [apps, fetchApps])
 
-  // ── Actions ────────────────────────────────────────────────────────────────
   const handleDeleteApp = async (id: string) => {
     try {
       await api.apps.delete(id)
-      showToast("App Deleted", "Application container and workspace permanently removed.")
+      showToast("App deleted", "Application container and workspace permanently removed.", "success")
       setDeleteTarget(null)
       fetchApps()
     } catch (err) {
@@ -337,186 +419,210 @@ function ApplicationsDashboard() {
     try {
       showToast("Pruning...", "Running docker system prune, please wait.")
       const result = await api.system.prune()
-      showToast("Pruned", "Docker system prune completed successfully.")
+      showToast("Pruned", "Docker system prune completed successfully.", "success")
       console.log(result.output)
     } catch (err) {
-      showToast("Prune Failed", "Docker prune encountered an error.", "destructive")
+      showToast("Prune failed", "Docker prune encountered an error.", "destructive")
       console.error(err)
     }
   }
 
-  // ── Filter ─────────────────────────────────────────────────────────────────
+  // Filter + sort so attention-worthy states (building, failed) surface first.
+  const filteredApps = apps
+    .filter((app) => {
+      const matchesSearch =
+        app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        app.gitRepo.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesStatus = statusFilter === "all" || app.status === statusFilter
+      return matchesSearch && matchesStatus
+    })
+    .sort((a, b) => compareByStatusPriority(a.status, b.status))
 
-  const filteredApps = apps.filter((app) => {
-    const matchesSearch =
-      app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.gitRepo.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === "all" || app.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const isEmpty = !loading && filteredApps.length === 0
+  const noAppsAtAll = !loading && apps.length === 0
 
   return (
     <AppShell appCount={apps.length}>
-      <div className="space-y-0">
-        {/* Subheader toolbar */}
-        <div className="flex flex-col justify-between gap-2 border-b border-border bg-background/54 px-4 py-2 text-sm backdrop-blur-xl sm:flex-row sm:items-center select-none">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Search */}
-            <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/25 px-2 py-1">
-              <SearchIcon className="h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter by name..."
-                className="bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/60 w-32 focus:w-44 transition-all duration-200"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="cursor-pointer text-muted-foreground hover:text-foreground"
-                >
-                  <XIcon className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-
-            {/* Status filter */}
-            <div className="flex items-center overflow-hidden rounded-md border border-border bg-muted/15">
-              {["all", "running", "building", "stopped", "failed"].map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setStatusFilter(f)}
-                  className={`px-2.5 py-1 border-l first:border-l-0 border-border transition-all cursor-pointer capitalize ${
-                    statusFilter === f
-                      ? "bg-accent font-medium text-foreground"
-                      : "text-muted-foreground hover:text-foreground bg-transparent"
-                  }`}
-                >
-                  {f === "all" ? "All" : f === "stopped" ? "Paused" : f}
-                </button>
-              ))}
-            </div>
+      {/* Subheader toolbar */}
+      <div className="flex flex-col justify-between gap-2 border-b border-border bg-background/54 px-4 py-2.5 backdrop-blur-xl sm:flex-row sm:items-center select-none">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search */}
+          <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/25 px-2.5 py-1.5">
+            <SearchIcon className="h-4 w-4 text-muted-foreground" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter by name..."
+              aria-label="Filter applications by name"
+              className="bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/60 w-40"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear filter"
+                className="cursor-pointer text-muted-foreground hover:text-foreground"
+              >
+                <XIcon className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
-            {/* Docker Prune */}
-            <button
-              onClick={() => setShowPruneModal(true)}
-              className="flex items-center gap-1.5 rounded-md border border-border bg-muted/15 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-[#008fe2]/40 hover:bg-[#008fe2]/5 transition-all cursor-pointer"
-            >
-              <Docker className="h-3.5 w-3.5" />
-              <span>Prune Docker</span>
-            </button>
-
-
-          </div>
+          {/* Status filter */}
+          <ToggleGroup
+            variant="outline"
+            size="sm"
+            value={[statusFilter]}
+            onValueChange={(v) => setStatusFilter(v[0] ?? "all")}
+          >
+            {STATUS_FILTERS.map((f) => (
+              <ToggleGroupItem key={f} value={f} className="px-2.5 text-sm">
+                {filterLabel(f)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
 
-        {/* Content */}
-        <div className="p-4 md:p-6">
-          <div className="rounded-lg border border-border bg-card/72 backdrop-blur-xl">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border/80 bg-muted/20 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground select-none">
-                  <th className="py-2.5 px-4">Project</th>
-                  <th className="py-2.5 px-4">Status</th>
-                  <th className="py-2.5 px-4">URL</th>
-                  <th className="py-2.5 px-4">Repository</th>
-                  <th className="py-2.5 px-4">Branch</th>
-                  <th className="py-2.5 px-4">Deployed</th>
-                  <th className="py-2.5 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredApps.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-16 text-center">
-                      <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                        <GlobeIcon className="h-8 w-8 opacity-20" />
-                        <span className="text-sm">
-                          No applications yet.{" "}
-                          <button
-                            onClick={() => router.push("/deploy")}
-                            className="text-primary hover:underline cursor-pointer"
-                          >
-                            Deploy your first service →
-                          </button>
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredApps.map((app) => (
-                    <AppRow key={app.id} app={app} onDelete={(a) => setDeleteTarget(a)} />
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPruneModal(true)}
+                  className="hidden gap-1.5 sm:inline-flex"
+                >
+                  <Docker className="h-4 w-4" />
+                  Prune Docker
+                </Button>
+              }
+            />
+            <TooltipContent>Reclaim disk: remove stopped containers, dangling images and build cache</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
-      {/* Docker Prune Confirm Modal */}
-      {showPruneModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/55 backdrop-blur-sm"
-            onClick={() => setShowPruneModal(false)}
-          />
-          <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150">
-            <div className="p-6 pb-4 space-y-4">
-              <div className="flex items-center justify-center w-11 h-11 rounded-full bg-amber-500/10 border border-amber-500/20 mx-auto">
-                <TrashIcon2 className="h-5 w-5 text-amber-500" />
-              </div>
-              <div className="text-center space-y-1.5">
-                <h3 className="text-base font-semibold text-foreground">Prune Docker System</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  This will run <code className="text-xs font-mono bg-muted px-1 py-0.5 rounded">docker system prune</code> which permanently removes:
-                </p>
-                <ul className="text-sm text-muted-foreground text-left space-y-1 max-w-xs mx-auto list-disc pl-4">
-                  <li>All stopped containers</li>
-                  <li>All unused networks</li>
-                  <li>All dangling images</li>
-                  <li>All build cache</li>
-                </ul>
-                <p className="text-sm text-rose-500 font-semibold pt-1">
-                  Active running containers will NOT be affected.
-                </p>
-              </div>
-            </div>
-            <div className="p-6 pt-2 flex gap-2">
-              <button
-                onClick={() => setShowPruneModal(false)}
-                className="flex-1 h-10 rounded-md border border-border bg-background text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  setShowPruneModal(false)
-                  await handleDockerPrune()
-                }}
-                className="flex-1 h-10 rounded-md bg-[#008fe2] hover:bg-[#0074b5] text-white text-sm font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Docker className="h-4 w-4" />
-                Confirm Prune
-              </button>
-            </div>
-          </div>
+      {/* Content */}
+      <div className="p-4 md:p-6">
+        {/* Desktop table */}
+        <div className="hidden rounded-xl border border-border bg-card/72 backdrop-blur-xl md:block">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/20 text-xs uppercase tracking-[0.08em] select-none">
+                <TableHead className="py-3">Project</TableHead>
+                <TableHead className="py-3">Status</TableHead>
+                <TableHead className="py-3">URL</TableHead>
+                <TableHead className="py-3">Repository</TableHead>
+                <TableHead className="py-3">Branch</TableHead>
+                <TableHead className="py-3">Deployed</TableHead>
+                <TableHead className="py-3 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <LoadingRows />
+              ) : isEmpty ? (
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredApps.map((app) => (
+                  <AppRow key={app.id} app={app} onDelete={(a) => setDeleteTarget(a)} />
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-      )}
+
+        {/* Mobile cards */}
+        <div className="space-y-3 md:hidden">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full rounded-xl" />
+            ))
+          ) : isEmpty ? (
+            <div className="rounded-xl border border-border bg-card/72">
+              <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
+            </div>
+          ) : (
+            filteredApps.map((app) => (
+              <AppCard key={app.id} app={app} onDelete={(a) => setDeleteTarget(a)} />
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Docker Prune Confirm Modal — reuses shared AlertDialog */}
+      <AlertDialog open={showPruneModal} onOpenChange={setShowPruneModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-info/10 text-info sm:mx-0">
+              <Docker className="h-5 w-5" />
+            </div>
+            <AlertDialogTitle>Prune Docker system</AlertDialogTitle>
+            <AlertDialogDescription>
+              This runs{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">docker system prune</code>{" "}
+              and permanently removes stopped containers, unused networks, dangling images, and build
+              cache. Active running containers are not affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline">Cancel</Button>} />
+            <AlertDialogClose
+              render={
+                <Button variant="destructive" onClick={handleDockerPrune} className="gap-1.5">
+                  <Trash2Icon className="h-4 w-4" />
+                  Confirm prune
+                </Button>
+              }
+            />
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirm Modal */}
       <DeleteConfirmModal
         isOpen={!!deleteTarget}
         appName={deleteTarget?.name ?? ""}
-        onConfirm={() => deleteTarget ? handleDeleteApp(deleteTarget.id) : Promise.resolve()}
+        onConfirm={() => (deleteTarget ? handleDeleteApp(deleteTarget.id) : Promise.resolve())}
         onCancel={() => setDeleteTarget(null)}
       />
-
-      {/* Toasts */}
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </AppShell>
+  )
+}
+
+function DashboardEmpty({
+  noAppsAtAll,
+  onDeploy,
+}: {
+  noAppsAtAll: boolean
+  onDeploy: () => void
+}) {
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <GlobeIcon />
+        </EmptyMedia>
+        <EmptyTitle>{noAppsAtAll ? "No applications yet" : "No matches"}</EmptyTitle>
+        <EmptyDescription>
+          {noAppsAtAll
+            ? "Deploy your first service to see it appear here."
+            : "No applications match the current filters."}
+        </EmptyDescription>
+      </EmptyHeader>
+      {noAppsAtAll && (
+        <EmptyContent>
+          <Button onClick={onDeploy} className="gap-1.5">
+            <PlusIcon className="h-4 w-4" />
+            Deploy a service
+          </Button>
+        </EmptyContent>
+      )}
+    </Empty>
   )
 }
 
@@ -524,9 +630,9 @@ export default function Page() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0b0c10] text-[#f1f3f9] flex flex-col items-center justify-center font-mono text-xs gap-3">
-          <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span>Initializing Dashboard...</span>
+        <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background font-mono text-xs text-muted-foreground">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span>Initializing dashboard...</span>
         </div>
       }
     >

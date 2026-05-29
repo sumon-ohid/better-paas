@@ -180,6 +180,8 @@
     --sidebar-primary: #5e6ad2;
     --sidebar-primary-foreground: #ffffff;
     --sidebar-ring: rgba(94, 106, 210, 0.38);
+    --grid-line: rgba(20, 21, 31, 0.025);
+    --grid-size: 28px;
 }
 
 .dark {
@@ -224,6 +226,8 @@
     --sidebar-primary: #8f99ff;
     --sidebar-primary-foreground: #090a10;
     --sidebar-ring: rgba(143, 153, 255, 0.46);
+    --grid-line: rgba(255, 255, 255, 0.022);
+    --grid-size: 28px;
 }
 
 @layer base {
@@ -252,6 +256,7 @@
   html {
     @apply font-sans scroll-smooth;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-size: 16.5px;
     overflow: hidden;
     height: 100%;
   }
@@ -261,11 +266,24 @@
     height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
-    letter-spacing: 0;
+    letter-spacing: -0.006em;
+    /* Pixel-grid pattern + ambient color glow, layered over the base color. */
     background:
-      radial-gradient(circle at 50% -16%, color-mix(in oklab, var(--primary) 18%, transparent) 0, transparent 48rem),
-      radial-gradient(circle at 92% 8%, rgba(136, 162, 246, 0.06), transparent 36rem),
+      radial-gradient(circle at 50% -16%, color-mix(in oklab, var(--primary) 20%, transparent) 0, transparent 48rem),
+      radial-gradient(circle at 92% 8%, color-mix(in oklab, var(--chart-2) 12%, transparent), transparent 36rem),
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size) var(--grid-size),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size) var(--grid-size),
       var(--background);
+  }
+
+  h1 {
+    @apply text-2xl font-bold tracking-tight;
+  }
+  h2 {
+    @apply text-xl font-bold tracking-tight;
+  }
+  h3 {
+    @apply text-lg font-semibold tracking-tight;
   }
 
   code, kbd, samp, pre {
@@ -285,5 +303,32 @@
 
   button:active {
     transform: translateY(1px);
+  }
+}
+
+@layer utilities {
+  /* Fine pixel grid — for hero/header surfaces that need texture. */
+  .bg-pixel-grid {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: var(--grid-size) var(--grid-size);
+  }
+
+  /* Dotted pixel pattern — for empty states and decorative panels. */
+  .bg-pixel-dots {
+    background-image: radial-gradient(
+      color-mix(in oklab, var(--foreground) 14%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 16px 16px;
+  }
+
+  /* Soft fade mask so patterns dissolve toward the edges. */
+  .mask-fade-b {
+    mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  }
+  .mask-fade-radial {
+    mask-image: radial-gradient(ellipse at center, black 35%, transparent 75%);
   }
 }
