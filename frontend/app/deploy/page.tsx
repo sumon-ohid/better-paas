@@ -308,130 +308,248 @@ function detectFrameworkByName(repo: GitHubRepo | null): (typeof FRAMEWORKS)[0] 
   return null
 }
 
-// Smart detection: scans repo root files for framework-specific configs + package.json deps
-async function detectFrameworkByFiles(
+type Framework = (typeof FRAMEWORKS)[0]
+
+// A detection match plus how confident we are in it. "high" means a
+// framework-specific signal (config file, framework dependency, language
+// manifest) was found; "low" means we only saw a generic package.json with no
+// recognizable framework and fell back to a bare Node.js server.
+type DirMatch = { framework: Framework; confidence: "high" | "low" }
+
+// Where the framework was found, so callers can pre-fill the build root dir.
+type DetectionResult = { framework: Framework; rootDir: string }
+
+const fw = (id: string): Framework | null => FRAMEWORKS.find((f) => f.id === id) || null
+
+// safeContents lists a directory, returning [] instead of throwing so probing
+// non-existent subdirectories is cheap and harmless.
+async function safeContents(
   repo: GitHubRepo,
   branch: string,
-): Promise<(typeof FRAMEWORKS)[0] | null> {
+  dir: string,
+): Promise<GitHubContent[]> {
   try {
-    console.log("[FrameworkScan] scanning:", repo.full_name, "branch:", branch)
-    const contents = await api.git.contents(repo.full_name, branch, "")
-    console.log("[FrameworkScan] root contents:", contents.map((c) => c.name))
-    const fileNames = new Set(contents.map((c) => c.name.toLowerCase()))
+    return await api.git.contents(repo.full_name, branch, dir)
+  } catch {
+    return []
+  }
+}
 
-    // 1. Config file detection (most accurate)
-    if (
-      fileNames.has("next.config.js") ||
-      fileNames.has("next.config.ts") ||
-      fileNames.has("next.config.mjs")
-    ) {
-      return FRAMEWORKS.find((f) => f.id === "nextjs") || null
-    }
-    if (fileNames.has("svelte.config.js") || fileNames.has("svelte.config.ts")) {
-      return FRAMEWORKS.find((f) => f.id === "svelte") || null
-    }
-    if (fileNames.has("astro.config.mjs")) {
-      return FRAMEWORKS.find((f) => f.id === "astro") || null
-    }
-    if (
-      fileNames.has("vite.config.js") ||
-      fileNames.has("vite.config.ts") ||
-      fileNames.has("vite.config.mjs")
-    ) {
-      return FRAMEWORKS.find((f) => f.id === "vite") || null
-    }
-    if (fileNames.has("remix.config.js")) {
-      return FRAMEWORKS.find((f) => f.id === "remix") || null
-    }
+// detectInDir inspects a single directory (dir === "" is the repo root) and
+// returns the best framework match for it, or null if nothing is recognized.
+async function detectInDir(
+  repo: GitHubRepo,
+  branch: string,
+  dir: string,
+  contents: GitHubContent[],
+): Promise<DirMatch | null> {
+  const fileNames = new Set(contents.map((c) => c.name.toLowerCase()))
+  const join = (name: string) => (dir ? `${dir}/${name}` : name)
+  const high = (id: string): DirMatch | null => {
+    const f = fw(id)
+    return f ? { framework: f, confidence: "high" } : null
+  }
 
-    // 2. package.json dependency scanning
-    if (fileNames.has("package.json")) {
-      const pkgFile = await api.git.file(repo.full_name, branch, "package.json")
-      console.log("[FrameworkScan] package.json size:", pkgFile.size)
+  // 1. Config-file detection (most accurate when present).
+  if (
+    fileNames.has("next.config.js") ||
+    fileNames.has("next.config.ts") ||
+    fileNames.has("next.config.mjs") ||
+    fileNames.has("next.config.cjs")
+  )
+    return high("nextjs")
+  if (fileNames.has("svelte.config.js") || fileNames.has("svelte.config.ts"))
+    return high("svelte")
+  if (
+    fileNames.has("astro.config.mjs") ||
+    fileNames.has("astro.config.js") ||
+    fileNames.has("astro.config.ts")
+  )
+    return high("astro")
+  if (fileNames.has("remix.config.js") || fileNames.has("remix.config.mjs"))
+    return high("remix")
+  if (
+    fileNames.has("vite.config.js") ||
+    fileNames.has("vite.config.ts") ||
+    fileNames.has("vite.config.mjs")
+  )
+    return high("vite")
+
+  // 2. package.json: dependencies first, then scripts. Next.js (and most
+  // meta-frameworks) do NOT require a config file, so the dependency/script
+  // signal is what actually identifies them.
+  if (fileNames.has("package.json")) {
+    try {
+      const pkgFile = await api.git.file(repo.full_name, branch, join("package.json"))
       const pkg = JSON.parse(pkgFile.content || "{}")
       const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }
       const depNames = Object.keys(deps).map((d) => d.toLowerCase())
+      const has = (n: string) => depNames.includes(n)
 
-      if (depNames.includes("next"))
-        return FRAMEWORKS.find((f) => f.id === "nextjs") || null
-      if (depNames.includes("@sveltejs/kit"))
-        return FRAMEWORKS.find((f) => f.id === "svelte") || null
-      if (depNames.includes("astro"))
-        return FRAMEWORKS.find((f) => f.id === "astro") || null
-      if (depNames.includes("vite"))
-        return FRAMEWORKS.find((f) => f.id === "vite") || null
+      // Meta-frameworks are checked before plain Vite, because SvelteKit /
+      // Astro / Remix all list Vite as a dependency too.
+      if (has("next")) return high("nextjs")
+      if (has("@sveltejs/kit")) return high("svelte")
+      if (has("astro")) return high("astro")
+      if (has("@remix-run/dev") || has("@remix-run/react") || has("remix"))
+        return high("remix")
+      if (has("react-scripts")) return high("react")
+      if (has("vite")) return high("vite")
       if (
-        depNames.includes("@remix-run/dev") ||
-        depNames.includes("@remix-run/react") ||
-        depNames.includes("remix")
+        has("@nestjs/core") ||
+        has("@nestjs/cli") ||
+        has("express") ||
+        has("fastify") ||
+        has("koa") ||
+        has("@hapi/hapi")
       )
-        return FRAMEWORKS.find((f) => f.id === "remix") || null
-      if (depNames.includes("react-scripts"))
-        return FRAMEWORKS.find((f) => f.id === "react") || null
-      if (depNames.includes("express"))
-        return FRAMEWORKS.find((f) => f.id === "node") || null
-      if (depNames.includes("fastify"))
-        return FRAMEWORKS.find((f) => f.id === "node") || null
-      if (
-        depNames.includes("@nestjs/cli") ||
-        depNames.includes("@nestjs/core")
-      )
-        return FRAMEWORKS.find((f) => f.id === "node") || null
-      // Generic Node.js if package.json exists with some deps
-      if (depNames.length > 0) return FRAMEWORKS.find((f) => f.id === "node") || null
+        return high("node")
+
+      // Dependency hoisting in monorepos can strip the framework dep from a
+      // workspace's own package.json, so fall back to scanning its scripts.
+      const scripts = (pkg.scripts || {}) as Record<string, string>
+      const scriptText = Object.values(scripts).join(" ").toLowerCase()
+      if (/(^|[\s&|;])next(\s|$|\s+(build|start|dev))/.test(scriptText))
+        return high("nextjs")
+      if (/(^|[\s&|;])astro(\s|$)/.test(scriptText)) return high("astro")
+      if (/(^|[\s&|;])remix(\s|$)/.test(scriptText)) return high("remix")
+      if (/(^|[\s&|;])vite(\s|$)/.test(scriptText)) return high("vite")
+
+      // Generic Node project — low confidence so a stronger subdir match wins.
+      if (depNames.length > 0 || Object.keys(scripts).length > 0) {
+        const f = fw("node")
+        return f ? { framework: f, confidence: "low" } : null
+      }
+    } catch {
+      // fall through to other language checks
+    }
+  }
+
+  // 3. Python.
+  if (fileNames.has("requirements.txt")) {
+    const reqFile = await api.git.file(repo.full_name, branch, join("requirements.txt"))
+    const content = (reqFile.content || "").toLowerCase()
+    if (content.includes("django")) return high("django")
+    if (content.includes("flask")) return high("flask")
+    if (content.includes("fastapi")) return high("fastapi")
+    return high("python")
+  }
+  if (fileNames.has("pyproject.toml")) {
+    const pyFile = await api.git.file(repo.full_name, branch, join("pyproject.toml"))
+    const content = (pyFile.content || "").toLowerCase()
+    if (content.includes("django")) return high("django")
+    if (content.includes("flask")) return high("flask")
+    if (content.includes("fastapi")) return high("fastapi")
+    return high("python")
+  }
+
+  // 4. Other languages.
+  if (fileNames.has("go.mod")) return high("go")
+  if (fileNames.has("cargo.toml")) return high("rust")
+  if (fileNames.has("composer.json")) return high("php")
+  if (fileNames.has("gemfile")) return high("ruby")
+  if (fileNames.has("mix.exs")) return high("elixir")
+  if (fileNames.has("pom.xml") || fileNames.has("build.gradle")) return high("java")
+  if ([...fileNames].some((f) => f.endsWith(".csproj") || f.endsWith(".sln")))
+    return high("dotnet")
+
+  // 5. Bun / 6. Deno.
+  if (fileNames.has("bun.lockb")) return high("bun")
+  if (fileNames.has("deno.json") || fileNames.has("deno.jsonc")) return high("deno")
+
+  return null
+}
+
+// collectSubdirCandidates returns subdirectories worth probing for the "real"
+// app in a full-stack / monorepo layout. It combines npm/yarn/pnpm workspace
+// globs from the root package.json with a curated list of common locations,
+// keeping only paths whose top-level segment actually exists at the root.
+async function collectSubdirCandidates(
+  repo: GitHubRepo,
+  branch: string,
+  rootContents: GitHubContent[],
+): Promise<string[]> {
+  const rootDirs = new Set(
+    rootContents.filter((c) => c.type === "dir").map((c) => c.name.toLowerCase()),
+  )
+  const out: string[] = []
+  const push = (raw: string) => {
+    const norm = raw.replace(/^\.\//, "").replace(/\/+$/, "").trim()
+    if (norm && !out.includes(norm)) out.push(norm)
+  }
+
+  // Expand workspace patterns from the root package.json (best-effort).
+  if (rootContents.some((c) => c.name.toLowerCase() === "package.json")) {
+    try {
+      const pkgFile = await api.git.file(repo.full_name, branch, "package.json")
+      const pkg = JSON.parse(pkgFile.content || "{}")
+      let patterns: string[] = []
+      if (Array.isArray(pkg.workspaces)) patterns = pkg.workspaces
+      else if (pkg.workspaces && Array.isArray(pkg.workspaces.packages))
+        patterns = pkg.workspaces.packages
+
+      for (const pat of patterns) {
+        if (typeof pat !== "string") continue
+        if (pat.endsWith("/*")) {
+          const base = pat.slice(0, -2)
+          if (base && !base.includes("*") && rootDirs.has(base.toLowerCase())) {
+            const children = await safeContents(repo, branch, base)
+            for (const ch of children) if (ch.type === "dir") push(`${base}/${ch.name}`)
+          }
+        } else if (!pat.includes("*")) {
+          push(pat)
+        }
+      }
+    } catch {
+      // ignore malformed package.json
+    }
+  }
+
+  // Curated common locations for the deployable frontend.
+  for (const c of ["frontend", "client", "web", "app", "www", "ui", "site"]) push(c)
+  for (const c of ["apps/web", "apps/frontend", "apps/app", "apps/client", "packages/web", "packages/app"])
+    push(c)
+
+  // Only probe paths whose first segment exists at the root, capped for safety.
+  return out.filter((p) => rootDirs.has(p.split("/")[0].toLowerCase())).slice(0, 12)
+}
+
+// detectFrameworkByFiles scans the repo root and, for full-stack/monorepo
+// layouts, common subdirectories to find the most specific framework. It
+// returns the matched framework together with the directory it was found in so
+// the caller can pre-fill the build root.
+async function detectFrameworkByFiles(
+  repo: GitHubRepo,
+  branch: string,
+): Promise<DetectionResult | null> {
+  try {
+    console.log("[FrameworkScan] scanning:", repo.full_name, "branch:", branch)
+    const rootContents = await safeContents(repo, branch, "")
+    console.log("[FrameworkScan] root contents:", rootContents.map((c) => c.name))
+
+    const rootMatch = await detectInDir(repo, branch, "", rootContents)
+
+    // A confident, framework-specific root match wins outright. We only keep
+    // probing when the root is unrecognized or resolves to a bare Node server,
+    // which is the classic full-stack case (e.g. an API at the root with the
+    // Next.js app in /frontend).
+    if (rootMatch && rootMatch.confidence === "high" && rootMatch.framework.id !== "node") {
+      return { framework: rootMatch.framework, rootDir: "" }
     }
 
-    // 3. Python detection
-    if (fileNames.has("requirements.txt")) {
-      const reqFile = await api.git.file(repo.full_name, branch, "requirements.txt")
-      const content = (reqFile.content || "").toLowerCase()
-      if (content.includes("django"))
-        return FRAMEWORKS.find((f) => f.id === "django") || null
-      if (content.includes("flask"))
-        return FRAMEWORKS.find((f) => f.id === "flask") || null
-      if (content.includes("fastapi"))
-        return FRAMEWORKS.find((f) => f.id === "fastapi") || null
-      return FRAMEWORKS.find((f) => f.id === "python") || null
-    }
-    if (fileNames.has("pyproject.toml")) {
-      const pyFile = await api.git.file(repo.full_name, branch, "pyproject.toml")
-      const content = (pyFile.content || "").toLowerCase()
-      if (content.includes("django"))
-        return FRAMEWORKS.find((f) => f.id === "django") || null
-      if (content.includes("flask"))
-        return FRAMEWORKS.find((f) => f.id === "flask") || null
-      if (content.includes("fastapi"))
-        return FRAMEWORKS.find((f) => f.id === "fastapi") || null
-      return FRAMEWORKS.find((f) => f.id === "python") || null
+    const candidates = await collectSubdirCandidates(repo, branch, rootContents)
+    for (const dir of candidates) {
+      const contents = await safeContents(repo, branch, dir)
+      if (contents.length === 0) continue
+      const sub = await detectInDir(repo, branch, dir, contents)
+      if (sub && sub.confidence === "high" && sub.framework.id !== "node") {
+        console.log("[FrameworkScan] matched", sub.framework.id, "in subdir:", dir)
+        return { framework: sub.framework, rootDir: dir }
+      }
     }
 
-    // 4. Other language detection
-    if (fileNames.has("go.mod"))
-      return FRAMEWORKS.find((f) => f.id === "go") || null
-    if (fileNames.has("cargo.toml"))
-      return FRAMEWORKS.find((f) => f.id === "rust") || null
-    if (fileNames.has("composer.json"))
-      return FRAMEWORKS.find((f) => f.id === "php") || null
-    if (fileNames.has("gemfile"))
-      return FRAMEWORKS.find((f) => f.id === "ruby") || null
-    if (fileNames.has("mix.exs"))
-      return FRAMEWORKS.find((f) => f.id === "elixir") || null
-    if (fileNames.has("pom.xml") || fileNames.has("build.gradle"))
-      return FRAMEWORKS.find((f) => f.id === "java") || null
-    if (
-      [...fileNames].some(
-        (f) => f.endsWith(".csproj") || f.endsWith(".sln"),
-      )
-    )
-      return FRAMEWORKS.find((f) => f.id === "dotnet") || null
-
-    // 5. Bun detection
-    if (fileNames.has("bun.lockb"))
-      return FRAMEWORKS.find((f) => f.id === "bun") || null
-
-    // 6. Deno detection
-    if (fileNames.has("deno.json") || fileNames.has("deno.jsonc"))
-      return FRAMEWORKS.find((f) => f.id === "deno") || null
+    // Nothing stronger found — return the root match (e.g. the Node server).
+    if (rootMatch) return { framework: rootMatch.framework, rootDir: "" }
   } catch (err) {
     console.error("[FrameworkScan] error:", err)
   }
@@ -586,10 +704,11 @@ export default function DeployPage() {
           // Smart file-based detection (async, updates UI if better match found)
           if (defaultBranch) {
             setIsDetectingFramework(true)
-            const fwSmart = await detectFrameworkByFiles(repo, defaultBranch)
+            const detected = await detectFrameworkByFiles(repo, defaultBranch)
             setIsDetectingFramework(false)
-            if (fwSmart) {
-              applyDetectedFramework(fwSmart)
+            if (detected) {
+              applyDetectedFramework(detected.framework)
+              if (detected.rootDir) setDeployRootDir(detected.rootDir)
             }
           }
         })
@@ -738,10 +857,11 @@ export default function DeployPage() {
 
       if (defaultBranch) {
         setIsDetectingFramework(true)
-        const fwSmart = await detectFrameworkByFiles(repoObj, defaultBranch)
+        const detected = await detectFrameworkByFiles(repoObj, defaultBranch)
         setIsDetectingFramework(false)
-        if (fwSmart) {
-          applyDetectedFramework(fwSmart)
+        if (detected) {
+          applyDetectedFramework(detected.framework)
+          if (detected.rootDir) setDeployRootDir(detected.rootDir)
         }
       }
     } catch (err) {
