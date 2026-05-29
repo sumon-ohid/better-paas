@@ -1,0 +1,7 @@
+{
+  "name": "test/php-vanilla",
+  "description": "Minimal PHP app for testing BaaS deploys",
+  "require": {
+    "php": ">=8.1"
+  }
+}

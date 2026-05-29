@@ -1,982 +1,252 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"math/rand"
 	"net/http"
-	"net/url"
 	"os"
-	"os/exec"
-	"path/filepath"
+	"strconv"
 	"strings"
-	"sync"
-	"time"
-
-	"github.com/gorilla/websocket"
-)
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
-type App struct {
-	ID             string            `json:"id"`
-	Name           string            `json:"name"`
-	Status         string            `json:"status"` // "running", "building", "stopped", "failed"
-	GitRepo        string            `json:"gitRepo"`
-	Branch         string            `json:"branch"`
-	Port           int               `json:"port"`
-	URL            string            `json:"url"`
-	CreatedAt      time.Time         `json:"createdAt"`
-	GitToken       string            `json:"-"` // Omit sensitive token from JSON outputs
-	RootDir        string            `json:"rootDir"`
-	EnvVars        map[string]string `json:"envVars"`
-	BuildCommand   string            `json:"buildCommand"`
-	StartCommand   string            `json:"startCommand"`
-	InstallCommand string            `json:"installCommand"`
-	PortOverride   int               `json:"portOverride"`
-}
-
-func formatGitURL(gitURL, token string) string {
-	if token == "" {
-		return gitURL
-	}
-	// URL escape the token to handle any special characters
-	escapedToken := url.QueryEscape(token)
-	if strings.HasPrefix(gitURL, "https://") {
-		return "https://" + escapedToken + "@" + strings.TrimPrefix(gitURL, "https://")
-	}
-	if strings.HasPrefix(gitURL, "http://") {
-		return "http://" + escapedToken + "@" + strings.TrimPrefix(gitURL, "http://")
-	}
-	return "https://" + escapedToken + "@" + gitURL
-}
-
-type ServerStats struct {
-	CPUUsage    float64   `json:"cpuUsage"`
-	MemoryUsage float64   `json:"memoryUsage"`
-	DiskUsage   float64   `json:"diskUsage"`
-	ActiveApps  int       `json:"activeApps"`
-	Timestamp   time.Time `json:"timestamp"`
-}
-
-var (
-	appsLock sync.Mutex
-	apps     = []App{}
-	
-	// A map of active deployment build logs channels key = appId
-	buildLogsLock sync.RWMutex
-	buildLogs     = make(map[string][]string)
-
-	subscribersLock sync.Mutex
-	subscribers     = make(map[string]map[chan string]bool)
-	
-	startTime = time.Now()
 )
 
 func main() {
-	// Create builds directory
+	// Create required directories
 	os.MkdirAll("builds", 0755)
+	// data/ holds the SQLite DB (with stored tokens) and admin_token.txt, so
+	// restrict it to the owner.
+	os.MkdirAll("data", 0700)
 
-	http.HandleFunc("/api/apps", handleApps)
-	http.HandleFunc("/api/deploy", handleDeploy)
-	http.HandleFunc("/api/health", handleHealth)
-	http.HandleFunc("/api/git/branches", handleGitBranches)
-	http.HandleFunc("/api/apps/stop", handleStop)
-	http.HandleFunc("/api/apps/start", handleStart)
-	http.HandleFunc("/api/apps/delete", handleDelete)
-	http.HandleFunc("/api/apps/update", handleUpdate)
-	http.HandleFunc("/api/apps/redeploy", handleRedeploy)
-	http.HandleFunc("/ws/stats", handleStatsWS)
-	http.HandleFunc("/ws/logs", handleLogsWS)
-	http.HandleFunc("/ws/runtime-logs", handleRuntimeLogsWS)
+	// Initialize SQLite and restore state
+	initDB()
 
-	fmt.Println("🚀 Real Go PaaS Engine running on http://localhost:8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	// CLI subcommands (run after initDB so the token store is available).
+	// These let operators retrieve or rotate the admin token without the
+	// dashboard — useful on a headless VPS regardless of how it was deployed.
+	if len(os.Args) > 1 {
+		runCLI(os.Args[1:])
+		return
+	}
+
+	// Load or provision the admin token (must run after initDB).
+	initAuth()
+
+	// Rebuild Caddyfile from loaded apps
+	rebuildCaddyfile()
+
+	// Start sampling real host metrics (CPU/memory/disk) for the stats stream.
+	startMetricsSampler()
+
+	// Restore managed add-on containers (databases/caches).
+	reconcileAddons()
+
+	// Begin persistent runtime-log capture for already-running apps.
+	startAllRuntimeLogCaptures()
+
+	// Start the cron scheduler for scheduled jobs.
+	startCronScheduler()
+
+	// Start automatic backups if configured (BACKUP_INTERVAL_HOURS).
+	startBackupScheduler()
+
+	// Start Caddy reverse proxy subprocess
+	startCaddySubprocess()
+
+	// --- HTTP Routes ---
+	mux := http.NewServeMux()
+
+	// App management
+	mux.HandleFunc("/api/apps", handleApps)
+	mux.HandleFunc("/api/deploy", handleDeploy)
+	mux.HandleFunc("/api/apps/stop", handleStop)
+	mux.HandleFunc("/api/apps/start", handleStart)
+	mux.HandleFunc("/api/apps/delete", handleDelete)
+	mux.HandleFunc("/api/apps/update", handleUpdate)
+	mux.HandleFunc("/api/apps/redeploy", handleRedeploy)
+	mux.HandleFunc("/api/apps/rollback", handleRollback)
+	mux.HandleFunc("/api/apps/webhook", handleWebhookInfo)
+	mux.HandleFunc("/api/apps/webhook/regenerate", handleWebhookRegenerate)
+
+	// Git helpers
+	mux.HandleFunc("/api/git/branches", handleGitBranches)
+	mux.HandleFunc("/api/git/repos", handleGitRepos)
+	mux.HandleFunc("/api/git/contents", handleGitContents)
+	mux.HandleFunc("/api/git/file", handleGitFile)
+	mux.HandleFunc("/api/git/token", handleGitTokenGet)
+	mux.HandleFunc("/api/git/token/save", handleGitTokenSet)
+	mux.HandleFunc("/api/git/token/delete", handleGitTokenDelete)
+
+	// Managed add-ons (databases/caches)
+	mux.HandleFunc("/api/addons", handleAddons)
+	mux.HandleFunc("/api/addons/create", handleAddonCreate)
+	mux.HandleFunc("/api/addons/delete", handleAddonDelete)
+	mux.HandleFunc("/api/addons/attach", handleAddonAttach)
+
+	// Scheduled jobs (cron)
+	mux.HandleFunc("/api/cron", handleCronList)
+	mux.HandleFunc("/api/cron/create", handleCronCreate)
+	mux.HandleFunc("/api/cron/update", handleCronUpdate)
+	mux.HandleFunc("/api/cron/delete", handleCronDelete)
+	mux.HandleFunc("/api/cron/run", handleCronRunNow)
+
+	// Notifications
+	mux.HandleFunc("/api/notifications", handleNotificationsGet)
+	mux.HandleFunc("/api/notifications/save", handleNotificationsSave)
+	mux.HandleFunc("/api/notifications/test", handleNotificationsTest)
+
+	// Backups
+	mux.HandleFunc("/api/backups", handleBackupsList)
+	mux.HandleFunc("/api/backups/create", handleBackupCreate)
+	mux.HandleFunc("/api/backups/download", handleBackupDownload)
+	mux.HandleFunc("/api/backups/delete", handleBackupDelete)
+
+	// System
+	mux.HandleFunc("/api/health", handleHealth)
+	mux.HandleFunc("/api/auth/verify", handleAuthVerify)
+	mux.HandleFunc("/api/docker/prune", handleDockerPrune)
+	mux.HandleFunc("/api/deployments/history", handleDeploymentHistory)
+	mux.HandleFunc("/api/metrics/apps", handlePerAppMetrics)
+	mux.HandleFunc("/api/apps/runtime-logs", handleRuntimeLogHistory)
+
+	// Public webhook endpoint (authenticated by per-app HMAC signature).
+	mux.HandleFunc("/api/webhooks/github/", handleGitHubWebhook)
+
+	// WebSockets (auth enforced inside each handler via ?token=).
+	mux.HandleFunc("/ws/stats", handleStatsWS)
+	mux.HandleFunc("/ws/logs", handleLogsWS)
+	mux.HandleFunc("/ws/runtime-logs", handleRuntimeLogsWS)
+
+	// Auth gate, then CORS. Health stays public for uptime probes.
+	authed := authGate(mux)
+	limited := limitBody(authed)
+	throttled := rateLimit(limited)
+	handler := corsMiddleware(throttled)
+
+	addr := listenAddr()
+	fmt.Printf("🚀 Better-PaaS running on http://%s\n", addr)
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
 
-func handleGitBranches(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+// trustProxy controls whether X-Forwarded-For / X-Real-IP headers are honored
+// for client-IP resolution (only enable when behind a trusted reverse proxy,
+// otherwise clients could spoof their IP to evade rate limits).
+var trustProxy = strings.EqualFold(strings.TrimSpace(os.Getenv("TRUST_PROXY")), "true") ||
+	os.Getenv("TRUST_PROXY") == "1"
 
-	if r.Method == http.MethodOptions {
-		return
-	}
+// maxRequestBody caps JSON request bodies to defend against memory-exhaustion.
+// WebSocket upgrades are exempt (they are long-lived streams).
+const maxRequestBody = 2 << 20 // 2 MiB
 
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		GitRepo  string `json:"gitRepo"`
-		GitToken string `json:"gitToken"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	gitURL := req.GitRepo
-	if len(gitURL) > 0 && gitURL[0] != '/' && !filepath.IsAbs(gitURL) {
-		if !strings.HasPrefix(gitURL, "http") && !strings.HasPrefix(gitURL, "git") {
-			gitURL = "https://" + gitURL
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil && !strings.HasPrefix(r.URL.Path, "/ws/") {
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// listenAddr returns the address the API listens on. Defaults to all
+// interfaces on :8080 (the dashboard needs remote access for self-hosting),
+// but can be overridden via LISTEN_ADDR (e.g. "127.0.0.1:8080" when fronted
+// by a reverse proxy).
+func listenAddr() string {
+	if a := strings.TrimSpace(os.Getenv("LISTEN_ADDR")); a != "" {
+		return a
 	}
+	return ":8080"
+}
 
-	authenticatedURL := formatGitURL(gitURL, req.GitToken)
-
-	cmd := exec.Command("git", "ls-remote", "--heads", authenticatedURL)
-	output, err := cmd.CombinedOutput()
+// envInt reads an integer environment variable, returning def when unset or
+// unparseable.
+func envInt(key string, def int) int {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to fetch branches: %s", string(output)), http.StatusInternalServerError)
-		return
+		return def
 	}
-
-	var branches []string
-	scanner := bufio.NewScanner(strings.NewReader(string(output)))
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Fields(line)
-		if len(parts) >= 2 {
-			ref := parts[1]
-			if strings.HasPrefix(ref, "refs/heads/") {
-				branch := strings.TrimPrefix(ref, "refs/heads/")
-				branches = append(branches, branch)
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		http.Error(w, "Error parsing branches", http.StatusInternalServerError)
-		return
-	}
-
-	// Default to main/master if no branches were found, but typically we return the slice
-	if len(branches) == 0 {
-		branches = []string{"main", "master"}
-	}
-
-	json.NewEncoder(w).Encode(branches)
+	return n
 }
 
-func handleApps(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	if r.Method == http.MethodOptions {
-		return
-	}
-
-	appsLock.Lock()
-	defer appsLock.Unlock()
-	json.NewEncoder(w).Encode(apps)
+// publicPaths are reachable without an admin token.
+var publicPaths = map[string]bool{
+	"/api/health":      true,
+	"/api/auth/verify": true,
 }
 
-func handleDeploy(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	if r.Method == http.MethodOptions {
-		return
-	}
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		Name           string            `json:"name"`
-		GitRepo        string            `json:"gitRepo"`
-		Branch         string            `json:"branch"`
-		GitToken       string            `json:"gitToken"`
-		RootDir        string            `json:"rootDir"`
-		EnvVars        map[string]string `json:"envVars"`
-		BuildCommand   string            `json:"buildCommand"`
-		StartCommand   string            `json:"startCommand"`
-		InstallCommand string            `json:"installCommand"`
-		PortOverride   int               `json:"portOverride"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	// Normalize URL format
-	gitURL := req.GitRepo
-	if len(gitURL) > 0 && gitURL[0] != '/' && !filepath.IsAbs(gitURL) {
-		// If it's a short github path e.g. "github.com/foo/bar", prepend https://
-		if !strings.HasPrefix(gitURL, "http") && !strings.HasPrefix(gitURL, "git") {
-			gitURL = "https://" + gitURL
-		}
-	}
-
-	appsLock.Lock()
-	appID := fmt.Sprintf("app-%d", len(apps)+1)
-	newApp := App{
-		ID:             appID,
-		Name:           req.Name,
-		Status:         "building",
-		GitRepo:        req.GitRepo,
-		Branch:         req.Branch,
-		Port:           rand.Intn(1000) + 9000, // Allocate dynamic host port
-		URL:            "",
-		CreatedAt:      time.Now(),
-		GitToken:       req.GitToken,
-		RootDir:        req.RootDir,
-		EnvVars:        req.EnvVars,
-		BuildCommand:   req.BuildCommand,
-		StartCommand:   req.StartCommand,
-		InstallCommand: req.InstallCommand,
-		PortOverride:   req.PortOverride,
-	}
-	newApp.URL = fmt.Sprintf("http://localhost:%d", newApp.Port)
-	apps = append(apps, newApp)
-	appsLock.Unlock()
-
-	// Initialize logs channel
-	buildLogsLock.Lock()
-	buildLogs[appID] = []string{}
-	buildLogsLock.Unlock()
-
-	json.NewEncoder(w).Encode(newApp)
-
-	// Async deploy
-	go runPaaSDeployment(newApp, gitURL)
-}
-
-func logToBuild(appID, message string) {
-	log.Printf("[%s] %s\n", appID, message)
-	buildLogsLock.Lock()
-	buildLogs[appID] = append(buildLogs[appID], message)
-	buildLogsLock.Unlock()
-
-	subscribersLock.Lock()
-	subs, ok := subscribers[appID]
-	if ok {
-		for ch := range subs {
-			select {
-			case ch <- message:
-			default:
-				// Non-blocking if client channel is full
-			}
-		}
-	}
-	subscribersLock.Unlock()
-}
-func runPaaSDeployment(app App, gitURL string) {
-	defer func() {
-		// Clean up after build session ends
-		time.Sleep(3 * time.Second)
-	}()
-
-	logToBuild(app.ID, fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
-	buildDir := filepath.Join("builds", app.Name)
-
-	// Delete existing build folder
-	os.RemoveAll(buildDir)
-
-	// 1. Clone repository
-	logToBuild(app.ID, fmt.Sprintf("📦 Cloning repository %s [branch: %s]...", gitURL, app.Branch))
-	authenticatedURL := formatGitURL(gitURL, app.GitToken)
-	cloneCmd := exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
-	if output, err := cloneCmd.CombinedOutput(); err != nil {
-		logToBuild(app.ID, fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, string(output)))
-		updateAppStatus(app.ID, "failed")
-		return
-	}
-	logToBuild(app.ID, "✔ Repository cloned successfully.")
-
-	// Auto-detect monorepos, fix missing start script, and strip engine/packageManager restrictions
-	packageJSONPath := filepath.Join(buildDir, "package.json")
-	if _, err := os.Stat(packageJSONPath); err == nil {
-		if data, err := os.ReadFile(packageJSONPath); err == nil {
-			var pkg map[string]interface{}
-			if err := json.Unmarshal(data, &pkg); err == nil {
-				// Strip engines and packageManager to allow Nixpacks standard build flow
-				delete(pkg, "engines")
-				delete(pkg, "packageManager")
-
-				scripts, hasScripts := pkg["scripts"].(map[string]interface{})
-				if !hasScripts {
-					scripts = make(map[string]interface{})
-					pkg["scripts"] = scripts
-				}
-				
-				_, hasStart := scripts["start"]
-				if !hasStart {
-					logToBuild(app.ID, "⚠️ No start script found in root package.json. Checking for monorepo configuration...")
-					// Check for apps/web/package.json (common monorepo pattern)
-					webPkgPath := filepath.Join(buildDir, "apps", "web", "package.json")
-					if _, err := os.Stat(webPkgPath); err == nil {
-						logToBuild(app.ID, "💡 Detected monorepo web package at apps/web. Injecting root start command...")
-						scripts["start"] = "pnpm --filter @repo/web start"
-					}
-				}
-
-				// Always write the sanitized package.json back
-				if updatedData, err := json.MarshalIndent(pkg, "", "  "); err == nil {
-					os.WriteFile(packageJSONPath, updatedData, 0644)
-				}
-			}
-		}
-	}
-
-	// Determine subdirectory to build
-	buildSubDir := buildDir
-	if app.RootDir != "" && app.RootDir != "." && app.RootDir != "./" {
-		buildSubDir = filepath.Join(buildDir, app.RootDir)
-		logToBuild(app.ID, fmt.Sprintf("📂 Using sub-directory build context: %s", app.RootDir))
-	}
-
-	// 2. Build Container Image using Nixpacks
-	logToBuild(app.ID, "🔍 Analyzing workspace configurations with Nixpacks...")
-
-	nixpacksArgs := []string{"build", buildSubDir, "--name", app.Name, "--env", "NIXPACKS_NODE_VERSION=22"}
-	for k, v := range app.EnvVars {
-		nixpacksArgs = append(nixpacksArgs, "--env", fmt.Sprintf("%s=%s", k, v))
-	}
-	if app.InstallCommand != "" {
-		nixpacksArgs = append(nixpacksArgs, "--install-cmd", app.InstallCommand)
-	}
-	if app.BuildCommand != "" {
-		nixpacksArgs = append(nixpacksArgs, "--build-cmd", app.BuildCommand)
-	}
-	if app.StartCommand != "" {
-		nixpacksArgs = append(nixpacksArgs, "--start-cmd", app.StartCommand)
-	}
-
-	nixpacksCmd := exec.Command("nixpacks", nixpacksArgs...)
-	
-	stdout, err := nixpacksCmd.StdoutPipe()
-	if err != nil {
-		logToBuild(app.ID, fmt.Sprintf("✖ Failed to open nixpacks output stream: %v", err))
-		updateAppStatus(app.ID, "failed")
-		return
-	}
-	nixpacksCmd.Stderr = nixpacksCmd.Stdout
-
-	if err := nixpacksCmd.Start(); err != nil {
-		logToBuild(app.ID, fmt.Sprintf("✖ Failed to start Nixpacks compilation engine: %v", err))
-		updateAppStatus(app.ID, "failed")
-		return
-	}
-
-	reader := bufio.NewReader(stdout)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err != io.EOF {
-				logToBuild(app.ID, fmt.Sprintf("✖ Output read error: %v", err))
-			}
-			break
-		}
-		logToBuild(app.ID, line)
-	}
-
-	if err := nixpacksCmd.Wait(); err != nil {
-		logToBuild(app.ID, fmt.Sprintf("✖ Nixpacks compilation failed: %v", err))
-		updateAppStatus(app.ID, "failed")
-		return
-	}
-	logToBuild(app.ID, "✔ Docker image built successfully!")
-
-	// 3. Stop and Remove existing container
-	logToBuild(app.ID, "🧹 Pruning previous container instances...")
-	stopCmd := exec.Command("docker", "rm", "-f", app.Name)
-	stopCmd.Run() // Ignore errors if container does not exist
-
-	// 4. Run Docker Container
-	containerPort := app.Port
-	if app.PortOverride > 0 {
-		containerPort = app.PortOverride
-	}
-
-	logToBuild(app.ID, fmt.Sprintf("🚀 Deploying container (host :%d -> container :%d)...", app.Port, containerPort))
-
-	runArgs := []string{"run", "-d", "-p", fmt.Sprintf("%d:%d", app.Port, containerPort), "-e", fmt.Sprintf("PORT=%d", containerPort)}
-	for k, v := range app.EnvVars {
-		runArgs = append(runArgs, "-e", fmt.Sprintf("%s=%s", k, v))
-	}
-	runArgs = append(runArgs, "--name", app.Name, app.Name)
-
-	runCmd := exec.Command("docker", runArgs...)
-	if output, err := runCmd.CombinedOutput(); err != nil {
-		logToBuild(app.ID, fmt.Sprintf("✖ Container startup failed: %v\nOutput: %s", err, string(output)))
-		updateAppStatus(app.ID, "failed")
-		return
-	}
-
-	logToBuild(app.ID, fmt.Sprintf("🚀 Zero-downtime rolling deploy finished! Deployed service live at: http://localhost:%d", app.Port))
-	updateAppStatus(app.ID, "running")
-}
-
-func updateAppStatus(appID, status string) {
-	appsLock.Lock()
-	defer appsLock.Unlock()
-	for i, app := range apps {
-		if app.ID == appID {
-			apps[i].Status = status
-			break
-		}
-	}
-}
-
-func handleStatsWS(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
-	}
-	defer conn.Close()
-
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		appsLock.Lock()
-		activeCount := 0
-		for _, a := range apps {
-			if a.Status == "running" {
-				activeCount++
-			}
-		}
-		appsLock.Unlock()
-
-		// Real local server stats retrieval using standard commands (Mac compatible)
-		cpu := 15.0
-		mem := 40.0
-		
-		// Run a quick ps/top check to extract CPU usage
-		cmd := exec.Command("ps", "-A", "-o", "%cpu,%mem")
-		if output, err := cmd.Output(); err == nil {
-			var totalCPU, totalMem float64
-			scanner := bufio.NewScanner(os.NewFile(0, "ps-out")) // dummy file description
-			_ = scanner
-			// Simple parser mockup matching the OS
-			fmt.Sscanf(string(output), "%f %f", &totalCPU, &totalMem)
-			if totalCPU > 0 {
-				cpu = totalCPU
-			}
-			if totalMem > 0 {
-				mem = totalMem
-			}
-		}
-
-		stats := ServerStats{
-			CPUUsage:    3.0 + rand.Float64()*12.0 + cpu/10.0,
-			MemoryUsage: 35.0 + rand.Float64()*5.0 + mem/20.0,
-			DiskUsage:   48.2,
-			ActiveApps:  activeCount,
-			Timestamp:   time.Now(),
-		}
-
-		data, err := json.Marshal(stats)
-		if err != nil {
-			break
-		}
-
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			break
-		}
-	}
-}
-
-func handleLogsWS(w http.ResponseWriter, r *http.Request) {
-	// Get target app ID from query parameter
-	appID := r.URL.Query().Get("appId")
-	log.Printf("[WS logs] Incoming connection request for appId: %q", appID)
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("[WS logs] Upgrade failed: %v", err)
-		return
-	}
-	defer func() {
-		log.Printf("[WS logs] Connection closed for appId: %q", appID)
-		conn.Close()
-	}()
-
-	appsLock.Lock()
-	if appID == "" && len(apps) > 0 {
-		appID = apps[len(apps)-1].ID
-	}
-	appsLock.Unlock()
-
-	if appID == "" {
-		log.Printf("[WS logs] Empty appID, returning")
-		return
-	}
-
-	clientChan := make(chan string, 200)
-
-	// Fetch existing logs under read lock
-	buildLogsLock.RLock()
-	var existingLogs []string
-	if rawLogs, exists := buildLogs[appID]; exists {
-		existingLogs = make([]string, len(rawLogs))
-		copy(existingLogs, rawLogs)
-	}
-	buildLogsLock.RUnlock()
-
-	// Register subscriber
-	subscribersLock.Lock()
-	if subscribers[appID] == nil {
-		subscribers[appID] = make(map[chan string]bool)
-	}
-	subscribers[appID][clientChan] = true
-	subscribersLock.Unlock()
-
-	defer func() {
-		subscribersLock.Lock()
-		if subscribers[appID] != nil {
-			delete(subscribers[appID], clientChan)
-		}
-		subscribersLock.Unlock()
-	}()
-
-	// Stream existing logs first
-	for _, logLine := range existingLogs {
-		msg := map[string]string{
-			"message":   logLine,
-			"timestamp": time.Now().Format(time.RFC3339),
-		}
-		data, _ := json.Marshal(msg)
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+// authGate enforces bearer-token auth on every API route except public ones.
+// WebSocket routes authenticate themselves (token query param) since browsers
+// cannot attach Authorization headers to WS handshakes. The GitHub webhook
+// endpoint is also exempt: it is authenticated per-app by HMAC signature.
+func authGate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions ||
+			publicPaths[r.URL.Path] ||
+			strings.HasPrefix(r.URL.Path, "/ws/") ||
+			strings.HasPrefix(r.URL.Path, "/api/webhooks/") {
+			next.ServeHTTP(w, r)
 			return
 		}
-	}
-
-	// Stream incoming logs in real-time
-	for logLine := range clientChan {
-		msg := map[string]string{
-			"message":   logLine,
-			"timestamp": time.Now().Format(time.RFC3339),
-		}
-		data, _ := json.Marshal(msg)
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		if !httpAuthOK(w, r, bearerFromRequest(r)) {
 			return
 		}
-	}
+		next.ServeHTTP(w, r)
+	})
 }
 
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	if r.Method == http.MethodOptions {
-		return
-	}
-
-	response := map[string]interface{}{
-		"status":    "healthy",
-		"timestamp": time.Now().Format(time.RFC3339),
-		"uptime":    time.Since(startTime).String(),
-	}
-	json.NewEncoder(w).Encode(response)
-}
-
-func handleStop(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	if r.Method == http.MethodOptions {
-		return
-	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req struct {
-		ID string `json:"id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	appsLock.Lock()
-	var targetApp *App
-	for i, app := range apps {
-		if app.ID == req.ID {
-			targetApp = &apps[i]
-			break
+// corsMiddleware adds CORS headers. The allowed origin is reflected from the
+// request (or restricted to DASHBOARD_ORIGIN, comma-separated, when set).
+// Credentials are NOT enabled because auth uses bearer tokens, not cookies, so
+// a malicious origin still cannot forge an authenticated request.
+func corsMiddleware(next http.Handler) http.Handler {
+	allowed := parseAllowedOrigins(os.Getenv("DASHBOARD_ORIGIN"))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		w.Header().Set("Vary", "Origin")
+		if originAllowed(origin, allowed) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else if len(allowed) == 0 && origin != "" {
+			// No explicit allow-list configured: reflect origin (safe under
+			// bearer-token auth, no ambient credentials are exposed).
+			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
-	}
-	appsLock.Unlock()
-
-	if targetApp == nil {
-		http.Error(w, "App not found", http.StatusNotFound)
-		return
-	}
-
-	// Stop container
-	stopCmd := exec.Command("docker", "stop", targetApp.Name)
-	if err := stopCmd.Run(); err != nil {
-		log.Printf("Warning stopping container %s: %v", targetApp.Name, err)
-	}
-
-	appsLock.Lock()
-	for i, app := range apps {
-		if app.ID == req.ID {
-			apps[i].Status = "stopped"
-			break
-		}
-	}
-	appsLock.Unlock()
-
-	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
-}
-
-func handleStart(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	if r.Method == http.MethodOptions {
-		return
-	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req struct {
-		ID string `json:"id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	appsLock.Lock()
-	var targetApp *App
-	for i, app := range apps {
-		if app.ID == req.ID {
-			targetApp = &apps[i]
-			break
-		}
-	}
-	appsLock.Unlock()
-
-	if targetApp == nil {
-		http.Error(w, "App not found", http.StatusNotFound)
-		return
-	}
-
-	// Start container
-	startCmd := exec.Command("docker", "start", targetApp.Name)
-	if err := startCmd.Run(); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to start container: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	appsLock.Lock()
-	for i, app := range apps {
-		if app.ID == req.ID {
-			apps[i].Status = "running"
-			break
-		}
-	}
-	appsLock.Unlock()
-
-	json.NewEncoder(w).Encode(map[string]string{"status": "running"})
-}
-
-func handleDelete(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	if r.Method == http.MethodOptions {
-		return
-	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req struct {
-		ID string `json:"id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	appsLock.Lock()
-	var targetApp *App
-	var targetIndex = -1
-	for i, app := range apps {
-		if app.ID == req.ID {
-			targetApp = &apps[i]
-			targetIndex = i
-			break
-		}
-	}
-	appsLock.Unlock()
-
-	if targetApp == nil {
-		http.Error(w, "App not found", http.StatusNotFound)
-		return
-	}
-
-	// Remove container
-	rmCmd := exec.Command("docker", "rm", "-f", targetApp.Name)
-	rmCmd.Run()
-
-	// Delete folder
-	buildDir := filepath.Join("builds", targetApp.Name)
-	os.RemoveAll(buildDir)
-
-	// Remove from slice
-	appsLock.Lock()
-	if targetIndex != -1 {
-		apps = append(apps[:targetIndex], apps[targetIndex+1:]...)
-	}
-	appsLock.Unlock()
-
-	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
-}
-
-func handleUpdate(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	if r.Method == http.MethodOptions {
-		return
-	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		ID             string            `json:"id"`
-		GitRepo        string            `json:"gitRepo"`
-		Branch         string            `json:"branch"`
-		RootDir        string            `json:"rootDir"`
-		EnvVars        map[string]string `json:"envVars"`
-		BuildCommand   string            `json:"buildCommand"`
-		StartCommand   string            `json:"startCommand"`
-		InstallCommand string            `json:"installCommand"`
-		PortOverride   int               `json:"portOverride"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	appsLock.Lock()
-	var targetApp *App
-	for i, app := range apps {
-		if app.ID == req.ID {
-			apps[i].GitRepo = req.GitRepo
-			apps[i].Branch = req.Branch
-			apps[i].RootDir = req.RootDir
-			apps[i].EnvVars = req.EnvVars
-			apps[i].BuildCommand = req.BuildCommand
-			apps[i].StartCommand = req.StartCommand
-			apps[i].InstallCommand = req.InstallCommand
-			apps[i].PortOverride = req.PortOverride
-			targetApp = &apps[i]
-			break
-		}
-	}
-	appsLock.Unlock()
-
-	if targetApp == nil {
-		http.Error(w, "App not found", http.StatusNotFound)
-		return
-	}
-
-	json.NewEncoder(w).Encode(targetApp)
-}
-
-func handleRedeploy(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	if r.Method == http.MethodOptions {
-		return
-	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		ID string `json:"id"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	appsLock.Lock()
-	var targetApp *App
-	for i, app := range apps {
-		if app.ID == req.ID {
-			apps[i].Status = "building"
-			targetApp = &apps[i]
-			break
-		}
-	}
-	appsLock.Unlock()
-
-	if targetApp == nil {
-		http.Error(w, "App not found", http.StatusNotFound)
-		return
-	}
-
-	// Reinitialize logs channel
-	buildLogsLock.Lock()
-	buildLogs[targetApp.ID] = []string{} // Clear logs for new build
-	buildLogsLock.Unlock()
-
-	// Async deploy
-	go runPaaSDeployment(*targetApp, targetApp.GitRepo)
-
-	json.NewEncoder(w).Encode(targetApp)
-}
-
-func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
-	appID := r.URL.Query().Get("appId")
-	log.Printf("[WS runtime-logs] Incoming connection request for appId: %q", appID)
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("[WS runtime-logs] Upgrade failed: %v", err)
-		return
-	}
-	defer func() {
-		log.Printf("[WS runtime-logs] Connection closed for appId: %q", appID)
-		conn.Close()
-	}()
-
-	appsLock.Lock()
-	var targetApp *App
-	for i, app := range apps {
-		if app.ID == appID {
-			targetApp = &apps[i]
-			break
-		}
-	}
-	appsLock.Unlock()
-
-	if targetApp == nil {
-		log.Printf("[WS runtime-logs] App %q not found", appID)
-		sendErrorMessage(conn, fmt.Sprintf("Application %s not found.", appID))
-		return
-	}
-
-	if targetApp.Status == "building" {
-		sendErrorMessage(conn, "Application is currently building. Live runtime logs will stream once the container starts.")
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			appsLock.Lock()
-			currentStatus := ""
-			for _, app := range apps {
-				if app.ID == appID {
-					currentStatus = app.Status
-					break
-				}
-			}
-			appsLock.Unlock()
-			if currentStatus != "building" {
-				break
-			}
-		}
-	}
-
-	// Double check if it is running now
-	appsLock.Lock()
-	status := ""
-	name := ""
-	for _, app := range apps {
-		if app.ID == appID {
-			status = app.Status
-			name = app.Name
-			break
-		}
-	}
-	appsLock.Unlock()
-
-	if status != "running" && status != "stopped" && status != "failed" {
-		sendErrorMessage(conn, fmt.Sprintf("Application is in state: %s. No runtime logs available.", status))
-		return
-	}
-
-	// Run docker logs --tail 200 -f targetApp.Name
-	cmd := exec.Command("docker", "logs", "--tail", "200", "-f", name)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Printf("[WS runtime-logs] Failed to pipe stdout: %v", err)
-		sendErrorMessage(conn, fmt.Sprintf("Failed to get container logs: %v", err))
-		return
-	}
-	cmd.Stderr = cmd.Stdout
-
-	if err := cmd.Start(); err != nil {
-		log.Printf("[WS runtime-logs] Failed to start docker logs: %v", err)
-		sendErrorMessage(conn, fmt.Sprintf("Failed to stream container logs. Is the container running/created? Error: %v", err))
-		return
-	}
-	defer func() {
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
-		cmd.Wait()
-	}()
-
-	// Read output and write to WS
-	reader := bufio.NewReader(stdout)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			break
-		}
-
-		msg := map[string]string{
-			"message":   strings.TrimSuffix(line, "\n"),
-			"timestamp": time.Now().Format(time.RFC3339),
-		}
-		data, _ := json.Marshal(msg)
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-	}
+		next.ServeHTTP(w, r)
+	})
 }
 
-func sendErrorMessage(conn *websocket.Conn, text string) {
-	msg := map[string]string{
-		"message":   text,
-		"timestamp": time.Now().Format(time.RFC3339),
+func parseAllowedOrigins(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
 	}
-	data, _ := json.Marshal(msg)
-	conn.WriteMessage(websocket.TextMessage, data)
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func originAllowed(origin string, allowed []string) bool {
+	if origin == "" {
+		return false
+	}
+	for _, a := range allowed {
+		if a == origin || a == "*" {
+			return true
+		}
+	}
+	return false
 }

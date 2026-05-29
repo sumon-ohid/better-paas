@@ -1,23 +1,39 @@
-import type { ComponentProps } from "react"
-import { NucleoIcon } from "@/components/nucleo-icons"
+import type { SVGProps } from "react"
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight as ChevronRightIconComp,
+  ChevronUp,
+  ChevronsUpDown,
+  CircleAlert,
+  CircleCheck,
+  Info,
+  Loader,
+  Minus,
+  Ellipsis,
+  Plus,
+  Search,
+  TriangleAlert,
+  X,
+} from "lucide-react"
 
-type IconProps = Omit<ComponentProps<typeof NucleoIcon>, "name">
+type IconProps = SVGProps<SVGSVGElement>
 
-export const ChevronDownIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-down" />
-export const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-left" />
-export const ChevronRight = (props: IconProps) => <NucleoIcon {...props} name="chevron-right" />
-export const ChevronRightIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-right" />
-export const ChevronUpIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-up" />
-export const ChevronsUpDownIcon = (props: IconProps) => <NucleoIcon {...props} name="chevrons-up-down" />
-export const CircleAlertIcon = (props: IconProps) => <NucleoIcon {...props} name="circle-alert" />
-export const CircleCheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check-circle" />
-export const InfoIcon = (props: IconProps) => <NucleoIcon {...props} name="info" />
-export const Loader2Icon = (props: IconProps) => <NucleoIcon {...props} name="loader" />
-export const LoaderCircleIcon = (props: IconProps) => <NucleoIcon {...props} name="loader" />
-export const MinusIcon = (props: IconProps) => <NucleoIcon {...props} name="minus" />
-export const MoreHorizontal = (props: IconProps) => <NucleoIcon {...props} name="more-horizontal" />
-export const MoreHorizontalIcon = (props: IconProps) => <NucleoIcon {...props} name="more-horizontal" />
-export const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
-export const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
-export const TriangleAlertIcon = (props: IconProps) => <NucleoIcon {...props} name="triangle-alert" />
-export const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
+export const ChevronDownIcon = (props: IconProps) => <ChevronDown {...props} />
+export const ChevronLeftIcon = (props: IconProps) => <ChevronLeft {...props} />
+export const ChevronRight = (props: IconProps) => <ChevronRightIconComp {...props} />
+export const ChevronRightIcon = (props: IconProps) => <ChevronRightIconComp {...props} />
+export const ChevronUpIcon = (props: IconProps) => <ChevronUp {...props} />
+export const ChevronsUpDownIcon = (props: IconProps) => <ChevronsUpDown {...props} />
+export const CircleAlertIcon = (props: IconProps) => <CircleAlert {...props} />
+export const CircleCheckIcon = (props: IconProps) => <CircleCheck {...props} />
+export const InfoIcon = (props: IconProps) => <Info {...props} />
+export const Loader2Icon = (props: IconProps) => <Loader {...props} />
+export const LoaderCircleIcon = (props: IconProps) => <Loader {...props} />
+export const MinusIcon = (props: IconProps) => <Minus {...props} />
+export const MoreHorizontal = (props: IconProps) => <Ellipsis {...props} />
+export const MoreHorizontalIcon = (props: IconProps) => <Ellipsis {...props} />
+export const PlusIcon = (props: IconProps) => <Plus {...props} />
+export const SearchIcon = (props: IconProps) => <Search {...props} />
+export const TriangleAlertIcon = (props: IconProps) => <TriangleAlert {...props} />
+export const XIcon = (props: IconProps) => <X {...props} />
