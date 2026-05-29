@@ -207,7 +207,7 @@ export default function HealthPage() {
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
               {[
-                ["Engine", "Antigravity PaaS v1.0"],
+                ["Engine", "Better-PaaS v1.0"],
                 ["Node Status", health?.status ?? "Checking..."],
                 ["Uptime", health?.uptime ?? "—"],
                 ["Proxy", "Caddy (sslip.io)"],

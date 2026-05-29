@@ -5,7 +5,7 @@
 // localStorage so the single-admin dashboard persists the session across
 // reloads. This is appropriate for a self-hosted single-user control plane.
 
-const STORAGE_KEY = "antigravity_admin_token"
+const STORAGE_KEY = "better-paas_admin_token"
 
 export function getToken(): string {
   if (typeof window === "undefined") return ""

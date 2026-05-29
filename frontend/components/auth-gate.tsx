@@ -105,7 +105,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               <NucleoIcon name="lock" className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-foreground">Antigravity</h1>
+              <h1 className="text-base font-bold text-foreground">Better-PaaS</h1>
               <p className="text-xs text-muted-foreground">Sign in to your control plane</p>
             </div>
           </div>

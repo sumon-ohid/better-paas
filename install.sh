@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Antigravity PaaS — Single-Command VPS Installer
+# Better-PaaS — Single-Command VPS Installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/your-org/baas/main/install.sh | bash
 # Or:    bash install.sh
 # =============================================================================
 
 set -euo pipefail
 
-REPO_DIR="$HOME/antigravity"
+REPO_DIR="$HOME/better-paas"
 BACKEND_DIR="$REPO_DIR/backend"
 FRONTEND_DIR="$REPO_DIR/frontend"
 DATA_DIR="$BACKEND_DIR/data"
@@ -250,13 +250,13 @@ install_node() {
 # ── Clone or update the repo ──────────────────────────────────────────────────
 
 setup_repo() {
-  REPO_URL="${ANTIGRAVITY_REPO_URL:-https://github.com/your-org/antigravity.git}"
+  REPO_URL="${Better_PaaS_REPO_URL:-https://github.com/your-org/better-paas.git}"
 
   if [ -d "$REPO_DIR/.git" ]; then
     info "Updating existing installation at $REPO_DIR..."
     git -C "$REPO_DIR" pull --ff-only
   else
-    info "Cloning Antigravity PaaS to $REPO_DIR..."
+    info "Cloning Better-PaaS to $REPO_DIR..."
     git clone "$REPO_URL" "$REPO_DIR"
   fi
   success "Repository ready."
@@ -295,9 +295,9 @@ create_services() {
   info "Creating systemd service units..."
 
   # Backend service
-  cat > /etc/systemd/system/antigravity-backend.service <<EOF
+  cat > /etc/systemd/system/better-paas-backend.service <<EOF
 [Unit]
-Description=Antigravity PaaS Backend
+Description=Better-PaaS Backend
 After=network.target docker.service
 Requires=docker.service
 
@@ -310,16 +310,16 @@ Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=antigravity-backend
+SyslogIdentifier=better-paas-backend
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
   # Frontend service (Next.js)
-  cat > /etc/systemd/system/antigravity-frontend.service <<EOF
+  cat > /etc/systemd/system/better-paas-frontend.service <<EOF
 [Unit]
-Description=Antigravity PaaS Frontend
+Description=Better-PaaS Frontend
 After=network.target
 
 [Service]
@@ -332,15 +332,15 @@ RestartSec=5
 Environment=PORT=3000
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=antigravity-frontend
+SyslogIdentifier=better-paas-frontend
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
   systemctl daemon-reload
-  systemctl enable antigravity-backend antigravity-frontend
-  systemctl restart antigravity-backend antigravity-frontend
+  systemctl enable better-paas-backend better-paas-frontend
+  systemctl restart better-paas-backend better-paas-frontend
   success "Systemd services installed and started."
 }
 
@@ -348,8 +348,8 @@ create_launchd_services() {
   info "macOS detected — skipping systemd. Starting processes in background..."
 
   # Kill any existing processes
-  pkill -f "antigravity/backend/server" 2>/dev/null || true
-  pkill -f "antigravity/frontend" 2>/dev/null || true
+  pkill -f "better-paas/backend/server" 2>/dev/null || true
+  pkill -f "better-paas/frontend" 2>/dev/null || true
 
   # Start backend
   cd "$BACKEND_DIR"
@@ -369,7 +369,7 @@ create_launchd_services() {
 print_summary() {
   echo ""
   echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-  echo -e "${GREEN}   ✅  Antigravity PaaS installed successfully!         ${NC}"
+  echo -e "${GREEN}   ✅  Better-PaaS installed successfully!         ${NC}"
   echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
   echo ""
   echo -e "  ${CYAN}Dashboard:${NC}  http://localhost:3000"
@@ -382,9 +382,9 @@ print_summary() {
   echo ""
   if [ "$OS" != "darwin" ]; then
     echo -e "  ${CYAN}Manage services:${NC}"
-    echo -e "  sudo systemctl status antigravity-backend"
-    echo -e "  sudo systemctl status antigravity-frontend"
-    echo -e "  journalctl -u antigravity-backend -f"
+    echo -e "  sudo systemctl status better-paas-backend"
+    echo -e "  sudo systemctl status better-paas-frontend"
+    echo -e "  journalctl -u better-paas-backend -f"
   fi
   echo ""
 }
@@ -422,7 +422,7 @@ print_admin_token() {
 main() {
   echo -e "${CYAN}"
   echo "  ╔═══════════════════════════════════════╗"
-  echo "  ║     Antigravity PaaS Installer v1.0   ║"
+  echo "  ║     Better-PaaS Installer v1.0   ║"
   echo "  ╚═══════════════════════════════════════╝"
   echo -e "${NC}"
 

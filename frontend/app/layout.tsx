@@ -13,7 +13,7 @@ const inter = Inter({subsets:['latin'],variable:'--font-sans'})
 const geistMono = Geist_Mono({subsets:['latin'],variable:'--font-mono'})
 
 export const metadata = {
-  title: "Antigravity",
+  title: "Better-PaaS",
   description: "A clean deployment control surface for local worker nodes.",
 }
 

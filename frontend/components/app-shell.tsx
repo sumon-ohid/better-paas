@@ -228,7 +228,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-base leading-none text-foreground">
-                  Antigravity
+                  Better-PaaS
                 </span>
                 <span className="text-xs text-muted-foreground/80 font-mono mt-1">engine-01</span>
               </div>

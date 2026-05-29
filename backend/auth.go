@@ -83,9 +83,9 @@ func printTokenBanner(tok string, firstRun bool) {
 	line := func(s string) { log.Printf("║ %-72s ║", s) }
 	log.Println("╔══════════════════════════════════════════════════════════════════════════╗")
 	if firstRun {
-		line("ANTIGRAVITY ADMIN TOKEN — GENERATED ON FIRST RUN")
+		line("Better-PaaS ADMIN TOKEN — GENERATED ON FIRST RUN")
 	} else {
-		line("ANTIGRAVITY ADMIN TOKEN")
+		line("Better-PaaS ADMIN TOKEN")
 	}
 	line("")
 	line(">>> You need this token to LOG IN to the dashboard. <<<")
@@ -185,7 +185,7 @@ func runCLI(args []string) {
 }
 
 func printCLIUsage(w *os.File) {
-	fmt.Fprint(w, `Antigravity PaaS server
+	fmt.Fprint(w, `Better-PaaS server
 
 Usage:
   server                 Start the API server (default)

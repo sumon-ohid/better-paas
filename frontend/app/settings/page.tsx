@@ -199,7 +199,7 @@ export default function SettingsPage() {
         {/* About */}
         <Card>
           <CardHeader className="border-b border-border/40">
-            <CardTitle className="text-base">About Antigravity</CardTitle>
+            <CardTitle className="text-base">About Better-PaaS</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 pt-4">
             {[
