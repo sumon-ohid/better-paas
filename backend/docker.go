@@ -267,6 +267,29 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		nodeVersion := detectNodeVersion(buildSubDir, defaultNodeVersion)
 		patchPackageJSON(app.ID, buildDir, localLog)
 
+		// ── 3b. Reconcile package manager ─────────────────────────────────────
+		// Nixpacks only provisions the package manager it detects from the repo
+		// (packageManager field / lockfile). A forced command that uses a
+		// different manager — e.g. "pnpm install" against an npm repo — fails in
+		// the build with "<pm>: command not found". Rewrite the forced commands
+		// to the detected manager so the correct binary is always present.
+		installCmd, buildCmd, startCmd := app.InstallCommand, app.BuildCommand, app.StartCommand
+		if readPackageJSON(filepath.Join(buildSubDir, "package.json")) != nil {
+			pm := detectPackageManager(buildSubDir)
+			if c := reconcilePkgManagerCmd(installCmd, pm); c != installCmd {
+				localLog(fmt.Sprintf("📦 Adjusted install command for detected package manager (%s): %q → %q", pm, installCmd, c))
+				installCmd = c
+			}
+			if c := reconcilePkgManagerCmd(buildCmd, pm); c != buildCmd {
+				localLog(fmt.Sprintf("🔧 Adjusted build command for detected package manager (%s): %q → %q", pm, buildCmd, c))
+				buildCmd = c
+			}
+			if c := reconcilePkgManagerCmd(startCmd, pm); c != startCmd {
+				localLog(fmt.Sprintf("🚀 Adjusted start command for detected package manager (%s): %q → %q", pm, startCmd, c))
+				startCmd = c
+			}
+		}
+
 		// ── 4. Remove restrictive .dockerignore ──────────────────────────────
 		dockerignorePath := filepath.Join(buildSubDir, ".dockerignore")
 		if _, err := os.Stat(dockerignorePath); err == nil {
@@ -287,14 +310,14 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		for k, v := range app.EnvVars {
 			nixpacksArgs = append(nixpacksArgs, "--env", fmt.Sprintf("%s=%s", k, v))
 		}
-		if app.InstallCommand != "" {
-			nixpacksArgs = append(nixpacksArgs, "--install-cmd", app.InstallCommand)
+		if installCmd != "" {
+			nixpacksArgs = append(nixpacksArgs, "--install-cmd", installCmd)
 		}
-		if app.BuildCommand != "" {
-			nixpacksArgs = append(nixpacksArgs, "--build-cmd", app.BuildCommand)
+		if buildCmd != "" {
+			nixpacksArgs = append(nixpacksArgs, "--build-cmd", buildCmd)
 		}
-		if app.StartCommand != "" {
-			nixpacksArgs = append(nixpacksArgs, "--start-cmd", app.StartCommand)
+		if startCmd != "" {
+			nixpacksArgs = append(nixpacksArgs, "--start-cmd", startCmd)
 		}
 
 		nixpacksCmd := exec.Command("nixpacks", nixpacksArgs...)
@@ -969,4 +992,103 @@ func readPackageJSON(path string) map[string]interface{} {
 		return nil
 	}
 	return pkg
+}
+
+// detectPackageManager mirrors Nixpacks' own resolution order to determine
+// which JS package manager a repo uses: the root package.json "packageManager"
+// field first, then lockfiles, falling back to npm. This must match what
+// Nixpacks provisions into the build image, otherwise a forced command using a
+// different manager fails with "<pm>: command not found".
+func detectPackageManager(buildSubDir string) string {
+	if pkg := readPackageJSON(filepath.Join(buildSubDir, "package.json")); pkg != nil {
+		if pm, ok := pkg["packageManager"].(string); ok {
+			name := pm
+			if i := strings.Index(name, "@"); i > 0 {
+				name = name[:i]
+			}
+			switch name {
+			case "npm", "pnpm", "yarn", "bun":
+				return name
+			}
+		}
+	}
+
+	exists := func(name string) bool {
+		_, err := os.Stat(filepath.Join(buildSubDir, name))
+		return err == nil
+	}
+	switch {
+	case exists("pnpm-lock.yaml"):
+		return "pnpm"
+	case exists("yarn.lock"):
+		return "yarn"
+	case exists("bun.lockb"), exists("bun.lock"):
+		return "bun"
+	}
+	return "npm"
+}
+
+// pkgManagerAliases maps each JS package manager to the set of manager tokens
+// that might appear in a user-supplied command. Used to rewrite a command so it
+// invokes the package manager the repo actually uses.
+var pkgManagerAliases = []string{"npm", "pnpm", "yarn", "bun"}
+
+// reconcilePkgManagerCmd rewrites the leading package-manager token of a command
+// to the detected manager, so commands authored for one manager (e.g. the UI's
+// "pnpm install" template) work against a repo that uses another. Only a token
+// at the start of the command is rewritten, and only when it's a known manager.
+// Non-manager commands (e.g. "node server.js", "deno task start") are returned
+// unchanged. The "execute a package" form is translated across managers
+// (pnpm/yarn dlx ↔ npx ↔ bunx). Script invocations like "pnpm run build" map
+// cleanly to "<pm> run build" for every manager.
+func reconcilePkgManagerCmd(cmd, target string) string {
+	if cmd == "" || target == "" {
+		return cmd
+	}
+	fields := strings.Fields(cmd)
+	if len(fields) == 0 {
+		return cmd
+	}
+
+	head := fields[0]
+	isManager := false
+	for _, m := range pkgManagerAliases {
+		if head == m {
+			isManager = true
+			break
+		}
+	}
+	if !isManager || head == target {
+		return cmd
+	}
+
+	// Handle the "execute a package" form, which differs per manager:
+	//   npm  -> npx <pkg>
+	//   pnpm -> pnpm dlx <pkg>
+	//   yarn -> yarn dlx <pkg>
+	//   bun  -> bunx <pkg>
+	// Detected via the source manager's "dlx" / "x" subcommand.
+	if len(fields) >= 2 && (fields[1] == "dlx" || fields[1] == "x") {
+		rest := strings.Join(fields[2:], " ")
+		var prefix string
+		switch target {
+		case "npm":
+			prefix = "npx"
+		case "bun":
+			prefix = "bunx"
+		default: // pnpm, yarn
+			prefix = target + " dlx"
+		}
+		if rest == "" {
+			return prefix
+		}
+		return prefix + " " + rest
+	}
+
+	// Swap the manager binary, preserving the rest of the command verbatim.
+	// Script invocations like "pnpm run build" translate cleanly to
+	// "npm run build" / "yarn run build" / "bun run build", and the bare
+	// install verb ("<pm> install" / "<pm> i") maps across managers as-is.
+	fields[0] = target
+	return strings.Join(fields, " ")
 }
