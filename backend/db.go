@@ -18,6 +18,10 @@ func initDB() {
 	os.MkdirAll("data", 0700)
 	os.MkdirAll(filepath.Join("data", "logs"), 0755)
 
+	// Initialize the at-rest encryption key before any secret is read or
+	// written below (migrateFromJSON / loadStateFromDB touch token columns).
+	initSecretKey()
+
 	dbPath := filepath.Join("data", "baas.db")
 	var err error
 	sqliteDB, err = sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)")
@@ -134,7 +138,7 @@ func migrateFromJSON() {
 		if _, err := tx.Exec(
 			`INSERT INTO meta (key, value) VALUES (?, ?)
 			 ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
-			"github_token", state.GitHubToken,
+			"github_token", encryptSecret(state.GitHubToken),
 		); err != nil {
 			log.Printf("[migrate] failed to save GitHub token: %v", err)
 		}
@@ -179,13 +183,14 @@ func loadStateFromDB() {
 		if envJSON != "" {
 			_ = json.Unmarshal([]byte(envJSON), &a.EnvVars)
 		}
+		a.GitToken = decryptSecret(a.GitToken)
 		apps = append(apps, a)
 		buildLogs[a.ID] = []string{}
 	}
 
 	var tok string
 	_ = sqliteDB.QueryRow(`SELECT value FROM meta WHERE key = 'github_token'`).Scan(&tok)
-	githubToken = tok
+	githubToken = decryptSecret(tok)
 
 	log.Printf("[db] Loaded %d apps from SQLite", len(apps))
 }
@@ -208,6 +213,7 @@ func dbSaveApp(app App) error {
 
 func dbSaveAppTx(tx *sql.Tx, app App) error {
 	envJSON, _ := json.Marshal(app.EnvVars)
+	encToken := encryptSecret(app.GitToken)
 	_, err := tx.Exec(`
 		INSERT INTO apps (id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -225,7 +231,7 @@ func dbSaveAppTx(tx *sql.Tx, app App) error {
 			start_command=excluded.start_command,
 			install_command=excluded.install_command,
 			port_override=excluded.port_override
-	`, app.ID, app.Name, app.Status, app.GitRepo, app.Branch, app.Port, app.URL, app.CreatedAt, app.GitToken, app.RootDir, string(envJSON), app.BuildCommand, app.StartCommand, app.InstallCommand, app.PortOverride)
+	`, app.ID, app.Name, app.Status, app.GitRepo, app.Branch, app.Port, app.URL, app.CreatedAt, encToken, app.RootDir, string(envJSON), app.BuildCommand, app.StartCommand, app.InstallCommand, app.PortOverride)
 	return err
 }
 
@@ -313,7 +319,7 @@ func dbPruneDeployments(max int) error {
 // ---------------------------------------------------------------------------
 
 func dbSetToken(token string) error {
-	return dbSetMeta("github_token", token)
+	return dbSetSecretMeta("github_token", token)
 }
 
 // dbSetMeta upserts a key/value pair into the meta table.
@@ -323,6 +329,12 @@ func dbSetMeta(key, value string) error {
 		ON CONFLICT(key) DO UPDATE SET value=excluded.value
 	`, key, value)
 	return err
+}
+
+// dbSetSecretMeta stores an encrypted value in the meta table. Use this for
+// any credential (e.g. the GitHub token) so it is never persisted in cleartext.
+func dbSetSecretMeta(key, value string) error {
+	return dbSetMeta(key, encryptSecret(value))
 }
 
 // dbGetMeta returns the value for key, or "" if absent.

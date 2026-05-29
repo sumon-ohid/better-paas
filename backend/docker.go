@@ -51,10 +51,17 @@ func normalizeGitURL(raw string) string {
 	if raw == "" || strings.HasPrefix(raw, "/") || filepath.IsAbs(raw) {
 		return raw
 	}
-	if !strings.HasPrefix(raw, "http") && !strings.HasPrefix(raw, "git") {
-		return "https://" + raw
+	// Already has an explicit scheme, or is an SSH-style URL (git@host:path /
+	// git://...). Note: we must match "git@"/"git://" precisely rather than a
+	// bare "git" prefix, otherwise hosts like github.com / gitlab.com (which
+	// start with "git") would wrongly be left without a scheme.
+	if strings.HasPrefix(raw, "http") ||
+		strings.HasPrefix(raw, "git@") ||
+		strings.HasPrefix(raw, "git://") ||
+		strings.HasPrefix(raw, "ssh://") {
+		return raw
 	}
-	return raw
+	return "https://" + raw
 }
 
 // logToBuild appends a log line to the in-memory ring buffer, persists it to
@@ -279,11 +286,11 @@ func runPaaSDeployment(app App, gitURL, deployID, logFile string) {
 	}
 	localLog("✔ Docker image built successfully!")
 
-	// ── 5. Stop and remove existing container ───────────────────────────────
+	// ── 6. Stop and remove existing container ───────────────────────────────
 	localLog("🧹 Pruning previous container instances...")
 	exec.Command("docker", "rm", "-f", app.Name).Run()
 
-	// ── 6. Run the container ─────────────────────────────────────────────────
+	// ── 7. Run the container ─────────────────────────────────────────────────
 	containerPort := app.Port
 	if app.PortOverride > 0 {
 		containerPort = app.PortOverride

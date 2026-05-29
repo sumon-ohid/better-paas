@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -473,10 +474,10 @@ func handleGitBranches(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var branches []string
-	for _, line := range splitLines(string(output)) {
-		parts := splitFields(line)
-		if len(parts) >= 2 && hasPrefix(parts[1], "refs/heads/") {
-			branches = append(branches, trimPrefix(parts[1], "refs/heads/"))
+	for _, line := range strings.Split(string(output), "\n") {
+		parts := strings.Fields(line)
+		if len(parts) >= 2 && strings.HasPrefix(parts[1], "refs/heads/") {
+			branches = append(branches, strings.TrimPrefix(parts[1], "refs/heads/"))
 		}
 	}
 
@@ -570,8 +571,7 @@ func handleAuthVerify(w http.ResponseWriter, r *http.Request) {
 		tok = req.Token
 	}
 
-	if !validToken(tok) {
-		jsonError(w, "Invalid token", http.StatusUnauthorized)
+	if !httpAuthOK(w, r, tok) {
 		return
 	}
 	jsonOK(w, map[string]bool{"valid": true})
@@ -848,53 +848,4 @@ func findApp(id string) *App {
 		}
 	}
 	return nil
-}
-
-func splitLines(s string) []string {
-	var lines []string
-	start := 0
-	for i, c := range s {
-		if c == '\n' {
-			lines = append(lines, s[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		lines = append(lines, s[start:])
-	}
-	return lines
-}
-
-func splitFields(s string) []string {
-	var fields []string
-	inField := false
-	start := 0
-	for i, c := range s {
-		if c == ' ' || c == '\t' {
-			if inField {
-				fields = append(fields, s[start:i])
-				inField = false
-			}
-		} else {
-			if !inField {
-				start = i
-				inField = true
-			}
-		}
-	}
-	if inField {
-		fields = append(fields, s[start:])
-	}
-	return fields
-}
-
-func hasPrefix(s, prefix string) bool {
-	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
-}
-
-func trimPrefix(s, prefix string) string {
-	if hasPrefix(s, prefix) {
-		return s[len(prefix):]
-	}
-	return s
 }

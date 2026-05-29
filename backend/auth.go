@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ---------------------------------------------------------------------------
@@ -137,9 +138,95 @@ func bearerFromRequest(r *http.Request) string {
 	return ""
 }
 
-// wsAuthOK validates the token query parameter for WebSocket upgrades.
-func wsAuthOK(r *http.Request) bool {
-	return validToken(r.URL.Query().Get("token"))
+// wsAuthOK validates the token query parameter for a WebSocket upgrade,
+// enforcing the per-IP brute-force lockout. On failure it writes the HTTP
+// status (before the upgrade handshake) and returns false.
+func wsAuthOK(w http.ResponseWriter, r *http.Request) bool {
+	res := authenticate(r, r.URL.Query().Get("token"))
+	if res.OK {
+		return true
+	}
+	if res.LockedOut {
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds(res.RetryAfter)))
+		http.Error(w, "Too many failed attempts", http.StatusTooManyRequests)
+		return false
+	}
+	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	return false
+}
+
+// ---------------------------------------------------------------------------
+// Brute-force–aware authentication
+// ---------------------------------------------------------------------------
+//
+// Every token check (HTTP bearer, WebSocket query param, and the login/verify
+// endpoint) funnels through authenticate so a shared per-IP failure tracker
+// can lock out repeated bad guesses with an escalating backoff. validToken
+// remains the pure constant-time comparison used underneath.
+
+// authResult captures the outcome of an authentication attempt.
+type authResult struct {
+	OK         bool          // token was valid
+	LockedOut  bool          // request is currently rate-limited for auth failures
+	RetryAfter time.Duration // how long until the lockout clears (when LockedOut)
+}
+
+// authenticate validates tok for the request while enforcing the per-IP
+// lockout. A valid token clears the IP's failure history; an invalid *non-empty*
+// guess is counted toward the lockout. Empty/missing tokens are treated as
+// "no credentials" and are NOT counted, so unauthenticated probes can't lock
+// out a legitimate operator (a real brute-force always supplies a guess).
+func authenticate(r *http.Request, tok string) authResult {
+	key := authKey(r)
+
+	// Already locked out? Reject without even comparing the token.
+	if d := authLimiter.retryAfter(key); d > 0 {
+		return authResult{LockedOut: true, RetryAfter: d}
+	}
+
+	if validToken(tok) {
+		authLimiter.recordSuccess(key)
+		return authResult{OK: true}
+	}
+
+	if tok != "" {
+		authLimiter.recordFailure(key)
+		// If this failure just tripped the lockout, surface it (and log once).
+		if d := authLimiter.retryAfter(key); d > 0 {
+			logBruteForce(key, d)
+			return authResult{LockedOut: true, RetryAfter: d}
+		}
+	}
+	return authResult{}
+}
+
+// httpAuthOK enforces auth for an HTTP request, writing 401 (bad token) or 429
+// with a Retry-After header (locked out). Returns true only when allowed.
+func httpAuthOK(w http.ResponseWriter, r *http.Request, tok string) bool {
+	res := authenticate(r, tok)
+	if res.OK {
+		return true
+	}
+	if res.LockedOut {
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds(res.RetryAfter)))
+		jsonError(w, "Too many failed attempts. Try again later.", http.StatusTooManyRequests)
+		return false
+	}
+	jsonError(w, "Unauthorized", http.StatusUnauthorized)
+	return false
+}
+
+// retryAfterSeconds converts a lockout duration to a whole-second Retry-After
+// value, rounding up so the client never retries a hair too early.
+func retryAfterSeconds(d time.Duration) int {
+	s := int(d / time.Second)
+	if d%time.Second != 0 {
+		s++
+	}
+	if s < 1 {
+		s = 1
+	}
+	return s
 }
 
 // ---------------------------------------------------------------------------

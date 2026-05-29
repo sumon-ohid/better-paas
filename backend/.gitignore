@@ -23,5 +23,6 @@ db.json.migrated
 
 # Secrets
 admin_token.txt
+secret.key
 .env
 .env.*

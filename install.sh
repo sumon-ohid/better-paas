@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # =============================================================================
 # Better-PaaS — Single-Command VPS Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/your-org/baas/main/install.sh | bash
-# Or:    bash install.sh
+#
+# Set BETTER_PAAS_REPO_URL to your fork/repo before piping to bash, e.g.:
+#   curl -fsSL https://raw.githubusercontent.com/<you>/better-paas/main/install.sh \
+#     | BETTER_PAAS_REPO_URL=https://github.com/<you>/better-paas.git bash
+# Or run it from a checked-out copy:
+#   bash install.sh
 # =============================================================================
 
 set -euo pipefail
@@ -81,8 +85,8 @@ install_go() {
     return
   fi
 
-  info "Installing Go 1.23..."
-  GO_VERSION="1.23.4"
+  info "Installing Go 1.25.0..."
+  GO_VERSION="1.25.0"
   ARCH=$(uname -m)
   case "$ARCH" in
     x86_64)  GO_ARCH="amd64" ;;
@@ -250,7 +254,10 @@ install_node() {
 # ── Clone or update the repo ──────────────────────────────────────────────────
 
 setup_repo() {
-  REPO_URL="${Better_PaaS_REPO_URL:-https://github.com/your-org/better-paas.git}"
+  REPO_URL="${BETTER_PAAS_REPO_URL:-}"
+  if [ -z "$REPO_URL" ]; then
+    error "No repository URL set. Re-run with BETTER_PAAS_REPO_URL=https://github.com/<you>/better-paas.git, or run this script from inside a checked-out copy of the repo."
+  fi
 
   if [ -d "$REPO_DIR/.git" ]; then
     info "Updating existing installation at $REPO_DIR..."

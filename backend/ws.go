@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -52,8 +51,7 @@ func wsSend(conn *websocket.Conn, message string) error {
 // ---------------------------------------------------------------------------
 
 func handleLogsWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	if !wsAuthOK(w, r) {
 		return
 	}
 	appID := r.URL.Query().Get("appId")
@@ -142,8 +140,7 @@ func handleLogsWS(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	if !wsAuthOK(w, r) {
 		return
 	}
 	appID := r.URL.Query().Get("appId")
@@ -251,8 +248,7 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 func handleStatsWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	if !wsAuthOK(w, r) {
 		return
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -284,10 +280,11 @@ func handleStatsWS(w http.ResponseWriter, r *http.Request) {
 		}
 		appsLock.Unlock()
 
+		cpuPct, memPct, diskPct := readMetrics()
 		stats := ServerStats{
-			CPUUsage:    10.0 + rand.Float64()*15.0,
-			MemoryUsage: 35.0 + rand.Float64()*10.0,
-			DiskUsage:   getHostDiskUsage(),
+			CPUUsage:    cpuPct,
+			MemoryUsage: memPct,
+			DiskUsage:   diskPct,
 			ActiveApps:  activeCount,
 			Timestamp:   time.Now(),
 		}
@@ -297,29 +294,5 @@ func handleStatsWS(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-}
-
-// getHostDiskUsage returns approximate disk usage % using df.
-func getHostDiskUsage() float64 {
-	cmd := exec.Command("df", "-h", "/")
-	out, err := cmd.Output()
-	if err != nil {
-		return 0
-	}
-
-	lines := strings.Split(string(out), "\n")
-	if len(lines) < 2 {
-		return 0
-	}
-
-	fields := strings.Fields(lines[1])
-	if len(fields) < 5 {
-		return 0
-	}
-
-	pctStr := strings.TrimSuffix(fields[4], "%")
-	var pct float64
-	fmt.Sscanf(pctStr, "%f", &pct)
-	return pct
 }
 

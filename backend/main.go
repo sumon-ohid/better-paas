@@ -32,6 +32,9 @@ func main() {
 	// Rebuild Caddyfile from loaded apps
 	rebuildCaddyfile()
 
+	// Start sampling real host metrics (CPU/memory/disk) for the stats stream.
+	startMetricsSampler()
+
 	// Start Caddy reverse proxy subprocess
 	startCaddySubprocess()
 
@@ -74,7 +77,7 @@ func main() {
 	handler := corsMiddleware(throttled)
 
 	addr := listenAddr()
-	fmt.Printf("🚀 PaaS Engine running on http://%s\n", addr)
+	fmt.Printf("🚀 Better-PaaS running on http://%s\n", addr)
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
@@ -127,8 +130,7 @@ func authGate(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if !validToken(bearerFromRequest(r)) {
-			jsonError(w, "Unauthorized", http.StatusUnauthorized)
+		if !httpAuthOK(w, r, bearerFromRequest(r)) {
 			return
 		}
 		next.ServeHTTP(w, r)
