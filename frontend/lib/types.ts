@@ -113,6 +113,7 @@ export interface Addon {
   volume: string
   port: number
   connEnv?: Record<string, string>
+  attachedApps?: string[]
   createdAt: string
 }
 

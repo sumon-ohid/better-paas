@@ -155,6 +155,11 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ addonId, appId }),
       }),
+    detach: (addonId: string, appId: string) =>
+      req<App>("/api/addons/detach", {
+        method: "POST",
+        body: JSON.stringify({ addonId, appId }),
+      }),
   },
 
   // ── Scheduled jobs (cron) ───────────────────────────────────────────────────

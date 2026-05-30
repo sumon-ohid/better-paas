@@ -298,9 +298,78 @@ func handleAddonAttach(w http.ResponseWriter, r *http.Request) {
 	}
 	appsLock.Unlock()
 
+	// Record the attachment on the add-on (deduplicated) so the UI can show
+	// which apps use it, independent of how env vars are redacted.
+	if !containsString(addon.AttachedApps, req.AppID) {
+		addon.AttachedApps = append(addon.AttachedApps, req.AppID)
+		if err := dbSaveAddon(*addon); err != nil {
+			log.Printf("[addon] failed to record attachment: %v", err)
+		}
+	}
+
 	if full := findApp(req.AppID); full != nil {
 		if err := dbSaveApp(*full); err != nil {
 			log.Printf("[addon] failed to save app after attach: %v", err)
+		}
+		jsonOK(w, full.Public())
+		return
+	}
+	jsonError(w, "App not found", http.StatusNotFound)
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/addons/detach — remove an add-on's conn env from an app
+// ---------------------------------------------------------------------------
+
+func handleAddonDetach(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		AddonID string `json:"addonId"`
+		AppID   string `json:"appId"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	addon, err := dbGetAddon(req.AddonID)
+	if err != nil || addon == nil {
+		jsonError(w, "Add-on not found", http.StatusNotFound)
+		return
+	}
+
+	// Remove the add-on's connection env vars from the app (and their secret
+	// flags). Only keys still equal to this add-on's values are removed, so we
+	// don't clobber vars the user overrode by hand or that another add-on set.
+	appsLock.Lock()
+	for i := range apps {
+		if apps[i].ID == req.AppID {
+			if apps[i].EnvVars != nil {
+				for k, v := range addon.ConnEnv {
+					if cur, ok := apps[i].EnvVars[k]; ok && cur == v {
+						delete(apps[i].EnvVars, k)
+						apps[i].SecretKeys = removeString(apps[i].SecretKeys, k)
+					}
+				}
+			}
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	// Drop the attachment record.
+	if containsString(addon.AttachedApps, req.AppID) {
+		addon.AttachedApps = removeString(addon.AttachedApps, req.AppID)
+		if err := dbSaveAddon(*addon); err != nil {
+			log.Printf("[addon] failed to record detachment: %v", err)
+		}
+	}
+
+	if full := findApp(req.AppID); full != nil {
+		if err := dbSaveApp(*full); err != nil {
+			log.Printf("[addon] failed to save app after detach: %v", err)
 		}
 		jsonOK(w, full.Public())
 		return
@@ -332,4 +401,43 @@ func containerExists(name string) bool {
 		return false
 	}
 	return strings.TrimSpace(string(out)) != ""
+}
+
+// containsString reports whether s is present in list.
+func containsString(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// removeString returns list with all occurrences of s removed.
+func removeString(list []string, s string) []string {
+	out := list[:0]
+	for _, v := range list {
+		if v != s {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// detachAppFromAddons removes appID from every add-on's attachment list. Called
+// when an app is deleted so the UI doesn't show stale attachments.
+func detachAppFromAddons(appID string) error {
+	list, err := dbLoadAddons()
+	if err != nil {
+		return err
+	}
+	for _, a := range list {
+		if containsString(a.AttachedApps, appID) {
+			a.AttachedApps = removeString(a.AttachedApps, appID)
+			if err := dbSaveAddon(a); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

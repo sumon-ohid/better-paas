@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS meta (
 		{"deployments", "trigger", "TEXT"},
 		{"deployments", "commit_sha", "TEXT"},
 		{"deployments", "commit_msg", "TEXT"},
+		{"addons", "attached_apps", "TEXT"},
 	}
 	for _, c := range addColumns {
 		// SQLite has no "ADD COLUMN IF NOT EXISTS"; ignore the duplicate error.
@@ -539,18 +540,22 @@ func appendLogFile(path string, line string) error {
 
 func dbSaveAddon(a Addon) error {
 	connJSON, _ := json.Marshal(a.ConnEnv)
+	attachedJSON, _ := json.Marshal(a.AttachedApps)
 	_, err := sqliteDB.Exec(`
-		INSERT INTO addons (id, type, name, container_name, status, volume, port, conn_env, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO addons (id, type, name, container_name, status, volume, port, conn_env, attached_apps, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			status=excluded.status,
-			conn_env=excluded.conn_env
-	`, a.ID, a.Type, a.Name, a.ContainerName, a.Status, a.Volume, a.Port, encryptSecret(string(connJSON)), a.CreatedAt)
+			conn_env=excluded.conn_env,
+			attached_apps=excluded.attached_apps
+	`, a.ID, a.Type, a.Name, a.ContainerName, a.Status, a.Volume, a.Port, encryptSecret(string(connJSON)), string(attachedJSON), a.CreatedAt)
 	return err
 }
 
 func dbLoadAddons() ([]Addon, error) {
-	rows, err := sqliteDB.Query(`SELECT id, type, name, container_name, status, volume, port, conn_env, created_at FROM addons ORDER BY created_at DESC`)
+	// LEFT-style scan: attached_apps may be NULL on rows created before the
+	// column existed.
+	rows, err := sqliteDB.Query(`SELECT id, type, name, container_name, status, volume, port, conn_env, attached_apps, created_at FROM addons ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -560,11 +565,15 @@ func dbLoadAddons() ([]Addon, error) {
 	for rows.Next() {
 		var a Addon
 		var connEnc sql.NullString
-		if err := rows.Scan(&a.ID, &a.Type, &a.Name, &a.ContainerName, &a.Status, &a.Volume, &a.Port, &connEnc, &a.CreatedAt); err != nil {
+		var attached sql.NullString
+		if err := rows.Scan(&a.ID, &a.Type, &a.Name, &a.ContainerName, &a.Status, &a.Volume, &a.Port, &connEnc, &attached, &a.CreatedAt); err != nil {
 			continue
 		}
 		if connEnc.Valid && connEnc.String != "" {
 			_ = json.Unmarshal([]byte(decryptSecret(connEnc.String)), &a.ConnEnv)
+		}
+		if attached.Valid && attached.String != "" {
+			_ = json.Unmarshal([]byte(attached.String), &a.AttachedApps)
 		}
 		result = append(result, a)
 	}
@@ -574,8 +583,9 @@ func dbLoadAddons() ([]Addon, error) {
 func dbGetAddon(id string) (*Addon, error) {
 	var a Addon
 	var connEnc sql.NullString
-	err := sqliteDB.QueryRow(`SELECT id, type, name, container_name, status, volume, port, conn_env, created_at FROM addons WHERE id = ?`, id).
-		Scan(&a.ID, &a.Type, &a.Name, &a.ContainerName, &a.Status, &a.Volume, &a.Port, &connEnc, &a.CreatedAt)
+	var attached sql.NullString
+	err := sqliteDB.QueryRow(`SELECT id, type, name, container_name, status, volume, port, conn_env, attached_apps, created_at FROM addons WHERE id = ?`, id).
+		Scan(&a.ID, &a.Type, &a.Name, &a.ContainerName, &a.Status, &a.Volume, &a.Port, &connEnc, &attached, &a.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -584,6 +594,9 @@ func dbGetAddon(id string) (*Addon, error) {
 	}
 	if connEnc.Valid && connEnc.String != "" {
 		_ = json.Unmarshal([]byte(decryptSecret(connEnc.String)), &a.ConnEnv)
+	}
+	if attached.Valid && attached.String != "" {
+		_ = json.Unmarshal([]byte(attached.String), &a.AttachedApps)
 	}
 	return &a, nil
 }

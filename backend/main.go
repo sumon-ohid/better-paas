@@ -93,6 +93,7 @@ func main() {
 	mux.HandleFunc("/api/addons/create", handleAddonCreate)
 	mux.HandleFunc("/api/addons/delete", handleAddonDelete)
 	mux.HandleFunc("/api/addons/attach", handleAddonAttach)
+	mux.HandleFunc("/api/addons/detach", handleAddonDetach)
 
 	// Scheduled jobs (cron)
 	mux.HandleFunc("/api/cron", handleCronList)

@@ -104,6 +104,7 @@ type Addon struct {
 	Volume        string            `json:"volume"`
 	Port          int               `json:"port"`
 	ConnEnv       map[string]string `json:"connEnv,omitempty"` // connection env vars (redacted in public view)
+	AttachedApps  []string          `json:"attachedApps"`      // IDs of apps this add-on is attached to
 	CreatedAt     time.Time         `json:"createdAt"`
 }
 

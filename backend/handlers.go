@@ -353,6 +353,9 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	if err := dbDeleteCronJobsForApp(req.ID); err != nil {
 		log.Printf("[db] failed to delete cron jobs: %v", err)
 	}
+	if err := detachAppFromAddons(req.ID); err != nil {
+		log.Printf("[db] failed to detach add-ons: %v", err)
+	}
 
 	rebuildCaddyfile()
 	jsonOK(w, map[string]string{"status": "deleted"})
