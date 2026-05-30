@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
-import { AppShell } from "@/components/app-shell"
+import { AppShell, useToast } from "@/components/app-shell"
 import { StatusBadge } from "@/components/status-badge"
 import { api, createBuildLogsWs, createRuntimeLogsWs } from "@/lib/api"
 import type { App, LogEntry } from "@/lib/types"
@@ -18,6 +18,7 @@ import {
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const LoaderIcon = (props: IconProps) => <NucleoIcon {...props} name="loader" />
 const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-left" />
 const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
 const ExternalIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
@@ -27,6 +28,7 @@ type LogMode = "build" | "runtime"
 function LogsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { showToast } = useToast()
 
   const [apps, setApps] = useState<App[]>([])
   const [selectedAppId, setSelectedAppId] = useState<string>(searchParams.get("appId") ?? "")
@@ -35,6 +37,7 @@ function LogsPage() {
   )
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [connected, setConnected] = useState(false)
+  const [isRedeploying, setIsRedeploying] = useState(false)
 
   const wsRef = useRef<WebSocket | null>(null)
   const logBufferRef = useRef<LogEntry[]>([])
@@ -144,6 +147,27 @@ function LogsPage() {
   }, [])
 
   const selectedApp = apps.find((a) => a.id === selectedAppId)
+
+  // Trigger a fresh build for the selected app, then follow its build logs.
+  const handleRedeploy = useCallback(async () => {
+    if (!selectedApp || isRedeploying) return
+    setIsRedeploying(true)
+    try {
+      await api.apps.redeploy(selectedApp.id)
+      showToast("Redeploy Started", `Triggering new build for ${selectedApp.name}...`, "success")
+      fetchApps()
+      setLogMode("build")
+      const url = new URL(window.location.href)
+      url.searchParams.set("mode", "build")
+      window.history.replaceState({}, "", url.toString())
+      connectStream(selectedApp.id, "build")
+    } catch (err) {
+      showToast("Error", "Failed to trigger redeployment.", "destructive")
+      console.error(err)
+    } finally {
+      setIsRedeploying(false)
+    }
+  }, [selectedApp, isRedeploying, showToast, fetchApps, connectStream])
 
   // ── Log line renderer ─────────────────────────────────────────────────────
 
@@ -261,6 +285,26 @@ function LogsPage() {
             >
               <RefreshIcon className="h-3 w-3" />
               Reconnect
+            </button>
+          )}
+
+          {/* Redeploy */}
+          {selectedAppId && (
+            <button
+              onClick={handleRedeploy}
+              disabled={isRedeploying || selectedApp?.status === "building"}
+              className="flex items-center gap-1.5 rounded border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary hover:bg-primary/15 cursor-pointer transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRedeploying || selectedApp?.status === "building" ? (
+                <LoaderIcon className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshIcon className="h-3 w-3" />
+              )}
+              {isRedeploying
+                ? "Redeploying…"
+                : selectedApp?.status === "building"
+                  ? "Building…"
+                  : "Redeploy"}
             </button>
           )}
 

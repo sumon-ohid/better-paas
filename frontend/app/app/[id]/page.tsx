@@ -723,8 +723,7 @@ function AppDetailPage() {
                 </div>
               </div>
 
-              <div className="flex-1 mt-4 min-h-0 bg-card border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed flex flex-col">
-                {/* Terminal chrome header */}
+              <div className="flex-1 mt-4 min-h-0 bg-transparent border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed flex flex-col">
                 <div className="flex items-center gap-2 px-4 py-2 shrink-0 select-none">
                   {logsConnected && (
                     <span className="ml-auto flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-success">
@@ -885,7 +884,7 @@ function AppDetailPage() {
                          
                          {/* Expanded log output */}
                          {isExpanded && (
-                           <div className="border-t border-border/30 bg-card">
+                           <div className="border-t bg-transparent border-border/30">
                              <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                                <span className="text-[11px] font-mono text-muted-foreground/50 dark:text-slate-500">
                                  Build log · {dep.logs.length} lines
