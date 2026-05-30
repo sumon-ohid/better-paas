@@ -505,6 +505,75 @@ func dockerImageExists(image string) bool {
 	return err == nil
 }
 
+// containerRunning reports whether a container with the given name exists and is
+// currently in the "running" state.
+func containerRunning(name string) bool {
+	if name == "" {
+		return false
+	}
+	out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", name).Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) == "true"
+}
+
+// reconcileStuckBuilds fixes apps left in the "building" state by a server
+// restart or crash that interrupted an in-flight deployment. Builds run in
+// memory, so they don't survive a restart — yet the persisted status stays
+// "building" forever, showing an eternal spinner in the UI.
+//
+// For each stuck app we resolve a sane terminal status: if its active container
+// is actually up (the build had finished but the status write was lost), mark
+// it "running"; otherwise mark it "failed". Any deployment records still in
+// "building" are flipped to "failed" too.
+func reconcileStuckBuilds() {
+	// Collect the IDs of apps stuck mid-build, then resolve each one. We work by
+	// ID rather than slice index so we never touch a stale index if the slice
+	// changes between DB writes.
+	appsLock.Lock()
+	stuckIDs := make([]string, 0)
+	for i := range apps {
+		if apps[i].Status == "building" {
+			stuckIDs = append(stuckIDs, apps[i].ID)
+		}
+	}
+	appsLock.Unlock()
+
+	for _, id := range stuckIDs {
+		appsLock.Lock()
+		idx := -1
+		for i := range apps {
+			if apps[i].ID == id {
+				idx = i
+				break
+			}
+		}
+		if idx == -1 {
+			appsLock.Unlock()
+			continue
+		}
+		final := "failed"
+		if containerRunning(apps[idx].containerName()) {
+			final = "running"
+		}
+		apps[idx].Status = final
+		name := apps[idx].Name
+		appsLock.Unlock()
+
+		if err := dbUpdateAppStatus(id, final); err != nil {
+			log.Printf("[reconcile] failed to update app %s status: %v", id, err)
+		}
+		log.Printf("[reconcile] app %q was stuck in 'building' after restart → %q", name, final)
+	}
+
+	if n, err := dbFailStaleBuildingDeployments(); err != nil {
+		log.Printf("[reconcile] failed to fail stale deployments: %v", err)
+	} else if n > 0 {
+		log.Printf("[reconcile] marked %d interrupted deployment(s) as failed", n)
+	}
+}
+
 // removeAppContainers force-removes every container labeled for the given app.
 func removeAppContainers(appID string) {
 	out, err := exec.Command("docker", "ps", "-aq", "--filter", "label=better-paas-app="+appID).Output()

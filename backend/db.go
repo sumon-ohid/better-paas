@@ -351,6 +351,20 @@ func dbCreateDeployment(dep DeploymentRecord) error {
 	return err
 }
 
+// dbFailStaleBuildingDeployments marks any deployment still recorded as
+// "building" as failed. Used at startup to clean up deployments that were
+// interrupted by a server restart/crash mid-build.
+func dbFailStaleBuildingDeployments() (int64, error) {
+	res, err := sqliteDB.Exec(
+		`UPDATE deployments SET status = 'failed', duration = 'interrupted' WHERE status = 'building'`,
+	)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
 func dbGetLatestDeployment(appID string) (*DeploymentRecord, error) {
 	var d DeploymentRecord
 	var image, trigger, commit sql.NullString

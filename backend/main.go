@@ -30,6 +30,10 @@ func main() {
 	// Load or provision the admin token (must run after initDB).
 	initAuth()
 
+	// Reconcile apps/deployments left mid-build by a previous restart or crash,
+	// so an interrupted deployment doesn't show an eternal "building" spinner.
+	reconcileStuckBuilds()
+
 	// Rebuild Caddyfile from loaded apps
 	rebuildCaddyfile()
 
