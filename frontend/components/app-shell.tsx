@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { toastManager } from "@/components/ui/toast"
+import Image from "next/image"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
@@ -241,18 +242,18 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
           <SidebarHeader className="relative flex flex-row items-center justify-between overflow-hidden px-4 py-3">
             <div className="pointer-events-none absolute inset-0 bg-pixel-grid opacity-60 mask-fade-b" />
             <div className="relative flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shadow-[0_0_28px_rgba(143,153,255,.28)] select-none">
-                A
-              </div>
+              <Image 
+                  width={8340}
+                  height={840}
+                  src="/logo.svg"
+                  alt="Better-PaaS Logo"
+                  className="size-8"
+              />
               <div className="flex flex-col">
                 <span className="font-bold text-base leading-none text-foreground">
                   Better-PaaS
                 </span>
-                <span className="text-xs text-muted-foreground/80 font-mono mt-1">engine-01</span>
               </div>
-            </div>
-            <div className="relative flex h-5 w-5 items-center justify-center rounded border border-border text-xs text-muted-foreground font-mono bg-muted/30 select-none">
-              w1
             </div>
           </SidebarHeader>
 
