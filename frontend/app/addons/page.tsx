@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Separator } from "@/components/ui/separator"
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -301,8 +300,8 @@ export default function AddonsPage() {
                 <CardDescription>{typeMeta(type).blurb}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-wrap items-end gap-3 pt-4">
-                <div className="flex flex-col space-y-1">
-                  <Label className="mb-2 text-xs font-semibold text-muted-foreground">Type</Label>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">Type</Label>
                   <Select value={type} onValueChange={(v) => v && setType(v)}>
                     <SelectTrigger className="w-44">
                       <SelectValue />
@@ -316,13 +315,13 @@ export default function AddonsPage() {
                     </SelectPopup>
                   </Select>
                 </div>
-                <div className="min-w-[180px] flex-1 space-y-1">
-                  <Label className="mb-2 text-xs font-semibold text-muted-foreground">Name</Label>
+                <div className="flex min-w-[180px] flex-1 flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">Name</Label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
                     placeholder="my-database"
-                    className="text-sm"
+                    className="h-9 text-sm sm:h-8"
                   />
                 </div>
                 <Button onClick={handleCreate} loading={creating} className="gap-1.5">
