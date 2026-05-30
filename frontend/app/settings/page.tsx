@@ -147,11 +147,11 @@ export default function SettingsPage() {
     <AppShell>
       <div className="max-w-3xl space-y-6 p-4 md:p-6">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <SettingsIcon className="h-4 w-4" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <SettingsIcon className="h-6 w-6" />
           </div>
           <div>
-            <h1>Node Settings</h1>
+            <h2>Node Settings</h2>
             <p className="text-sm text-muted-foreground">
               Configure the worker node environment and maintenance tools.
             </p>

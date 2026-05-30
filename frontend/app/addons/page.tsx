@@ -82,6 +82,13 @@ const TYPE_META: Record<
 
 const ADDON_TYPES = Object.entries(TYPE_META).map(([id, m]) => ({ id, label: m.label }))
 
+// Internal ports each database listens on (for the type reference card).
+const TYPE_PORTS: Record<string, number> = {
+  postgres: 5432,
+  mysql: 3306,
+  redis: 6379,
+}
+
 function typeMeta(type: string) {
   return TYPE_META[type] ?? { label: type, short: type, primaryVar: "", blurb: "" }
 }
@@ -269,240 +276,281 @@ export default function AddonsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-4xl space-y-6 p-4 md:p-6">
+      <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
         {/* Header */}
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <DatabaseIcon className="h-4 w-4" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <DatabaseIcon className="h-6 w-6" />
           </div>
           <div>
-            <h1>Managed Databases</h1>
+            <h2>Managed Databases</h2>
             <p className="text-sm text-muted-foreground">
               One-click Postgres, Redis, and MySQL for your apps — no connection setup required.
             </p>
           </div>
         </div>
 
-        {/* How it works */}
-        <Card className="border-primary/20 bg-primary/3">
-          <CardContent className="p-4 md:p-5">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <InfoIcon className="h-4 w-4 text-primary" />
-              How it works
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {[
-                {
-                  n: 1,
-                  title: "Create a database",
-                  body: "Pick a type and name. It runs as a private container with its own storage.",
-                },
-                {
-                  n: 2,
-                  title: "Attach it to an app",
-                  body: "This injects the connection variables (like DATABASE_URL) into that app.",
-                },
-                {
-                  n: 3,
-                  title: "Redeploy the app",
-                  body: "Variables only take effect on the next deploy. We can redeploy for you.",
-                },
-              ].map((step) => (
-                <div key={step.n} className="flex gap-2.5">
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                    {step.n}
-                  </div>
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-semibold leading-tight">{step.title}</p>
-                    <p className="text-xs leading-snug text-muted-foreground">{step.body}</p>
-                  </div>
+        {/* Two-column layout: actions on the left, reference rail on the right. */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+          {/* Main column */}
+          <div className="min-w-0 space-y-6">
+            {/* Create */}
+            <Card>
+              <CardHeader className="border-b border-border/40">
+                <CardTitle className="text-base">Create a database</CardTitle>
+                <CardDescription>{typeMeta(type).blurb}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap items-end gap-3 pt-4">
+                <div className="flex flex-col space-y-1">
+                  <Label className="mb-2 text-xs font-semibold text-muted-foreground">Type</Label>
+                  <Select value={type} onValueChange={(v) => v && setType(v)}>
+                    <SelectTrigger className="w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectPopup alignItemWithTrigger={false}>
+                      {ADDON_TYPES.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectPopup>
+                  </Select>
                 </div>
-              ))}
-            </div>
-            <p className="mt-3.5 border-t border-border/40 pt-3 text-xs text-muted-foreground">
-              Your app reads the connection from environment variables — for example{" "}
-              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground">DATABASE_URL</code>{" "}
-              for Postgres/MySQL or{" "}
-              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground">REDIS_URL</code>{" "}
-              for Redis. No code change beyond reading that variable.
-            </p>
-          </CardContent>
-        </Card>
+                <div className="min-w-[180px] flex-1 space-y-1">
+                  <Label className="mb-2 text-xs font-semibold text-muted-foreground">Name</Label>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    placeholder="my-database"
+                    className="text-sm"
+                  />
+                </div>
+                <Button onClick={handleCreate} loading={creating} className="gap-1.5">
+                  <PlusIcon className="h-3.5 w-3.5" />
+                  Create
+                </Button>
+              </CardContent>
+            </Card>
 
-        {/* Create */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="text-base">Create a database</CardTitle>
-            <CardDescription>{typeMeta(type).blurb}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-end gap-3 pt-4">
-            <div className="flex flex-col space-y-1">
-              <Label className="mb-2 text-xs font-semibold text-muted-foreground">Type</Label>
-              <Select value={type} onValueChange={(v) => v && setType(v)}>
-                <SelectTrigger className="w-44">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectPopup alignItemWithTrigger={false}>
-                  {ADDON_TYPES.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
-            </div>
-            <div className="min-w-[180px] flex-1 space-y-1">
-              <Label className="mb-2 text-xs font-semibold text-muted-foreground">Name</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                placeholder="my-database"
-                className="text-sm"
-              />
-            </div>
-            <Button onClick={handleCreate} loading={creating} className="gap-1.5">
-              <PlusIcon className="h-3.5 w-3.5" />
-              Create
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* List */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
-              Your databases
-              <button onClick={load} className="text-muted-foreground hover:text-foreground" aria-label="Refresh">
-                <RefreshIcon className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-              </button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4">
-            {addons.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border py-10 text-center">
-                <DatabaseIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
-                <p className="text-sm font-medium">No databases yet</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Create one above, then attach it to an app to start using it.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {addons.map((addon) => {
-                  const meta = typeMeta(addon.type)
-                  const sb = statusBadge(addon.status)
-                  const attached = attachedAppsFor(addon)
-                  const envEntries = Object.entries(addon.connEnv || {})
-                  return (
-                    <div key={addon.id} className="space-y-3 rounded-lg border border-border bg-card/40 p-3.5">
-                      {/* Top row */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted/50">
-                            <DatabaseIcon className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-foreground">{addon.name}</span>
-                              <Badge variant="info" size="sm">{meta.short}</Badge>
-                              <Badge variant={sb.variant} size="sm">{sb.label}</Badge>
+            {/* List */}
+            <Card>
+              <CardHeader className="border-b border-border/40">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  Your databases
+                  <button onClick={load} className="text-muted-foreground hover:text-foreground" aria-label="Refresh">
+                    <RefreshIcon className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                  </button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {addons.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border py-10 text-center">
+                    <DatabaseIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
+                    <p className="text-sm font-medium">No databases yet</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Create one above, then attach it to an app to start using it.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {addons.map((addon) => {
+                      const meta = typeMeta(addon.type)
+                      const sb = statusBadge(addon.status)
+                      const attached = attachedAppsFor(addon)
+                      const envEntries = Object.entries(addon.connEnv || {})
+                      return (
+                        <div key={addon.id} className="space-y-3 rounded-lg border border-border bg-card/40 p-3.5">
+                          {/* Top row */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50">
+                                <DatabaseIcon className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate text-sm font-semibold text-foreground">{addon.name}</span>
+                                  <Badge variant="info" size="sm">{meta.short}</Badge>
+                                  <Badge variant={sb.variant} size="sm">{sb.label}</Badge>
+                                </div>
+                                <p className="truncate font-mono text-[11px] text-muted-foreground">
+                                  host: {addon.containerName}
+                                </p>
+                              </div>
                             </div>
-                            <p className="font-mono text-[11px] text-muted-foreground">
-                              host: {addon.containerName}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" onClick={() => openAttach(addon)} className="h-8 gap-1.5">
-                            <LinkIcon className="h-3.5 w-3.5" />
-                            Attach to app
-                          </Button>
-                          <Button
-                            variant="destructive-outline"
-                            onClick={() => openDelete(addon)}
-                            className="h-8"
-                            aria-label="Delete database"
-                          >
-                            <TrashIcon className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Attachment status */}
-                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                        {attached.length > 0 ? (
-                          <>
-                            <span className="text-muted-foreground">Used by</span>
-                            {attached.map((app) => (
-                              <button
-                                key={app.id}
-                                type="button"
-                                onClick={() => {
-                                  setDetachTarget({ addon, app })
-                                  setDetachRedeploy(true)
-                                }}
-                                className="group inline-flex items-center gap-1 rounded-sm border border-input bg-background px-1.5 py-0.5 font-medium text-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive-foreground"
-                                title={`Detach from ${app.name}`}
+                            <div className="flex shrink-0 items-center gap-2">
+                              <Button variant="outline" onClick={() => openAttach(addon)} className="h-8 gap-1.5">
+                                <LinkIcon className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Attach to app</span>
+                                <span className="sm:hidden">Attach</span>
+                              </Button>
+                              <Button
+                                variant="destructive-outline"
+                                onClick={() => openDelete(addon)}
+                                className="h-8"
+                                aria-label="Delete database"
                               >
-                                {app.name}
-                                <NucleoIcon
-                                  name="x"
-                                  className="h-3 w-3 opacity-50 group-hover:opacity-100"
-                                />
-                              </button>
-                            ))}
-                          </>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                            Not attached to any app yet — attach one to start using it.
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Connection variables (collapsible) */}
-                      {envEntries.length > 0 && (
-                        <Collapsible>
-                          <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
-                            <ChevronIcon className="h-3.5 w-3.5 transition-transform group-data-panel-open:rotate-180" />
-                            Connection variables ({envEntries.length})
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="mt-2 space-y-1.5 rounded-md border border-border bg-muted/20 p-2.5">
-                              <p className="mb-1 text-[11px] text-muted-foreground">
-                                These are injected into any app you attach. Secret values are hidden here and
-                                stored securely.
-                              </p>
-                              {envEntries.map(([k, v]) => {
-                                const isSecret = v === "***"
-                                return (
-                                  <div key={k} className="flex items-center justify-between gap-2 font-mono text-[11px]">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="font-semibold text-foreground/90">{k}</span>
-                                      <CopyButton value={k} label="variable name" />
-                                    </div>
-                                    {isSecret ? (
-                                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                        <LockIcon className="h-3 w-3" />
-                                        hidden
-                                      </span>
-                                    ) : (
-                                      <span className="max-w-[260px] select-all truncate text-muted-foreground">{v}</span>
-                                    )}
-                                  </div>
-                                )
-                              })}
+                                <TrashIcon className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      )}
+                          </div>
+
+                          {/* Attachment status */}
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                            {attached.length > 0 ? (
+                              <>
+                                <span className="text-muted-foreground">Used by</span>
+                                {attached.map((app) => (
+                                  <button
+                                    key={app.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setDetachTarget({ addon, app })
+                                      setDetachRedeploy(true)
+                                    }}
+                                    className="group inline-flex items-center gap-1 rounded-sm border border-input bg-background px-1.5 py-0.5 font-medium text-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive-foreground"
+                                    title={`Detach from ${app.name}`}
+                                  >
+                                    {app.name}
+                                    <NucleoIcon
+                                      name="x"
+                                      className="h-3 w-3 opacity-50 group-hover:opacity-100"
+                                    />
+                                  </button>
+                                ))}
+                              </>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                                <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                                Not attached to any app yet — attach one to start using it.
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Connection variables (collapsible) */}
+                          {envEntries.length > 0 && (
+                            <Collapsible>
+                              <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+                                <ChevronIcon className="h-3.5 w-3.5 transition-transform group-data-panel-open:rotate-180" />
+                                Connection variables ({envEntries.length})
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="mt-2 space-y-1.5 rounded-md border border-border bg-muted/20 p-2.5">
+                                  <p className="mb-1 text-[11px] text-muted-foreground">
+                                    These are injected into any app you attach. Secret values are hidden here and
+                                    stored securely.
+                                  </p>
+                                  {envEntries.map(([k, v]) => {
+                                    const isSecret = v === "***"
+                                    return (
+                                      <div key={k} className="flex items-center justify-between gap-2 font-mono text-[11px]">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-semibold text-foreground/90">{k}</span>
+                                          <CopyButton value={k} label="variable name" />
+                                        </div>
+                                        {isSecret ? (
+                                          <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                            <LockIcon className="h-3 w-3" />
+                                            hidden
+                                          </span>
+                                        ) : (
+                                          <span className="max-w-[260px] select-all truncate text-muted-foreground">{v}</span>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right rail: informative, secondary reference content. Stacks below
+              the main column on small screens, so nothing important is hidden. */}
+          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            {/* How it works */}
+            <Card className="border-primary/20 bg-primary/3">
+              <CardContent className="p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                  <InfoIcon className="h-4 w-4 text-primary" />
+                  How it works
+                </div>
+                <ol className="space-y-3">
+                  {[
+                    {
+                      n: 1,
+                      title: "Create a database",
+                      body: "Runs as a private container with its own storage.",
+                    },
+                    {
+                      n: 2,
+                      title: "Attach it to an app",
+                      body: "Injects the connection variables into that app.",
+                    },
+                    {
+                      n: 3,
+                      title: "Redeploy the app",
+                      body: "Variables apply on the next deploy. We can do it for you.",
+                    },
+                  ].map((step) => (
+                    <li key={step.n} className="flex gap-2.5">
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+                        {step.n}
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-semibold leading-tight">{step.title}</p>
+                        <p className="text-[11px] leading-snug text-muted-foreground">{step.body}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </CardContent>
+            </Card>
+
+            {/* Type reference */}
+            <Card>
+              <CardContent className="p-4">
+                <p className="mb-3 text-sm font-semibold">Database types</p>
+                <div className="space-y-2.5">
+                  {Object.entries(TYPE_META).map(([id, m]) => (
+                    <div key={id} className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-foreground">{m.label}</p>
+                        <p className="truncate font-mono text-[11px] text-muted-foreground">
+                          {m.primaryVar} · :{TYPE_PORTS[id]}
+                        </p>
+                      </div>
+                      <Badge variant="info" size="sm" className="shrink-0">{m.short}</Badge>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Good to know */}
+            <Card>
+              <CardContent className="space-y-2.5 p-4 text-[11px] leading-snug text-muted-foreground">
+                <p className="text-sm font-semibold text-foreground">Good to know</p>
+                <p>
+                  Databases live on a private network and aren&apos;t exposed to the internet — only your
+                  attached apps can reach them.
+                </p>
+                <p>
+                  Deleting a database keeps its stored data unless you opt in to erase the volume.
+                </p>
+                <p>
+                  One database can be attached to multiple apps. They&apos;ll all share the same connection.
+                </p>
+              </CardContent>
+            </Card>
+          </aside>
+        </div>
       </div>
 
       {/* Attach dialog */}

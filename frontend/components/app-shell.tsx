@@ -363,11 +363,11 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
           <header className="shrink-0 flex h-14 items-center justify-between border-b border-border bg-transparent px-4 select-none">
             <div className="flex items-center gap-2">
               <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer" />
-              <div className="h-3.5 w-px bg-border" />
+              {/* <div className="h-3.5 w-px bg-border" />
               <span className="text-sm font-mono text-muted-foreground flex items-center gap-1.5 font-medium">
                 <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                 Active Node: vps-us-east-1
-              </span>
+              </span> */}
             </div>
             <div className="flex items-center gap-2">
               <Button

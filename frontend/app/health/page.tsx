@@ -129,11 +129,11 @@ export default function HealthPage() {
       <div className="p-4 md:p-6 space-y-6">
         {/* Page header */}
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <ActivityIcon className="h-4 w-4" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <ActivityIcon className="h-6 w-6" />
           </div>
           <div>
-            <h1>Node Health</h1>
+            <h2>Node Health</h2>
             <p className="text-sm text-muted-foreground">
               Real-time system metrics for the active worker node.
               {health && (
