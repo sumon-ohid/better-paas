@@ -9,13 +9,6 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectPopup,
-  SelectItem,
-} from "@/components/ui/select"
-import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -51,7 +44,6 @@ export default function SettingsPage() {
   const [pruning, setPruning] = useState(false)
   const [pruneOutput, setPruneOutput] = useState("")
   const [showPruneModal, setShowPruneModal] = useState(false)
-  const [restartPolicy, setRestartPolicy] = useState("unless-stopped")
 
   // Notifications
   const [notif, setNotif] = useState<NotificationConfig>({
@@ -186,70 +178,6 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-
-        {/* Node Configuration */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <SettingsIcon className="h-4 w-4 text-muted-foreground" />
-              Node Configuration
-              <Badge variant="info" size="sm" className="ml-1">
-                Preview
-              </Badge>
-            </CardTitle>
-            <CardDescription>
-              System configuration for the local worker daemon environment.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-4">
-            <Alert variant="info">
-              <InfoIcon />
-              <AlertTitle>Read-only for now</AlertTitle>
-              <AlertDescription>
-                Editing node configuration from the dashboard isn&apos;t wired up yet. These values
-                reflect the current daemon defaults.
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs mr-4 font-semibold text-muted-foreground">
-                Proxy Timeout Limit
-              </Label>
-              <Input defaultValue="30s" disabled className="max-w-xs text-sm" />
-              <p className="text-xs text-muted-foreground/60">
-                Maximum time Caddy reverse proxy will wait for a backend response.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs mr-4 font-semibold text-muted-foreground">
-                Builder Concurrency Limit
-              </Label>
-              <Input defaultValue="2" disabled className="max-w-xs text-sm" />
-              <p className="text-xs text-muted-foreground/60">
-                Number of parallel Nixpacks builds allowed simultaneously.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs mr-4 font-semibold text-muted-foreground">
-                Container Restart Policy
-              </Label>
-              <Select value={restartPolicy} onValueChange={(v) => v && setRestartPolicy(v)} disabled>
-                <SelectTrigger className="w-full max-w-xs">
-                  <SelectValue placeholder="Select restart policy" />
-                </SelectTrigger>
-                <SelectPopup>
-                  <SelectItem value="unless-stopped">unless-stopped</SelectItem>
-                  <SelectItem value="always">always</SelectItem>
-                  <SelectItem value="on-failure">on-failure</SelectItem>
-                  <SelectItem value="no">no</SelectItem>
-                </SelectPopup>
-              </Select>
-            </div>
-            <div className="pt-2">
-              <Button disabled>Save configuration</Button>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Docker Maintenance */}
         <Card>
