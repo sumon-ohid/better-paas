@@ -1068,35 +1068,46 @@ export default function DeployPage() {
 
   return (
     <main className="relative min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
+      {/* Close (desktop only) — return to the dashboard */}
+      <button
+        onClick={() => router.push("/")}
+        aria-label="Close"
+        className="absolute right-5 top-5 z-10 hidden h-9 w-9 cursor-pointer items-center justify-center rounded-md border border-border bg-card/60 text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground md:flex"
+      >
+        <XIcon className="h-4 w-4" />
+      </button>
+
       <div className="relative w-full max-w-2xl">
         {/* Step Indicator */}
-        <div className="flex items-center justify-between mb-8 px-2">
+        <div className="flex items-center mb-8 px-2">
           {[
             { num: 1, label: "Repository" },
             { num: 2, label: "Build Config" },
             { num: 3, label: "Environment" },
           ].map((s) => (
-            <div key={s.num} className="flex items-center gap-3">
-              <span
-                className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${
-                  step === s.num
-                    ? "bg-primary border-primary text-primary-foreground font-extrabold"
-                    : step > s.num
-                      ? "bg-muted border-muted text-primary"
-                      : "border-border text-muted-foreground"
-                }`}
-              >
-                {s.num}
-              </span>
-              <span
-                className={`text-sm font-semibold hidden md:inline transition-colors ${
-                  step === s.num ? "text-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {s.label}
-              </span>
-              {s.num < 3 && <div className="h-px w-8 md:w-16 bg-border mx-1" />}
-            </div>
+            <React.Fragment key={s.num}>
+              <div className="flex shrink-0 items-center gap-3">
+                <span
+                  className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${
+                    step === s.num
+                      ? "bg-primary border-primary text-primary-foreground font-extrabold"
+                      : step > s.num
+                        ? "bg-muted border-muted text-primary"
+                        : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {s.num}
+                </span>
+                <span
+                  className={`text-sm font-semibold hidden md:inline transition-colors ${
+                    step === s.num ? "text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  {s.label}
+                </span>
+              </div>
+              {s.num < 3 && <div className="h-px flex-1 bg-border mx-3" />}
+            </React.Fragment>
           ))}
         </div>
 
