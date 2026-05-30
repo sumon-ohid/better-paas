@@ -24,9 +24,10 @@ import {
   AlertDialogClose,
 } from "@/components/ui/alert-dialog"
 import { AppShell, useToast } from "@/components/app-shell"
-import { api } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
 import { useAuth } from "@/components/auth-gate"
 import { NucleoIcon } from "@/components/nucleo-icons"
+import { Eye, EyeOff } from "lucide-react"
 import type { NotificationConfig } from "@/lib/types"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
@@ -36,6 +37,9 @@ const InfoIcon = (props: IconProps) => <NucleoIcon {...props} name="info" />
 const AlertTriangleIcon = (props: IconProps) => <NucleoIcon {...props} name="triangle-alert" />
 const LockIcon = (props: IconProps) => <NucleoIcon {...props} name="lock" />
 const BellIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
+const CloudIcon = (props: IconProps) => <NucleoIcon {...props} name="cloud" />
+const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
+const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 
 export default function SettingsPage() {
   const { showToast } = useToast()
@@ -54,12 +58,53 @@ export default function SettingsPage() {
   })
   const [savingNotif, setSavingNotif] = useState(false)
 
+  // Cloudflare DNS integration
+  const [cfConnected, setCfConnected] = useState(false)
+  const [cfToken, setCfToken] = useState("")
+  const [cfShowToken, setCfShowToken] = useState(false)
+  const [cfSaving, setCfSaving] = useState(false)
+  const [cfError, setCfError] = useState("")
+
   React.useEffect(() => {
     api.notifications
       .get()
       .then(setNotif)
       .catch(() => {})
+    api.cloudflare
+      .status()
+      .then((s) => setCfConnected(s.connected))
+      .catch(() => {})
   }, [])
+
+  const handleSaveCloudflare = async () => {
+    if (!cfToken.trim()) {
+      setCfError("Please enter an API token")
+      return
+    }
+    setCfSaving(true)
+    setCfError("")
+    try {
+      await api.cloudflare.saveToken(cfToken.trim())
+      setCfConnected(true)
+      setCfToken("")
+      showToast("Cloudflare connected", "DNS records can now be added from a domain.", "success")
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to save token."
+      setCfError(msg)
+    } finally {
+      setCfSaving(false)
+    }
+  }
+
+  const handleDisconnectCloudflare = async () => {
+    try {
+      await api.cloudflare.deleteToken()
+      setCfConnected(false)
+      showToast("Cloudflare disconnected", "The stored API token was removed.")
+    } catch {
+      showToast("Error", "Failed to disconnect Cloudflare.", "destructive")
+    }
+  }
 
   const handleSaveNotif = async () => {
     setSavingNotif(true)
@@ -274,6 +319,98 @@ export default function SettingsPage() {
                 Send test
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Cloudflare DNS */}
+        <Card>
+          <CardHeader className="border-b border-border/40">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CloudIcon className="h-4 w-4 text-[#f6821f]" />
+              Cloudflare DNS
+              {cfConnected && (
+                <Badge variant="success" size="sm" className="ml-1 gap-1">
+                  <CheckIcon className="h-3 w-3" />
+                  Connected
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Connect a Cloudflare API token to create DNS records for custom domains with one
+              click from the app&apos;s Domains tab.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            {cfConnected ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <GlobeIcon className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                  <span>
+                    A token is stored on this server. Open any app&apos;s{" "}
+                    <span className="font-medium text-foreground">Domains</span> tab and use{" "}
+                    <span className="font-medium text-foreground">Add DNS</span> to point a hostname
+                    here automatically.
+                  </span>
+                </div>
+                <Button variant="outline" onClick={handleDisconnectCloudflare} className="shrink-0">
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Alert variant="info">
+                  <InfoIcon />
+                  <AlertTitle>Create a scoped token</AlertTitle>
+                  <AlertDescription>
+                    In Cloudflare, create an API token with{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-[11px]">Zone · DNS · Edit</code>{" "}
+                    permission for the zones you want to manage. It is stored encrypted and never
+                    leaves your server.
+                  </AlertDescription>
+                </Alert>
+
+                <a
+                  href="https://dash.cloudflare.com/profile/api-tokens"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-primary underline-offset-2 hover:underline"
+                >
+                  Create a Cloudflare API token
+                  <NucleoIcon name="external" className="h-3 w-3 opacity-60" />
+                </a>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">API Token</Label>
+                  <div className="relative">
+                    <Input
+                      type={cfShowToken ? "text" : "password"}
+                      value={cfToken}
+                      onChange={(e) => {
+                        setCfToken(e.target.value)
+                        setCfError("")
+                      }}
+                      placeholder="Cloudflare API token"
+                      className="pr-10 font-mono text-sm"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCfShowToken((v) => !v)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                      aria-label={cfShowToken ? "Hide token" : "Show token"}
+                    >
+                      {cfShowToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {cfError && <p className="text-[11px] text-destructive-foreground">{cfError}</p>}
+                </div>
+
+                <Button onClick={handleSaveCloudflare} loading={cfSaving} className="gap-1.5">
+                  <CloudIcon className="h-3.5 w-3.5" />
+                  {cfSaving ? "Verifying..." : "Connect Cloudflare"}
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
 

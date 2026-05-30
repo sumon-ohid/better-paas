@@ -69,6 +69,15 @@ func main() {
 	mux.HandleFunc("/api/apps/rollback", handleRollback)
 	mux.HandleFunc("/api/apps/webhook", handleWebhookInfo)
 	mux.HandleFunc("/api/apps/webhook/regenerate", handleWebhookRegenerate)
+	mux.HandleFunc("/api/apps/domains/add", handleDomainAdd)
+	mux.HandleFunc("/api/apps/domains/remove", handleDomainRemove)
+
+	// Custom domains + Cloudflare DNS
+	mux.HandleFunc("/api/server/info", handleServerInfo)
+	mux.HandleFunc("/api/cloudflare/status", handleCloudflareStatus)
+	mux.HandleFunc("/api/cloudflare/token/save", handleCloudflareTokenSet)
+	mux.HandleFunc("/api/cloudflare/token/delete", handleCloudflareTokenDelete)
+	mux.HandleFunc("/api/cloudflare/dns", handleCloudflareDNS)
 
 	// Git helpers
 	mux.HandleFunc("/api/git/branches", handleGitBranches)

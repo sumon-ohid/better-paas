@@ -11,6 +11,7 @@ import { AppShell, useToast } from "@/components/app-shell"
 import { StatusBadge } from "@/components/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
+import { AppDomains } from "@/components/app-domains"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -56,7 +57,7 @@ const GitCommitIcon = (props: IconProps) => <NucleoIcon {...props} name="git-com
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 
-export type AppTab = "overview" | "config" | "logs" | "terminal" | "deployments"
+export type AppTab = "overview" | "config" | "domains" | "logs" | "terminal" | "deployments"
 
 // githubCommitUrl builds a link to a specific commit on GitHub from the app's
 // git repo URL. Returns "" for non-GitHub remotes or when the SHA is missing.
@@ -402,6 +403,7 @@ function AppDetailPage() {
   const tabs: { id: AppTab; label: string }[] = [
     { id: "overview", label: "Overview" },
     { id: "config", label: "Configuration" },
+    { id: "domains", label: "Domains" },
     { id: "logs", label: "Logs" },
     { id: "terminal", label: "Terminal" },
     { id: "deployments", label: "Deployments" },
@@ -752,6 +754,11 @@ function AppDetailPage() {
               </div>
             </div>
           </div>
+          )}
+
+          {/* ── Domains ────────────────────────────────────────────────── */}
+          {currentTab === "domains" && (
+            <AppDomains app={app} onChange={(updated) => setApp(updated)} />
           )}
 
           {/* ── Logs ───────────────────────────────────────────────────── */}

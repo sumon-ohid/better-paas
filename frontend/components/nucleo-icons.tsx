@@ -43,6 +43,7 @@ import {
   Trash2,
   TriangleAlert,
   Globe,
+  Cloud,
   X,
 } from "lucide-react"
 
@@ -87,6 +88,7 @@ type NucleoIconName =
   | "trash"
   | "triangle-alert"
   | "web"
+  | "cloud"
   | "x"
   | "circle-alert"
   | "info"
@@ -138,6 +140,7 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   trash: Trash2,
   "triangle-alert": TriangleAlert,
   web: Globe,
+  cloud: Cloud,
   x: X,
 }
 

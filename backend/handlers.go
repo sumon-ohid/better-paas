@@ -378,7 +378,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		StartCommand   string            `json:"startCommand"`
 		InstallCommand string            `json:"installCommand"`
 		PortOverride   int               `json:"portOverride"`
-		Domains        []string          `json:"domains"`
+		Domains        *[]string         `json:"domains"`
 		Memory         string            `json:"memory"`
 		CPUs           string            `json:"cpus"`
 		Volumes        []string          `json:"volumes"`
@@ -396,9 +396,11 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := validateDomains(req.Domains); err != nil {
-		jsonError(w, err.Error(), http.StatusBadRequest)
-		return
+	if req.Domains != nil {
+		if err := validateDomains(*req.Domains); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	ip := getLocalIP()
@@ -415,7 +417,9 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 			apps[i].StartCommand = req.StartCommand
 			apps[i].InstallCommand = req.InstallCommand
 			apps[i].PortOverride = req.PortOverride
-			apps[i].Domains = req.Domains
+			if req.Domains != nil {
+				apps[i].Domains = *req.Domains
+			}
 			apps[i].Memory = req.Memory
 			apps[i].CPUs = req.CPUs
 			apps[i].Volumes = req.Volumes

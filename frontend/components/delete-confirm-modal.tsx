@@ -92,27 +92,22 @@ export function DeleteConfirmModal({
         </AlertDialogHeader>
 
         <div className="space-y-3 px-6 mb-4">
-          {/* Project name badge with copy */}
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
-              <span className="truncate font-mono text-sm font-semibold text-foreground">
-                {appName}
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={handleCopy}
-              aria-label="Copy project name"
-            >
-              {copied ? (
-                <CheckIcon className="h-3 w-3 text-success" />
-              ) : (
-                <CopyIcon className="h-3 w-3" />
-              )}
-            </Button>
-          </div>
+          {/* Project name — neutral, copyable chip */}
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="group flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/50 cursor-pointer"
+            aria-label="Copy project name"
+          >
+            <span className="truncate font-mono text-sm font-semibold text-foreground">
+              {appName}
+            </span>
+            {copied ? (
+              <CheckIcon className="h-3.5 w-3.5 shrink-0 text-success" />
+            ) : (
+              <CopyIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+            )}
+          </button>
 
           {/* Confirmation input */}
           <div className="space-y-1.5">

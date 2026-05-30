@@ -101,9 +101,39 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ id }),
       }),
+    addDomain: (id: string, domain: string) =>
+      req<App>("/api/apps/domains/add", {
+        method: "POST",
+        body: JSON.stringify({ id, domain }),
+      }),
+    removeDomain: (id: string, domain: string) =>
+      req<App>("/api/apps/domains/remove", {
+        method: "POST",
+        body: JSON.stringify({ id, domain }),
+      }),
     runtimeLogs: (id: string, lines = 500) =>
       req<{ logs: string[] }>(
         `/api/apps/runtime-logs?id=${encodeURIComponent(id)}&lines=${lines}`,
+      ),
+  },
+
+  // ── Custom domains: server info + Cloudflare DNS ────────────────────────────
+  server: {
+    info: () => req<{ publicIp: string; localIp: string }>("/api/server/info"),
+  },
+  cloudflare: {
+    status: () => req<{ connected: boolean }>("/api/cloudflare/status"),
+    saveToken: (token: string) =>
+      req<{ status: string }>("/api/cloudflare/token/save", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      }),
+    deleteToken: () =>
+      req<{ status: string }>("/api/cloudflare/token/delete", { method: "DELETE" }),
+    addDns: (domain: string) =>
+      req<{ status: string; domain: string; ip: string; zone: string; proxied: boolean }>(
+        "/api/cloudflare/dns",
+        { method: "POST", body: JSON.stringify({ domain }) },
       ),
   },
 
