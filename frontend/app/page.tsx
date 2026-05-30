@@ -67,6 +67,7 @@ const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 const ExternalLinkIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
+const LinkIcon = (props: IconProps) => <NucleoIcon {...props} name="link" />
 const EyeIcon = (props: IconProps) => <NucleoIcon {...props} name="eye" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const MoreIcon = (props: IconProps) => <NucleoIcon {...props} name="more-horizontal" />
@@ -145,6 +146,7 @@ function UrlLink({ url }: { url: string | undefined }) {
       onClick={(e) => e.stopPropagation()}
       className="inline-flex items-center gap-1 text-sm font-mono text-primary hover:underline transition-colors"
     >
+      <LinkIcon className="h-3 w-3 shrink-0 opacity-60" />
       {url.replace("http://", "")}
       <ExternalLinkIcon className="h-3 w-3 opacity-60" />
     </a>

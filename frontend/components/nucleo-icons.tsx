@@ -21,6 +21,7 @@ import {
   Info,
   Keyboard,
   Layers,
+  Link,
   List,
   Loader,
   Lock,
@@ -63,6 +64,7 @@ type NucleoIconName =
   | "house"
   | "keyboard"
   | "layers"
+  | "link"
   | "list"
   | "loader"
   | "lock"
@@ -112,6 +114,7 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   info: Info,
   keyboard: Keyboard,
   layers: Layers,
+  link: Link,
   list: List,
   loader: Loader,
   lock: Lock,
