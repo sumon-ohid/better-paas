@@ -146,6 +146,7 @@ export interface BackupConfig {
   autoEnabled: boolean
   intervalHours: number
   retention: number
+  includeDatabases: boolean
   s3Enabled: boolean
   s3Endpoint: string
   s3Region: string

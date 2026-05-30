@@ -44,6 +44,7 @@ const DEFAULT_CONFIG: BackupConfig = {
   autoEnabled: false,
   intervalHours: 24,
   retention: 10,
+  includeDatabases: true,
   s3Enabled: false,
   s3Endpoint: "",
   s3Region: "",
@@ -105,6 +106,10 @@ export default function BackupsPage() {
   const handleCreate = async () => {
     setCreating(true)
     try {
+      // Persist config first so the latest "include databases" choice applies
+      // to this backup (the backend reads stored config when building it).
+      await api.backups.saveConfig(configPayload())
+      setSecretDirty(false)
       await api.backups.create()
       const where = cfg.s3Enabled ? " and queued for offsite upload" : ""
       showToast("Backup created", `A new snapshot was saved${where}.`, "success")
@@ -214,6 +219,19 @@ export default function BackupsPage() {
                 </Button>
               </CardHeader>
               <CardContent className="pt-4">
+                <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 p-3">
+                  <span className="space-y-0.5">
+                    <span className="block text-sm font-medium">Include database contents</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Also dump each managed database (Postgres/MySQL/Redis) into the archive, so a restore
+                      brings back real data — not empty databases.
+                    </span>
+                  </span>
+                  <Switch
+                    checked={cfg.includeDatabases}
+                    onCheckedChange={(v) => set("includeDatabases", v === true)}
+                  />
+                </label>
                 {backups.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
                     No backups yet.
@@ -424,6 +442,7 @@ export default function BackupsPage() {
                   About backups
                 </div>
                 <p>Each backup is a gzipped archive of the data directory: the database, encryption key, tokens, and logs.</p>
+                <p>With &ldquo;include database contents&rdquo; on, managed databases are also dumped (Postgres/MySQL via logical dump, Redis as an RDB snapshot) under <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">databases/</code>.</p>
                 <p>Local snapshots are pruned to the &ldquo;keep latest&rdquo; count. Offsite uploads are not pruned automatically.</p>
                 <p>Restoring is manual: stop the server, unpack the archive into <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">data/</code>, and restart.</p>
               </CardContent>

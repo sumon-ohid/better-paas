@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -35,9 +37,10 @@ const backupConfigKey = "backup_config"
 // Stored as JSON in the meta table. The S3 secret key is encrypted separately
 // (see load/save) so it is never persisted in cleartext.
 type BackupConfig struct {
-	AutoEnabled   bool `json:"autoEnabled"`
-	IntervalHours int  `json:"intervalHours"` // how often automatic backups run
-	Retention     int  `json:"retention"`     // how many local backups to keep
+	AutoEnabled      bool `json:"autoEnabled"`
+	IntervalHours    int  `json:"intervalHours"`    // how often automatic backups run
+	Retention        int  `json:"retention"`        // how many local backups to keep
+	IncludeDatabases bool `json:"includeDatabases"` // also dump managed DB contents
 
 	// Offsite object storage (S3-compatible: AWS S3, Cloudflare R2, MinIO…).
 	S3Enabled       bool   `json:"s3Enabled"`
@@ -57,9 +60,10 @@ const backupSecretKeyMeta = "backup_s3_secret"
 // defaultBackupConfig returns sensible defaults (auto off, daily, keep 10).
 func defaultBackupConfig() BackupConfig {
 	return BackupConfig{
-		AutoEnabled:   false,
-		IntervalHours: 24,
-		Retention:     10,
+		AutoEnabled:      false,
+		IntervalHours:    24,
+		Retention:        10,
+		IncludeDatabases: true,
 	}
 }
 
@@ -201,7 +205,110 @@ func createBackup() (string, error) {
 		os.Remove(outPath)
 		return "", err
 	}
+
+	// Capture live database contents (best-effort) unless disabled in config.
+	if getBackupConfig().IncludeDatabases {
+		writeAddonDumps(tw, time.Now())
+	}
 	return outPath, nil
+}
+
+// ---------------------------------------------------------------------------
+// Managed database dumps
+// ---------------------------------------------------------------------------
+//
+// In addition to the control-plane data directory, a backup can capture the
+// live contents of each managed database (addon) so a restore brings back real
+// rows, not just empty containers. Dumps are logical where possible:
+//   postgres → pg_dump (.sql)
+//   mysql    → mysqldump (.sql)
+//   redis    → SAVE + dump.rdb (binary)
+//
+// Each dump runs via `docker exec` against the addon's own container. Failures
+// are logged and skipped so one unreachable database never aborts the backup.
+
+// dumpAddonDatabase produces a logical dump of one addon's contents. It returns
+// the file extension and the dump bytes.
+func dumpAddonDatabase(a Addon) (ext string, data []byte, err error) {
+	if !containerExists(a.ContainerName) {
+		return "", nil, fmt.Errorf("container %s not present", a.ContainerName)
+	}
+	pw := a.ConnEnv // map of connection env (may be nil if not loaded)
+	switch a.Type {
+	case "postgres":
+		out, e := dockerExecCapture(a.ContainerName,
+			[]string{"-e", "PGPASSWORD=" + pw["PGPASSWORD"]},
+			"pg_dump", "-U", "appuser", "-d", "appdb", "--no-owner", "--clean", "--if-exists")
+		return "sql", out, e
+	case "mysql":
+		out, e := dockerExecCapture(a.ContainerName,
+			[]string{"-e", "MYSQL_PWD=" + pw["MYSQL_PASSWORD"]},
+			"mysqldump", "-u", "appuser", "--databases", "appdb",
+			"--single-transaction", "--no-tablespaces")
+		return "sql", out, e
+	case "redis":
+		// Force a synchronous save so dump.rdb is current, then read it.
+		if _, e := dockerExecCapture(a.ContainerName,
+			[]string{"-e", "REDISCLI_AUTH=" + pw["REDIS_PASSWORD"]},
+			"redis-cli", "SAVE"); e != nil {
+			return "", nil, e
+		}
+		out, e := dockerExecCapture(a.ContainerName, nil, "cat", "/data/dump.rdb")
+		return "rdb", out, e
+	default:
+		return "", nil, fmt.Errorf("unsupported addon type %q", a.Type)
+	}
+}
+
+// dockerExecCapture runs `docker exec [execEnv] <container> <cmd> <args...>` and
+// returns stdout. stderr is captured separately and surfaced only on error, so
+// tool warnings (e.g. mysqldump notices) don't corrupt the dump.
+func dockerExecCapture(container string, execEnv []string, cmd string, args ...string) ([]byte, error) {
+	full := []string{"exec"}
+	full = append(full, execEnv...)
+	full = append(full, container, cmd)
+	full = append(full, args...)
+
+	c := exec.Command("docker", full...)
+	var stdout, stderr bytes.Buffer
+	c.Stdout = &stdout
+	c.Stderr = &stderr
+	if err := c.Run(); err != nil {
+		return nil, fmt.Errorf("%v: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return stdout.Bytes(), nil
+}
+
+// writeAddonDumps appends a logical dump of every managed database to the tar
+// archive under databases/. Best-effort: individual failures are logged.
+func writeAddonDumps(tw *tar.Writer, mtime time.Time) {
+	addons, err := dbLoadAddons()
+	if err != nil {
+		log.Printf("[backup] could not load addons for dumping: %v", err)
+		return
+	}
+	for _, a := range addons {
+		ext, data, err := dumpAddonDatabase(a)
+		if err != nil {
+			log.Printf("[backup] skipping dump of %s (%s): %v", a.Name, a.Type, err)
+			continue
+		}
+		hdr := &tar.Header{
+			Name:    fmt.Sprintf("databases/%s.%s", a.ContainerName, ext),
+			Mode:    0600,
+			Size:    int64(len(data)),
+			ModTime: mtime,
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			log.Printf("[backup] failed to write dump header for %s: %v", a.Name, err)
+			continue
+		}
+		if _, err := tw.Write(data); err != nil {
+			log.Printf("[backup] failed to write dump for %s: %v", a.Name, err)
+			continue
+		}
+		log.Printf("[backup] captured %s dump for %s (%d bytes)", a.Type, a.Name, len(data))
+	}
 }
 
 // backupInfo describes one stored backup.
