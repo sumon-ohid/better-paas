@@ -16,7 +16,16 @@ import {
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogPanel,
+} from "@/components/ui/dialog"
 import { NucleoIcon } from "@/components/nucleo-icons"
+import { useAuth } from "@/components/auth-gate"
 import { toastManager } from "@/components/ui/toast"
 import {
   CommandDialog,
@@ -51,6 +60,7 @@ const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" /
 const ArchiveIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 const MoonIcon = (props: IconProps) => <NucleoIcon {...props} name="moon" />
 const SunIcon = (props: IconProps) => <NucleoIcon {...props} name="sun" />
+const SignOutIcon = (props: IconProps) => <NucleoIcon {...props} name="logout" />
 
 interface NavItem {
   id: string
@@ -59,6 +69,31 @@ interface NavItem {
   href: string
   badge?: string | number
 }
+
+// Static reference for the keyboard-shortcuts cheat sheet. Mirrors the bindings
+// implemented in the keydown handler below. Kept as plain data (label + keys)
+// because this dialog is a read-only guide, not a launcher — the command
+// palette (⌘K) is the searchable "do things" surface.
+const SHORTCUT_SECTIONS: { heading: string; items: [string, string[]][] }[] = [
+  {
+    heading: "Navigation",
+    items: [
+      ["Applications", ["g", "a"]],
+      ["Node Health", ["g", "m"]],
+      ["Live Logs", ["g", "l"]],
+      ["Settings", ["g", "s"]],
+    ],
+  },
+  {
+    heading: "Actions",
+    items: [
+      ["Deploy service", ["n"]],
+      ["Command palette", ["⌘", "k"]],
+      ["Toggle dark mode", ["d"]],
+      ["Shortcuts guide", ["?"]],
+    ],
+  },
+]
 
 interface AppShellProps {
   children: React.ReactNode
@@ -70,6 +105,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { resolvedTheme, setTheme } = useTheme()
+  const { signOut } = useAuth()
 
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
@@ -345,15 +381,24 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
           </SidebarContent>
 
           {/* Sidebar Footer */}
-          <div className="mt-auto p-4 flex items-center justify-between text-sm text-muted-foreground/60">
+          <div className="mt-auto space-y-1 p-3">
             <button
-              onClick={() => setShowShortcuts(true)}
-              className="flex items-center gap-1.5 hover:text-foreground cursor-pointer transition-colors duration-150"
+              onClick={signOut}
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-foreground/75 transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive-foreground cursor-pointer"
             >
-              <KeyboardIcon className="h-3.5 w-3.5" />
-              <span>Keyboard shortcuts</span>
+              <SignOutIcon className="h-3.5 w-3.5" />
+              <span>Sign out</span>
             </button>
-            <span className="font-mono text-xs bg-muted/40 px-1 rounded">?</span>
+            <div className="flex items-center justify-between px-2 pt-1 text-sm text-muted-foreground/60">
+              <button
+                onClick={() => setShowShortcuts(true)}
+                className="flex items-center gap-1.5 hover:text-foreground cursor-pointer transition-colors duration-150"
+              >
+                <KeyboardIcon className="h-3.5 w-3.5" />
+                <span>Keyboard shortcuts</span>
+              </button>
+              <span className="font-mono text-xs bg-muted/40 px-1 rounded">?</span>
+            </div>
           </div>
         </Sidebar>
 
@@ -390,75 +435,49 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
 
       {/* ── Modals ────────────────────────────────────────────────────── */}
 
-      {/* Keyboard Shortcuts */}
-      {showShortcuts && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="fixed inset-0 cursor-pointer" onClick={() => setShowShortcuts(false)} />
-          <div className="relative w-full max-w-lg overflow-hidden rounded-lg border border-border bg-card/95 shadow-2xl backdrop-blur-xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <div className="flex items-center gap-1.5">
-                <KeyboardIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="font-semibold text-base">Keyboard Shortcuts</span>
-              </div>
-              <button
-                onClick={() => setShowShortcuts(false)}
-                className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <XIcon className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-x-6 gap-y-4 max-h-[400px] overflow-y-auto">
-              <div className="space-y-3.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
-                  Navigation
-                </span>
-                {[
-                  ["Applications", "g a"],
-                  ["Node Health", "g m"],
-                  ["Live Logs", "g l"],
-                  ["Settings", "g s"],
-                ].map(([label, keys]) => (
-                  <div key={label} className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{label}</span>
-                    <div className="flex items-center gap-0.5">
-                      {keys.split(" ").map((k, i) => (
-                        <Kbd key={i}>{k}</Kbd>
-                      ))}
-                    </div>
+      {/* Keyboard Shortcuts — read-only reference (the palette is the launcher) */}
+      <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <KeyboardIcon className="h-4 w-4 text-muted-foreground" />
+              Keyboard Shortcuts
+            </DialogTitle>
+            <DialogDescription>
+              Press these keys anywhere to navigate and act without reaching for the mouse.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel>
+            <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
+              {SHORTCUT_SECTIONS.map((section) => (
+                <div key={section.heading} className="space-y-3">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                    {section.heading}
+                  </span>
+                  <div className="space-y-2.5">
+                    {section.items.map(([label, keys]) => (
+                      <div key={label} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">{label}</span>
+                        <div className="flex items-center gap-1">
+                          {keys.map((k, i) => (
+                            <Kbd key={i}>{k}</Kbd>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div className="space-y-3.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
-                  Actions
-                </span>
-                {[
-                  ["Deploy Service", "n"],
-                  ["Command Palette", "⌘ k"],
-                  ["Toggle Dark Mode", "d"],
-                  ["Shortcuts Guide", "?"],
-                ].map(([label, keys]) => (
-                  <div key={label} className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{label}</span>
-                    <div className="flex items-center gap-0.5">
-                      {keys.split(" ").map((k, i) => (
-                        <Kbd key={i}>{k}</Kbd>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-            <div className="bg-muted/30 px-4 py-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-              <span>
-                Press <kbd className="font-mono bg-muted px-1 rounded text-foreground">Esc</kbd> to
-                close
-              </span>
-              <HelpCircleIcon className="h-3.5 w-3.5 opacity-55" />
-            </div>
-          </div>
-        </div>
-      )}
+            <p className="mt-6 border-t border-border/40 pt-3 text-xs text-muted-foreground">
+              Tip: chord shortcuts like <Kbd>g</Kbd> <Kbd>a</Kbd> mean press{" "}
+              <span className="font-medium text-foreground">g</span> then{" "}
+              <span className="font-medium text-foreground">a</span>. Use{" "}
+              <Kbd>⌘</Kbd> <Kbd>k</Kbd> for the searchable command palette.
+            </p>
+          </DialogPanel>
+        </DialogContent>
+      </Dialog>
 
       {/* Command Palette */}
       <CommandDialog open={showCommandPalette} onOpenChange={setShowCommandPalette}>

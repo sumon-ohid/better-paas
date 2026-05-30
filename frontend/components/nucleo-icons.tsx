@@ -26,6 +26,7 @@ import {
   List,
   Loader,
   Lock,
+  LogOut,
   Minus,
   Ellipsis,
   Eye,
@@ -71,6 +72,7 @@ type NucleoIconName =
   | "list"
   | "loader"
   | "lock"
+  | "logout"
   | "minus"
   | "eye"
   | "moon"
@@ -123,6 +125,7 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   list: List,
   loader: Loader,
   lock: Lock,
+  logout: LogOut,
   minus: Minus,
   eye: Eye,
   moon: Moon,
