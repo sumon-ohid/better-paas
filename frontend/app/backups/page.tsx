@@ -82,7 +82,7 @@ export default function BackupsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-3xl space-y-6 p-4 md:p-6">
+      <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
         <div className="flex items-center gap-2.5">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <ArchiveIcon className="h-6 w-6" />

@@ -494,7 +494,7 @@ function AppDetailPage() {
           {/* ── Overview ───────────────────────────────────────────────── */}
           {currentTab === "overview" && (
             <div className="h-full overflow-y-auto p-4 md:p-6">
-              <div className="max-w-2xl space-y-6 animate-in fade-in-50 duration-200">
+              <div className="mx-auto max-w-4xl space-y-6 animate-in fade-in-50 duration-200">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
@@ -567,7 +567,7 @@ function AppDetailPage() {
                     {Object.entries(app.envVars).map(([k, v]) => (
                       <div key={k} className="flex justify-between gap-2">
                         <span className="text-foreground font-semibold truncate">{k}</span>
-                        <span className="text-muted-foreground truncate max-w-[200px]">{v}</span>
+                        <span className="text-muted-foreground truncate max-w-[50%]">{v}</span>
                       </div>
                     ))}
                   </div>
@@ -598,7 +598,7 @@ function AppDetailPage() {
           {/* ── Configuration ──────────────────────────────────────────── */}
           {currentTab === "config" && (
             <div className="h-full overflow-y-auto p-4 md:p-6">
-              <div className="max-w-2xl space-y-5 animate-in fade-in-50 duration-200">
+              <div className="mx-auto max-w-4xl space-y-5 animate-in fade-in-50 duration-200">
                <div className="space-y-1">
                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                    Git Repository URL

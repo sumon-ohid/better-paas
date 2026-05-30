@@ -269,33 +269,6 @@ export default function CronPage() {
                 </p>
               </CardContent>
             </Card>
-
-            {/* Examples */}
-            <Card>
-              <CardContent className="p-4">
-                <p className="mb-3 text-sm font-semibold">Common schedules</p>
-                <div className="space-y-2 text-[11px]">
-                  {[
-                    { expr: "*/15 * * * *", desc: "Every 15 minutes" },
-                    { expr: "0 * * * *", desc: "Every hour" },
-                    { expr: "0 2 * * *", desc: "Daily at 2:00am" },
-                    { expr: "0 0 * * 1", desc: "Mondays at midnight" },
-                    { expr: "0 0 1 * *", desc: "First of each month" },
-                  ].map((ex) => (
-                    <button
-                      key={ex.expr}
-                      onClick={() => setSchedule(ex.expr)}
-                      className="flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/40"
-                      title="Use this schedule"
-                    >
-                      <code className="font-mono text-foreground">{ex.expr}</code>
-                      <span className="shrink-0 text-muted-foreground">{ex.desc}</span>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Good to know */}
             <Card>
               <CardContent className="space-y-2.5 p-4 text-[11px] leading-snug text-muted-foreground">

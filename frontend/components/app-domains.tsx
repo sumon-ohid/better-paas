@@ -120,7 +120,7 @@ export function AppDomains({ app, onChange }: AppDomainsProps) {
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6">
-      <div className="max-w-2xl space-y-6 animate-in fade-in-50 duration-200">
+      <div className="mx-auto max-w-4xl space-y-6 animate-in fade-in-50 duration-200">
         {/* Add domain */}
         <div className="space-y-3">
           <div>
