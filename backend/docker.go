@@ -179,9 +179,12 @@ func portFree(port int) bool {
 	return true
 }
 
-// runDockerPrune runs docker system prune -f --volumes and returns output.
+// runDockerPrune runs `docker system prune -f` (without --volumes) and returns
+// the output. Volumes are deliberately NOT pruned: managed-database add-ons
+// whose containers were removed but whose data was kept intentionally leave
+// orphaned named volumes, and --volumes would delete that retained data.
 func runDockerPrune() (string, error) {
-	cmd := exec.Command("docker", "system", "prune", "-f", "--volumes")
+	cmd := exec.Command("docker", "system", "prune", "-f")
 	output, err := cmd.CombinedOutput()
 	return string(output), err
 }

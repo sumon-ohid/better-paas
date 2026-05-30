@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Select,
@@ -26,6 +27,9 @@ import {
 import { AppShell, useToast } from "@/components/app-shell"
 import { api, ApiError } from "@/lib/api"
 import { useAuth } from "@/components/auth-gate"
+import { GitHubConnectModal } from "@/components/github-connect-modal"
+import { GithubLight } from "@/components/ui/svgs/githubLight"
+import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { Eye, EyeOff } from "lucide-react"
 import type { NotificationConfig } from "@/lib/types"
@@ -65,6 +69,10 @@ export default function SettingsPage() {
   const [cfSaving, setCfSaving] = useState(false)
   const [cfError, setCfError] = useState("")
 
+  // GitHub integration
+  const [ghConnected, setGhConnected] = useState(false)
+  const [ghModalOpen, setGhModalOpen] = useState(false)
+
   React.useEffect(() => {
     api.notifications
       .get()
@@ -74,7 +82,28 @@ export default function SettingsPage() {
       .status()
       .then((s) => setCfConnected(s.connected))
       .catch(() => {})
+    api.git
+      .tokenStatus()
+      .then((s) => setGhConnected(s.connected))
+      .catch(() => {})
   }, [])
+
+  const refreshGitHub = () => {
+    api.git
+      .tokenStatus()
+      .then((s) => setGhConnected(s.connected))
+      .catch(() => {})
+  }
+
+  const handleDisconnectGitHub = async () => {
+    try {
+      await api.git.deleteToken()
+      setGhConnected(false)
+      showToast("GitHub disconnected", "The stored access token was removed.")
+    } catch {
+      showToast("Error", "Failed to disconnect GitHub.", "destructive")
+    }
+  }
 
   const handleSaveCloudflare = async () => {
     if (!cfToken.trim()) {
@@ -131,7 +160,7 @@ export default function SettingsPage() {
     setPruning(true)
     setPruneOutput("")
     try {
-      showToast("Pruning Docker...", "Removing stopped containers, unused images and volumes.")
+      showToast("Pruning Docker...", "Removing stopped containers, dangling images, and unused networks.")
       const result = await api.system.prune()
       setPruneOutput(result.output)
       showToast("Prune complete", "Docker system prune finished successfully.", "success")
@@ -238,8 +267,8 @@ export default function SettingsPage() {
               <AlertTriangleIcon />
               <AlertTitle>This action cannot be undone</AlertTitle>
               <AlertDescription>
-                Docker system prune removes all stopped containers, dangling images, and unused
-                networks. Active running containers are not affected.
+                Removes all stopped containers, dangling images, unused networks, and build cache.
+                Running containers and named volumes (including kept database data) are not affected.
               </AlertDescription>
             </Alert>
 
@@ -292,21 +321,17 @@ export default function SettingsPage() {
               />
             </div>
             <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                <input
-                  type="checkbox"
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                <Checkbox
                   checked={notif.onSuccess}
-                  onChange={(e) => setNotif((n) => ({ ...n, onSuccess: e.target.checked }))}
-                  className="h-4 w-4 accent-primary"
+                  onCheckedChange={(c) => setNotif((n) => ({ ...n, onSuccess: c === true }))}
                 />
                 Notify on success
               </label>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                <input
-                  type="checkbox"
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                <Checkbox
                   checked={notif.onFailure}
-                  onChange={(e) => setNotif((n) => ({ ...n, onFailure: e.target.checked }))}
-                  className="h-4 w-4 accent-primary"
+                  onCheckedChange={(c) => setNotif((n) => ({ ...n, onFailure: c === true }))}
                 />
                 Notify on failure
               </label>
@@ -319,6 +344,61 @@ export default function SettingsPage() {
                 Send test
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* GitHub */}
+        <Card>
+          <CardHeader className="border-b border-border/40">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <GithubLight className="h-4 w-4 dark:hidden" />
+              <GithubDark className="hidden h-4 w-4 dark:block" />
+              GitHub
+              {ghConnected && (
+                <Badge variant="success" size="sm" className="ml-1 gap-1">
+                  <CheckIcon className="h-3 w-3" />
+                  Connected
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Connect a personal access token to browse and deploy your repositories, and to enable
+              auto-deploy webhooks.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            {ghConnected ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                  <span>
+                    A token is stored on this server. Deploy a new service from the{" "}
+                    <span className="font-medium text-foreground">Deploy</span> page to browse your
+                    repositories.
+                  </span>
+                </div>
+                <Button variant="outline" onClick={handleDisconnectGitHub} className="shrink-0">
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Alert variant="info">
+                  <InfoIcon />
+                  <AlertTitle>Create a personal access token</AlertTitle>
+                  <AlertDescription>
+                    Generate a PAT with{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-[11px]">repo</code> scope. It
+                    is stored encrypted and never leaves your server.
+                  </AlertDescription>
+                </Alert>
+                <Button onClick={() => setGhModalOpen(true)} className="gap-1.5">
+                  <GithubLight className="h-3.5 w-3.5 dark:hidden" />
+                  <GithubDark className="hidden h-3.5 w-3.5 dark:block" />
+                  Connect GitHub
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -441,7 +521,8 @@ export default function SettingsPage() {
           <CardContent className="space-y-2 pt-4">
             {[
               ["Version", "1.0.0"],
-              ["Engine", "Go 1.23 + gorilla/websocket"],
+              ["Engine", "Go 1.25 + gorilla/websocket"],
+              ["Database", "SQLite (modernc.org/sqlite)"],
               ["Builder", "Nixpacks"],
               ["Proxy", "Caddy + sslip.io"],
               ["Runtime", "Docker"],
@@ -469,7 +550,8 @@ export default function SettingsPage() {
             <AlertDialogTitle>Prune Docker system?</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently removes all stopped containers, dangling images, unused networks, and
-              build cache. Active running containers are not affected.
+              build cache. Running containers and named volumes (including kept database data) are
+              not affected.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -485,6 +567,12 @@ export default function SettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <GitHubConnectModal
+        isOpen={ghModalOpen}
+        onClose={() => setGhModalOpen(false)}
+        onConnected={refreshGitHub}
+      />
     </AppShell>
   )
 }
