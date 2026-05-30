@@ -21,6 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogPanel,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import type { GitHubRepo, GitHubContent } from "@/lib/types"
 import { GitHubConnectModal } from "@/components/github-connect-modal"
@@ -1721,62 +1723,49 @@ export default function DeployPage() {
       />
 
       {/* Public Repo URL Modal */}
-      {showPublicRepoModal && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowPublicRepoModal(false)} />
-          <div className="relative w-full max-w-md mx-4 bg-popover border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150">
-            <div className="px-6 py-4 border-b border-border/50 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-foreground">Deploy Public Repository</h3>
-              <button
-                onClick={() => setShowPublicRepoModal(false)}
-                className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <XIcon className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="px-6 py-5 space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  GitHub Repository URL
-                </Label>
-                <Input
-                  value={manualGitUrl}
-                  onChange={(e) => setManualGitUrl(e.target.value)}
-                  placeholder="https://github.com/user/repo"
-                  className="h-9 text-sm"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && manualGitUrl.trim()) {
-                      setShowPublicRepoModal(false)
-                      handleManualRepo(manualGitUrl)
-                    }
-                  }}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Paste any public GitHub URL. Authentication not required.
-                </p>
-              </div>
-              <Button
-                onClick={() => {
-                  setShowPublicRepoModal(false)
-                  handleManualRepo(manualGitUrl)
+      <Dialog open={showPublicRepoModal} onOpenChange={setShowPublicRepoModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Deploy Public Repository</DialogTitle>
+            <DialogDescription>
+              Paste any public GitHub URL — authentication is not required.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                GitHub Repository URL
+              </Label>
+              <Input
+                value={manualGitUrl}
+                onChange={(e) => setManualGitUrl(e.target.value)}
+                placeholder="https://github.com/user/repo"
+                className="h-9 text-sm"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && manualGitUrl.trim()) {
+                    setShowPublicRepoModal(false)
+                    handleManualRepo(manualGitUrl)
+                  }
                 }}
-                disabled={!manualGitUrl.trim() || isFetchingBranches}
-                className="w-full h-9 text-sm bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                {isFetchingBranches ? (
-                  <span className="flex items-center gap-1.5">
-                    <RefreshIcon className="h-3 w-3 animate-spin" />
-                    Fetching...
-                  </span>
-                ) : (
-                  "Continue"
-                )}
-              </Button>
+              />
             </div>
-          </div>
-        </div>
-      )}
+          </DialogPanel>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setShowPublicRepoModal(false)
+                handleManualRepo(manualGitUrl)
+              }}
+              disabled={!manualGitUrl.trim() || isFetchingBranches}
+              className="h-9 gap-1.5 text-sm"
+            >
+              {isFetchingBranches && <RefreshIcon className="h-3 w-3 animate-spin" />}
+              {isFetchingBranches ? "Fetching..." : "Continue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Folder Browser Modal */}
       <Dialog open={showFolderBrowser} onOpenChange={setShowFolderBrowser}>

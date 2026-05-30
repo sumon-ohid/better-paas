@@ -333,6 +333,7 @@
 
 .dark [data-slot="card"],
 .dark [data-slot="dialog-popup"],
+.dark [data-slot="alert-dialog-popup"],
 .dark [data-slot="menu-popup"],
 .dark [data-slot="popover-popup"],
 .dark [data-slot="command-dialog-popup"],
@@ -356,6 +357,7 @@
 /* Floating surfaces (modals, dropdowns, popovers) sit a step above cards, so
    they keep the slightly lighter --popover fill instead of the card fill. */
 .dark [data-slot="dialog-popup"],
+.dark [data-slot="alert-dialog-popup"],
 .dark [data-slot="menu-popup"],
 .dark [data-slot="popover-popup"],
 .dark [data-slot="command-dialog-popup"] {
@@ -373,6 +375,7 @@
    top-left spotlight glow layered on top. */
 .dark [data-slot="card"]::after,
 .dark [data-slot="dialog-popup"]::after,
+.dark [data-slot="alert-dialog-popup"]::after,
 .dark [data-slot="menu-popup"]::after,
 .dark [data-slot="popover-popup"]::after,
 .dark [data-slot="command-dialog-popup"]::after,
@@ -450,8 +453,14 @@
       rgba(255, 255, 255, 0) 52%
     )
     border-box,
+    /* border baseline: faint uniform ring so every edge stays defined */
+    linear-gradient(
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.12)
+    )
+    border-box,
     linear-gradient(var(--du-fill), var(--du-fill)) border-box;
-  border: 1.25px solid transparent;
+  border: 0.75px solid transparent;
 }
 
 .dark .du-surface:hover {
