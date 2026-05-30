@@ -142,6 +142,20 @@ export interface BackupInfo {
   createdAt: string
 }
 
+export interface BackupConfig {
+  autoEnabled: boolean
+  intervalHours: number
+  retention: number
+  s3Enabled: boolean
+  s3Endpoint: string
+  s3Region: string
+  s3Bucket: string
+  s3Prefix: string
+  s3AccessKeyId: string
+  s3SecretKey?: string
+  s3SecretKeySet?: boolean
+}
+
 export interface WebhookInfo {
   url: string
   secret: string

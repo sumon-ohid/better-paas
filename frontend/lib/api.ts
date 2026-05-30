@@ -12,6 +12,7 @@ import type {
   CronJob,
   NotificationConfig,
   BackupInfo,
+  BackupConfig,
   WebhookInfo,
 } from "./types"
 import { getToken } from "./auth"
@@ -207,6 +208,17 @@ export const api = {
       }),
     downloadUrl: (name: string) =>
       `${BASE_URL}/api/backups/download?name=${encodeURIComponent(name)}`,
+    getConfig: () => req<BackupConfig>("/api/backups/config"),
+    saveConfig: (cfg: BackupConfig) =>
+      req<BackupConfig>("/api/backups/config/save", {
+        method: "POST",
+        body: JSON.stringify(cfg),
+      }),
+    testS3: (cfg: BackupConfig) =>
+      req<{ status: string }>("/api/backups/s3/test", {
+        method: "POST",
+        body: JSON.stringify(cfg),
+      }),
   },
 
   git: {

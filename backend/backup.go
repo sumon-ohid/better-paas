@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -27,6 +28,117 @@ import (
 // the on-disk copy lives in the owner-only data/ tree.
 
 const backupDir = "data/backups"
+
+const backupConfigKey = "backup_config"
+
+// BackupConfig controls automatic backups and optional offsite (S3/R2) storage.
+// Stored as JSON in the meta table. The S3 secret key is encrypted separately
+// (see load/save) so it is never persisted in cleartext.
+type BackupConfig struct {
+	AutoEnabled   bool `json:"autoEnabled"`
+	IntervalHours int  `json:"intervalHours"` // how often automatic backups run
+	Retention     int  `json:"retention"`     // how many local backups to keep
+
+	// Offsite object storage (S3-compatible: AWS S3, Cloudflare R2, MinIO…).
+	S3Enabled       bool   `json:"s3Enabled"`
+	S3Endpoint      string `json:"s3Endpoint"` // blank = AWS regional host
+	S3Region        string `json:"s3Region"`
+	S3Bucket        string `json:"s3Bucket"`
+	S3Prefix        string `json:"s3Prefix"`
+	S3AccessKeyID   string `json:"s3AccessKeyId"`
+	S3SecretKey     string `json:"s3SecretKey,omitempty"`   // write-only; redacted on read
+	S3SecretKeySet  bool   `json:"s3SecretKeySet"`          // read-only: whether a secret is stored
+}
+
+// backupSecretKeyMeta holds the encrypted S3 secret access key separately from
+// the JSON config blob.
+const backupSecretKeyMeta = "backup_s3_secret"
+
+// defaultBackupConfig returns sensible defaults (auto off, daily, keep 10).
+func defaultBackupConfig() BackupConfig {
+	return BackupConfig{
+		AutoEnabled:   false,
+		IntervalHours: 24,
+		Retention:     10,
+	}
+}
+
+// getBackupConfig loads the stored backup configuration, merging defaults.
+func getBackupConfig() BackupConfig {
+	cfg := defaultBackupConfig()
+	if raw := dbGetMeta(backupConfigKey); raw != "" {
+		_ = json.Unmarshal([]byte(raw), &cfg)
+	}
+	if cfg.IntervalHours <= 0 {
+		cfg.IntervalHours = 24
+	}
+	if cfg.Retention <= 0 {
+		cfg.Retention = 10
+	}
+	// Legacy fallback: BACKUP_INTERVAL_HOURS env still enables auto backups.
+	if !cfg.AutoEnabled {
+		if h := envInt("BACKUP_INTERVAL_HOURS", 0); h > 0 {
+			cfg.AutoEnabled = true
+			cfg.IntervalHours = h
+		}
+	}
+	cfg.S3SecretKey = ""
+	cfg.S3SecretKeySet = decryptSecret(dbGetMeta(backupSecretKeyMeta)) != ""
+	return cfg
+}
+
+// getBackupSecretKey returns the decrypted S3 secret access key (server-side).
+func getBackupSecretKey() string {
+	return decryptSecret(dbGetMeta(backupSecretKeyMeta))
+}
+
+// saveBackupConfig persists the config. When newSecret is non-empty it replaces
+// the stored S3 secret key; an empty newSecret leaves the existing one intact.
+func saveBackupConfig(cfg BackupConfig, newSecret string) error {
+	// Never store the secret inside the JSON blob.
+	clean := cfg
+	clean.S3SecretKey = ""
+	clean.S3SecretKeySet = false
+	data, _ := json.Marshal(clean)
+	if err := dbSetMeta(backupConfigKey, string(data)); err != nil {
+		return err
+	}
+	if newSecret != "" {
+		return dbSetSecretMeta(backupSecretKeyMeta, newSecret)
+	}
+	return nil
+}
+
+// s3TargetFromConfig builds an s3Target from config + the stored secret.
+func s3TargetFromConfig(cfg BackupConfig) s3Target {
+	return s3Target{
+		Endpoint:        cfg.S3Endpoint,
+		Region:          cfg.S3Region,
+		Bucket:          cfg.S3Bucket,
+		AccessKeyID:     cfg.S3AccessKeyID,
+		SecretAccessKey: getBackupSecretKey(),
+		Prefix:          cfg.S3Prefix,
+	}
+}
+
+// uploadBackupOffsite pushes a freshly written backup to object storage when
+// S3 is configured. Best-effort: logs failures, never blocks local backups.
+func uploadBackupOffsite(cfg BackupConfig, localPath string) {
+	if !cfg.S3Enabled || cfg.S3Bucket == "" {
+		return
+	}
+	target := s3TargetFromConfig(cfg)
+	if target.AccessKeyID == "" || target.SecretAccessKey == "" {
+		log.Printf("[backup] S3 enabled but credentials missing; skipping upload")
+		return
+	}
+	name := filepath.Base(localPath)
+	if err := s3PutFile(target, target.objectKey(name), localPath); err != nil {
+		log.Printf("[backup] offsite upload of %s failed: %v", name, err)
+		return
+	}
+	log.Printf("[backup] uploaded %s to s3://%s/%s", name, target.Bucket, target.objectKey(name))
+}
 
 // createBackup writes a timestamped .tar.gz of the data directory (excluding
 // the backups folder itself) and returns its path.
@@ -169,7 +281,9 @@ func handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, fmt.Sprintf("Backup failed: %v", err), http.StatusInternalServerError)
 		return
 	}
-	pruneBackups(10)
+	cfg := getBackupConfig()
+	pruneBackups(cfg.Retention)
+	go uploadBackupOffsite(cfg, path)
 	info, _ := os.Stat(path)
 	jsonOK(w, backupInfo{
 		Name:      filepath.Base(path),
@@ -226,6 +340,90 @@ func handleBackupDelete(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]string{"status": "deleted"})
 }
 
+// GET /api/backups/config — return the current backup configuration.
+func handleBackupConfigGet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	jsonOK(w, getBackupConfig())
+}
+
+// POST /api/backups/config — update the backup configuration.
+func handleBackupConfigSave(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req BackupConfig
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	if req.IntervalHours <= 0 {
+		req.IntervalHours = 24
+	}
+	if req.Retention <= 0 {
+		req.Retention = 10
+	}
+	if req.S3Enabled {
+		if strings.TrimSpace(req.S3Bucket) == "" {
+			jsonError(w, "Bucket is required to enable offsite storage", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(req.S3AccessKeyID) == "" {
+			jsonError(w, "Access key ID is required to enable offsite storage", http.StatusBadRequest)
+			return
+		}
+		// A secret must either be provided now or already stored.
+		if strings.TrimSpace(req.S3SecretKey) == "" && getBackupSecretKey() == "" {
+			jsonError(w, "Secret access key is required to enable offsite storage", http.StatusBadRequest)
+			return
+		}
+	}
+	if err := saveBackupConfig(req, strings.TrimSpace(req.S3SecretKey)); err != nil {
+		log.Printf("[backup] failed to save config: %v", err)
+		jsonError(w, "Failed to save backup config", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, getBackupConfig())
+}
+
+// POST /api/backups/s3/test — verify S3/R2 credentials and bucket reachability.
+// Uses the secret from the request body if present, else the stored one.
+func handleBackupS3Test(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req BackupConfig
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	secret := strings.TrimSpace(req.S3SecretKey)
+	if secret == "" {
+		secret = getBackupSecretKey()
+	}
+	target := s3Target{
+		Endpoint:        req.S3Endpoint,
+		Region:          req.S3Region,
+		Bucket:          req.S3Bucket,
+		AccessKeyID:     req.S3AccessKeyID,
+		SecretAccessKey: secret,
+		Prefix:          req.S3Prefix,
+	}
+	if target.Bucket == "" || target.AccessKeyID == "" || target.SecretAccessKey == "" {
+		jsonError(w, "Bucket, access key, and secret are required to test", http.StatusBadRequest)
+		return
+	}
+	if err := s3CheckAccess(target); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "ok"})
+}
+
 func sizeOf(info os.FileInfo) int64 {
 	if info == nil {
 		return 0
@@ -233,23 +431,36 @@ func sizeOf(info os.FileInfo) int64 {
 	return info.Size()
 }
 
-// startBackupScheduler runs a daily automatic backup when BACKUP_INTERVAL_HOURS
-// is set (>0). Best-effort; disabled by default.
+// startBackupScheduler runs automatic backups based on the stored BackupConfig.
+// It wakes hourly, so interval/enabled changes from the UI take effect within
+// the hour without a restart. The legacy BACKUP_INTERVAL_HOURS env var still
+// works (surfaced through getBackupConfig).
 func startBackupScheduler() {
-	hours := envInt("BACKUP_INTERVAL_HOURS", 0)
-	if hours <= 0 {
-		return
-	}
-	log.Printf("[backup] automatic backups every %dh", hours)
 	go func() {
-		ticker := time.NewTicker(time.Duration(hours) * time.Hour)
+		var lastRun time.Time
+		// Seed from the newest existing backup so restarts don't trigger an
+		// immediate extra backup when one was taken recently.
+		if list, err := listBackups(); err == nil && len(list) > 0 {
+			lastRun = list[0].CreatedAt
+		}
+		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
-		for range ticker.C {
-			if _, err := createBackup(); err != nil {
-				log.Printf("[backup] scheduled backup failed: %v", err)
-			} else {
-				pruneBackups(10)
+		for {
+			cfg := getBackupConfig()
+			if cfg.AutoEnabled {
+				due := lastRun.IsZero() ||
+					time.Since(lastRun) >= time.Duration(cfg.IntervalHours)*time.Hour
+				if due {
+					if path, err := createBackup(); err != nil {
+						log.Printf("[backup] scheduled backup failed: %v", err)
+					} else {
+						lastRun = time.Now()
+						pruneBackups(cfg.Retention)
+						uploadBackupOffsite(cfg, path)
+					}
+				}
 			}
+			<-ticker.C
 		}
 	}()
 }

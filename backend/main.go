@@ -112,6 +112,9 @@ func main() {
 	mux.HandleFunc("/api/backups/create", handleBackupCreate)
 	mux.HandleFunc("/api/backups/download", handleBackupDownload)
 	mux.HandleFunc("/api/backups/delete", handleBackupDelete)
+	mux.HandleFunc("/api/backups/config", handleBackupConfigGet)
+	mux.HandleFunc("/api/backups/config/save", handleBackupConfigSave)
+	mux.HandleFunc("/api/backups/s3/test", handleBackupS3Test)
 
 	// System
 	mux.HandleFunc("/api/health", handleHealth)
