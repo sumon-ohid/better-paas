@@ -184,6 +184,7 @@ type DeploymentRecord struct {
 	Image     string    `json:"image,omitempty"`     // docker image tag built by this deploy (enables rollback)
 	Trigger   string    `json:"trigger,omitempty"`   // "manual","webhook","rollback"
 	Commit    string    `json:"commit,omitempty"`    // git commit SHA, when known
+	CommitMsg string    `json:"commitMsg,omitempty"` // git commit subject line, when known
 }
 
 // ---------------------------------------------------------------------------

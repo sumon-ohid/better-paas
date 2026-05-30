@@ -62,6 +62,7 @@ export interface DeploymentRecord {
   image?: string
   trigger?: string
   commit?: string
+  commitMsg?: string
 }
 
 export interface DeployRequest {

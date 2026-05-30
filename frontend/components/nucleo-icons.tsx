@@ -3,6 +3,7 @@ import React from "react"
 import {
   Activity,
   GitBranch,
+  GitCommitHorizontal,
   Check,
   CircleCheck,
   ChevronDown,
@@ -48,6 +49,7 @@ import {
 type NucleoIconName =
   | "activity"
   | "branch"
+  | "git-commit"
   | "check"
   | "check-circle"
   | "chevron-down"
@@ -96,6 +98,7 @@ type NucleoIconProps = SVGProps<SVGSVGElement> & {
 const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   activity: Activity,
   branch: GitBranch,
+  "git-commit": GitCommitHorizontal,
   check: Check,
   "check-circle": CircleCheck,
   "chevron-down": ChevronDown,

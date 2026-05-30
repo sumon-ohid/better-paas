@@ -214,13 +214,14 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 
 	var deployLogs []string
 	var commitSHA string
+	var commitMsg string
 	localLog := func(msg string) {
 		logToBuild(app.ID, msg, logFile)
 		deployLogs = append(deployLogs, msg)
 	}
 
 	finish := func(status, image string) {
-		finishDeployment(app, deployLogs, status, startedAt, deployID, logFile, image, trigger, commitSHA)
+		finishDeployment(app, deployLogs, status, startedAt, deployID, logFile, image, trigger, commitSHA, commitMsg)
 	}
 
 	image := rollbackImage
@@ -232,6 +233,12 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			localLog(fmt.Sprintf("✖ Image %s no longer exists; cannot roll back.", rollbackImage))
 			finish("failed", "")
 			return
+		}
+		// Carry the commit metadata of the deployment we're rolling back to, so
+		// the new rollback entry shows which commit is now live.
+		if src := dbFindDeploymentByImage(app.ID, rollbackImage); src != nil {
+			commitSHA = src.Commit
+			commitMsg = src.CommitMsg
 		}
 	} else {
 		// ── 1. Clone repository ──────────────────────────────────────────────
@@ -248,6 +255,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			return
 		}
 		commitSHA = gitHeadCommit(buildDir)
+		commitMsg = gitHeadCommitMsg(buildDir)
 		if commitSHA != "" {
 			localLog(fmt.Sprintf("✔ Repository cloned (commit %s).", shortSHA(commitSHA)))
 		} else {
@@ -635,6 +643,15 @@ func gitHeadCommit(dir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// gitHeadCommitMsg returns the subject line of the HEAD commit, or "" on error.
+func gitHeadCommitMsg(dir string) string {
+	out, err := exec.Command("git", "-C", dir, "log", "-1", "--pretty=%s").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func shortSHA(sha string) string {
 	if len(sha) > 7 {
 		return sha[:7]
@@ -643,7 +660,7 @@ func shortSHA(sha string) string {
 }
 
 // finishDeployment updates app status, saves deployment record, and persists.
-func finishDeployment(app App, deployLogs []string, status string, startedAt time.Time, deployID, logFile, image, trigger, commit string) {
+func finishDeployment(app App, deployLogs []string, status string, startedAt time.Time, deployID, logFile, image, trigger, commit, commitMsg string) {
 	duration := time.Since(startedAt).Round(time.Second).String()
 
 	finalStatus := "running"
@@ -683,6 +700,7 @@ func finishDeployment(app App, deployLogs []string, status string, startedAt tim
 		Image:     image,
 		Trigger:   trigger,
 		Commit:    commit,
+		CommitMsg: commitMsg,
 	}
 
 	if err := dbCreateDeployment(record); err != nil {
