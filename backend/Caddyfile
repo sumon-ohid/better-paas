@@ -5,7 +5,7 @@
 }
 
 http://tit62lwie6.10.0.0.3.sslip.io {
-	reverse_proxy localhost:9790
+	reverse_proxy localhost:9884
 }
 
 http://i59icgft1f.10.0.0.3.sslip.io {

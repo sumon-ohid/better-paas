@@ -22,6 +22,7 @@ const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevr
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const SquareIcon = (props: IconProps) => <NucleoIcon {...props} name="square" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const LoaderIcon = (props: IconProps) => <NucleoIcon {...props} name="loader" />
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const ExternalIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
@@ -232,8 +233,7 @@ function AppDetailPage() {
        await api.apps.redeploy(app.id)
        showToast("Redeploy Started", `Triggering new build for ${app.name}...`)
        fetchData()
-       setTab("logs")
-       setTimeout(() => connectLogs(), 500)
+       setTab("deployments")
      } catch (err) {
        showToast("Error", "Failed to trigger redeployment.", "destructive")
        console.error(err)
@@ -723,8 +723,17 @@ function AppDetailPage() {
                 </div>
               </div>
 
-              <div className="flex-1 mt-4 min-h-0 bg-[#f8f9fc] dark:bg-[#080910] border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed">
-                <div className="h-full overflow-y-auto p-4 space-y-0.5">
+              <div className="flex-1 mt-4 min-h-0 bg-card border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed flex flex-col">
+                {/* Terminal chrome header */}
+                <div className="flex items-center gap-2 px-4 py-2 shrink-0 select-none">
+                  {logsConnected && (
+                    <span className="ml-auto flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-success">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                      Live
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-0.5">
                   {logs.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 dark:text-slate-500 select-none">
                       <TerminalIcon className={`h-8 w-8 opacity-25 ${logsConnected ? "animate-pulse" : ""}`} />
@@ -767,16 +776,42 @@ function AppDetailPage() {
                    {deployments.length} deployment{deployments.length !== 1 ? "s" : ""} recorded.
                  </p>
                </div>
- 
+
+               {/* Active build banner — shown while a deployment is in progress */}
+               {app.status === "building" && (
+                 <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/8 px-4 py-3 animate-in fade-in-50 duration-200">
+                   <div className="shrink-0 h-8 w-8 rounded-lg bg-warning/15 flex items-center justify-center">
+                     <LoaderIcon className="h-4 w-4 text-warning animate-spin" />
+                   </div>
+                   <div className="flex-1 min-w-0">
+                     <p className="text-sm font-medium text-foreground">Deployment in progress</p>
+                     <p className="text-[11px] text-muted-foreground mt-0.5">
+                       Building and starting your container. This can take a few minutes.
+                     </p>
+                   </div>
+                   <Button
+                     onClick={() => setTab("logs")}
+                     variant="outline"
+                     className="h-7 shrink-0 gap-1.5 text-xs border-warning/30 text-warning hover:bg-warning/10 hover:text-warning"
+                   >
+                     <TerminalIcon className="h-3 w-3" />
+                     View logs
+                   </Button>
+                 </div>
+               )}
+
                {deployments.length === 0 ? (
                  <div className="py-16 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
                    <RefreshIcon className="h-6 w-6 mx-auto mb-3 opacity-20" />
-                   No deployments recorded for this project yet.
+                   {app.status === "building"
+                     ? "Waiting for the current build to finish…"
+                     : "No deployments recorded for this project yet."}
                  </div>
                ) : (
                  <div className="space-y-3">
                    {deployments.map((dep, idx) => {
                      const isExpanded = expandedDepl === dep.id
+                     const isBuilding = dep.status === "building" || dep.status === "in_progress"
                      const isSuccess = dep.status === "success"
                      const deployNumber = deployments.length - idx
                      
@@ -792,11 +827,15 @@ function AppDetailPage() {
                          >
                            {/* Status indicator */}
                            <div className={`shrink-0 h-8 w-8 rounded-lg flex items-center justify-center ${
-                             isSuccess 
-                               ? "bg-success/10" 
-                               : "bg-destructive/10"
+                             isBuilding
+                               ? "bg-warning/10"
+                               : isSuccess
+                                 ? "bg-success/10"
+                                 : "bg-destructive/10"
                            }`}>
-                             {isSuccess ? (
+                             {isBuilding ? (
+                               <LoaderIcon className="h-4 w-4 text-warning animate-spin" />
+                             ) : isSuccess ? (
                                <CheckIcon className="h-4 w-4 text-success" />
                              ) : (
                                <XIcon className="h-4 w-4 text-destructive" />
@@ -824,18 +863,18 @@ function AppDetailPage() {
                                </span>
                                <span className="text-[11px] text-muted-foreground/60">·</span>
                                <span className="text-[11px] font-mono text-muted-foreground">
-                                 {dep.duration}
+                                 {isBuilding ? "in progress" : dep.duration}
                                </span>
                              </div>
                            </div>
                            
                            {/* Status badge */}
                            <Badge
-                             variant={isSuccess ? "success" : "error"}
+                             variant={isBuilding ? "warning" : isSuccess ? "success" : "error"}
                              size="sm"
                              className="shrink-0"
                            >
-                             {isSuccess ? "Success" : "Failed"}
+                             {isBuilding ? "Building" : isSuccess ? "Success" : "Failed"}
                            </Badge>
                            
                            {/* Expand chevron */}
@@ -846,7 +885,7 @@ function AppDetailPage() {
                          
                          {/* Expanded log output */}
                          {isExpanded && (
-                           <div className="border-t border-border/30 bg-[#f8f9fc] dark:bg-[#080910]">
+                           <div className="border-t border-border/30 bg-card">
                              <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                                <span className="text-[11px] font-mono text-muted-foreground/50 dark:text-slate-500">
                                  Build log · {dep.logs.length} lines

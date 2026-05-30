@@ -162,10 +162,10 @@ function LogsPage() {
   return (
     <AppShell hasActiveLogs={connected && logs.length > 0}>
       {/* Full-height flex column inside the shell's <main> */}
-      <div className="flex flex-col h-full" style={{ height: "calc(100vh - 54px)" }}>
+      <div className="flex flex-col h-full overflow-hidden">
 
         {/* ── Top toolbar ──────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background/80 backdrop-blur-sm px-4 py-2 shrink-0 select-none">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-transparent px-4 py-2 shrink-0 select-none">
 
           {/* Back */}
           <button
@@ -290,7 +290,9 @@ function LogsPage() {
         </div>
 
         {/* ── Terminal — fills remaining height ────────────────────────── */}
-        <div className="flex-1 overflow-y-auto bg-[#f8f9fc] dark:bg-[#080910] font-mono text-xs leading-relaxed">
+        <div className="flex-1 min-h-0 flex flex-col bg-transparent overflow-hidden bg-card font-mono text-xs leading-relaxed">
+          {/* Terminal body */}
+          <div className="flex-1 overflow-y-auto bg-transparent">
           {logs.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 dark:text-slate-500 select-none">
               <TerminalIcon
@@ -326,10 +328,11 @@ function LogsPage() {
               <div ref={endRef} />
             </div>
           )}
+          </div>
         </div>
 
         {/* ── Status bar ───────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between border-t border-border/50 bg-[#f8f9fc] dark:bg-[#080910] px-4 py-1.5 text-[11px] font-mono text-muted-foreground/40 dark:text-slate-600 shrink-0 select-none">
+        <div className="flex items-center  bg-transparent justify-between border-t border-border/50 px-4 py-1.5 text-[11px] font-mono text-muted-foreground/40 dark:text-slate-600 shrink-0 select-none">
           <span>
             {selectedApp
               ? `${selectedApp.name} · port ${selectedApp.port}`
@@ -348,7 +351,7 @@ function LogsPage() {
 
 export default function LogsRoute() {
   return (
-    <Suspense fallback={<div className="h-screen bg-[#f8f9fc] dark:bg-[#080910]" />}>
+    <Suspense fallback={<div className="h-screen bg-card" />}>
       <LogsPage />
     </Suspense>
   )
