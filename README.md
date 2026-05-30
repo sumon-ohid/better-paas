@@ -50,6 +50,7 @@ Backend (see `backend/.env.example`):
 | `TRUST_PROXY`           | `false`   | Honor `X-Forwarded-For`/`X-Real-IP` (set when behind a proxy). |
 | `ACME_EMAIL`            | unset     | Email for Let's Encrypt registration (custom-domain HTTPS).|
 | `BACKUP_INTERVAL_HOURS` | `0`       | If >0, auto-snapshot `data/` every N hours (keeps last 10).|
+| `UPDATE_REPO`           | from remote | `owner/repo` slug the updater checks for new releases.   |
 
 ## Features
 
@@ -112,3 +113,65 @@ Frontend (see `frontend/.env.example`):
   there too — for that, supply `BETTER_PAAS_SECRET_KEY` out-of-band (secrets
   manager, systemd credential) and keep it off the host. Existing cleartext
   values are read transparently and upgraded to ciphertext on the next write.
+
+## Releases & updates
+
+The control plane can update itself to the latest release with one click from
+**Settings → Software Updates**.
+
+### How releases are cut
+
+Releases are **tag-triggered**, not produced on every push. The GitHub Actions
+workflow (`.github/workflows/release.yml`) runs only when a tag matching `v*` is
+pushed:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3   # this builds and publishes the release
+```
+
+A normal push to `main` (or any branch) does **not** create a release. Each
+release tag becomes the version: the workflow cross-compiles the backend for
+`linux/amd64`, `linux/arm64`, `darwin/amd64`, and `darwin/arm64`, bakes the tag
+into the binary via `-ldflags "-X main.version=<tag>"`, and publishes the
+binaries plus a `SHA256SUMS` file to GitHub Releases.
+
+Keep tags semver-shaped (`vMAJOR.MINOR.PATCH`); the updater's version comparison
+parses `major.minor.patch` and ignores pre-release/build suffixes for ordering.
+
+### How the in-app updater works
+
+- The running version is baked in at build time. `install.sh` derives it from
+  `git describe --tags`; CI builds use the release tag. Unset builds (e.g.
+  `go run`) report `dev`, which the checker treats as older than any release.
+- **Check for updates** queries the GitHub Releases API for the repo named by
+  `UPDATE_REPO` (the installer sets this in the systemd unit from your git
+  remote; override it with the `UPDATE_REPO` env var). Results are cached for
+  30 minutes.
+- **Update now** is available only for git-checkout installs. It:
+  1. takes a backup of `data/` first (always),
+  2. launches a detached helper that `git fetch` + `git checkout <tag>`,
+     rebuilds the backend (swapping the new binary in only on a successful
+     build, keeping `server.bak`), rebuilds the frontend, and
+  3. restarts the services, then **health-checks the new build** at
+     `/api/health`. If it doesn't come up, the helper automatically restores the
+     previous binary and ref and restarts — so a bad release rolls itself back.
+- The server never replaces itself in-process; the helper runs in its own
+  session so it survives the restart. Your `data/` directory (DB, tokens, key)
+  is never touched by an update — schema changes are applied by the additive
+  migrations on the next boot.
+- `UPDATE_REPO` is resolved from the env var, then a stored value, then the
+  checkout's `git remote origin` URL — so git installs work even without the
+  env var set.
+- Check the build version headlessly with `./server version`.
+
+> Note: one-click update currently rebuilds from source on the host, so the
+> server needs the Go/Node/pnpm toolchain present. Downloading prebuilt release
+> binaries (and verifying their `SHA256SUMS`/signatures) is a planned follow-up.
+
+You can inspect or override the update source from the systemd unit
+(`/etc/systemd/system/better-paas-backend.service`):
+
+```ini
+Environment=UPDATE_REPO=your-org/better-paas
+```

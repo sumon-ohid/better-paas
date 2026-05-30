@@ -276,8 +276,11 @@ build_backend() {
   cd "$BACKEND_DIR"
   mkdir -p data builds
   go mod download
-  go build -ldflags="-s -w" -o server .
-  success "Backend binary compiled."
+  # Bake the version (latest git tag, or short commit) into the binary so the
+  # dashboard's updater can compare against published releases.
+  VERSION="$(git -C "$REPO_DIR" describe --tags --always 2>/dev/null || echo dev)"
+  go build -ldflags="-s -w -X main.version=${VERSION}" -o server .
+  success "Backend binary compiled (${VERSION})."
 }
 
 # ── Build frontend ────────────────────────────────────────────────────────────
@@ -301,6 +304,15 @@ create_services() {
 
   info "Creating systemd service units..."
 
+  # Derive the "owner/repo" slug from the configured repo URL so the in-app
+  # updater knows where to look for releases. Best-effort; blank if unknown.
+  UPDATE_REPO_SLUG=""
+  REMOTE_URL="$(git -C "$REPO_DIR" config --get remote.origin.url 2>/dev/null || echo "")"
+  if [ -n "$REMOTE_URL" ]; then
+    UPDATE_REPO_SLUG="$(echo "$REMOTE_URL" \
+      | sed -E 's#^git@[^:]+:##; s#^https?://[^/]+/##; s#\.git$##')"
+  fi
+
   # Backend service
   cat > /etc/systemd/system/better-paas-backend.service <<EOF
 [Unit]
@@ -312,6 +324,7 @@ Requires=docker.service
 Type=simple
 User=${SERVICE_USER}
 WorkingDirectory=${BACKEND_DIR}
+Environment=UPDATE_REPO=${UPDATE_REPO_SLUG}
 ExecStart=${BACKEND_DIR}/server
 Restart=on-failure
 RestartSec=5

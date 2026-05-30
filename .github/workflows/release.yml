@@ -1,0 +1,57 @@
+name: Release
+
+# Publishes cross-compiled backend binaries (with the version baked in) plus a
+# SHA256SUMS file whenever a semver tag is pushed. This enables the future
+# binary-distribution path; the in-app updater already compares against the
+# release tag created here.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Build backend binaries
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME}"
+          mkdir -p dist
+          targets=(
+            "linux/amd64"
+            "linux/arm64"
+            "darwin/amd64"
+            "darwin/arm64"
+          )
+          for t in "${targets[@]}"; do
+            os="${t%/*}"; arch="${t#*/}"
+            out="dist/better-paas-server-${os}-${arch}"
+            echo "Building ${out} (${VERSION})"
+            GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 \
+              go build -ldflags "-s -w -X main.version=${VERSION}" -o "$out" .
+          done
+          cd dist
+          sha256sum better-paas-server-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            backend/dist/better-paas-server-*
+            backend/dist/SHA256SUMS
+          generate_release_notes: true

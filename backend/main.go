@@ -30,6 +30,9 @@ func main() {
 	// Load or provision the admin token (must run after initDB).
 	initAuth()
 
+	// Clear a stale "running" update marker now that we've booted the new build.
+	resetUpdateStateOnBoot()
+
 	// Reconcile apps/deployments left mid-build by a previous restart or crash,
 	// so an interrupted deployment doesn't show an eternal "building" spinner.
 	reconcileStuckBuilds()
@@ -115,6 +118,12 @@ func main() {
 	mux.HandleFunc("/api/backups/config", handleBackupConfigGet)
 	mux.HandleFunc("/api/backups/config/save", handleBackupConfigSave)
 	mux.HandleFunc("/api/backups/s3/test", handleBackupS3Test)
+
+	// System version & self-update
+	mux.HandleFunc("/api/system/version", handleSystemVersion)
+	mux.HandleFunc("/api/system/update/check", handleUpdateCheck)
+	mux.HandleFunc("/api/system/update/status", handleUpdateStatus)
+	mux.HandleFunc("/api/system/update/apply", handleUpdateApply)
 
 	// System
 	mux.HandleFunc("/api/health", handleHealth)

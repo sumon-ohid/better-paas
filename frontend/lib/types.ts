@@ -163,6 +163,35 @@ export interface WebhookInfo {
   event: string
 }
 
+export interface UpdateRelease {
+  tagName: string
+  name: string
+  notes: string
+  url: string
+  publishedAt: string
+}
+
+export interface UpdateStatus {
+  current: string
+  latest: string
+  hasUpdate: boolean
+  configured: boolean
+  release?: UpdateRelease
+  checkedAt: string
+}
+
+export interface SystemVersion {
+  version: string
+  gitCheckout: boolean
+  updateRepo: string
+}
+
+export interface UpdateProgress {
+  state: string
+  inProgress: boolean
+  log: string
+}
+
 export interface GitHubRepo {
   full_name: string
   name: string

@@ -1,0 +1,385 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+)
+
+// ---------------------------------------------------------------------------
+// One-click self-update (git checkout + systemd model)
+// ---------------------------------------------------------------------------
+//
+// The running server cannot safely rebuild and restart itself in-process: the
+// moment systemd restarts the unit, this process dies mid-step. So applying an
+// update is delegated to a detached helper script that:
+//
+//   1. git fetch + checkout the target ref
+//   2. rebuild backend (go build) and frontend (pnpm build)
+//   3. restart the systemd units (or relaunch on macOS/dev)
+//
+// The server's job is only to: take a pre-update backup, write the helper
+// script, launch it detached (so it outlives the restart), and record progress
+// to a status file the dashboard can poll.
+//
+// Safety:
+//   - A backup is always taken first (reuses createBackup()).
+//   - The helper builds into a temp binary and only swaps it in on success, so
+//     a failed build leaves the current server running.
+//   - Concurrent applies are rejected.
+
+const (
+	updateStateMetaKey = "update_state"
+	updateLogFile      = "data/update.log"
+)
+
+var updateApplyLock sync.Mutex
+var updateInProgress bool
+
+// repoDir returns the git checkout root (parent of the backend working dir).
+// The backend runs from <repo>/backend, so the repo is one level up.
+func repoDir() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ".."
+	}
+	return filepath.Dir(wd)
+}
+
+// isGitCheckout reports whether the install is a git checkout we can pull.
+func isGitCheckout() bool {
+	info, err := os.Stat(filepath.Join(repoDir(), ".git"))
+	return err == nil && info.IsDir()
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/system/version — current version + cached update status
+// ---------------------------------------------------------------------------
+
+func handleSystemVersion(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	jsonOK(w, map[string]any{
+		"version":     version,
+		"gitCheckout": isGitCheckout(),
+		"updateRepo":  updateRepoSlug(),
+	})
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/system/update/check — query latest release (cached)
+// ---------------------------------------------------------------------------
+
+func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	force := r.URL.Query().Get("force") == "1"
+	status, err := checkForUpdate(force)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	jsonOK(w, status)
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/system/update/status — progress of an in-flight/last update
+// ---------------------------------------------------------------------------
+
+func handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	state := dbGetMeta(updateStateMetaKey)
+	if state == "" {
+		state = "idle"
+	}
+	logTail := ""
+	if data, err := os.ReadFile(updateLogFile); err == nil {
+		logTail = string(data)
+	}
+	jsonOK(w, map[string]any{
+		"state":      state,
+		"inProgress": updateInProgress,
+		"log":        logTail,
+	})
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/system/update/apply — back up, then run the detached updater
+// ---------------------------------------------------------------------------
+
+func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	updateApplyLock.Lock()
+	if updateInProgress {
+		updateApplyLock.Unlock()
+		jsonError(w, "An update is already in progress", http.StatusConflict)
+		return
+	}
+	updateApplyLock.Unlock()
+
+	if !isGitCheckout() {
+		jsonError(w, "Automatic update requires a git checkout install. Update manually or re-run the installer.", http.StatusBadRequest)
+		return
+	}
+
+	// Determine the target ref (the latest release tag). Refuse if there's
+	// nothing newer, so a misclick can't trigger a pointless rebuild.
+	status, err := checkForUpdate(true)
+	if err != nil {
+		jsonError(w, "Could not check for updates: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	if !status.Configured {
+		jsonError(w, "Update source not configured (set UPDATE_REPO).", http.StatusBadRequest)
+		return
+	}
+	if !status.HasUpdate {
+		jsonError(w, "Already up to date.", http.StatusBadRequest)
+		return
+	}
+	targetRef := status.Latest
+
+	// Always back up before mutating the install.
+	if _, err := createBackup(); err != nil {
+		jsonError(w, "Pre-update backup failed, aborting: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	updateApplyLock.Lock()
+	updateInProgress = true
+	updateApplyLock.Unlock()
+	_ = dbSetMeta(updateStateMetaKey, "starting")
+
+	scriptPath, err := writeUpdateScript(targetRef)
+	if err != nil {
+		updateInProgress = false
+		_ = dbSetMeta(updateStateMetaKey, "failed")
+		jsonError(w, "Failed to prepare updater: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Respond before launching: the updater will restart this process, so the
+	// client must rely on polling /status afterward.
+	jsonOK(w, map[string]any{
+		"status":  "started",
+		"target":  targetRef,
+		"message": "Update started. The server will restart shortly.",
+	})
+
+	go launchDetachedUpdater(scriptPath)
+}
+
+// writeUpdateScript renders the bash updater for the current platform and
+// returns its path. The script is intentionally standalone so it keeps running
+// after this server process is restarted by systemd.
+func writeUpdateScript(targetRef string) (string, error) {
+	repo := repoDir()
+	backendDir := filepath.Join(repo, "backend")
+	frontendDir := filepath.Join(repo, "frontend")
+	logPath, _ := filepath.Abs(updateLogFile)
+	healthURL := localHealthURL()
+
+	// systemctl is used on Linux; on macOS/dev we relaunch via nohup.
+	useSystemd := commandExists("systemctl") && fileExists("/etc/systemd/system/better-paas-backend.service")
+
+	// restartBackend / startFrontend are emitted as bash functions so the
+	// health-check step can restart the backend again during rollback.
+	var restartFns string
+	if useSystemd {
+		restartFns = `
+restart_backend() {
+  echo "[updater] restarting backend service..."
+  systemctl restart better-paas-backend
+}
+start_frontend() {
+  echo "[updater] restarting frontend service..."
+  systemctl restart better-paas-frontend
+}
+`
+	} else {
+		restartFns = fmt.Sprintf(`
+restart_backend() {
+  echo "[updater] relaunching backend (dev/macOS)..."
+  pkill -f "%[1]s/server" 2>/dev/null || true
+  ( cd "%[1]s" && nohup ./server > "%[1]s/server.log" 2>&1 & )
+}
+start_frontend() {
+  echo "[updater] relaunching frontend (dev/macOS)..."
+  ( cd "%[2]s" && nohup pnpm start > "%[2]s/frontend.log" 2>&1 & )
+}
+`, backendDir, frontendDir)
+	}
+
+	script := fmt.Sprintf(`#!/usr/bin/env bash
+# Auto-generated by better-paas updater. Safe to delete.
+set -uo pipefail
+exec >> "%[1]s" 2>&1
+echo "=== update started $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) → %[2]s ==="
+
+REPO="%[3]s"
+BACKEND="%[4]s"
+FRONTEND="%[5]s"
+HEALTH_URL="%[7]s"
+%[6]s
+
+# health_ok: returns 0 when the backend answers a 2xx/3xx/4xx on /api/health.
+health_ok() {
+  for _ in $(seq 1 30); do
+    code="$(curl -s -o /dev/null -w '%%{http_code}' --max-time 3 "$HEALTH_URL" 2>/dev/null || echo 000)"
+    if [ "$code" != "000" ] && [ "$code" -lt 500 ]; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+cd "$REPO" || { echo "[updater] repo dir missing"; exit 1; }
+
+echo "[updater] fetching..."
+if ! git fetch --all --tags --prune; then echo "[updater] git fetch failed"; exit 1; fi
+
+# Record the ref we can roll back to if the new build fails to come up.
+PREV_REF="$(git rev-parse HEAD)"
+echo "[updater] current ref: $PREV_REF"
+
+echo "[updater] checking out %[2]s..."
+if ! git checkout -f "%[2]s"; then echo "[updater] checkout failed"; exit 1; fi
+
+echo "[updater] building backend..."
+cd "$BACKEND" || exit 1
+if ! go build -ldflags "-s -w -X main.version=%[2]s" -o server.new .; then
+  echo "[updater] backend build failed; keeping current server"
+  git -C "$REPO" checkout -f "$PREV_REF" || true
+  exit 1
+fi
+# Keep a rollback copy, then atomically swap the new binary in.
+cp -f server server.bak 2>/dev/null || true
+mv -f server.new server
+
+echo "[updater] building frontend..."
+cd "$FRONTEND" || exit 1
+if ! pnpm install --frozen-lockfile; then echo "[updater] frontend deps failed"; fi
+if ! pnpm build; then echo "[updater] frontend build failed (keeping old build)"; fi
+
+restart_backend
+start_frontend
+
+echo "[updater] verifying health at $HEALTH_URL ..."
+if health_ok; then
+  echo "[updater] new version is healthy."
+  echo "=== update finished OK $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) ==="
+  exit 0
+fi
+
+echo "[updater] NEW VERSION FAILED HEALTH CHECK — rolling back."
+cd "$BACKEND" || exit 1
+if [ -f server.bak ]; then
+  mv -f server.bak server
+  echo "[updater] restored previous server binary."
+fi
+git -C "$REPO" checkout -f "$PREV_REF" || echo "[updater] WARN: could not restore previous ref"
+restart_backend
+start_frontend
+if health_ok; then
+  echo "[updater] rollback healthy; staying on previous version."
+else
+  echo "[updater] WARN: rollback did not pass health check — manual intervention needed."
+fi
+echo "=== update ROLLED BACK $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) ==="
+exit 1
+`, logPath, shellSafe(targetRef), shellSafe(repo), shellSafe(backendDir), shellSafe(frontendDir), restartFns, shellSafe(healthURL))
+
+	path := filepath.Join("data", "run-update.sh")
+	if err := os.WriteFile(path, []byte(script), 0700); err != nil {
+		return "", err
+	}
+	abs, _ := filepath.Abs(path)
+	return abs, nil
+}
+
+// localHealthURL returns a loopback URL for the API health endpoint, honoring
+// LISTEN_ADDR's port (defaults to 8080).
+func localHealthURL() string {
+	port := "8080"
+	addr := strings.TrimSpace(os.Getenv("LISTEN_ADDR"))
+	if addr != "" {
+		if i := strings.LastIndex(addr, ":"); i >= 0 && i+1 < len(addr) {
+			port = addr[i+1:]
+		}
+	}
+	return fmt.Sprintf("http://127.0.0.1:%s/api/health", port)
+}
+
+// launchDetachedUpdater starts the updater script fully detached so it survives
+// this process being restarted by systemd.
+func launchDetachedUpdater(scriptPath string) {
+	// Truncate the previous log so the dashboard shows only this run.
+	_ = os.WriteFile(updateLogFile, []byte(""), 0600)
+	_ = dbSetMeta(updateStateMetaKey, "running")
+
+	cmd := exec.Command("bash", scriptPath)
+	cmd.Dir = repoDir()
+	// Detach: new session so it isn't killed when systemd stops this unit.
+	cmd.SysProcAttr = detachSysProcAttr()
+	if err := cmd.Start(); err != nil {
+		log.Printf("[update] failed to launch updater: %v", err)
+		_ = dbSetMeta(updateStateMetaKey, "failed")
+		updateInProgress = false
+		return
+	}
+	// We do not Wait(): the updater will outlive us. Give it a beat to spin up.
+	time.Sleep(2 * time.Second)
+}
+
+// resetUpdateStateOnBoot clears a stale "running" marker after a successful
+// restart, so the dashboard reflects that the new version is live.
+func resetUpdateStateOnBoot() {
+	if dbGetMeta(updateStateMetaKey) == "running" {
+		_ = dbSetMeta(updateStateMetaKey, "completed")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
+
+func commandExists(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// shellSafe rejects shell metacharacters from values interpolated into the
+// generated script. Refs and paths should never contain these; if they do we
+// strip them rather than risk injection.
+func shellSafe(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case '`', '$', ';', '&', '|', '>', '<', '\n', '"', '\'', '\\':
+			return -1
+		}
+		return r
+	}, s)
+}

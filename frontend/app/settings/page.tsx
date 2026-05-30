@@ -25,7 +25,7 @@ import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { Eye, EyeOff } from "lucide-react"
-import type { NotificationConfig } from "@/lib/types"
+import type { NotificationConfig, UpdateStatus, SystemVersion } from "@/lib/types"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const TrashIcon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
@@ -37,6 +37,8 @@ const BellIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
 const CloudIcon = (props: IconProps) => <NucleoIcon {...props} name="cloud" />
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
+const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const DownloadIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
 
 export default function SettingsPage() {
   const { showToast } = useToast()
@@ -65,6 +67,13 @@ export default function SettingsPage() {
   const [ghConnected, setGhConnected] = useState(false)
   const [ghModalOpen, setGhModalOpen] = useState(false)
 
+  // Updates
+  const [sysVersion, setSysVersion] = useState<SystemVersion | null>(null)
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [applyingUpdate, setApplyingUpdate] = useState(false)
+
   React.useEffect(() => {
     api.notifications
       .get()
@@ -78,7 +87,43 @@ export default function SettingsPage() {
       .tokenStatus()
       .then((s) => setGhConnected(s.connected))
       .catch(() => {})
+    api.system
+      .version()
+      .then(setSysVersion)
+      .catch(() => {})
   }, [])
+
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true)
+    try {
+      const s = await api.system.updateCheck(true)
+      setUpdateStatus(s)
+      if (!s.configured) {
+        showToast("Not configured", "No update source is set (UPDATE_REPO).", "destructive")
+      } else if (s.hasUpdate) {
+        showToast("Update available", `Version ${s.latest} is available.`, "success")
+      } else {
+        showToast("Up to date", "You're running the latest version.", "success")
+      }
+    } catch (err) {
+      showToast("Check failed", err instanceof ApiError ? err.message : "Could not check.", "destructive")
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
+
+  const handleApplyUpdate = async () => {
+    setApplyingUpdate(true)
+    try {
+      const res = await api.system.updateApply()
+      setShowUpdateModal(false)
+      showToast("Update started", res.message, "success")
+    } catch (err) {
+      showToast("Update failed", err instanceof ApiError ? err.message : "Could not start update.", "destructive")
+    } finally {
+      setApplyingUpdate(false)
+    }
+  }
 
   const refreshGitHub = () => {
     api.git
@@ -178,6 +223,97 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
+
+        {/* Software Updates */}
+        <Card>
+          <CardHeader className="border-b border-border/40">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <RefreshIcon className="h-4 w-4 text-muted-foreground" />
+              Software Updates
+              {updateStatus?.hasUpdate && (
+                <Badge variant="warning" size="sm" className="ml-1">
+                  Update available
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Update Better-PaaS to the latest release. A backup is taken automatically before
+              updating, and the services restart briefly.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Current version</span>
+                <Badge variant="outline" size="sm" className="font-mono">
+                  {sysVersion?.version ?? "…"}
+                </Badge>
+              </div>
+              {updateStatus && updateStatus.configured && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Latest</span>
+                  <Badge
+                    variant={updateStatus.hasUpdate ? "warning" : "success"}
+                    size="sm"
+                    className="font-mono"
+                  >
+                    {updateStatus.latest || "unknown"}
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            {sysVersion && !sysVersion.gitCheckout && (
+              <Alert variant="info">
+                <InfoIcon />
+                <AlertTitle>Manual install detected</AlertTitle>
+                <AlertDescription>
+                  One-click updates require a git-checkout install. You can still check for new
+                  versions, but apply them by re-running the installer.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {updateStatus?.hasUpdate && updateStatus.release && (
+              <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-foreground">
+                    {updateStatus.release.name || updateStatus.release.tagName}
+                  </span>
+                  {updateStatus.release.url && (
+                    <a
+                      href={updateStatus.release.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline"
+                    >
+                      Release notes
+                      <NucleoIcon name="external" className="h-3 w-3 opacity-60" />
+                    </a>
+                  )}
+                </div>
+                {updateStatus.release.notes && (
+                  <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap font-sans text-xs text-muted-foreground">
+                    {updateStatus.release.notes}
+                  </pre>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={handleCheckUpdate} loading={checkingUpdate} className="gap-1.5">
+                <RefreshIcon className={`h-3.5 w-3.5 ${checkingUpdate ? "animate-spin" : ""}`} />
+                Check for updates
+              </Button>
+              {updateStatus?.hasUpdate && sysVersion?.gitCheckout && (
+                <Button onClick={() => setShowUpdateModal(true)} className="gap-1.5">
+                  <DownloadIcon className="h-3.5 w-3.5" />
+                  Update to {updateStatus.latest}
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Docker Maintenance */}
         <Card>
@@ -448,7 +584,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-2 pt-4">
             {[
-              ["Version", "1.0.0"],
+              ["Version", sysVersion?.version ?? "1.0.0"],
               ["Engine", "Go 1.25 + gorilla/websocket"],
               ["Database", "SQLite (modernc.org/sqlite)"],
               ["Builder", "Nixpacks"],
@@ -501,6 +637,33 @@ export default function SettingsPage() {
         onClose={() => setGhModalOpen(false)}
         onConnected={refreshGitHub}
       />
+
+      {/* Update confirm */}
+      <AlertDialog open={showUpdateModal} onOpenChange={setShowUpdateModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-warning/10 text-warning sm:mx-0">
+              <RefreshIcon className="h-5 w-5" />
+            </div>
+            <AlertDialogTitle>
+              Update to {updateStatus?.latest}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will back up your data, pull and rebuild the latest release, and restart the
+              services. The dashboard and your deployed apps&apos; control plane will be briefly
+              unavailable during the restart (running app containers keep serving). This can take a
+              few minutes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline">Cancel</Button>} />
+            <Button onClick={handleApplyUpdate} loading={applyingUpdate} className="gap-1.5">
+              <DownloadIcon className="h-3.5 w-3.5" />
+              Back up &amp; update
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   )
 }

@@ -14,6 +14,9 @@ import type {
   BackupInfo,
   BackupConfig,
   WebhookInfo,
+  SystemVersion,
+  UpdateStatus,
+  UpdateProgress,
 } from "./types"
 import { getToken } from "./auth"
 
@@ -256,6 +259,15 @@ export const api = {
     prune: () =>
       req<{ status: string; output: string }>("/api/docker/prune", { method: "POST" }),
     appMetrics: () => req<PerAppMetrics[]>("/api/metrics/apps"),
+    version: () => req<SystemVersion>("/api/system/version"),
+    updateCheck: (force = false) =>
+      req<UpdateStatus>(`/api/system/update/check${force ? "?force=1" : ""}`),
+    updateStatus: () => req<UpdateProgress>("/api/system/update/status"),
+    updateApply: () =>
+      req<{ status: string; target: string; message: string }>(
+        "/api/system/update/apply",
+        { method: "POST" },
+      ),
   },
 
   deployments: {

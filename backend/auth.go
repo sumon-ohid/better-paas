@@ -264,6 +264,9 @@ func runCLI(args []string) {
 	case "help", "-h", "--help":
 		printCLIUsage(os.Stdout)
 
+	case "version", "-v", "--version":
+		fmt.Println(version)
+
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", args[0])
 		printCLIUsage(os.Stderr)
@@ -278,6 +281,7 @@ Usage:
   server                 Start the API server (default)
   server token           Print the current admin token
   server token rotate    Generate a new admin token (invalidates the old one)
+  server version         Print the build version
   server help            Show this help
 
 Notes:
