@@ -244,3 +244,7 @@ export function createRuntimeLogsWs(appId: string): WebSocket {
 export function createStatsWs(): WebSocket {
   return new WebSocket(withToken(`${getWsBase()}/ws/stats`))
 }
+
+export function createTerminalWs(appId: string): WebSocket {
+  return new WebSocket(withToken(`${getWsBase()}/ws/terminal?appId=${appId}`))
+}

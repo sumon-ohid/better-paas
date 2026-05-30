@@ -532,3 +532,14 @@
     mask-image: radial-gradient(ellipse at center, black 35%, transparent 75%);
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   xterm.js — let the terminal background stay transparent.
+   xterm ships a hardcoded `.xterm-viewport { background-color: #000 }` which
+   overrides the transparent theme, so we reset it (and the helper layers) here.
+   ────────────────────────────────────────────────────────────────────────── */
+.xterm,
+.xterm .xterm-viewport,
+.xterm .xterm-screen {
+  background-color: transparent !important;
+}

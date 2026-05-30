@@ -16,6 +16,20 @@ import type { App, DeploymentRecord, LogEntry } from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
+import dynamic from "next/dynamic"
+
+// xterm.js touches the DOM on import, so load the terminal client-side only.
+const ContainerTerminal = dynamic(
+  () => import("@/components/container-terminal").then((m) => m.ContainerTerminal),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-border/80 bg-card text-xs text-muted-foreground">
+        Loading terminal…
+      </div>
+    ),
+  },
+)
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-left" />
@@ -32,7 +46,7 @@ const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch"
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 
-export type AppTab = "overview" | "config" | "logs" | "deployments"
+export type AppTab = "overview" | "config" | "logs" | "terminal" | "deployments"
 
 function AppDetailPage() {
   const router = useRouter()
@@ -77,6 +91,11 @@ function AppDetailPage() {
   const logBufferRef = useRef<LogEntry[]>([])
   const flushTimerRef = useRef<NodeJS.Timeout | null>(null)
   const logEndRef = useRef<HTMLDivElement | null>(null)
+
+  // ── Terminal ─────────────────────────────────────────────────────────────────
+  // The interactive shell is a self-contained xterm.js component; we only track
+  // a token here so the Reconnect button can force it to re-mount.
+  const [termReconnectToken, setTermReconnectToken] = useState(0)
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -340,6 +359,7 @@ function AppDetailPage() {
     { id: "overview", label: "Overview" },
     { id: "config", label: "Configuration" },
     { id: "logs", label: "Logs" },
+    { id: "terminal", label: "Terminal" },
     { id: "deployments", label: "Deployments" },
   ]
 
@@ -763,6 +783,53 @@ function AppDetailPage() {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── Terminal ───────────────────────────────────────────────── */}
+          {currentTab === "terminal" && (
+            <div className="flex-1 flex flex-col min-h-0 p-4 md:p-6 animate-in fade-in-50 duration-200">
+              <div className="flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <TerminalIcon className="h-3.5 w-3.5" />
+                  <span>Container Shell</span>
+                </div>
+                {app.status === "running" && (
+                  <button
+                    onClick={() => setTermReconnectToken((t) => t + 1)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                  >
+                    <RefreshIcon className="h-3 w-3" />
+                    Reconnect
+                  </button>
+                )}
+              </div>
+
+              {app.status !== "running" ? (
+                <div className="flex-1 mt-4 min-h-0 bg-card border border-border/80 rounded-lg flex flex-col items-center justify-center gap-3 text-muted-foreground/60 select-none">
+                  <TerminalIcon className="h-8 w-8 opacity-25" />
+                  <span className="text-sm">The container must be running to open a terminal.</span>
+                  {app.status === "stopped" && (
+                    <Button
+                      onClick={() => handleToggle("start")}
+                      disabled={isToggling}
+                      variant="outline"
+                      className="h-7 gap-1.5 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
+                    >
+                      <PlayIcon className="h-3 w-3" />
+                      Start container
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex-1 mt-4 min-h-0">
+                  <ContainerTerminal
+                    appId={appId}
+                    appName={app.name}
+                    reconnectToken={termReconnectToken}
+                  />
+                </div>
+              )}
             </div>
           )}
 

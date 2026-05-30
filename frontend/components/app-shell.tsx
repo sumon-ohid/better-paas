@@ -326,7 +326,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                     className={`flex items-center justify-between px-3 py-1.5 w-full rounded text-sm transition-all cursor-pointer ${
                       isActive(item.href)
                         ? "bg-accent text-foreground font-medium"
-                        : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"
+                        : "text-foreground/75 hover:bg-muted/20 hover:text-foreground"
                     }`}
                   >
                     <div className="flex items-center gap-2">

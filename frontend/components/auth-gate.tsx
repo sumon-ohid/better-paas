@@ -160,7 +160,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             </p>
             <ul className="mt-2 space-y-1 text-xs leading-relaxed text-muted-foreground/70">
               <li>
-                <code className="rounded bg-muted px-1 py-0.5">./server token</code> (or{" "}
+                <code className="rounded bg-muted px-1 py-0.5">./server token</code> <br /> (or{" "}
                 <code className="rounded bg-muted px-1 py-0.5">docker exec &lt;container&gt; ./server token</code>)
               </li>
               <li>
