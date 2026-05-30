@@ -207,7 +207,7 @@
     --input: rgba(255, 255, 255, 0.1);
     --muted: rgba(255, 255, 255, 0.05);
     --muted-foreground: rgba(255, 255, 255, 0.46);
-    --popover: #1b1b1d;
+    --popover: #161618;
     --popover-foreground: #ededed;
     --primary: #8b7ff6;
     --primary-foreground: #0a0a0b;
@@ -319,6 +319,10 @@
    the scoped rules below.
    ────────────────────────────────────────────────────────────────────────── */
 .dark [data-slot="card"],
+.dark [data-slot="dialog-popup"],
+.dark [data-slot="menu-popup"],
+.dark [data-slot="popover-popup"],
+.dark [data-slot="command-dialog-popup"],
 .dark .du-card {
   background:
     radial-gradient(
@@ -335,9 +339,29 @@
   isolation: isolate;
 }
 
+/* Floating surfaces (modals, dropdowns, popovers) sit a step above cards, so
+   they keep the slightly lighter --popover fill instead of the card fill. */
+.dark [data-slot="dialog-popup"],
+.dark [data-slot="menu-popup"],
+.dark [data-slot="popover-popup"],
+.dark [data-slot="command-dialog-popup"] {
+  background:
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.025) 26%,
+      rgba(255, 255, 255, 0) 46%
+    ),
+    var(--popover);
+}
+
 /* Border ring: a consistent thin baseline on every edge, with a brighter
    top-left spotlight glow layered on top. */
 .dark [data-slot="card"]::after,
+.dark [data-slot="dialog-popup"]::after,
+.dark [data-slot="menu-popup"]::after,
+.dark [data-slot="popover-popup"]::after,
+.dark [data-slot="command-dialog-popup"]::after,
 .dark .du-card::after {
   content: "";
   position: absolute;
