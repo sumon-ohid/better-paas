@@ -235,13 +235,10 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
 
   return (
     <SidebarProvider className="h-screen overflow-hidden">
-      <div className="relative flex h-screen w-full overflow-hidden bg-background text-foreground transition-colors duration-200 selection:bg-primary/20">
-        {/* Ambient background glow */}
-        {/* <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_55%_-20%,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_45rem)]" /> */}
-
+      <div className="relative flex h-screen w-full overflow-hidden bg-transparent text-foreground transition-colors duration-200 selection:bg-primary/20">
         {/* Navigation Sidebar */}
-        <Sidebar className="border-r border-sidebar-border bg-sidebar/82 backdrop-blur-xl">
-          <SidebarHeader className="relative flex flex-row items-center justify-between overflow-hidden border-b border-sidebar-border px-4 py-3">
+        <Sidebar variant="inset" className="bg-transparent">
+          <SidebarHeader className="relative flex flex-row items-center justify-between overflow-hidden px-4 py-3">
             <div className="pointer-events-none absolute inset-0 bg-pixel-grid opacity-60 mask-fade-b" />
             <div className="relative flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shadow-[0_0_28px_rgba(143,153,255,.28)] select-none">
@@ -304,7 +301,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
           </SidebarContent>
 
           {/* Sidebar Footer */}
-          <div className="mt-auto p-4 border-t border-border flex items-center justify-between text-sm text-muted-foreground/60">
+          <div className="mt-auto p-4 flex items-center justify-between text-sm text-muted-foreground/60">
             <button
               onClick={() => setShowShortcuts(true)}
               className="flex items-center gap-1.5 hover:text-foreground cursor-pointer transition-colors duration-150"
@@ -317,9 +314,9 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         </Sidebar>
 
         {/* Main Content Frame */}
-        <SidebarInset className="relative z-10 flex min-w-0 flex-1 flex-col bg-transparent overflow-hidden">
+        <SidebarInset className="du-card relative z-10 m-2 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs/5">
           {/* Header Bar — pinned, never scrolls */}
-          <header className="shrink-0 flex h-14 items-center justify-between border-b border-border bg-background/70 px-4 backdrop-blur-xl select-none">
+          <header className="shrink-0 flex h-14 items-center justify-between border-b border-border bg-transparent px-4 select-none">
             <div className="flex items-center gap-2">
               <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer" />
               <div className="h-3.5 w-px bg-border" />

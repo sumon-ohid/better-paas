@@ -444,7 +444,7 @@ function ApplicationsDashboard() {
   return (
     <AppShell appCount={apps.length}>
       {/* Subheader toolbar */}
-      <div className="flex flex-col justify-between gap-2 border-b border-border bg-background/54 px-4 py-2.5 backdrop-blur-xl sm:flex-row sm:items-center select-none">
+      <div className="flex flex-col justify-between gap-2 border-b border-border bg- px-4 py-2.5 backdrop-blur-xl sm:flex-row sm:items-center select-none">
         <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
           <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/25 px-2.5 py-1.5">

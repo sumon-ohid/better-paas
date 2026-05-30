@@ -147,7 +147,7 @@
     --warning-foreground: #986b22;
     --accent: rgba(94, 106, 210, 0.08);
     --accent-foreground: #20212b;
-    --background: #f7f8fb;
+    --background: #eceef2;
     --border: rgba(20, 21, 31, 0.08);
     --card: #ffffff;
     --card-foreground: #20212b;
@@ -172,7 +172,7 @@
     --code-foreground: var(--foreground);
     --code-highlight: rgba(94, 106, 210, 0.08);
     --radius: 8px;
-    --sidebar: #f2f3f7;
+    --sidebar: #eceef2;
     --sidebar-accent: rgba(94, 106, 210, 0.08);
     --sidebar-accent-foreground: #20212b;
     --sidebar-border: rgba(20, 21, 31, 0.07);
@@ -198,9 +198,9 @@
     --warning-foreground: #f8dd7e;
     --accent: rgba(255, 255, 255, 0.06);
     --accent-foreground: #ededed;
-    --background: #0a0a0b;
+    --background: #0c0d0e;
     --border: rgba(255, 255, 255, 0.07);
-    --card: #161617;
+    --card: #121214;
     --card-foreground: #ededed;
     --destructive: #f1542e;
     --foreground: #ededed;
@@ -222,7 +222,7 @@
     --code: #0a0a0b;
     --code-foreground: var(--foreground);
     --code-highlight: rgba(139, 127, 246, 0.12);
-    --sidebar: #0c0c0d;
+    --sidebar: #0c0d0e;
     --sidebar-accent: rgba(255, 255, 255, 0.06);
     --sidebar-accent-foreground: #ededed;
     --sidebar-border: rgba(255, 255, 255, 0.07);
@@ -311,11 +311,12 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Demo "du-card" treatment (dark mode).
-   - base fill + soft top-left spotlight glow baked into the background
-   - a gradient border ring that is bright/thicker at the top-left and fades out
-   Unlayered on purpose so it reliably overrides the `bg-card` utility.
+   Card treatment (dark mode): flat fill + a gradient border ring.
    Applies to the Card primitive ([data-slot="card"]) and any `.du-card` element.
+   The ring draws a uniform thin baseline on every edge plus a brighter top-left
+   spotlight glow, all on a single ::after so it follows the card's own radius.
+   The main content panel (sidebar inset) reuses this with a darker fill — see
+   the scoped rules below.
    ────────────────────────────────────────────────────────────────────────── */
 .dark [data-slot="card"],
 .dark .du-card {
@@ -327,26 +328,33 @@
       rgba(255, 255, 255, 0) 46%
     ),
     var(--card);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  /* Border is drawn entirely by the ::after ring so it aligns with the card's
+     own corner radius (no border-box vs padding-box mismatch). */
+  border: 0;
   position: relative;
   isolation: isolate;
 }
 
-/* gradient border ring: bright at the top-left corner, fades out on all sides */
+/* Border ring: a consistent thin baseline on every edge, with a brighter
+   top-left spotlight glow layered on top. */
 .dark [data-slot="card"]::after,
 .dark .du-card::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  padding: 1.25px;
-  background: radial-gradient(
-    125% 125% at 0% 0%,
-    rgba(255, 255, 255, 0.6) 0%,
-    rgba(255, 255, 255, 0.18) 18%,
-    rgba(255, 255, 255, 0.05) 34%,
-    rgba(255, 255, 255, 0) 52%
-  );
+  padding: 0.75px;
+  background:
+    /* spotlight: bright at the top-left corner, fades out */
+    radial-gradient(
+      125% 125% at 0% 0%,
+      rgba(255, 255, 255, 0.6) 0%,
+      rgba(255, 255, 255, 0.18) 18%,
+      rgba(255, 255, 255, 0.05) 34%,
+      rgba(255, 255, 255, 0) 52%
+    ),
+    /* baseline: uniform thin border so all sides stay defined */
+    linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -354,6 +362,24 @@
   mask-composite: exclude;
   pointer-events: none;
   z-index: 1;
+}
+
+/* Darker fill for the main content panel (sidebar inset) so the dashboard
+   surface recedes and the cards layered on top of it stand out more.
+   Border ring is handled by the shared ::after rule above. */
+.dark [data-slot="sidebar-inset"].du-card {
+  background:
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.1),
+      rgba(255, 255, 255, 0.035) 26%,
+      rgba(255, 255, 255, 0) 46%
+    ),
+    #0c0d0e;
+}
+
+.dark [data-slot="sidebar-inset"].du-card::after {
+  padding: 0.5px;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────

@@ -1099,7 +1099,7 @@ export default function DeployPage() {
           ))}
         </div>
 
-        <Card className="border border-border/80 bg-card/65">
+        <Card className="border border-border/80 bg-card">
           <CardHeader className="border-b border-border/40 pb-4">
             <CardTitle className="text-base font-bold text-foreground">Deploy New Service</CardTitle>
             <CardDescription className="text-xs text-muted-foreground mt-0.5">
@@ -1800,13 +1800,13 @@ export default function DeployPage() {
 
           {/* Current selection indicator */}
           {folderBrowserPath && (
-            <div className="text-xs px-2 py-1 mx-6 bg-primary/5 border border-primary/20 rounded text-primary font-medium">
+            <div className="text-xs px-2 mb-2 py-1 mx-6 bg-primary/5 border border-primary/20 rounded text-primary font-medium">
               Selected: ./{folderBrowserPath}
             </div>
           )}
 
           {/* Folder list */}
-          <div className="flex-1 overflow-y-auto border border-border rounded-md mx-6">
+          <div className="flex-1 mb-2 overflow-y-auto border border-border rounded-md mx-6">
             {folderBrowserLoading ? (
               <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
                 <RefreshIcon className="h-4 w-4 animate-spin mr-2" />
