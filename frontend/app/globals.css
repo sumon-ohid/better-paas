@@ -531,6 +531,15 @@
   .mask-fade-radial {
     mask-image: radial-gradient(ellipse at center, black 35%, transparent 75%);
   }
+
+  /* Hide scrollbars while keeping scroll behavior (e.g. horizontal tab bars). */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ──────────────────────────────────────────────────────────────────────────

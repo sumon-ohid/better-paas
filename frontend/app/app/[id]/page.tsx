@@ -413,22 +413,22 @@ function AppDetailPage() {
         {/* Header */}
         <div className="border-b border-border bg-transparent px-4 py-3 shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <Button
                 variant={"link"}
                 onClick={() => router.push("/")}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
               >
                 <ChevronLeftIcon className="h-3.5 w-3.5" />
                 Dashboard
               </Button>
-              <span className="h-4 w-px bg-border" />
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-bold text-foreground">{app.name}</h1>
+              <span className="h-4 w-px bg-border shrink-0" />
+              <div className="flex min-w-0 items-center gap-2.5">
+                <h1 className="truncate text-lg sm:text-xl font-bold text-foreground">{app.name}</h1>
                 <StatusBadge status={app.status} />
               </div>
               {app.branch && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono text-muted-foreground">
+                <span className="hidden sm:inline-flex shrink-0 items-center gap-1 text-xs font-mono text-muted-foreground">
                   <GitBranchIcon className="h-3 w-3" />
                   {app.branch}
                 </span>
@@ -470,12 +470,12 @@ function AppDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-1 mt-3 border-b border-border/50">
+          <div className="flex items-center gap-1 mt-3 border-b border-border/50 overflow-x-auto scrollbar-none -mx-4 px-4">
             {tabs.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`px-3 py-1.5 text-xs font-medium transition-all cursor-pointer border-b-2 -mb-px ${
+                className={`shrink-0 px-3 py-1.5 text-xs font-medium transition-all cursor-pointer border-b-2 -mb-px ${
                   currentTab === t.id
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
@@ -627,7 +627,7 @@ function AppDetailPage() {
                    </div>
                </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Branch</Label>
                   <Input value={branch} onChange={(e) => setBranch(e.target.value)} className="h-9 text-sm" />
@@ -640,7 +640,7 @@ function AppDetailPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Port Override
@@ -671,7 +671,7 @@ function AppDetailPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Build Command
