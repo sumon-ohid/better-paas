@@ -477,10 +477,10 @@ function AppDetailPage() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`shrink-0 px-3 py-1.5 text-xs font-medium transition-all cursor-pointer border-b-2 -mb-px ${
+                className={`shrink-0 rounded-t-md px-3 py-2 text-sm transition-all cursor-pointer border-b-2 -mb-px ${
                   currentTab === t.id
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "border-primary bg-muted/40 font-semibold text-foreground"
+                    : "border-transparent font-medium text-muted-foreground hover:bg-muted/20 hover:text-foreground"
                 }`}
               >
                 {t.label}
