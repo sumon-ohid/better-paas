@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -46,6 +46,7 @@ import { Fastapi } from "@/components/ui/svgs/fastapi"
 import { Java } from "@/components/ui/svgs/java"
 import { Microsoft } from "@/components/ui/svgs/microsoft"
 import { api } from "@/lib/api"
+import { GitCompareArrows } from "lucide-react"
 
 // Framework definitions (18 supported frameworks)
 type FrameworkIcon = React.FC<React.SVGProps<SVGSVGElement>>
@@ -278,7 +279,10 @@ const FRAMEWORKS = [
     icon: null as FrameworkIcon | null,
     keywords: ["static", "jekyll", "hugo", "eleventy", "gatsby"],
     buildCmd: "",
-    startCmd: "python -m http.server $PORT",
+    // Leave the start command empty so Nixpacks' native staticfile provider
+    // serves the files with nginx (bound to $PORT). The image has no Python, so
+    // a "python -m http.server" command here would fail at runtime.
+    startCmd: "",
     installCmd: "",
     port: 8080,
   },
@@ -457,6 +461,13 @@ async function detectInDir(
   if (fileNames.has("bun.lockb")) return high("bun")
   if (fileNames.has("deno.json") || fileNames.has("deno.jsonc")) return high("deno")
 
+  // 7. Static site — a plain index.html with no package.json or other language
+  // manifest. This is checked last so any real framework/manifest wins first;
+  // reaching here means the directory is just pre-built static files, which
+  // Nixpacks serves via its native nginx provider.
+  if (fileNames.has("index.html") || fileNames.has("index.htm"))
+    return high("staticfile")
+
   return null
 }
 
@@ -603,6 +614,28 @@ async function detectFrameworkByFiles(
   return null
 }
 
+// detectFrameworkForDir detects the framework for one specific directory only
+// (no monorepo/subdir traversal). It's used when the user manually changes the
+// build Root Directory, because the repo root and a subdirectory can be
+// completely different stacks (e.g. a Go API at the root with a Next.js app in
+// /frontend). Returns null when the directory has no recognizable framework.
+async function detectFrameworkForDir(
+  repo: GitHubRepo,
+  branch: string,
+  dir: string,
+): Promise<Framework | null> {
+  const normalized = dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()
+  try {
+    const contents = await safeContents(repo, branch, normalized)
+    if (contents.length === 0) return null
+    const match = await detectInDir(repo, branch, normalized, contents)
+    return match ? match.framework : null
+  } catch (err) {
+    console.error("[FrameworkScan] per-dir error:", err)
+    return null
+  }
+}
+
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
@@ -671,6 +704,10 @@ export default function DeployPage() {
   const [isDeploying, setIsDeploying] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
 
+  // Debounce timer for re-detecting the framework when the Root Directory input
+  // is edited by hand.
+  const rootDirDetectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // ── Repo loading ───────────────────────────────────────────────────────────
   const loadRepos = useCallback(async () => {
     setIsLoadingRepos(true)
@@ -699,6 +736,13 @@ export default function DeployPage() {
         // No saved token
       })
   }, [loadRepos])
+
+  // Clear any pending root-dir detection timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+    }
+  }, [])
 
   const applyDetectedFramework = (fw: (typeof FRAMEWORKS)[0] | null) => {
     setDetectedFramework(fw)
@@ -822,9 +866,50 @@ export default function DeployPage() {
     }
   }
 
+  // Re-detect the framework for a specific directory after the user changes the
+  // build Root Directory. The repo root and a subdirectory can hold different
+  // stacks, so the auto-configured build/start commands must follow the chosen
+  // directory. Falls back to the repo-wide scan when the directory is cleared
+  // (back to root).
+  const redetectForRootDir = useCallback(
+    async (dir: string) => {
+      if (!selectedRepo || !selectedBranch) return
+      const normalized = dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()
+
+      setIsDetectingFramework(true)
+      try {
+        if (!normalized || normalized === ".") {
+          // Back to repo root: rerun the full scan (handles monorepos/subdirs).
+          const detected = await detectFrameworkByFiles(selectedRepo, selectedBranch)
+          applyDetectedFramework(detected ? detected.framework : null)
+          return
+        }
+        const fwForDir = await detectFrameworkForDir(selectedRepo, selectedBranch, normalized)
+        // Only overwrite the build config when we positively recognize the
+        // directory's stack; otherwise leave the current commands untouched so
+        // we don't clobber a user's manual edits with an empty guess.
+        if (fwForDir) applyDetectedFramework(fwForDir)
+      } finally {
+        setIsDetectingFramework(false)
+      }
+    },
+    [selectedRepo, selectedBranch],
+  )
+
+  // Debounced re-detection driven by manual edits to the Root Directory input.
+  const handleRootDirChange = (value: string) => {
+    setDeployRootDir(value)
+    if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+    rootDirDetectTimer.current = setTimeout(() => {
+      redetectForRootDir(value)
+    }, 600)
+  }
+
   const selectFolder = (path: string) => {
     setDeployRootDir(path)
     setShowFolderBrowser(false)
+    if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+    redetectForRootDir(path)
   }
 
   const parseEnvBlock = (text: string): Array<{ key: string; value: string }> => {
@@ -1015,7 +1100,7 @@ export default function DeployPage() {
           ))}
         </div>
 
-        <Card className="border border-border/80 bg-card/65">
+        <Card className="border border-border/80 bg-card">
           <CardHeader className="border-b border-border/40 pb-4">
             <CardTitle className="text-base font-bold text-foreground">Deploy New Service</CardTitle>
             <CardDescription className="text-xs text-muted-foreground mt-0.5">
@@ -1023,7 +1108,7 @@ export default function DeployPage() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="pt-6 min-h-[300px]">
+          <CardContent className="pt-4 min-h-[320px]">
             {errorMsg && (
               <Alert variant="error" className="mb-4">
                 <NucleoIcon name="triangle-alert" />
@@ -1066,8 +1151,8 @@ export default function DeployPage() {
                     {/* Connected header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-md bg-success/10 flex items-center justify-center">
-                          <NucleoIcon name="check" className="h-3.5 w-3.5 text-success" />
+                        <div className="h-6 w-6 rounded-md flex items-center justify-center">
+                          <GitCompareArrows className="h-4 w-4 text-success" />
                         </div>
                         <span className="text-sm font-medium text-foreground">GitHub connected</span>
                       </div>
@@ -1307,7 +1392,7 @@ export default function DeployPage() {
                     </div>
                     <Input
                       value={deployRootDir}
-                      onChange={(e) => setDeployRootDir(e.target.value)}
+                      onChange={(e) => handleRootDirChange(e.target.value)}
                       placeholder="./"
                       className="h-9 text-sm"
                     />
@@ -1716,13 +1801,13 @@ export default function DeployPage() {
 
           {/* Current selection indicator */}
           {folderBrowserPath && (
-            <div className="text-xs px-2 py-1 mx-6 bg-primary/5 border border-primary/20 rounded text-primary font-medium">
+            <div className="text-xs px-2 mb-2 py-1 mx-6 bg-primary/5 border border-primary/20 rounded text-primary font-medium">
               Selected: ./{folderBrowserPath}
             </div>
           )}
 
           {/* Folder list */}
-          <div className="flex-1 overflow-y-auto border border-border rounded-md mx-6">
+          <div className="flex-1 mb-2 overflow-y-auto border border-border rounded-md mx-6">
             {folderBrowserLoading ? (
               <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
                 <RefreshIcon className="h-4 w-4 animate-spin mr-2" />
@@ -1762,6 +1847,8 @@ export default function DeployPage() {
               onClick={() => {
                 setDeployRootDir("")
                 setShowFolderBrowser(false)
+                if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+                redetectForRootDir("")
               }}
               className="text-xs text-muted-foreground hover:text-foreground"
             >

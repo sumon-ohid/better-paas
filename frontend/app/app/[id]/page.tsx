@@ -11,27 +11,64 @@ import { AppShell, useToast } from "@/components/app-shell"
 import { StatusBadge } from "@/components/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogClose,
+} from "@/components/ui/alert-dialog"
 import { api, createRuntimeLogsWs } from "@/lib/api"
 import type { App, DeploymentRecord, LogEntry } from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
+import dynamic from "next/dynamic"
+
+// xterm.js touches the DOM on import, so load the terminal client-side only.
+const ContainerTerminal = dynamic(
+  () => import("@/components/container-terminal").then((m) => m.ContainerTerminal),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-border/80 bg-card text-xs text-muted-foreground">
+        Loading terminal…
+      </div>
+    ),
+  },
+)
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-left" />
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const SquareIcon = (props: IconProps) => <NucleoIcon {...props} name="square" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const LoaderIcon = (props: IconProps) => <NucleoIcon {...props} name="loader" />
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const ExternalIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
 const CopyIcon = (props: IconProps) => <NucleoIcon {...props} name="copy" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
+const GitCommitIcon = (props: IconProps) => <NucleoIcon {...props} name="git-commit" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 
-export type AppTab = "overview" | "config" | "logs" | "deployments"
+export type AppTab = "overview" | "config" | "logs" | "terminal" | "deployments"
+
+// githubCommitUrl builds a link to a specific commit on GitHub from the app's
+// git repo URL. Returns "" for non-GitHub remotes or when the SHA is missing.
+function githubCommitUrl(gitRepo: string, commit: string): string {
+  if (!commit || !gitRepo.includes("github.com")) return ""
+  const repoPath = gitRepo
+    .replace(/\.git$/, "")
+    .replace(/^git@github\.com:/, "")
+    .replace(/^https?:\/\/github\.com\//, "")
+    .replace(/^github\.com\//, "")
+  return `https://github.com/${repoPath}/commit/${commit}`
+}
 
 function AppDetailPage() {
   const router = useRouter()
@@ -58,6 +95,8 @@ function AppDetailPage() {
     const [isSaving, setIsSaving] = useState(false)
   const [expandedDepl, setExpandedDepl] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [rollbackTarget, setRollbackTarget] = useState<DeploymentRecord | null>(null)
+  const [isRollingBack, setIsRollingBack] = useState(false)
 
   // ── Config edit states ─────────────────────────────────────────────────────
   const [gitRepo, setGitRepo] = useState("")
@@ -76,6 +115,11 @@ function AppDetailPage() {
   const logBufferRef = useRef<LogEntry[]>([])
   const flushTimerRef = useRef<NodeJS.Timeout | null>(null)
   const logEndRef = useRef<HTMLDivElement | null>(null)
+
+  // ── Terminal ─────────────────────────────────────────────────────────────────
+  // The interactive shell is a self-contained xterm.js component; we only track
+  // a token here so the Reconnect button can force it to re-mount.
+  const [termReconnectToken, setTermReconnectToken] = useState(0)
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -232,8 +276,7 @@ function AppDetailPage() {
        await api.apps.redeploy(app.id)
        showToast("Redeploy Started", `Triggering new build for ${app.name}...`)
        fetchData()
-       setTab("logs")
-       setTimeout(() => connectLogs(), 500)
+       setTab("deployments")
      } catch (err) {
        showToast("Error", "Failed to trigger redeployment.", "destructive")
        console.error(err)
@@ -242,6 +285,26 @@ function AppDetailPage() {
      }
    }
  
+    const handleRollback = async (dep: DeploymentRecord) => {
+      if (!app) return
+      setIsRollingBack(true)
+      try {
+        await api.apps.rollback(app.id, dep.id)
+        showToast(
+          "Rollback Started",
+          `Re-releasing ${dep.commit ? dep.commit.slice(0, 7) : "deployment"} for ${app.name}...`,
+        )
+        setRollbackTarget(null)
+        fetchData()
+        setTab("deployments")
+      } catch (err) {
+        showToast("Error", "Failed to start rollback.", "destructive")
+        console.error(err)
+      } finally {
+        setIsRollingBack(false)
+      }
+    }
+
     const handleDelete = async () => {
      if (!app) return
     try {
@@ -340,6 +403,7 @@ function AppDetailPage() {
     { id: "overview", label: "Overview" },
     { id: "config", label: "Configuration" },
     { id: "logs", label: "Logs" },
+    { id: "terminal", label: "Terminal" },
     { id: "deployments", label: "Deployments" },
   ]
 
@@ -347,24 +411,24 @@ function AppDetailPage() {
     <AppShell>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="border-b border-border bg-background/80 backdrop-blur-sm px-4 py-3 shrink-0">
+        <div className="border-b border-border bg-transparent px-4 py-3 shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <Button
                 variant={"link"}
                 onClick={() => router.push("/")}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
               >
                 <ChevronLeftIcon className="h-3.5 w-3.5" />
                 Dashboard
               </Button>
-              <span className="h-4 w-px bg-border" />
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-bold text-foreground">{app.name}</h1>
+              <span className="h-4 w-px bg-border shrink-0" />
+              <div className="flex min-w-0 items-center gap-2.5">
+                <h1 className="truncate text-lg sm:text-xl font-bold text-foreground">{app.name}</h1>
                 <StatusBadge status={app.status} />
               </div>
               {app.branch && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono text-muted-foreground">
+                <span className="hidden sm:inline-flex shrink-0 items-center gap-1 text-xs font-mono text-muted-foreground">
                   <GitBranchIcon className="h-3 w-3" />
                   {app.branch}
                 </span>
@@ -406,12 +470,12 @@ function AppDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-1 mt-3 border-b border-border/50">
+          <div className="flex items-center gap-1 mt-3 border-b border-border/50 overflow-x-auto scrollbar-none -mx-4 px-4">
             {tabs.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`px-3 py-1.5 text-xs font-medium transition-all cursor-pointer border-b-2 -mb-px ${
+                className={`shrink-0 px-3 py-1.5 text-xs font-medium transition-all cursor-pointer border-b-2 -mb-px ${
                   currentTab === t.id
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
@@ -563,7 +627,7 @@ function AppDetailPage() {
                    </div>
                </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Branch</Label>
                   <Input value={branch} onChange={(e) => setBranch(e.target.value)} className="h-9 text-sm" />
@@ -576,7 +640,7 @@ function AppDetailPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Port Override
@@ -607,7 +671,7 @@ function AppDetailPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Build Command
@@ -632,7 +696,10 @@ function AppDetailPage() {
                     onClick={() => setEnvVars((prev) => [...prev, { key: "", value: "" }])}
                     className="h-6 cursor-pointer rounded bg-secondary text-secondary-foreground text-xs px-2 hover:bg-secondary/85 flex items-center gap-1 font-semibold border-0"
                   >
-                    <PlusIcon className="h-3 w-3" /> Add Var
+                    <PlusIcon className="h-3 w-3 text-white dark:text-black" />
+                    <span className="text-white dark:text-black">
+                      Add Variables
+                    </span>
                   </Button>
                 </div>
                 <div className="space-y-2">
@@ -720,8 +787,16 @@ function AppDetailPage() {
                 </div>
               </div>
 
-              <div className="flex-1 mt-4 min-h-0 bg-[#f8f9fc] dark:bg-[#080910] border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed">
-                <div className="h-full overflow-y-auto p-4 space-y-0.5">
+              <div className="flex-1 mt-4 min-h-0 bg-transparent border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed flex flex-col">
+                <div className="flex items-center gap-2 px-4 py-2 shrink-0 select-none">
+                  {logsConnected && (
+                    <span className="ml-auto flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-success">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                      Live
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-0.5">
                   {logs.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 dark:text-slate-500 select-none">
                       <TerminalIcon className={`h-8 w-8 opacity-25 ${logsConnected ? "animate-pulse" : ""}`} />
@@ -755,6 +830,53 @@ function AppDetailPage() {
             </div>
           )}
 
+          {/* ── Terminal ───────────────────────────────────────────────── */}
+          {currentTab === "terminal" && (
+            <div className="flex-1 flex flex-col min-h-0 p-4 md:p-6 animate-in fade-in-50 duration-200">
+              <div className="flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <TerminalIcon className="h-3.5 w-3.5" />
+                  <span>Container Shell</span>
+                </div>
+                {app.status === "running" && (
+                  <button
+                    onClick={() => setTermReconnectToken((t) => t + 1)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                  >
+                    <RefreshIcon className="h-3 w-3" />
+                    Reconnect
+                  </button>
+                )}
+              </div>
+
+              {app.status !== "running" ? (
+                <div className="flex-1 mt-4 min-h-0 bg-card border border-border/80 rounded-lg flex flex-col items-center justify-center gap-3 text-muted-foreground/60 select-none">
+                  <TerminalIcon className="h-8 w-8 opacity-25" />
+                  <span className="text-sm">The container must be running to open a terminal.</span>
+                  {app.status === "stopped" && (
+                    <Button
+                      onClick={() => handleToggle("start")}
+                      disabled={isToggling}
+                      variant="outline"
+                      className="h-7 gap-1.5 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
+                    >
+                      <PlayIcon className="h-3 w-3" />
+                      Start container
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex-1 mt-4 min-h-0">
+                  <ContainerTerminal
+                    appId={appId}
+                    appName={app.name}
+                    reconnectToken={termReconnectToken}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
            {/* ── Deployments ────────────────────────────────────────────── */}
            {currentTab === "deployments" && (
              <div className="h-full overflow-y-auto p-4 md:p-6 space-y-4 animate-in fade-in-50 duration-200">
@@ -764,100 +886,181 @@ function AppDetailPage() {
                    {deployments.length} deployment{deployments.length !== 1 ? "s" : ""} recorded.
                  </p>
                </div>
- 
+
                {deployments.length === 0 ? (
                  <div className="py-16 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
                    <RefreshIcon className="h-6 w-6 mx-auto mb-3 opacity-20" />
-                   No deployments recorded for this project yet.
+                   {app.status === "building"
+                     ? "Waiting for the current build to finish…"
+                     : "No deployments recorded for this project yet."}
                  </div>
                ) : (
                  <div className="space-y-3">
                    {deployments.map((dep, idx) => {
                      const isExpanded = expandedDepl === dep.id
+                     const isBuilding = dep.status === "building" || dep.status === "in_progress"
                      const isSuccess = dep.status === "success"
                      const deployNumber = deployments.length - idx
-                     
+                     const isLive = !!dep.image && dep.image === app.activeImage
+                     const canRollback = isSuccess && !!dep.image && !isLive && !isBuilding
+                     const commitUrl = dep.commit ? githubCommitUrl(app.gitRepo, dep.commit) : ""
+
                      return (
                        <div
                          key={dep.id}
                          className="rounded-xl border border-border bg-card/72 backdrop-blur-xl overflow-hidden transition-shadow hover:shadow-sm"
                        >
-                         {/* Header row */}
+                         {/* Header row — single flex row that wraps on small screens */}
                          <div
-                           className="flex items-center gap-3 px-4 py-3 cursor-pointer group"
+                           className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 cursor-pointer group"
                            onClick={() => setExpandedDepl(isExpanded ? null : dep.id)}
                          >
                            {/* Status indicator */}
-                           <div className={`shrink-0 h-8 w-8 rounded-lg flex items-center justify-center ${
-                             isSuccess 
-                               ? "bg-success/10" 
-                               : "bg-destructive/10"
+                           <div className={`shrink-0 h-7 w-7 rounded-lg flex items-center justify-center ${
+                             isBuilding
+                               ? "bg-warning/10"
+                               : isSuccess
+                                 ? "bg-success/10"
+                                 : "bg-destructive/10"
                            }`}>
-                             {isSuccess ? (
-                               <CheckIcon className="h-4 w-4 text-success" />
+                             {isBuilding ? (
+                               <LoaderIcon className="h-3.5 w-3.5 text-warning animate-spin" />
+                             ) : isSuccess ? (
+                               <CheckIcon className="h-3.5 w-3.5 text-success" />
                              ) : (
-                               <XIcon className="h-4 w-4 text-destructive" />
+                               <XIcon className="h-3.5 w-3.5 text-destructive" />
                              )}
                            </div>
-                           
-                           {/* Main info */}
-                           <div className="flex-1 min-w-0">
-                             <div className="flex items-center gap-2">
-                               <span className="text-xs font-mono text-muted-foreground">
-                                 #{deployNumber}
+
+                           <span className="shrink-0 text-xs font-mono text-muted-foreground">
+                             #{deployNumber}
+                           </span>
+
+                           {/* Commit message — flexes and truncates to fit the row */}
+                           <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium text-foreground">
+                             {dep.commitMsg ||
+                               (dep.trigger === "rollback" ? "Rollback" : "(no commit message)")}
+                           </span>
+
+                           {/* Commit hash → GitHub commit page */}
+                           {dep.commit &&
+                             (commitUrl ? (
+                               <a
+                                 href={commitUrl}
+                                 target="_blank"
+                                 rel="noopener noreferrer"
+                                 onClick={(e) => e.stopPropagation()}
+                                 className="shrink-0 inline-flex items-center gap-1 rounded border border-border/80 bg-muted/30 px-1.5 py-0.5 text-[11px] font-mono text-muted-foreground hover:border-primary/30 hover:text-primary transition-colors"
+                                 title="View commit on GitHub"
+                               >
+                                 <GitCommitIcon className="h-3 w-3" />
+                                 {dep.commit.slice(0, 7)}
+                                 <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
+                               </a>
+                             ) : (
+                               <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/80">
+                                 <GitCommitIcon className="h-3 w-3" />
+                                 {dep.commit.slice(0, 7)}
                                </span>
-                               <span className="text-sm font-medium text-foreground truncate">
-                                 {dep.id.slice(0, 12)}...
-                               </span>
-                             </div>
-                             <div className="flex items-center gap-3 mt-0.5">
-                               <span className="text-[11px] text-muted-foreground">
-                                 {new Date(dep.createdAt).toLocaleString(undefined, {
-                                   month: "short",
-                                   day: "numeric",
-                                   hour: "2-digit",
-                                   minute: "2-digit",
-                                 })}
-                               </span>
-                               <span className="text-[11px] text-muted-foreground/60">·</span>
-                               <span className="text-[11px] font-mono text-muted-foreground">
-                                 {dep.duration}
-                               </span>
-                             </div>
-                           </div>
-                           
-                           {/* Status badge */}
+                             ))}
+
+                           {/* Branch */}
+                           {app.branch && (
+                             <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/80">
+                               <GitBranchIcon className="h-3 w-3" />
+                               {app.branch}
+                             </span>
+                           )}
+
+                           {/* Time */}
+                           <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                             {new Date(dep.createdAt).toLocaleString(undefined, {
+                               month: "short",
+                               day: "numeric",
+                               hour: "2-digit",
+                               minute: "2-digit",
+                             })}
+                           </span>
+
+                           {/* Duration */}
+                           <span className="shrink-0 text-[11px] font-mono text-muted-foreground/70">
+                             {isBuilding ? "in progress" : dep.duration}
+                           </span>
+
+                           {/* Status + live badges */}
                            <Badge
-                             variant={isSuccess ? "success" : "error"}
+                             variant={isBuilding ? "warning" : isSuccess ? "success" : "error"}
                              size="sm"
                              className="shrink-0"
                            >
-                             {isSuccess ? "Success" : "Failed"}
+                             {isBuilding ? "Building" : isSuccess ? "Success" : "Failed"}
                            </Badge>
-                           
+
+                           {isLive && (
+                             <Badge variant="info" size="sm" className="shrink-0 gap-1">
+                               <span className="h-1.5 w-1.5 rounded-full bg-info" />
+                               Live
+                             </Badge>
+                           )}
+
+                           {/* Rollback (inline, no need to expand) */}
+                           {canRollback && (
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation()
+                                 setRollbackTarget(dep)
+                               }}
+                               className="shrink-0 inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[11px] font-mono text-primary hover:bg-primary/15 cursor-pointer transition-colors"
+                               title="Roll back to this deployment"
+                             >
+                               <RefreshIcon className="h-3 w-3" />
+                               Rollback
+                             </button>
+                           )}
+
                            {/* Expand chevron */}
-                           <ChevronLeftIcon className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                           <ChevronLeftIcon className={`ml-auto shrink-0 h-4 w-4 text-muted-foreground transition-transform duration-200 ${
                              isExpanded ? "-rotate-90" : "rotate-180"
                            }`} />
                          </div>
                          
                          {/* Expanded log output */}
                          {isExpanded && (
-                           <div className="border-t border-border/30 bg-[#f8f9fc] dark:bg-[#080910]">
+                           <div className="border-t bg-transparent border-border/30">
                              <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                                <span className="text-[11px] font-mono text-muted-foreground/50 dark:text-slate-500">
                                  Build log · {dep.logs.length} lines
                                </span>
-                               <button
-                                 onClick={(e) => {
-                                   e.stopPropagation()
-                                   router.push(`/logs?appId=${appId}&mode=build`)
-                                 }}
-                                 className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer transition-colors"
-                               >
-                                 <TerminalIcon className="h-3 w-3" />
-                                 Open full log
-                               </button>
+                               <div className="flex items-center gap-3">
+                                 {canRollback && (
+                                   <button
+                                     onClick={(e) => {
+                                       e.stopPropagation()
+                                       setRollbackTarget(dep)
+                                     }}
+                                     className="flex items-center gap-1 text-[11px] font-mono text-primary hover:text-primary/80 cursor-pointer transition-colors"
+                                   >
+                                     <RefreshIcon className="h-3 w-3" />
+                                     Rollback to this
+                                   </button>
+                                 )}
+                                 {isLive && (
+                                   <span className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50">
+                                     <CheckIcon className="h-3 w-3 text-info" />
+                                     Currently live
+                                   </span>
+                                 )}
+                                 <button
+                                   onClick={(e) => {
+                                     e.stopPropagation()
+                                     router.push(`/logs?appId=${appId}&mode=build`)
+                                   }}
+                                   className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer transition-colors"
+                                 >
+                                   <TerminalIcon className="h-3 w-3" />
+                                   Open full log
+                                 </button>
+                               </div>
                              </div>
                              <div className="px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300 max-h-80 overflow-y-auto space-y-0.5">
                                {dep.logs.length === 0 ? (
@@ -891,6 +1094,47 @@ function AppDetailPage() {
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteModal(false)}
       />
+
+      {/* Rollback Confirm Modal */}
+      <AlertDialog
+        open={!!rollbackTarget}
+        onOpenChange={(open) => {
+          if (!open) setRollbackTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-info/10 text-info sm:mx-0">
+              <RefreshIcon className="h-5 w-5" />
+            </div>
+            <AlertDialogTitle>Roll back deployment</AlertDialogTitle>
+            <AlertDialogDescription>
+              This re-releases the image built for{" "}
+              {rollbackTarget?.commit ? (
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+                  {rollbackTarget.commit.slice(0, 7)}
+                </code>
+              ) : (
+                "this deployment"
+              )}
+              {rollbackTarget?.commitMsg ? ` — “${rollbackTarget.commitMsg}”` : ""}. A new
+              deployment will be created and your live container will be replaced with it. No
+              rebuild happens, so it&apos;s fast.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline">Cancel</Button>} />
+            <Button
+              onClick={() => rollbackTarget && handleRollback(rollbackTarget)}
+              disabled={isRollingBack}
+              className="gap-1.5"
+            >
+              <RefreshIcon className={`h-4 w-4 ${isRollingBack ? "animate-spin" : ""}`} />
+              {isRollingBack ? "Rolling back…" : "Confirm rollback"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   )
 }

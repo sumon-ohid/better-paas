@@ -30,6 +30,10 @@ func main() {
 	// Load or provision the admin token (must run after initDB).
 	initAuth()
 
+	// Reconcile apps/deployments left mid-build by a previous restart or crash,
+	// so an interrupted deployment doesn't show an eternal "building" spinner.
+	reconcileStuckBuilds()
+
 	// Rebuild Caddyfile from loaded apps
 	rebuildCaddyfile()
 
@@ -114,6 +118,7 @@ func main() {
 	mux.HandleFunc("/ws/stats", handleStatsWS)
 	mux.HandleFunc("/ws/logs", handleLogsWS)
 	mux.HandleFunc("/ws/runtime-logs", handleRuntimeLogsWS)
+	mux.HandleFunc("/ws/terminal", handleTerminalWS)
 
 	// Auth gate, then CORS. Health stays public for uptime probes.
 	authed := authGate(mux)

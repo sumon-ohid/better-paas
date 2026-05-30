@@ -147,8 +147,9 @@
     --warning-foreground: #986b22;
     --accent: rgba(94, 106, 210, 0.08);
     --accent-foreground: #20212b;
-    --background: #f7f8fb;
+    --background: #f8f8f8;
     --border: rgba(20, 21, 31, 0.08);
+    --bg-sidebar: #f8f8f8;
     --card: #ffffff;
     --card-foreground: #20212b;
     --destructive: #d55353;
@@ -172,7 +173,7 @@
     --code-foreground: var(--foreground);
     --code-highlight: rgba(94, 106, 210, 0.08);
     --radius: 8px;
-    --sidebar: #f2f3f7;
+    --sidebar: #f8f8f8;
     --sidebar-accent: rgba(94, 106, 210, 0.08);
     --sidebar-accent-foreground: #20212b;
     --sidebar-border: rgba(20, 21, 31, 0.07);
@@ -185,47 +186,51 @@
 }
 
 .dark {
-    --destructive-foreground: #ff8f96;
-    --info: #8f99ff;
-    --info-foreground: #b7bcff;
-    --success: #69d1a7;
-    --success-foreground: #93e0c0;
-    --warning: #e7be75;
-    --warning-foreground: #f1d59c;
-    --accent: rgba(142, 152, 255, 0.095);
-    --accent-foreground: #f3f3f6;
-    --background: #08090d;
-    --border: rgba(255, 255, 255, 0.075);
-    --card: #0d0e13;
-    --card-foreground: #ededf2;
-    --destructive: #f26d78;
-    --foreground: #f3f3f6;
-    --input: rgba(255, 255, 255, 0.105);
-    --muted: rgba(255, 255, 255, 0.052);
-    --muted-foreground: #8e92a1;
-    --popover: #111219;
-    --popover-foreground: #f3f3f6;
-    --primary: #8f99ff;
-    --primary-foreground: #090a10;
-    --ring: rgba(143, 153, 255, 0.46);
+    /* Palette mapped from the HR workforce demo UI.
+       bg #0a0a0b · card #161617 · card-2 #1b1b1d · txt #ededed
+       sub white/46 · line white/7 · purple #8b7ff6 · green #5fe0a0
+       yellow #f5d04a · orange #f1542e */
+    --destructive-foreground: #f7b3a4;
+    --info: #8b7ff6;
+    --info-foreground: #b3aaf9;
+    --success: #5fe0a0;
+    --success-foreground: #8eecc0;
+    --warning: #f5d04a;
+    --warning-foreground: #f8dd7e;
+    --accent: rgba(255, 255, 255, 0.06);
+    --accent-foreground: #ededed;
+    --background: #0c0d0e;
+    --border: rgba(255, 255, 255, 0.07);
+    --card: #121214;
+    --card-foreground: #ededed;
+    --destructive: #f1542e;
+    --foreground: #ededed;
+    --input: rgba(255, 255, 255, 0.1);
+    --muted: rgba(255, 255, 255, 0.05);
+    --muted-foreground: rgba(255, 255, 255, 0.46);
+    --popover: #161618;
+    --popover-foreground: #ededed;
+    --primary: #8b7ff6;
+    --primary-foreground: #0a0a0b;
+    --ring: rgba(139, 127, 246, 0.5);
     --secondary: rgba(255, 255, 255, 0.055);
-    --secondary-foreground: #ededf2;
-    --chart-1: #8f99ff;
-    --chart-2: #6874e8;
-    --chart-3: #69d1a7;
-    --chart-4: #e7be75;
-    --chart-5: #ee7e96;
-    --code: #090a0f;
+    --secondary-foreground: #ededed;
+    --chart-1: #8b7ff6;
+    --chart-2: #5aa9f6;
+    --chart-3: #5fe0a0;
+    --chart-4: #f5d04a;
+    --chart-5: #f1542e;
+    --code: #0a0a0b;
     --code-foreground: var(--foreground);
-    --code-highlight: rgba(143, 153, 255, 0.11);
-    --sidebar: #0a0b10;
-    --sidebar-accent: rgba(143, 153, 255, 0.09);
-    --sidebar-accent-foreground: #f3f3f6;
+    --code-highlight: rgba(139, 127, 246, 0.12);
+    --sidebar: #0c0d0e;
+    --sidebar-accent: rgba(255, 255, 255, 0.06);
+    --sidebar-accent-foreground: #ededed;
     --sidebar-border: rgba(255, 255, 255, 0.07);
-    --sidebar-foreground: #8e92a1;
-    --sidebar-primary: #8f99ff;
-    --sidebar-primary-foreground: #090a10;
-    --sidebar-ring: rgba(143, 153, 255, 0.46);
+    --sidebar-foreground: rgba(255, 255, 255, 0.46);
+    --sidebar-primary: #8b7ff6;
+    --sidebar-primary-foreground: #0a0a0b;
+    --sidebar-ring: rgba(139, 127, 246, 0.5);
     --grid-line: rgba(255, 255, 255, 0.022);
     --grid-size: 28px;
 }
@@ -306,6 +311,201 @@
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Card treatment (dark mode): flat fill + a gradient border ring.
+   Applies to the Card primitive ([data-slot="card"]) and any `.du-card` element.
+   The ring draws a uniform thin baseline on every edge plus a brighter top-left
+   spotlight glow, all on a single ::after so it follows the card's own radius.
+   The main content panel (sidebar inset) reuses this with a darker fill — see
+   the scoped rules below.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Light mode: a plain visible border + the same subtle drop shadow the Card
+   primitive uses (shadow-xs/5). Border color flows from Tailwind's utilities
+   (base `border-border` default and any `hover:border-*` overrides keep
+   working). Both are overridden in dark mode below, where the ::after glow ring
+   draws the border and the shadow is dropped in favor of the ring. */
+.du-card {
+  border-width: 1px;
+  border-style: solid;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.dark [data-slot="card"],
+.dark [data-slot="dialog-popup"],
+.dark [data-slot="menu-popup"],
+.dark [data-slot="popover-popup"],
+.dark [data-slot="command-dialog-popup"],
+.dark .du-card {
+  background:
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.025) 26%,
+      rgba(255, 255, 255, 0) 46%
+    ),
+    var(--card);
+  /* Border is drawn entirely by the ::after ring so it aligns with the card's
+     own corner radius (no border-box vs padding-box mismatch). */
+  border: 0;
+  box-shadow: none;
+  position: relative;
+  isolation: isolate;
+}
+
+/* Floating surfaces (modals, dropdowns, popovers) sit a step above cards, so
+   they keep the slightly lighter --popover fill instead of the card fill. */
+.dark [data-slot="dialog-popup"],
+.dark [data-slot="menu-popup"],
+.dark [data-slot="popover-popup"],
+.dark [data-slot="command-dialog-popup"] {
+  background:
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.025) 26%,
+      rgba(255, 255, 255, 0) 46%
+    ),
+    var(--popover);
+}
+
+/* Border ring: a consistent thin baseline on every edge, with a brighter
+   top-left spotlight glow layered on top. */
+.dark [data-slot="card"]::after,
+.dark [data-slot="dialog-popup"]::after,
+.dark [data-slot="menu-popup"]::after,
+.dark [data-slot="popover-popup"]::after,
+.dark [data-slot="command-dialog-popup"]::after,
+.dark .du-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 0.75px;
+  background:
+    /* spotlight: bright at the top-left corner, fades out */
+    radial-gradient(
+      125% 125% at 0% 0%,
+      rgba(255, 255, 255, 0.42) 0%,
+      rgba(255, 255, 255, 0.13) 18%,
+      rgba(255, 255, 255, 0.04) 34%,
+      rgba(255, 255, 255, 0) 52%
+    ),
+    /* baseline: uniform thin border so all sides stay defined */
+    linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Darker fill for the main content panel (sidebar inset) so the dashboard
+   surface recedes and the cards layered on top of it stand out more.
+   Border ring is handled by the shared ::after rule above. */
+.dark [data-slot="sidebar-inset"].du-card {
+  background:
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.025) 26%,
+      rgba(255, 255, 255, 0) 46%
+    ),
+    #0c0d0e;
+}
+
+.dark [data-slot="sidebar-inset"].du-card::after {
+  padding: 0.5px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   "du-surface" — same treatment as du-card, but pseudo-element-free so it can
+   be layered onto buttons (which already use ::before/::after). Built with the
+   background-clip gradient-border technique:
+     · soft top-left spotlight glow + solid fill, clipped to the padding box
+     · a top-left corner glow ring, clipped to the border box
+   Hover brightness is driven by the --du-fill variable so it stays smooth.
+   ────────────────────────────────────────────────────────────────────────── */
+.dark .du-surface {
+  --du-fill: var(--popover);
+  --du-glow: 0.55;
+  background:
+    /* interior: soft top-left spotlight over the fill */
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.04) 26%,
+      rgba(255, 255, 255, 0) 46%
+    )
+    padding-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) padding-box,
+    /* border: top-left corner glow ring, fading into the fill (no dark rim) */
+    radial-gradient(
+      125% 125% at 0% 0%,
+      rgba(255, 255, 255, var(--du-glow)) 0%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.3)) 18%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.08)) 34%,
+      rgba(255, 255, 255, 0) 52%
+    )
+    border-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) border-box;
+  border: 1.25px solid transparent;
+}
+
+.dark .du-surface:hover {
+  --du-fill: color-mix(in srgb, var(--du-base, var(--popover)), white 8%);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   "du-primary" — du-surface treatment tuned for the solid primary button:
+     · soft top-left spotlight glow over the primary fill (padding box)
+     · a top-left corner glow ring, bright then fading on all sides (border box)
+   Applies in both themes since the primary button is colored in light & dark.
+   Hover brightens the fill via the --du-fill variable for a smooth transition.
+   ────────────────────────────────────────────────────────────────────────── */
+.du-primary {
+  --du-fill: var(--primary);
+  --du-glow: 0.7;
+  background:
+    /* interior: soft top-left spotlight over the primary fill */
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.24),
+      rgba(255, 255, 255, 0.08) 26%,
+      rgba(255, 255, 255, 0) 46%
+    )
+    padding-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) padding-box,
+    /* border (top layer): bright top-left corner glow, fading to transparent */
+    radial-gradient(
+      125% 125% at 0% 0%,
+      rgba(255, 255, 255, var(--du-glow)) 0%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.35)) 18%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.1)) 34%,
+      rgba(255, 255, 255, 0) 52%
+    )
+    border-box,
+    /* border (baseline): faint uniform ring so every edge stays defined */
+    linear-gradient(
+      rgba(255, 255, 255, 0.18),
+      rgba(255, 255, 255, 0.18)
+    )
+    border-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) border-box;
+  border: 1.25px solid transparent;
+}
+
+.du-primary:hover {
+  --du-fill: color-mix(in srgb, var(--primary), white 8%);
+}
+
+.du-primary[data-pressed],
+.du-primary:active {
+  --du-fill: color-mix(in srgb, var(--primary), black 6%);
+}
+
 @layer utilities {
   /* Fine pixel grid — for hero/header surfaces that need texture. */
   .bg-pixel-grid {
@@ -331,4 +531,24 @@
   .mask-fade-radial {
     mask-image: radial-gradient(ellipse at center, black 35%, transparent 75%);
   }
+
+  /* Hide scrollbars while keeping scroll behavior (e.g. horizontal tab bars). */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   xterm.js — let the terminal background stay transparent.
+   xterm ships a hardcoded `.xterm-viewport { background-color: #000 }` which
+   overrides the transparent theme, so we reset it (and the helper layers) here.
+   ────────────────────────────────────────────────────────────────────────── */
+.xterm,
+.xterm .xterm-viewport,
+.xterm .xterm-screen {
+  background-color: transparent !important;
 }

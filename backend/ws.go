@@ -161,7 +161,7 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 	appsLock.Lock()
 	for _, a := range apps {
 		if a.ID == appID {
-			containerName = a.Name
+			containerName = a.containerName()
 			currentStatus = a.Status
 			break
 		}
@@ -184,6 +184,9 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 			for _, a := range apps {
 				if a.ID == appID {
 					currentStatus = a.Status
+					// Re-read the container name: the build assigns the active
+					// container (<name>-<deployID>) only once it completes.
+					containerName = a.containerName()
 					break
 				}
 			}

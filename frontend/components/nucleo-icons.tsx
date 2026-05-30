@@ -3,6 +3,7 @@ import React from "react"
 import {
   Activity,
   GitBranch,
+  GitCommitHorizontal,
   Check,
   CircleCheck,
   ChevronDown,
@@ -21,12 +22,15 @@ import {
   Info,
   Keyboard,
   Layers,
+  Link,
   List,
   Loader,
   Lock,
   Minus,
   Ellipsis,
   Eye,
+  Moon,
+  Sun,
   Play,
   Plus,
   RefreshCw,
@@ -45,6 +49,7 @@ import {
 type NucleoIconName =
   | "activity"
   | "branch"
+  | "git-commit"
   | "check"
   | "check-circle"
   | "chevron-down"
@@ -61,11 +66,14 @@ type NucleoIconName =
   | "house"
   | "keyboard"
   | "layers"
+  | "link"
   | "list"
   | "loader"
   | "lock"
   | "minus"
   | "eye"
+  | "moon"
+  | "sun"
   | "more-horizontal"
   | "plus"
   | "play"
@@ -90,6 +98,7 @@ type NucleoIconProps = SVGProps<SVGSVGElement> & {
 const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   activity: Activity,
   branch: GitBranch,
+  "git-commit": GitCommitHorizontal,
   check: Check,
   "check-circle": CircleCheck,
   "chevron-down": ChevronDown,
@@ -108,11 +117,14 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   info: Info,
   keyboard: Keyboard,
   layers: Layers,
+  link: Link,
   list: List,
   loader: Loader,
   lock: Lock,
   minus: Minus,
   eye: Eye,
+  moon: Moon,
+  sun: Sun,
   "more-horizontal": Ellipsis,
   play: Play,
   plus: Plus,

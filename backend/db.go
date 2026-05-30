@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS meta (
 		{"deployments", "image", "TEXT"},
 		{"deployments", "trigger", "TEXT"},
 		{"deployments", "commit_sha", "TEXT"},
+		{"deployments", "commit_msg", "TEXT"},
 	}
 	for _, c := range addColumns {
 		// SQLite has no "ADD COLUMN IF NOT EXISTS"; ignore the duplicate error.
@@ -340,52 +341,90 @@ func dbUpdateAppStatus(id, status string) error {
 
 func dbCreateDeployment(dep DeploymentRecord) error {
 	_, err := sqliteDB.Exec(`
-		INSERT INTO deployments (id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO deployments (id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha, commit_msg)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			status=excluded.status,
 			duration=excluded.duration,
 			image=excluded.image,
-			commit_sha=excluded.commit_sha
-	`, dep.ID, dep.AppID, dep.AppName, dep.Status, dep.LogFile, dep.CreatedAt, dep.Duration, dep.Image, dep.Trigger, dep.Commit)
+			commit_sha=excluded.commit_sha,
+			commit_msg=excluded.commit_msg
+	`, dep.ID, dep.AppID, dep.AppName, dep.Status, dep.LogFile, dep.CreatedAt, dep.Duration, dep.Image, dep.Trigger, dep.Commit, dep.CommitMsg)
 	return err
+}
+
+// dbFailStaleBuildingDeployments marks any deployment still recorded as
+// "building" as failed. Used at startup to clean up deployments that were
+// interrupted by a server restart/crash mid-build.
+func dbFailStaleBuildingDeployments() (int64, error) {
+	res, err := sqliteDB.Exec(
+		`UPDATE deployments SET status = 'failed', duration = 'interrupted' WHERE status = 'building'`,
+	)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
 }
 
 func dbGetLatestDeployment(appID string) (*DeploymentRecord, error) {
 	var d DeploymentRecord
-	var image, trigger, commit sql.NullString
+	var image, trigger, commit, commitMsg sql.NullString
 	err := sqliteDB.QueryRow(`
-		SELECT id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha
+		SELECT id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha, commit_msg
 		FROM deployments
 		WHERE app_id = ?
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, appID).Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration, &image, &trigger, &commit)
+	`, appID).Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration, &image, &trigger, &commit, &commitMsg)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	d.Image, d.Trigger, d.Commit = image.String, trigger.String, commit.String
+	d.Image, d.Trigger, d.Commit, d.CommitMsg = image.String, trigger.String, commit.String, commitMsg.String
 	return &d, nil
+}
+
+// dbFindDeploymentByImage returns the most recent successful deployment for an
+// app that produced the given image tag, or nil. Used on rollback to carry the
+// target's commit metadata onto the new rollback record.
+func dbFindDeploymentByImage(appID, image string) *DeploymentRecord {
+	if image == "" {
+		return nil
+	}
+	var d DeploymentRecord
+	var img, trigger, commit, commitMsg sql.NullString
+	err := sqliteDB.QueryRow(`
+		SELECT id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha, commit_msg
+		FROM deployments
+		WHERE app_id = ? AND image = ?
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, appID, image).Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration, &img, &trigger, &commit, &commitMsg)
+	if err != nil {
+		return nil
+	}
+	d.Image, d.Trigger, d.Commit, d.CommitMsg = img.String, trigger.String, commit.String, commitMsg.String
+	return &d
 }
 
 // dbGetDeployment returns a single deployment by ID (used for rollback).
 func dbGetDeployment(id string) (*DeploymentRecord, error) {
 	var d DeploymentRecord
-	var image, trigger, commit sql.NullString
+	var image, trigger, commit, commitMsg sql.NullString
 	err := sqliteDB.QueryRow(`
-		SELECT id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha
+		SELECT id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha, commit_msg
 		FROM deployments WHERE id = ?
-	`, id).Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration, &image, &trigger, &commit)
+	`, id).Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration, &image, &trigger, &commit, &commitMsg)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	d.Image, d.Trigger, d.Commit = image.String, trigger.String, commit.String
+	d.Image, d.Trigger, d.Commit, d.CommitMsg = image.String, trigger.String, commit.String, commitMsg.String
 	if d.LogFile != "" {
 		d.Logs, _ = readLogFile(d.LogFile)
 	}
@@ -393,7 +432,7 @@ func dbGetDeployment(id string) (*DeploymentRecord, error) {
 }
 
 func dbLoadDeployments() ([]DeploymentRecord, error) {
-	rows, err := sqliteDB.Query(`SELECT id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha FROM deployments ORDER BY created_at DESC`)
+	rows, err := sqliteDB.Query(`SELECT id, app_id, app_name, status, log_file, created_at, duration, image, trigger, commit_sha, commit_msg FROM deployments ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -402,12 +441,12 @@ func dbLoadDeployments() ([]DeploymentRecord, error) {
 	var result []DeploymentRecord
 	for rows.Next() {
 		var d DeploymentRecord
-		var image, trigger, commit sql.NullString
-		err := rows.Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration, &image, &trigger, &commit)
+		var image, trigger, commit, commitMsg sql.NullString
+		err := rows.Scan(&d.ID, &d.AppID, &d.AppName, &d.Status, &d.LogFile, &d.CreatedAt, &d.Duration, &image, &trigger, &commit, &commitMsg)
 		if err != nil {
 			continue
 		}
-		d.Image, d.Trigger, d.Commit = image.String, trigger.String, commit.String
+		d.Image, d.Trigger, d.Commit, d.CommitMsg = image.String, trigger.String, commit.String, commitMsg.String
 		if d.LogFile != "" {
 			d.Logs, _ = readLogFile(d.LogFile)
 		}

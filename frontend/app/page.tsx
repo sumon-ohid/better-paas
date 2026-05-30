@@ -67,10 +67,13 @@ const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 const ExternalLinkIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
+const LinkIcon = (props: IconProps) => <NucleoIcon {...props} name="link" />
 const EyeIcon = (props: IconProps) => <NucleoIcon {...props} name="eye" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const MoreIcon = (props: IconProps) => <NucleoIcon {...props} name="more-horizontal" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
+const GridIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
+const ListIcon = (props: IconProps) => <NucleoIcon {...props} name="list" />
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -143,6 +146,7 @@ function UrlLink({ url }: { url: string | undefined }) {
       onClick={(e) => e.stopPropagation()}
       className="inline-flex items-center gap-1 text-sm font-mono text-primary hover:underline transition-colors"
     >
+      <LinkIcon className="h-3 w-3 shrink-0 opacity-60" />
       {url.replace("http://", "")}
       <ExternalLinkIcon className="h-3 w-3 opacity-60" />
     </a>
@@ -259,7 +263,7 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
       onClick={() => router.push(`/app/${app.id}`)}
     >
       {/* Project name — primary attention anchor */}
-      <TableCell className="py-3">
+      <TableCell className="py-4">
         <div className="flex items-center gap-2.5">
           <StatusDot status={app.status} />
           <span className="font-semibold text-base text-foreground group-hover:text-primary transition-colors">
@@ -268,32 +272,32 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
         </div>
       </TableCell>
 
-      <TableCell className="py-3">
+      <TableCell className="py-4">
         <StatusBadge status={app.status} />
       </TableCell>
 
-      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+      <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
         <UrlLink url={app.url} />
       </TableCell>
 
-      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+      <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
         <RepoLink gitRepo={app.gitRepo} />
       </TableCell>
 
-      <TableCell className="py-3">
+      <TableCell className="py-4">
         <Badge variant="outline" size="sm" className="gap-1 font-mono">
           <GitBranchIcon className="h-3 w-3" />
           {app.branch}
         </Badge>
       </TableCell>
 
-      <TableCell className="py-3">
+      <TableCell className="py-4">
         <span className="text-sm text-muted-foreground tabular-nums">
           {formatRelativeTime(app.createdAt)}
         </span>
       </TableCell>
 
-      <TableCell className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
+      <TableCell className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
         <AppActionsMenu
           app={app}
           onDelete={onDelete}
@@ -314,7 +318,7 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
   return (
     <div
       onClick={() => router.push(`/app/${app.id}`)}
-      className="cursor-pointer rounded-xl border border-border bg-card/72 p-4 backdrop-blur-xl transition-colors hover:border-primary/30"
+      className="du-card cursor-pointer rounded-xl p-4 transition-colors hover:border-primary/30"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -350,6 +354,64 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
   )
 }
 
+// ── Desktop grid card (card view) ─────────────────────────────────────────────
+
+function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
+  const router = useRouter()
+  const { toggle, redeploy } = useAppActions()
+
+  return (
+    <div
+      onClick={() => router.push(`/app/${app.id}`)}
+      className="du-card group flex cursor-pointer flex-col rounded-xl p-4 transition-colors hover:border-primary/30"
+    >
+      {/* Header: name + actions */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <StatusDot status={app.status} />
+          <span className="truncate font-semibold text-base text-foreground group-hover:text-primary transition-colors">
+            {app.name}
+          </span>
+        </div>
+        <div onClick={(e) => e.stopPropagation()}>
+          <AppActionsMenu
+            app={app}
+            onDelete={onDelete}
+            onToggle={(action) => toggle(app, action)}
+            onRedeploy={() => redeploy(app)}
+          />
+        </div>
+      </div>
+
+      {/* Status + branch */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <StatusBadge status={app.status} />
+        <Badge variant="outline" size="sm" className="gap-1 font-mono">
+          <GitBranchIcon className="h-3 w-3" />
+          {app.branch}
+        </Badge>
+      </div>
+
+      {/* URL + repo */}
+      <div
+        className="mt-3 space-y-1.5 border-t border-border/50 pt-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <UrlLink url={app.url} />
+        <RepoLink gitRepo={app.gitRepo} />
+      </div>
+
+      {/* Footer: deployed time */}
+      <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-3">
+        <span className="text-xs text-muted-foreground">Deployed</span>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {formatRelativeTime(app.createdAt)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 
 function LoadingRows() {
@@ -378,6 +440,19 @@ function ApplicationsDashboard() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [deleteTarget, setDeleteTarget] = useState<App | null>(null)
   const [showPruneModal, setShowPruneModal] = useState(false)
+  const [viewMode, setViewMode] = useState<"card" | "list">("card")
+
+  // Restore the saved desktop view preference (card is the default).
+  useEffect(() => {
+    const saved = localStorage.getItem("apps-view-mode")
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (saved === "card" || saved === "list") setViewMode(saved)
+  }, [])
+
+  const handleViewModeChange = useCallback((mode: "card" | "list") => {
+    setViewMode(mode)
+    localStorage.setItem("apps-view-mode", mode)
+  }, [])
 
   const fetchApps = useCallback(async () => {
     try {
@@ -444,7 +519,7 @@ function ApplicationsDashboard() {
   return (
     <AppShell appCount={apps.length}>
       {/* Subheader toolbar */}
-      <div className="flex flex-col justify-between gap-2 border-b border-border bg-background/54 px-4 py-2.5 backdrop-blur-xl sm:flex-row sm:items-center select-none">
+      <div className="flex flex-col justify-between gap-2 border-b border-border px-4 py-2.5 backdrop-blur-xl sm:flex-row sm:items-center select-none">
         <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
           <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/25 px-2.5 py-1.5">
@@ -483,6 +558,26 @@ function ApplicationsDashboard() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* View toggle — desktop only; mobile always uses cards */}
+          <ToggleGroup
+            variant="outline"
+            size="sm"
+            value={[viewMode]}
+            onValueChange={(v) => {
+              const next = v[0]
+              if (next === "card" || next === "list") handleViewModeChange(next)
+            }}
+            className="hidden md:inline-flex"
+            aria-label="Toggle view layout"
+          >
+            <ToggleGroupItem value="card" aria-label="Card view" className="px-2">
+              <GridIcon className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" aria-label="List view" className="px-2">
+              <ListIcon className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+
           <Tooltip>
             <TooltipTrigger
               render={
@@ -504,18 +599,18 @@ function ApplicationsDashboard() {
 
       {/* Content */}
       <div className="p-4 md:p-6">
-        {/* Desktop table */}
-        <div className="hidden rounded-xl border border-border bg-card/72 backdrop-blur-xl md:block">
-          <Table>
+        {/* Desktop list (table) view */}
+        <div className={`du-card hidden overflow-hidden rounded-xl ${viewMode === "list" ? "md:block" : ""}`}>
+          <Table className="[&_td]:px-5 [&_th]:px-5">
             <TableHeader>
               <TableRow className="bg-muted/20 text-xs uppercase tracking-[0.08em] select-none">
-                <TableHead className="py-3">Project</TableHead>
-                <TableHead className="py-3">Status</TableHead>
-                <TableHead className="py-3">URL</TableHead>
-                <TableHead className="py-3">Repository</TableHead>
-                <TableHead className="py-3">Branch</TableHead>
-                <TableHead className="py-3">Deployed</TableHead>
-                <TableHead className="py-3 text-right">Actions</TableHead>
+                <TableHead className="py-3.5">Project</TableHead>
+                <TableHead className="py-3.5">Status</TableHead>
+                <TableHead className="py-3.5">URL</TableHead>
+                <TableHead className="py-3.5">Repository</TableHead>
+                <TableHead className="py-3.5">Branch</TableHead>
+                <TableHead className="py-3.5">Deployed</TableHead>
+                <TableHead className="py-3.5 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -536,6 +631,27 @@ function ApplicationsDashboard() {
           </Table>
         </div>
 
+        {/* Desktop card (grid) view */}
+        <div className={`hidden ${viewMode === "card" ? "md:block" : ""}`}>
+          {loading ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-44 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : isEmpty ? (
+            <div className="du-card rounded-xl">
+              <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredApps.map((app) => (
+                <AppGridCard key={app.id} app={app} onDelete={(a) => setDeleteTarget(a)} />
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Mobile cards */}
         <div className="space-y-3 md:hidden">
           {loading ? (
@@ -543,7 +659,7 @@ function ApplicationsDashboard() {
               <Skeleton key={i} className="h-32 w-full rounded-xl" />
             ))
           ) : isEmpty ? (
-            <div className="rounded-xl border border-border bg-card/72">
+            <div className="du-card rounded-xl">
               <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
             </div>
           ) : (

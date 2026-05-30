@@ -214,13 +214,14 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 
 	var deployLogs []string
 	var commitSHA string
+	var commitMsg string
 	localLog := func(msg string) {
 		logToBuild(app.ID, msg, logFile)
 		deployLogs = append(deployLogs, msg)
 	}
 
 	finish := func(status, image string) {
-		finishDeployment(app, deployLogs, status, startedAt, deployID, logFile, image, trigger, commitSHA)
+		finishDeployment(app, deployLogs, status, startedAt, deployID, logFile, image, trigger, commitSHA, commitMsg)
 	}
 
 	image := rollbackImage
@@ -232,6 +233,12 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			localLog(fmt.Sprintf("✖ Image %s no longer exists; cannot roll back.", rollbackImage))
 			finish("failed", "")
 			return
+		}
+		// Carry the commit metadata of the deployment we're rolling back to, so
+		// the new rollback entry shows which commit is now live.
+		if src := dbFindDeploymentByImage(app.ID, rollbackImage); src != nil {
+			commitSHA = src.Commit
+			commitMsg = src.CommitMsg
 		}
 	} else {
 		// ── 1. Clone repository ──────────────────────────────────────────────
@@ -248,6 +255,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			return
 		}
 		commitSHA = gitHeadCommit(buildDir)
+		commitMsg = gitHeadCommitMsg(buildDir)
 		if commitSHA != "" {
 			localLog(fmt.Sprintf("✔ Repository cloned (commit %s).", shortSHA(commitSHA)))
 		} else {
@@ -505,6 +513,75 @@ func dockerImageExists(image string) bool {
 	return err == nil
 }
 
+// containerRunning reports whether a container with the given name exists and is
+// currently in the "running" state.
+func containerRunning(name string) bool {
+	if name == "" {
+		return false
+	}
+	out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", name).Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) == "true"
+}
+
+// reconcileStuckBuilds fixes apps left in the "building" state by a server
+// restart or crash that interrupted an in-flight deployment. Builds run in
+// memory, so they don't survive a restart — yet the persisted status stays
+// "building" forever, showing an eternal spinner in the UI.
+//
+// For each stuck app we resolve a sane terminal status: if its active container
+// is actually up (the build had finished but the status write was lost), mark
+// it "running"; otherwise mark it "failed". Any deployment records still in
+// "building" are flipped to "failed" too.
+func reconcileStuckBuilds() {
+	// Collect the IDs of apps stuck mid-build, then resolve each one. We work by
+	// ID rather than slice index so we never touch a stale index if the slice
+	// changes between DB writes.
+	appsLock.Lock()
+	stuckIDs := make([]string, 0)
+	for i := range apps {
+		if apps[i].Status == "building" {
+			stuckIDs = append(stuckIDs, apps[i].ID)
+		}
+	}
+	appsLock.Unlock()
+
+	for _, id := range stuckIDs {
+		appsLock.Lock()
+		idx := -1
+		for i := range apps {
+			if apps[i].ID == id {
+				idx = i
+				break
+			}
+		}
+		if idx == -1 {
+			appsLock.Unlock()
+			continue
+		}
+		final := "failed"
+		if containerRunning(apps[idx].containerName()) {
+			final = "running"
+		}
+		apps[idx].Status = final
+		name := apps[idx].Name
+		appsLock.Unlock()
+
+		if err := dbUpdateAppStatus(id, final); err != nil {
+			log.Printf("[reconcile] failed to update app %s status: %v", id, err)
+		}
+		log.Printf("[reconcile] app %q was stuck in 'building' after restart → %q", name, final)
+	}
+
+	if n, err := dbFailStaleBuildingDeployments(); err != nil {
+		log.Printf("[reconcile] failed to fail stale deployments: %v", err)
+	} else if n > 0 {
+		log.Printf("[reconcile] marked %d interrupted deployment(s) as failed", n)
+	}
+}
+
 // removeAppContainers force-removes every container labeled for the given app.
 func removeAppContainers(appID string) {
 	out, err := exec.Command("docker", "ps", "-aq", "--filter", "label=better-paas-app="+appID).Output()
@@ -566,6 +643,15 @@ func gitHeadCommit(dir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// gitHeadCommitMsg returns the subject line of the HEAD commit, or "" on error.
+func gitHeadCommitMsg(dir string) string {
+	out, err := exec.Command("git", "-C", dir, "log", "-1", "--pretty=%s").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func shortSHA(sha string) string {
 	if len(sha) > 7 {
 		return sha[:7]
@@ -574,7 +660,7 @@ func shortSHA(sha string) string {
 }
 
 // finishDeployment updates app status, saves deployment record, and persists.
-func finishDeployment(app App, deployLogs []string, status string, startedAt time.Time, deployID, logFile, image, trigger, commit string) {
+func finishDeployment(app App, deployLogs []string, status string, startedAt time.Time, deployID, logFile, image, trigger, commit, commitMsg string) {
 	duration := time.Since(startedAt).Round(time.Second).String()
 
 	finalStatus := "running"
@@ -614,6 +700,7 @@ func finishDeployment(app App, deployLogs []string, status string, startedAt tim
 		Image:     image,
 		Trigger:   trigger,
 		Commit:    commit,
+		CommitMsg: commitMsg,
 	}
 
 	if err := dbCreateDeployment(record); err != nil {

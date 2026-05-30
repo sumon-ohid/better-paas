@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
-import { AppShell } from "@/components/app-shell"
+import { AppShell, useToast } from "@/components/app-shell"
 import { StatusBadge } from "@/components/status-badge"
 import { api, createBuildLogsWs, createRuntimeLogsWs } from "@/lib/api"
 import type { App, LogEntry } from "@/lib/types"
@@ -18,6 +18,7 @@ import {
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const LoaderIcon = (props: IconProps) => <NucleoIcon {...props} name="loader" />
 const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-left" />
 const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
 const ExternalIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
@@ -27,6 +28,7 @@ type LogMode = "build" | "runtime"
 function LogsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { showToast } = useToast()
 
   const [apps, setApps] = useState<App[]>([])
   const [selectedAppId, setSelectedAppId] = useState<string>(searchParams.get("appId") ?? "")
@@ -35,6 +37,7 @@ function LogsPage() {
   )
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [connected, setConnected] = useState(false)
+  const [isRedeploying, setIsRedeploying] = useState(false)
 
   const wsRef = useRef<WebSocket | null>(null)
   const logBufferRef = useRef<LogEntry[]>([])
@@ -145,6 +148,27 @@ function LogsPage() {
 
   const selectedApp = apps.find((a) => a.id === selectedAppId)
 
+  // Trigger a fresh build for the selected app, then follow its build logs.
+  const handleRedeploy = useCallback(async () => {
+    if (!selectedApp || isRedeploying) return
+    setIsRedeploying(true)
+    try {
+      await api.apps.redeploy(selectedApp.id)
+      showToast("Redeploy Started", `Triggering new build for ${selectedApp.name}...`, "success")
+      fetchApps()
+      setLogMode("build")
+      const url = new URL(window.location.href)
+      url.searchParams.set("mode", "build")
+      window.history.replaceState({}, "", url.toString())
+      connectStream(selectedApp.id, "build")
+    } catch (err) {
+      showToast("Error", "Failed to trigger redeployment.", "destructive")
+      console.error(err)
+    } finally {
+      setIsRedeploying(false)
+    }
+  }, [selectedApp, isRedeploying, showToast, fetchApps, connectStream])
+
   // ── Log line renderer ─────────────────────────────────────────────────────
 
   const lineColor = (msg: string) => {
@@ -162,10 +186,10 @@ function LogsPage() {
   return (
     <AppShell hasActiveLogs={connected && logs.length > 0}>
       {/* Full-height flex column inside the shell's <main> */}
-      <div className="flex flex-col h-full" style={{ height: "calc(100vh - 54px)" }}>
+      <div className="flex flex-col h-full overflow-hidden">
 
         {/* ── Top toolbar ──────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background/80 backdrop-blur-sm px-4 py-2 shrink-0 select-none">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-transparent px-4 py-2 shrink-0 select-none">
 
           {/* Back */}
           <button
@@ -264,6 +288,26 @@ function LogsPage() {
             </button>
           )}
 
+          {/* Redeploy */}
+          {selectedAppId && (
+            <button
+              onClick={handleRedeploy}
+              disabled={isRedeploying || selectedApp?.status === "building"}
+              className="flex items-center gap-1.5 rounded border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary hover:bg-primary/15 cursor-pointer transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRedeploying || selectedApp?.status === "building" ? (
+                <LoaderIcon className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshIcon className="h-3 w-3" />
+              )}
+              {isRedeploying
+                ? "Redeploying…"
+                : selectedApp?.status === "building"
+                  ? "Building…"
+                  : "Redeploy"}
+            </button>
+          )}
+
           {/* Clear */}
           {logs.length > 0 && (
             <button
@@ -290,7 +334,9 @@ function LogsPage() {
         </div>
 
         {/* ── Terminal — fills remaining height ────────────────────────── */}
-        <div className="flex-1 overflow-y-auto bg-[#f8f9fc] dark:bg-[#080910] font-mono text-xs leading-relaxed">
+        <div className="flex-1 min-h-0 flex flex-col bg-transparent overflow-hidden bg-card font-mono text-xs leading-relaxed">
+          {/* Terminal body */}
+          <div className="flex-1 overflow-y-auto bg-transparent">
           {logs.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 dark:text-slate-500 select-none">
               <TerminalIcon
@@ -326,10 +372,11 @@ function LogsPage() {
               <div ref={endRef} />
             </div>
           )}
+          </div>
         </div>
 
         {/* ── Status bar ───────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between border-t border-border/50 bg-[#f8f9fc] dark:bg-[#080910] px-4 py-1.5 text-[11px] font-mono text-muted-foreground/40 dark:text-slate-600 shrink-0 select-none">
+        <div className="flex items-center  bg-transparent justify-between border-t border-border/50 px-4 py-1.5 text-[11px] font-mono text-muted-foreground/40 dark:text-slate-600 shrink-0 select-none">
           <span>
             {selectedApp
               ? `${selectedApp.name} · port ${selectedApp.port}`
@@ -348,7 +395,7 @@ function LogsPage() {
 
 export default function LogsRoute() {
   return (
-    <Suspense fallback={<div className="h-screen bg-[#f8f9fc] dark:bg-[#080910]" />}>
+    <Suspense fallback={<div className="h-screen bg-card" />}>
       <LogsPage />
     </Suspense>
   )
