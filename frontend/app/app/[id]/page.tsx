@@ -632,7 +632,10 @@ function AppDetailPage() {
                     onClick={() => setEnvVars((prev) => [...prev, { key: "", value: "" }])}
                     className="h-6 cursor-pointer rounded bg-secondary text-secondary-foreground text-xs px-2 hover:bg-secondary/85 flex items-center gap-1 font-semibold border-0"
                   >
-                    <PlusIcon className="h-3 w-3" /> Add Var
+                    <PlusIcon className="h-3 w-3 text-white dark:text-black" />
+                    <span className="text-white dark:text-black">
+                      Add Variables
+                    </span>
                   </Button>
                 </div>
                 <div className="space-y-2">

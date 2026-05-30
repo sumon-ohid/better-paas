@@ -27,6 +27,8 @@ import {
   Minus,
   Ellipsis,
   Eye,
+  Moon,
+  Sun,
   Play,
   Plus,
   RefreshCw,
@@ -66,6 +68,8 @@ type NucleoIconName =
   | "lock"
   | "minus"
   | "eye"
+  | "moon"
+  | "sun"
   | "more-horizontal"
   | "plus"
   | "play"
@@ -113,6 +117,8 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   lock: Lock,
   minus: Minus,
   eye: Eye,
+  moon: Moon,
+  sun: Sun,
   "more-horizontal": Ellipsis,
   play: Play,
   plus: Plus,

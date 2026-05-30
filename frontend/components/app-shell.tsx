@@ -18,6 +18,21 @@ import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { toastManager } from "@/components/ui/toast"
+import {
+  CommandDialog,
+  CommandDialogPopup,
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandPanel,
+  CommandGroup,
+  CommandGroupLabel,
+  CommandCollection,
+  CommandItem,
+  CommandShortcut,
+  CommandFooter,
+} from "@/components/ui/command"
 import Image from "next/image"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
@@ -34,6 +49,8 @@ const SpinIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
 const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
 const ArchiveIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
+const MoonIcon = (props: IconProps) => <NucleoIcon {...props} name="moon" />
+const SunIcon = (props: IconProps) => <NucleoIcon {...props} name="sun" />
 
 interface NavItem {
   id: string
@@ -56,12 +73,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
 
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const [commandQuery, setCommandQuery] = useState("")
-  const [activeCommandIndex, setActiveCommandIndex] = useState(0)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
-
-  const runFilteredCommandRef = useRef<() => void>(() => {})
-  const filteredCommandCountRef = useRef(1)
 
   const navItems: NavItem[] = [
     {
@@ -110,40 +122,89 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
     },
   ]
 
-  const allCommands = React.useMemo(
+  type CommandAction = {
+    id: string
+    label: string
+    shortcut: string
+    icon: React.ReactNode
+    action: () => void
+  }
+  type CommandGroupData = { heading: string; items: CommandAction[] }
+
+  const commandGroups: CommandGroupData[] = React.useMemo(
     () => [
-      { label: "Deploy new service", shortcut: "N", action: () => router.push("/deploy") },
-      { label: "Go to Applications", shortcut: "G A", action: () => router.push("/") },
-      { label: "Go to Node Health", shortcut: "G M", action: () => router.push("/health") },
-      { label: "Go to Live Logs", shortcut: "G L", action: () => router.push("/logs") },
-      { label: "Go to Settings", shortcut: "G S", action: () => router.push("/settings") },
       {
-        label: "Toggle Dark/Light Mode",
-        shortcut: "D",
-        action: () => setTheme(resolvedTheme === "dark" ? "light" : "dark"),
+        heading: "Actions",
+        items: [
+          {
+            id: "deploy",
+            label: "Deploy new service",
+            shortcut: "N",
+            icon: <PlusIcon className="h-4 w-4 text-chart-1" />,
+            action: () => router.push("/deploy"),
+          },
+          {
+            id: "theme",
+            label: "Toggle Dark/Light Mode",
+            shortcut: "D",
+            icon:
+              resolvedTheme === "dark" ? (
+                <SunIcon className="h-4 w-4 text-chart-4" />
+              ) : (
+                <MoonIcon className="h-4 w-4 text-chart-1" />
+              ),
+            action: () => setTheme(resolvedTheme === "dark" ? "light" : "dark"),
+          },
+          {
+            id: "shortcuts",
+            label: "Open Keyboard Shortcuts",
+            shortcut: "?",
+            icon: <KeyboardIcon className="h-4 w-4 text-muted-foreground" />,
+            action: () => setShowShortcuts(true),
+          },
+        ],
       },
-      { label: "Open Keyboard Shortcuts", shortcut: "?", action: () => setShowShortcuts(true) },
+      {
+        heading: "Navigation",
+        items: [
+          {
+            id: "nav-apps",
+            label: "Go to Applications",
+            shortcut: "G A",
+            icon: <GlobeIcon className="h-4 w-4 text-chart-1" />,
+            action: () => router.push("/"),
+          },
+          {
+            id: "nav-health",
+            label: "Go to Node Health",
+            shortcut: "G M",
+            icon: <ActivityIcon className="h-4 w-4 text-chart-3" />,
+            action: () => router.push("/health"),
+          },
+          {
+            id: "nav-logs",
+            label: "Go to Live Logs",
+            shortcut: "G L",
+            icon: <TerminalIcon className="h-4 w-4 text-chart-2" />,
+            action: () => router.push("/logs"),
+          },
+          {
+            id: "nav-settings",
+            label: "Go to Settings",
+            shortcut: "G S",
+            icon: <SettingsIcon className="h-4 w-4 text-muted-foreground" />,
+            action: () => router.push("/settings"),
+          },
+        ],
+      },
     ],
     [resolvedTheme, setTheme, router],
   )
 
-  const filteredCommands = React.useMemo(
-    () => allCommands.filter((c) => c.label.toLowerCase().includes(commandQuery.toLowerCase())),
-    [allCommands, commandQuery],
-  )
-
-  const runFilteredCommand = useCallback(() => {
-    const cmd = filteredCommands[activeCommandIndex]
-    if (cmd) {
-      cmd.action()
-      setShowCommandPalette(false)
-    }
-  }, [activeCommandIndex, filteredCommands])
-
-  useEffect(() => {
-    filteredCommandCountRef.current = filteredCommands.length
-    runFilteredCommandRef.current = runFilteredCommand
-  }, [filteredCommands.length, runFilteredCommand])
+  const runCommand = useCallback((action: () => void) => {
+    setShowCommandPalette(false)
+    action()
+  }, [])
 
   // Keyboard shortcuts engine
   useEffect(() => {
@@ -154,39 +215,21 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         target instanceof HTMLTextAreaElement ||
         target.isContentEditable
 
-      if (isInput) {
-        if (showCommandPalette && e.key === "Enter") {
-          e.preventDefault()
-          runFilteredCommandRef.current()
-        }
-        if (showCommandPalette && e.key === "ArrowDown") {
-          e.preventDefault()
-          setActiveCommandIndex((prev) => (prev + 1) % Math.max(filteredCommandCountRef.current, 1))
-        }
-        if (showCommandPalette && e.key === "ArrowUp") {
-          e.preventDefault()
-          setActiveCommandIndex(
-            (prev) =>
-              (prev - 1 + filteredCommandCountRef.current) %
-              Math.max(filteredCommandCountRef.current, 1),
-          )
-        }
-        if (e.key === "Escape") setShowCommandPalette(false)
-        return
-      }
-
-      if (e.key === "Escape") {
-        setShowShortcuts(false)
-        setShowCommandPalette(false)
-        setPendingKey(null)
-        return
-      }
-
+      // ⌘K / Ctrl+K toggles the palette from anywhere (incl. inputs).
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault()
         setShowCommandPalette((prev) => !prev)
-        setCommandQuery("")
-        setActiveCommandIndex(0)
+        return
+      }
+
+      // While typing in any field (including the palette's own input), let the
+      // field handle the keystroke — the Command component manages its own
+      // arrow/enter/escape navigation internally.
+      if (isInput || showCommandPalette) return
+
+      if (e.key === "Escape") {
+        setShowShortcuts(false)
+        setPendingKey(null)
         return
       }
 
@@ -418,67 +461,53 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
       )}
 
       {/* Command Palette */}
-      {showCommandPalette && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[10vh] bg-black/60 backdrop-blur-sm">
-          <div
-            className="fixed inset-0 cursor-pointer"
-            onClick={() => setShowCommandPalette(false)}
-          />
-          <div className="relative w-full max-w-lg overflow-hidden rounded-lg border border-border bg-popover/95 shadow-2xl backdrop-blur-xl animate-in zoom-in-98 duration-150">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-              <SearchIcon className="h-4 w-4 text-muted-foreground" />
-              <input
-                autoFocus
-                value={commandQuery}
-                onChange={(e) => {
-                  setCommandQuery(e.target.value)
-                  setActiveCommandIndex(0)
-                }}
-                placeholder="Type a command or search..."
-                className="w-full bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/60 text-foreground"
-              />
-              <div className="flex h-5 w-5 items-center justify-center rounded border border-border text-[9px] text-muted-foreground font-mono bg-muted/40 select-none">
-                Esc
-              </div>
-            </div>
-            <div className="py-2 max-h-[280px] overflow-y-auto">
-              {filteredCommands.length === 0 ? (
-                <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-                  No commands matching your query.
-                </div>
-              ) : (
-                filteredCommands.map((cmd, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      cmd.action()
-                      setShowCommandPalette(false)
-                    }}
-                    className={`w-full flex items-center justify-between px-4 py-2 text-xs text-left cursor-pointer transition-colors ${
-                      idx === activeCommandIndex
-                        ? "bg-muted text-foreground font-semibold"
-                        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                    }`}
-                  >
-                    <span>{cmd.label}</span>
-                    <span className="font-mono text-[9px] text-muted-foreground/80 bg-muted/50 border border-border/80 px-1 rounded">
-                      {cmd.shortcut}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-            <div className="bg-muted/30 px-4 py-2 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground select-none">
+      <CommandDialog open={showCommandPalette} onOpenChange={setShowCommandPalette}>
+        <CommandDialogPopup>
+          <Command
+            items={commandGroups}
+            itemToStringValue={(item) => (item as CommandAction).label}
+          >
+            <CommandInput placeholder="Type a command or search..." />
+            <CommandPanel>
+              <CommandEmpty>No commands matching your query.</CommandEmpty>
+              <CommandList>
+                {(group: CommandGroupData) => (
+                  <CommandGroup key={group.heading} items={group.items}>
+                    <CommandGroupLabel>{group.heading}</CommandGroupLabel>
+                    <CommandCollection>
+                      {(cmd: CommandAction) => (
+                        <CommandItem
+                          key={cmd.id}
+                          value={cmd}
+                          onClick={() => runCommand(cmd.action)}
+                          className="gap-2.5"
+                        >
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                            {cmd.icon}
+                          </span>
+                          <span className="flex-1 truncate">{cmd.label}</span>
+                          <CommandShortcut>{cmd.shortcut}</CommandShortcut>
+                        </CommandItem>
+                      )}
+                    </CommandCollection>
+                  </CommandGroup>
+                )}
+              </CommandList>
+            </CommandPanel>
+            <CommandFooter>
               <div className="flex items-center gap-1.5">
-                <span>↑↓ navigate</span>
-                <span className="h-3 w-px bg-border" />
-                <span>Enter select</span>
+                <Kbd>↑</Kbd>
+                <Kbd>↓</Kbd>
+                <span>navigate</span>
+                <span className="mx-1 h-3 w-px bg-border" />
+                <Kbd>↵</Kbd>
+                <span>select</span>
               </div>
               <span>Command Palette</span>
-            </div>
-          </div>
-        </div>
-      )}
+            </CommandFooter>
+          </Command>
+        </CommandDialogPopup>
+      </CommandDialog>
     </SidebarProvider>
   )
 }
