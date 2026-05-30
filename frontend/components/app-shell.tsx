@@ -314,7 +314,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         </Sidebar>
 
         {/* Main Content Frame */}
-        <SidebarInset className="du-card relative z-10 m-2 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs/5">
+        <SidebarInset className="du-card relative z-10 m-0 md:m-2 md:ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs/5">
           {/* Header Bar — pinned, never scrolls */}
           <header className="shrink-0 flex h-14 items-center justify-between border-b border-border bg-transparent px-4 select-none">
             <div className="flex items-center gap-2">
@@ -328,7 +328,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             <div className="flex items-center gap-2">
               <Button
                 onClick={() => router.push("/deploy")}
-                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-primary/30 bg-primary px-3 text-xs font-medium text-primary-foreground shadow-[0_0_24px_rgba(143,153,255,.22)] hover:bg-primary/90"
+                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-primary/30 bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <PlusIcon className="h-3.5 w-3.5" />
                 <span>Deploy service</span>
