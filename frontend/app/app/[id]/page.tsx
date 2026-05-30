@@ -347,7 +347,7 @@ function AppDetailPage() {
     <AppShell>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="border-b border-border bg-background/80 backdrop-blur-sm px-4 py-3 shrink-0">
+        <div className="border-b border-border bg-transparent px-4 py-3 shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Button
