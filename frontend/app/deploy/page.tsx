@@ -46,6 +46,7 @@ import { Fastapi } from "@/components/ui/svgs/fastapi"
 import { Java } from "@/components/ui/svgs/java"
 import { Microsoft } from "@/components/ui/svgs/microsoft"
 import { api } from "@/lib/api"
+import { GitCompareArrows } from "lucide-react"
 
 // Framework definitions (18 supported frameworks)
 type FrameworkIcon = React.FC<React.SVGProps<SVGSVGElement>>
@@ -1150,8 +1151,8 @@ export default function DeployPage() {
                     {/* Connected header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-md bg-success/10 flex items-center justify-center">
-                          <NucleoIcon name="check" className="h-3.5 w-3.5 text-success" />
+                        <div className="h-6 w-6 rounded-md flex items-center justify-center">
+                          <GitCompareArrows className="h-4 w-4 text-success" />
                         </div>
                         <span className="text-sm font-medium text-foreground">GitHub connected</span>
                       </div>
