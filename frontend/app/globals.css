@@ -356,6 +356,92 @@
   z-index: 1;
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   "du-surface" — same treatment as du-card, but pseudo-element-free so it can
+   be layered onto buttons (which already use ::before/::after). Built with the
+   background-clip gradient-border technique:
+     · soft top-left spotlight glow + solid fill, clipped to the padding box
+     · a top-left corner glow ring, clipped to the border box
+   Hover brightness is driven by the --du-fill variable so it stays smooth.
+   ────────────────────────────────────────────────────────────────────────── */
+.dark .du-surface {
+  --du-fill: var(--popover);
+  --du-glow: 0.55;
+  background:
+    /* interior: soft top-left spotlight over the fill */
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.04) 26%,
+      rgba(255, 255, 255, 0) 46%
+    )
+    padding-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) padding-box,
+    /* border: top-left corner glow ring, fading into the fill (no dark rim) */
+    radial-gradient(
+      125% 125% at 0% 0%,
+      rgba(255, 255, 255, var(--du-glow)) 0%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.3)) 18%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.08)) 34%,
+      rgba(255, 255, 255, 0) 52%
+    )
+    border-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) border-box;
+  border: 1.25px solid transparent;
+}
+
+.dark .du-surface:hover {
+  --du-fill: color-mix(in srgb, var(--du-base, var(--popover)), white 8%);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   "du-primary" — du-surface treatment tuned for the solid primary button:
+     · soft top-left spotlight glow over the primary fill (padding box)
+     · a top-left corner glow ring, bright then fading on all sides (border box)
+   Applies in both themes since the primary button is colored in light & dark.
+   Hover brightens the fill via the --du-fill variable for a smooth transition.
+   ────────────────────────────────────────────────────────────────────────── */
+.du-primary {
+  --du-fill: var(--primary);
+  --du-glow: 0.7;
+  background:
+    /* interior: soft top-left spotlight over the primary fill */
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.24),
+      rgba(255, 255, 255, 0.08) 26%,
+      rgba(255, 255, 255, 0) 46%
+    )
+    padding-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) padding-box,
+    /* border (top layer): bright top-left corner glow, fading to transparent */
+    radial-gradient(
+      125% 125% at 0% 0%,
+      rgba(255, 255, 255, var(--du-glow)) 0%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.35)) 18%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.1)) 34%,
+      rgba(255, 255, 255, 0) 52%
+    )
+    border-box,
+    /* border (baseline): faint uniform ring so every edge stays defined */
+    linear-gradient(
+      rgba(255, 255, 255, 0.18),
+      rgba(255, 255, 255, 0.18)
+    )
+    border-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) border-box;
+  border: 1.25px solid transparent;
+}
+
+.du-primary:hover {
+  --du-fill: color-mix(in srgb, var(--primary), white 8%);
+}
+
+.du-primary[data-pressed],
+.du-primary:active {
+  --du-fill: color-mix(in srgb, var(--primary), black 6%);
+}
+
 @layer utilities {
   /* Fine pixel grid — for hero/header surfaces that need texture. */
   .bg-pixel-grid {

@@ -335,7 +335,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
               >
                 <PlusIcon className="h-3.5 w-3.5" />
                 <span>Deploy service</span>
-                <Kbd className="ml-1 h-3.5 rounded-sm border-0 bg-background/20 px-1 font-mono text-[11px] text-primary-foreground">
+                <Kbd className="ml-1 h-4 py-2.5 rounded-sm border-0 bg-background/20 px-1 font-mono text-[11px] text-primary-foreground">
                   N
                 </Kbd>
               </Button>
