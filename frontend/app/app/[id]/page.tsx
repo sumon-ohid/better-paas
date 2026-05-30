@@ -776,29 +776,6 @@ function AppDetailPage() {
                  </p>
                </div>
 
-               {/* Active build banner — shown while a deployment is in progress */}
-               {app.status === "building" && (
-                 <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/8 px-4 py-3 animate-in fade-in-50 duration-200">
-                   <div className="shrink-0 h-8 w-8 rounded-lg bg-warning/15 flex items-center justify-center">
-                     <LoaderIcon className="h-4 w-4 text-warning animate-spin" />
-                   </div>
-                   <div className="flex-1 min-w-0">
-                     <p className="text-sm font-medium text-foreground">Deployment in progress</p>
-                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                       Building and starting your container. This can take a few minutes.
-                     </p>
-                   </div>
-                   <Button
-                     onClick={() => setTab("logs")}
-                     variant="outline"
-                     className="h-7 shrink-0 gap-1.5 text-xs border-warning/30 text-warning hover:bg-warning/10 hover:text-warning"
-                   >
-                     <TerminalIcon className="h-3 w-3" />
-                     View logs
-                   </Button>
-                 </div>
-               )}
-
                {deployments.length === 0 ? (
                  <div className="py-16 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
                    <RefreshIcon className="h-6 w-6 mx-auto mb-3 opacity-20" />
