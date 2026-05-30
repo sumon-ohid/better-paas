@@ -323,8 +323,8 @@
   background:
     radial-gradient(
       135% 120% at 0% 0%,
-      rgba(255, 255, 255, 0.1),
-      rgba(255, 255, 255, 0.035) 26%,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.025) 26%,
       rgba(255, 255, 255, 0) 46%
     ),
     var(--card);
@@ -348,9 +348,9 @@
     /* spotlight: bright at the top-left corner, fades out */
     radial-gradient(
       125% 125% at 0% 0%,
-      rgba(255, 255, 255, 0.6) 0%,
-      rgba(255, 255, 255, 0.18) 18%,
-      rgba(255, 255, 255, 0.05) 34%,
+      rgba(255, 255, 255, 0.42) 0%,
+      rgba(255, 255, 255, 0.13) 18%,
+      rgba(255, 255, 255, 0.04) 34%,
       rgba(255, 255, 255, 0) 52%
     ),
     /* baseline: uniform thin border so all sides stay defined */
@@ -371,8 +371,8 @@
   background:
     radial-gradient(
       135% 120% at 0% 0%,
-      rgba(255, 255, 255, 0.1),
-      rgba(255, 255, 255, 0.035) 26%,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.025) 26%,
       rgba(255, 255, 255, 0) 46%
     ),
     #0c0d0e;
