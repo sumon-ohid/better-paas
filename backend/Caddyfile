@@ -8,19 +8,3 @@ http://i59icgft1f.10.0.0.3.sslip.io {
 	reverse_proxy localhost:9747
 }
 
-example.com {
-	reverse_proxy localhost:9747
-}
-
-http://yptusvnkgd.10.0.0.3.sslip.io {
-	reverse_proxy localhost:9640
-}
-
-http://yzruznmudq.10.0.0.3.sslip.io {
-	reverse_proxy localhost:9491
-}
-
-http://fyryz23kef.10.0.0.3.sslip.io {
-	reverse_proxy localhost:9215
-}
-

@@ -152,7 +152,7 @@
     --bg-sidebar: #f8f8f8;
     --card: #ffffff;
     --card-foreground: #20212b;
-    --destructive: #ef4444;
+    --destructive: #fd1010;
     --foreground: #171820;
     --input: rgba(20, 21, 31, 0.11);
     --muted: rgba(20, 21, 31, 0.045);
@@ -203,7 +203,7 @@
     --border: rgba(255, 255, 255, 0.07);
     --card: #121214;
     --card-foreground: #ededed;
-    --destructive: #ef4444;
+    --destructive: #ff0b0b;
     --foreground: #ededed;
     --input: rgba(255, 255, 255, 0.1);
     --muted: rgba(255, 255, 255, 0.05);
@@ -421,6 +421,25 @@
 
 .dark [data-slot="sidebar-inset"].du-card::after {
   padding: 0.5px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Toasts — match the card aesthetic. The toast root animates its own
+   background-color (for the stacked depth effect) and already uses ::before
+   (inset highlight) + ::after (hover gap-fill), so we can't reuse the card's
+   ::after glow ring. Instead we layer the card's soft top-left interior glow
+   as a background-image (composites over the animated fill) and refine the
+   border to the same faint white ring the cards use.
+   ────────────────────────────────────────────────────────────────────────── */
+.dark [data-slot="toast-root"],
+.dark [data-slot="toast-popup"] {
+  background-image: radial-gradient(
+    135% 120% at 0% 0%,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.03) 26%,
+    rgba(255, 255, 255, 0) 46%
+  );
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
