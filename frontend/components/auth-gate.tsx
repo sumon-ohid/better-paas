@@ -1,9 +1,9 @@
 "use client"
 
 import React, { useEffect, useState, useCallback } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { NucleoIcon } from "@/components/nucleo-icons"
 import { Eye, EyeOff, RefreshCw } from "lucide-react"
 import { authApi } from "@/lib/api"
 import { getToken, setToken, clearToken } from "@/lib/auth"
@@ -98,47 +98,49 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (phase === "locked") {
     return (
       <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="pointer-events-none absolute inset-0 bg-pixel-grid opacity-70 mask-fade-radial" />
-        <div className="relative w-full max-w-sm rounded-2xl border border-border bg-card/72 shadow-xl backdrop-blur-xl">
-          <div className="flex items-center gap-3 border-b border-border/50 px-6 py-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <NucleoIcon name="lock" className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-foreground">Better-PaaS</h1>
-              <p className="text-xs text-muted-foreground">Sign in to your control plane</p>
-            </div>
-          </div>
+        <div className="flex w-full max-w-sm flex-col items-center text-center">
+          {/* Logo */}
+          <Image
+            src="/logo.svg"
+            alt="Better-PaaS Logo"
+            width={8340}
+            height={840}
+            className="size-10"
+          />
 
-          <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Admin Token
-              </label>
-              <div className="relative">
-                <Input
-                  type={showToken ? "text" : "password"}
-                  value={tokenInput}
-                  onChange={(e) => {
-                    setTokenInput(e.target.value)
-                    setError("")
-                  }}
-                  placeholder="Paste your admin token"
-                  className="h-10 pr-10 font-mono text-sm"
-                  autoComplete="off"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowToken((s) => !s)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                  aria-label={showToken ? "Hide token" : "Show token"}
-                >
-                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {error && <p className="mt-1 text-xs text-destructive-foreground">{error}</p>}
+          {/* Heading */}
+          <h1 className="mt-5 text-xl font-bold tracking-tight text-foreground">
+            Sign in to Better-PaaS
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Enter your admin token to access your control plane.
+          </p>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="mt-6 w-full space-y-3">
+            <div className="relative">
+              <Input
+                type={showToken ? "text" : "password"}
+                value={tokenInput}
+                onChange={(e) => {
+                  setTokenInput(e.target.value)
+                  setError("")
+                }}
+                placeholder="Paste your admin token"
+                className="h-10 pr-10 font-mono text-sm"
+                autoComplete="off"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken((s) => !s)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label={showToken ? "Hide token" : "Show token"}
+              >
+                {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
+            {error && <p className="text-xs text-destructive-foreground">{error}</p>}
 
             <Button
               type="submit"
@@ -148,12 +150,15 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             >
               {submitting ? "Verifying…" : "Sign In"}
             </Button>
+          </form>
 
+          {/* Info */}
+          <div className="mt-8 w-full border-t border-border/50 pt-5">
             <p className="text-xs leading-relaxed text-muted-foreground/70">
               Your admin token was generated when the backend first started.
               On your server, get it with any of these:
             </p>
-            <ul className="space-y-1 text-xs leading-relaxed text-muted-foreground/70">
+            <ul className="mt-2 space-y-1 text-xs leading-relaxed text-muted-foreground/70">
               <li>
                 <code className="rounded bg-muted px-1 py-0.5">./server token</code> (or{" "}
                 <code className="rounded bg-muted px-1 py-0.5">docker exec &lt;container&gt; ./server token</code>)
@@ -163,7 +168,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               </li>
               <li>backend startup logs (journalctl / docker logs)</li>
             </ul>
-          </form>
+          </div>
         </div>
       </div>
     )

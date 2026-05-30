@@ -247,7 +247,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                   height={840}
                   src="/logo.svg"
                   alt="Better-PaaS Logo"
-                  className="size-8"
+                  className="size-6"
               />
               <div className="flex flex-col">
                 <span className="font-bold text-base leading-none text-foreground">
@@ -258,7 +258,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
           </SidebarHeader>
 
           <SidebarContent className="p-2 space-y-4">
-            <div className="px-2 pt-2">
+            <div className="pt-2">
               <button
                 onClick={() => setShowCommandPalette(true)}
                 className="flex w-full cursor-pointer items-center justify-between rounded-md border border-border/80 bg-muted/20 px-3 py-1.5 text-sm text-muted-foreground/80 transition-all duration-150 hover:border-primary/30 hover:bg-accent/50 hover:text-foreground"
@@ -267,10 +267,10 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                   <SearchIcon className="h-3.5 w-3.5" />
                   <span>Search commands...</span>
                 </div>
-                <div className="flex items-center gap-0.5 text-xs font-mono text-muted-foreground bg-muted/40 px-1 rounded">
+                <Kbd className="flex items-center gap-0.5 text-xs font-mono text-muted-foreground bg-muted/40 px-1 rounded">
                   <span>⌘</span>
                   <span>K</span>
-                </div>
+                </Kbd>
               </button>
             </div>
 
