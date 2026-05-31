@@ -25,7 +25,6 @@ import { githubUrl } from '@/lib/shared';
 const NAV_LINKS: { label: string; href: string }[] = [
   { label: 'Documentation', href: '/docs' },
   { label: 'Quickstart', href: '/docs/quickstart' },
-  { label: 'Guides', href: '/docs/guides' },
   { label: 'Updates', href: '/docs/updates' },
 ];
 
