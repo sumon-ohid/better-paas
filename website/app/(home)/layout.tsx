@@ -4,10 +4,15 @@ import { baseOptions } from '@/lib/layout.shared';
 import { Logo } from '@/components/logo';
 import { appName, githubUrl } from '@/lib/shared';
 import { GithubIcon } from '@/components/landing/github-icon';
+import { SiteHeader } from '@/components/landing/site-header';
 
 export default function Layout({ children }: LayoutProps<'/'>) {
+  // Disable fumadocs' built-in navbar on marketing pages and mount our own
+  // custom <SiteHeader/> instead (the docs section keeps the default nav).
+  const options = baseOptions();
   return (
-    <HomeLayout {...baseOptions()}>
+    <HomeLayout {...options} nav={{ ...options.nav, enabled: false }}>
+      <SiteHeader />
       {children}
       <Footer />
     </HomeLayout>
