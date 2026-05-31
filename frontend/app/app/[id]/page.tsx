@@ -737,24 +737,45 @@ function AppDetailPage() {
                     </div>
                   </div>
 
+                  {/* Port Routing */}
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground block">Port Routing</span>
+                    <div className="flex items-center gap-1.5 text-sm text-foreground">
+                      <NucleoIcon name="server" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-mono font-medium tabular-nums">
+                        {app.port}
+                        {app.portOverride ? ` → ${app.portOverride}` : ""}
+                      </span>
+                    </div>
+                  </div>
+
                   {/* Domains */}
                   <div className="space-y-1.5">
                     <span className="text-xs font-medium text-muted-foreground block">Domains</span>
                     <div className="space-y-1">
-                      <a
-                        href={app.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors"
-                      >
-                        <NucleoIcon name="web" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="truncate">{overviewDomains[0].replace(/^https?:\/\//, "")}</span>
-                        {overviewDomains.length > 1 && (
-                          <Badge variant="secondary" size="sm" className="shrink-0">
-                            +{overviewDomains.length - 1}
-                          </Badge>
-                        )}
-                      </a>
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={app.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors"
+                        >
+                          <NucleoIcon name="web" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate">{overviewDomains[0].replace(/^https?:\/\//, "")}</span>
+                          {overviewDomains.length > 1 && (
+                            <Badge variant="secondary" size="sm" className="shrink-0">
+                              +{overviewDomains.length - 1}
+                            </Badge>
+                          )}
+                        </a>
+                        <button
+                          onClick={handleCopyUrl}
+                          title="Copy URL"
+                          className="shrink-0 flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors border-0"
+                        >
+                          {copied ? <CheckIcon className="h-3 w-3 text-success" /> : <CopyIcon className="h-3 w-3" />}
+                        </button>
+                      </div>
                       {overviewDomains.slice(1, 3).map((d) => (
                         <a
                           key={d}
@@ -774,9 +795,26 @@ function AppDetailPage() {
                   <div className="space-y-1.5 sm:col-span-2">
                     <span className="text-xs font-medium text-muted-foreground block">Source</span>
                     <div className="space-y-1">
+                      <a
+                        href={app.gitRepo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors"
+                      >
+                        {app.gitRepo.includes("github.com") ? (
+                          <>
+                            <GithubLight className="h-3.5 w-3.5 shrink-0 dark:hidden" />
+                            <GithubDark className="h-3.5 w-3.5 shrink-0 hidden dark:block" />
+                          </>
+                        ) : (
+                          <NucleoIcon name="branch" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="truncate font-mono">{app.gitRepo.replace(/^https?:\/\//, "")}</span>
+                        <ExternalIcon className="h-3 w-3 opacity-60 shrink-0" />
+                      </a>
                       {app.branch && (
-                        <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                          <GitBranchIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <GitBranchIcon className="h-3 w-3 shrink-0" />
                           <span className="truncate font-mono">{app.branch}</span>
                         </div>
                       )}
@@ -806,69 +844,6 @@ function AppDetailPage() {
                   </div>
                 </div>
               </Card>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                    Service URL
-                  </span>
-                  <div className="flex items-center justify-between">
-                    <a
-                      href={app.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-mono text-foreground hover:text-primary transition-colors flex items-center gap-1"
-                    >
-                      <ExternalIcon className="h-3 w-3" />
-                      {app.url.replace("http://", "")}
-                    </a>
-                    <button
-                      onClick={handleCopyUrl}
-                      className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors border-0"
-                    >
-                      {copied ? <CheckIcon className="h-3 w-3 text-success" /> : <CopyIcon className="h-3 w-3" />}
-                    </button>
-                  </div>
-                </Card>
-
-                <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                    Port Routing
-                  </span>
-                  <span className="text-sm font-mono text-foreground">
-                    {app.port}
-                    {app.portOverride ? ` → ${app.portOverride}` : ""}
-                  </span>
-                </Card>
-
-                 <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
-                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                     Git Repository
-                   </span>
-                    <a
-                      href={app.gitRepo}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm font-mono text-foreground hover:text-primary transition-colors truncate"
-                    >
-                      {app.gitRepo.includes("github.com") && (
-                        <>
-                          <GithubLight className="h-4 w-4 shrink-0 dark:hidden" />
-                          <GithubDark className="h-4 w-4 shrink-0 hidden dark:block" />
-                        </>
-                      )}
-                      <span className="truncate block">{app.gitRepo}</span>
-                      <ExternalIcon className="h-3 w-3 opacity-60 shrink-0" />
-                    </a>
-                 </Card>
-
-                <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                    Provisioned
-                  </span>
-                  <span className="text-sm text-foreground">{new Date(app.createdAt).toLocaleString()}</span>
-                </Card>
-              </div>
 
               {app.envVars && Object.keys(app.envVars).length > 0 && (
                 <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">

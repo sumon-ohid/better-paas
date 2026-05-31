@@ -52,12 +52,7 @@ export function SitePreview({ url, status, className }: SitePreviewProps) {
       )}
     >
       {/* Browser chrome */}
-      <div className="flex items-center gap-2 border-b border-border/70 bg-muted/30 px-3 py-2">
-        <div className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-rose-400/80" />
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-400/80" />
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
-        </div>
+      <div className="flex items-center gap-2 bg-muted/30 px-3 py-2">
         <div className="ml-1 flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border/60 bg-background/60 px-2 py-1">
           <NucleoIcon name="lock" className="h-3 w-3 shrink-0 text-muted-foreground" />
           <span className="truncate text-[11px] font-mono text-muted-foreground">{displayUrl}</span>
@@ -82,7 +77,7 @@ export function SitePreview({ url, status, className }: SitePreviewProps) {
       </div>
 
       {/* Viewport */}
-      <div ref={containerRef} className="relative aspect-16/10 w-full overflow-hidden bg-muted/10">
+      <div ref={containerRef} className="relative rounded-2xl border-y aspect-16/10 w-full overflow-hidden bg-muted/10">
         {isRunning ? (
           <>
             {scale > 0 && (
