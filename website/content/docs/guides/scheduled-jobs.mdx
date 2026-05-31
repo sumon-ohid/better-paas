@@ -1,0 +1,76 @@
+---
+title: Scheduled Jobs (Cron)
+description: Run commands inside your app's container on a recurring schedule.
+icon: Clock
+---
+
+Sometimes you need a command to run on a schedule — database migrations, nightly
+cleanups, sending digest emails, generating reports. Better-PaaS has built-in
+**cron** support for exactly this.
+
+## What is cron?
+
+"Cron" is the classic Unix way of scheduling recurring tasks. You describe *when*
+to run something using a five-field schedule, and the task runs inside your
+app's container at those times.
+
+## Creating a scheduled job
+
+<Steps>
+<Step>
+Go to the **Cron** screen in the dashboard.
+</Step>
+<Step>
+Create a job and choose the **app** whose container the command should run in.
+</Step>
+<Step>
+Enter the **command** to run, e.g. `npm run migrate` or `python cleanup.py`.
+</Step>
+<Step>
+Enter a **schedule** in cron format (see below) and save.
+</Step>
+</Steps>
+
+## Cron schedule format
+
+A schedule has five fields: minute, hour, day-of-month, month, day-of-week.
+
+```text
+┌───────────── minute (0–59)
+│ ┌───────────── hour (0–23)
+│ │ ┌───────────── day of month (1–31)
+│ │ │ ┌───────────── month (1–12)
+│ │ │ │ ┌───────────── day of week (0–6, Sunday = 0)
+│ │ │ │ │
+* * * * *
+```
+
+Some common examples:
+
+| Schedule | Runs… |
+| -------- | ----- |
+| `0 * * * *` | every hour, on the hour |
+| `*/15 * * * *` | every 15 minutes |
+| `0 3 * * *` | every day at 3:00 AM |
+| `0 0 * * 0` | every Sunday at midnight |
+| `30 2 1 * *` | at 2:30 AM on the 1st of each month |
+
+## Running a job right now
+
+Need to test a job without waiting for its schedule? Use **Run now** on the job
+to execute it immediately inside the container.
+
+## Editing and deleting
+
+Update a job's command or schedule, or delete it entirely, from the same Cron
+screen. Changes take effect on the next scheduled run.
+
+## Next step
+
+<Cards>
+  <Card
+    title="Backups"
+    href="/docs/guides/backups"
+    description="Snapshot your control plane data on a schedule."
+  />
+</Cards>

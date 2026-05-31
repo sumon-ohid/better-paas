@@ -268,6 +268,9 @@ export const api = {
         "/api/system/update/apply",
         { method: "POST" },
       ),
+    onboarding: () => req<{ completed: boolean }>("/api/system/onboarding"),
+    completeOnboarding: () =>
+      req<{ completed: boolean }>("/api/system/onboarding/complete", { method: "POST" }),
   },
 
   deployments: {

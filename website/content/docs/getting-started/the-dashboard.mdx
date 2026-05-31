@@ -1,0 +1,97 @@
+---
+title: Tour of the Dashboard
+description: A plain-language tour of every screen in the Better-PaaS dashboard.
+icon: LayoutDashboard
+---
+
+The dashboard is where you manage everything. Here's what each section does, so
+you always know where to click.
+
+## Applications (home)
+
+The main screen lists every app you've deployed. For each one you can see at a
+glance:
+
+- A **status dot** — green (running), blue (building), grey (stopped/paused),
+  red (failed).
+- The app's **live URL** and **Git repository**.
+- The **branch** and when it was last **deployed**.
+
+Switch between a **card view** and a **list view** with the toggle in the top
+right. Use the search box and status filters to find an app fast.
+
+Click any app to open its **detail drawer**, where you can manage everything
+specific to that app.
+
+### App actions
+
+The **⋯ menu** on each app gives you quick actions:
+
+| Action | What it does |
+| ------ | ------------ |
+| **View details** | Open the full app drawer. |
+| **View logs** | Jump straight to live logs. |
+| **Stop / Start** | Pause or resume the container. |
+| **Redeploy** | Rebuild from the latest commit. |
+| **Delete** | Permanently remove the app and its container. |
+
+## Deploy
+
+The **Deploy** screen is where you create a new app from a Git repository. See
+[Your First Deploy](/docs/getting-started/first-deploy) for the full walkthrough.
+
+## Inside an app
+
+Open an app to find tabs for each capability:
+
+- **Overview** — status, URL, resource usage (live CPU and memory).
+- **Logs** — real-time container output, streamed over WebSocket and persisted
+  to disk so they survive restarts.
+- **Deployments** — the full deploy history. Roll back to any previous
+  successful deploy from here.
+- **Modify Config** — environment variables, resource limits, volumes,
+  auto-deploy, and more.
+- **Domains** — add custom domains with automatic HTTPS.
+- **Terminal** — open a shell directly inside the running container.
+
+## Add-ons
+
+The **Add-ons** screen manages one-click databases and caches —
+**Postgres**, **Redis**, and **MySQL**. Create one, then attach it to an app to
+automatically inject connection environment variables. See
+[Databases & Add-ons](/docs/guides/databases).
+
+## Cron
+
+Schedule commands to run inside an app's container on a recurring schedule —
+migrations, cleanups, report generation, and so on. See
+[Scheduled Jobs](/docs/guides/scheduled-jobs).
+
+## Backups
+
+Snapshot the control plane's data directory (database, tokens, logs) on demand
+or on a schedule, and download the archive. See [Backups](/docs/guides/backups).
+
+## Health
+
+A live view of host-level metrics — overall CPU, memory, and disk usage — so you
+can keep an eye on how loaded your server is.
+
+## Settings
+
+Global configuration for your Better-PaaS instance:
+
+- **Git** — save access tokens for cloning private repositories.
+- **Notifications** — Slack and webhook alerts on deploy success/failure.
+- **Backups** — automatic backup schedule and storage options.
+- **Software Updates** — check for and apply new Better-PaaS releases.
+
+## Next step
+
+<Cards>
+  <Card
+    title="Deploying an app, in depth"
+    href="/docs/guides/deploying-an-app"
+    description="The full deployment guide and best practices."
+  />
+</Cards>

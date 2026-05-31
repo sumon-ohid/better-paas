@@ -1,0 +1,81 @@
+---
+title: Backups
+description: Snapshot your control plane data on demand or on a schedule, and download it.
+icon: Archive
+---
+
+Better-PaaS keeps important state — its database, your admin token, the
+encryption key, and logs — in a `data/` directory. Backups let you snapshot that
+state so you can recover from mistakes or move to a new server.
+
+## What gets backed up
+
+A backup is a snapshot of the control plane's `data/` directory, which holds:
+
+- The SQLite **database** (your apps, settings, deploy history)
+- **Tokens** and the encryption key
+- Persisted **logs**
+
+<Callout type="info" title="This backs up Better-PaaS itself">
+  Backups capture the *control plane's* state — your configuration and metadata.
+  Application data inside [volumes](/docs/guides/volumes) and
+  [databases](/docs/guides/databases) is separate; back those up according to
+  their own needs.
+</Callout>
+
+## On-demand backups
+
+<Steps>
+<Step>
+Go to the **Backups** screen in the dashboard.
+</Step>
+<Step>
+Click **Create backup**. Better-PaaS snapshots the `data/` directory into an
+archive.
+</Step>
+<Step>
+**Download** the archive to keep a copy somewhere safe (your laptop, object
+storage, etc.).
+</Step>
+</Steps>
+
+## Scheduled backups
+
+To back up automatically, set the backup interval in the backend environment:
+
+```bash title="backend/.env"
+# Take a snapshot every 6 hours; keeps the last 10 automatically.
+BACKUP_INTERVAL_HOURS=6
+```
+
+When set above `0`, Better-PaaS auto-snapshots `data/` every N hours and retains
+the most recent 10 backups, pruning older ones.
+
+## Storage options
+
+Backups can also be configured for off-server storage (such as S3-compatible
+object storage) from **Settings → Backups**, so a snapshot lives somewhere other
+than the server it's protecting. Use the **Test** option there to confirm your
+storage credentials work before relying on them.
+
+## Restoring
+
+To restore, stop Better-PaaS, replace the `data/` directory with the contents of
+a backup archive, and start it again. Because schema migrations are additive and
+applied on boot, a backup from an older version restores cleanly into a newer
+one.
+
+<Callout type="warn" title="Keep at least one off-server copy">
+  A backup that only lives on the same server it protects won't help if that
+  server is lost. Download backups or use off-server storage.
+</Callout>
+
+## Next step
+
+<Cards>
+  <Card
+    title="Security model"
+    href="/docs/security"
+    description="How your data and tokens are protected."
+  />
+</Cards>

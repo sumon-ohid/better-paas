@@ -1,0 +1,88 @@
+---
+title: Custom Domains & HTTPS
+description: Point your own domain at an app and get an automatic HTTPS certificate.
+icon: Globe
+---
+
+Every app starts with an automatic `sslip.io` URL, but you'll usually want your
+own domain like `app.yourdomain.com`. Better-PaaS makes this painless and gives
+you HTTPS automatically.
+
+## How it works
+
+Better-PaaS uses **Caddy** as its web server. When you add a domain to an app,
+Caddy automatically requests a free **Let's Encrypt** certificate for it — so
+your site is served over `https://` with a valid padlock, no manual certificate
+wrangling.
+
+## Step 1 — Point your DNS at the server
+
+Before adding the domain in Better-PaaS, create a DNS record at your domain
+registrar that points the domain to your server's IP address:
+
+| Type | Name | Value |
+| ---- | ---- | ----- |
+| `A` | `app` (or `@` for the root) | your server's public IP |
+
+<Callout type="warn" title="Do this first">
+  Caddy can only issue a certificate once the domain actually resolves to your
+  server. If you add the domain before DNS propagates, certificate issuance will
+  fail until it does. DNS changes can take a few minutes to a few hours.
+</Callout>
+
+## Step 2 — Set an email for Let's Encrypt
+
+Let's Encrypt uses an email address for expiry notices. Set it in the backend
+environment as `ACME_EMAIL`:
+
+```bash title="backend/.env"
+ACME_EMAIL=you@example.com
+```
+
+Restart the backend after setting it.
+
+## Step 3 — Add the domain in the dashboard
+
+<Steps>
+<Step>
+Open your app and go to the **Domains** tab.
+</Step>
+<Step>
+Enter your domain (e.g. `app.yourdomain.com`) and add it.
+</Step>
+<Step>
+Caddy requests a certificate. Within a few seconds your app is reachable at
+`https://app.yourdomain.com`.
+</Step>
+</Steps>
+
+## Removing a domain
+
+Remove a domain from the same **Domains** tab. Caddy stops serving it
+immediately.
+
+## Troubleshooting
+
+<Accordions>
+<Accordion title="The certificate isn't being issued">
+Check that your DNS record points to the correct server IP and has propagated
+(try `dig app.yourdomain.com`). Confirm `ACME_EMAIL` is set and that ports 80
+and 443 are open on your server's firewall — Let's Encrypt needs them for
+validation.
+</Accordion>
+
+<Accordion title="It works on http:// but not https://">
+HTTPS depends on certificate issuance succeeding. Re-check DNS and that port 443
+is reachable from the internet, then remove and re-add the domain.
+</Accordion>
+</Accordions>
+
+## Next step
+
+<Cards>
+  <Card
+    title="Environment variables"
+    href="/docs/guides/environment-variables"
+    description="Configure your app with env vars and secrets."
+  />
+</Cards>

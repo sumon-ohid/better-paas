@@ -1,0 +1,148 @@
+---
+title: Installation
+description: A friendly, step-by-step guide to installing Better-PaaS on your server.
+icon: Download
+---
+
+This guide walks you through installing Better-PaaS from scratch. We'll explain
+each step so you know *what* is happening and *why*.
+
+## Before you begin
+
+You'll need a **server** to install Better-PaaS on. Almost any of these work:
+
+- A cloud **VPS** (DigitalOcean, Hetzner, Linode, AWS EC2, etc.)
+- A home server or spare computer running Linux
+- Your own Mac, for trying it out locally
+
+### Recommended setup
+
+| Requirement | Recommendation |
+| ----------- | -------------- |
+| Operating system | Ubuntu 22.04+ or Debian 11+ (best supported). macOS works for local testing. |
+| Memory (RAM) | 1 GB minimum, 2 GB+ comfortable |
+| Disk | 20 GB+ (Docker images add up) |
+| Access | `root` or a user with `sudo` |
+
+<Callout type="warn" title="Why a real server?">
+  Better-PaaS runs your apps as Docker containers and serves them to the
+  internet. A cloud VPS with a public IP address is what makes your apps
+  reachable from anywhere. Local installs are great for learning, but only
+  reachable from your own machine.
+</Callout>
+
+## The one-command install
+
+SSH into your server and run:
+
+```bash title="On your server"
+curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | bash
+```
+
+On Linux, run it as root (or with `sudo`):
+
+```bash
+sudo bash -c "curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | bash"
+```
+
+### What the installer does
+
+The script is fully automated. Step by step, it:
+
+<Steps>
+<Step>
+**Detects your operating system** and installs system packages (curl, git, build tools).
+</Step>
+<Step>
+**Installs Go** — the language the control plane is written in.
+</Step>
+<Step>
+**Installs Docker** — runs your apps in isolated containers.
+</Step>
+<Step>
+**Installs Nixpacks** — auto-detects how to build your code.
+</Step>
+<Step>
+**Installs Caddy** — the web server that routes traffic and handles HTTPS.
+</Step>
+<Step>
+**Installs Node.js + pnpm** — needed to build the dashboard.
+</Step>
+<Step>
+**Builds and starts** the backend and frontend as background services.
+</Step>
+</Steps>
+
+## Installing from a checked-out copy
+
+Prefer to clone the repo yourself first? That works too:
+
+```bash
+git clone https://github.com/sumon-ohid/better-paas.git
+cd better-paas
+bash install.sh
+```
+
+## Building manually (for developers)
+
+If you want to run the pieces by hand — useful for contributing — build each
+part separately.
+
+**Backend** (it's a multi-file Go package, so build the whole directory, not
+just `main.go`):
+
+```bash title="backend"
+cd backend
+go build -o server .
+./server
+```
+
+**Frontend:**
+
+```bash title="frontend"
+cd frontend
+pnpm install
+pnpm build
+pnpm start
+```
+
+## After installation
+
+When the installer finishes it prints a summary with two important things:
+
+1. **The dashboard URL** — usually `http://localhost:3000` or
+   `http://YOUR_SERVER_IP:3000`.
+2. **Your admin token** — the secret you'll use to log in.
+
+<Callout type="info">
+  Keep that admin token safe. It's the only credential protecting your
+  dashboard. You can reprint it any time with
+  `cd ~/better-paas/backend && ./server token`.
+</Callout>
+
+### How it runs in the background
+
+On Linux, the installer registers two **systemd services** so Better-PaaS starts
+automatically on boot and restarts if it crashes:
+
+```bash
+# Check status
+sudo systemctl status better-paas-backend
+sudo systemctl status better-paas-frontend
+
+# Follow the logs live
+journalctl -u better-paas-backend -f
+```
+
+On macOS, the processes are started in the background and log to
+`backend/server.log` and `frontend/frontend.log`.
+
+## Next step
+
+<Cards>
+  <Card
+    title="Your first deploy"
+    href="/docs/getting-started/first-deploy"
+    description="Log in and put your first app online."
+  />
+</Cards>

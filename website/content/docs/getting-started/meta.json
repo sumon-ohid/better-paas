@@ -1,0 +1,9 @@
+{
+  "title": "Getting Started",
+  "icon": "Compass",
+  "pages": [
+    "installation",
+    "first-deploy",
+    "the-dashboard"
+  ]
+}

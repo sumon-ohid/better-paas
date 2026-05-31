@@ -1,0 +1,18 @@
+{
+  "title": "Guides",
+  "icon": "BookOpen",
+  "pages": [
+    "deploying-an-app",
+    "auto-deploy",
+    "custom-domains",
+    "environment-variables",
+    "databases",
+    "scheduled-jobs",
+    "rollbacks",
+    "resource-limits",
+    "volumes",
+    "logs-and-terminal",
+    "notifications",
+    "backups"
+  ]
+}

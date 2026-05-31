@@ -704,6 +704,36 @@ func handleAuthVerify(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// Onboarding state
+//
+// A one-time welcome flow runs on first sign-in. The "completed" flag lives in
+// the meta table so it is shared across browsers/devices (it is a property of
+// the node, not the client) and survives a localStorage clear.
+// ---------------------------------------------------------------------------
+
+const onboardingMetaKey = "onboarding_complete"
+
+func handleOnboardingGet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	jsonOK(w, map[string]bool{"completed": dbGetMeta(onboardingMetaKey) == "true"})
+}
+
+func handleOnboardingComplete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := dbSetMeta(onboardingMetaKey, "true"); err != nil {
+		jsonError(w, "Failed to save", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]bool{"completed": true})
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/docker/prune
 // ---------------------------------------------------------------------------
 

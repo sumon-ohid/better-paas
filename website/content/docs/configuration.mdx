@@ -1,0 +1,79 @@
+---
+title: Configuration
+description: Every environment variable for the backend and frontend, explained.
+icon: Settings
+---
+
+Better-PaaS works out of the box with sensible defaults. When you're ready to
+tune it, configure it through environment variables.
+
+## Backend configuration
+
+Set these in the backend environment (see `backend/.env.example`). The defaults
+are chosen so a fresh install just works.
+
+| Variable | Default | What it does |
+| -------- | ------- | ------------ |
+| `ADMIN_TOKEN` | generated | The admin bearer token. Set this to pin or rotate it instead of using the auto-generated value. |
+| `LISTEN_ADDR` | `:8080` | The address the API listens on. Use `127.0.0.1:8080` when running behind a reverse proxy. |
+| `DASHBOARD_ORIGIN` | reflected | Comma-separated list of allowed origins for CORS and WebSockets. |
+| `BETTER_PAAS_SECRET_KEY` | generated | 32-byte key (hex or base64) used to encrypt secrets at rest. |
+| `TRUST_PROXY` | `false` | Honor `X-Forwarded-For` / `X-Real-IP`. Set to `true` when behind a proxy so rate-limiting uses the real client IP. |
+| `ACME_EMAIL` | unset | Email for Let's Encrypt registration, used for custom-domain HTTPS. |
+| `BACKUP_INTERVAL_HOURS` | `0` | If greater than 0, auto-snapshot `data/` every N hours (keeps the last 10). |
+| `UPDATE_REPO` | from git remote | The `owner/repo` slug the in-app updater checks for new releases. |
+
+### Setting backend variables
+
+If you installed via the script, the backend runs as a systemd service. Add
+variables to the unit file:
+
+```ini title="/etc/systemd/system/better-paas-backend.service"
+[Service]
+Environment=ACME_EMAIL=you@example.com
+Environment=BACKUP_INTERVAL_HOURS=6
+Environment=TRUST_PROXY=true
+```
+
+Then reload and restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart better-paas-backend
+```
+
+Running manually instead? Use a `.env` file or export the variables before
+starting `./server`.
+
+## Frontend configuration
+
+The dashboard needs to know where the backend API lives. By default it assumes
+the same host on port 8080.
+
+| Variable | Default | What it does |
+| -------- | ------- | ------------ |
+| `NEXT_PUBLIC_API_URL` | same host, port 8080 | Explicit backend API base URL. Set this if the API is on a different host or port. |
+
+Set it in `frontend/.env` (see `frontend/.env.example`):
+
+```bash title="frontend/.env"
+NEXT_PUBLIC_API_URL=https://api.yourdomain.com
+```
+
+## Checking the running version
+
+To see which version of Better-PaaS is running:
+
+```bash
+cd ~/better-paas/backend && ./server version
+```
+
+## Next step
+
+<Cards>
+  <Card
+    title="Updates"
+    href="/docs/updates"
+    description="Keep Better-PaaS up to date with one click."
+  />
+</Cards>

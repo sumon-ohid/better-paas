@@ -1,0 +1,88 @@
+---
+title: Databases & Add-ons
+description: Spin up managed Postgres, Redis, and MySQL and attach them to your apps in one click.
+icon: Database
+---
+
+Most real apps need a database. Better-PaaS can run **Postgres**, **Redis**, and
+**MySQL** for you as managed containers — no manual setup, no separate hosting.
+
+## Creating an add-on
+
+<Steps>
+<Step>
+Go to the **Add-ons** screen in the dashboard.
+</Step>
+<Step>
+Choose a type — **Postgres**, **Redis**, or **MySQL** — and give it a name.
+</Step>
+<Step>
+Create it. Better-PaaS starts a container for it on a shared internal network.
+</Step>
+</Steps>
+
+## Attaching an add-on to an app
+
+Creating a database isn't enough — your app needs to know how to reach it.
+**Attaching** handles that automatically:
+
+<Steps>
+<Step>
+Open the add-on (or your app's config) and **attach** the add-on to an app.
+</Step>
+<Step>
+Better-PaaS injects the connection details into the app as
+[environment variables](/docs/guides/environment-variables) — host, port,
+username, password, database name, and/or a ready-to-use connection URL.
+</Step>
+<Step>
+Redeploy the app. Your code reads the injected variables and connects.
+</Step>
+</Steps>
+
+<Callout type="info" title="Why a shared internal network?">
+  Add-ons run on a private Docker network alongside your apps. That means your
+  app talks to the database over the internal network — it isn't exposed to the
+  public internet, which is exactly what you want for a database.
+</Callout>
+
+## Reading the connection in your app
+
+Because connection details arrive as environment variables, your code stays
+portable:
+
+```js title="Node.js + Postgres"
+import { Pool } from 'pg';
+
+// Better-PaaS injects DATABASE_URL when you attach a Postgres add-on.
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+```
+
+The exact variable names appear in the app's config after you attach, so you can
+match them precisely.
+
+## Detaching and deleting
+
+- **Detach** removes the connection variables from an app but keeps the database
+  and its data.
+- **Delete** removes the add-on container entirely.
+
+<Callout type="warn" title="Deleting is permanent">
+  Deleting an add-on destroys its container. If it holds data you care about,
+  back it up first.
+</Callout>
+
+## Next step
+
+<Cards>
+  <Card
+    title="Persistent volumes"
+    href="/docs/guides/volumes"
+    description="Keep data across redeploys for stateful apps."
+  />
+  <Card
+    title="Scheduled jobs"
+    href="/docs/guides/scheduled-jobs"
+    description="Run migrations and cleanups on a schedule."
+  />
+</Cards>

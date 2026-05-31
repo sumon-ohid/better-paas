@@ -1,0 +1,75 @@
+---
+title: Auto-deploy on Git Push
+description: Redeploy your app automatically every time you push to your branch.
+icon: GitBranch
+---
+
+Instead of clicking **Redeploy** every time, you can have Better-PaaS rebuild
+your app automatically whenever you push code. This is done with a **GitHub
+webhook**.
+
+## What's a webhook?
+
+A webhook is a message GitHub sends to Better-PaaS the moment you push code.
+Better-PaaS listens for that message and kicks off a deploy. You set it up once
+per app.
+
+## Enabling auto-deploy
+
+<Steps>
+<Step>
+Open your app and go to the **Modify Config** tab.
+</Step>
+<Step>
+Toggle on **Auto-deploy on git push**.
+</Step>
+<Step>
+Better-PaaS shows you a **webhook URL** and a **secret**. They look like this:
+
+```text
+URL:    http://YOUR_SERVER:8080/api/webhooks/github/<appID>
+Secret: <a long random string>
+```
+</Step>
+<Step>
+In your GitHub repo, go to **Settings → Webhooks → Add webhook** and enter:
+
+| Field | Value |
+| ----- | ----- |
+| **Payload URL** | the webhook URL from Better-PaaS |
+| **Content type** | `application/json` |
+| **Secret** | the secret from Better-PaaS |
+| **Events** | "Just the push event" |
+</Step>
+<Step>
+Save. Now every push to your configured branch redeploys the app.
+</Step>
+</Steps>
+
+## How it stays secure
+
+The webhook is authenticated with an **HMAC signature** unique to each app.
+GitHub signs every request with your secret, and Better-PaaS verifies that
+signature before doing anything. A request without the correct signature is
+rejected — so nobody can trigger your deploys by guessing the URL.
+
+<Callout type="warn" title="Pushes to other branches are ignored">
+  Only pushes to the branch you configured for the app trigger a deploy. Pushing
+  to a feature branch won't redeploy production.
+</Callout>
+
+## Regenerating the secret
+
+If you ever think the secret leaked, regenerate it from the **Modify Config**
+tab. Remember to update the secret in your GitHub webhook settings too, or the
+signature check will start failing.
+
+## Next step
+
+<Cards>
+  <Card
+    title="Custom domains"
+    href="/docs/guides/custom-domains"
+    description="Serve your app from your own domain with HTTPS."
+  />
+</Cards>

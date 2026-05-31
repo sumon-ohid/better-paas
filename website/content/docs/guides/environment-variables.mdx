@@ -1,0 +1,69 @@
+---
+title: Environment Variables
+description: Configure your app with environment variables, including secret values.
+icon: Settings2
+---
+
+Environment variables are key–value pairs your app reads at runtime. They're the
+standard way to configure things like API keys, database URLs, and feature
+flags — without hard-coding them into your source.
+
+## Setting variables
+
+<Steps>
+<Step>
+Open your app and go to the **Modify Config** tab.
+</Step>
+<Step>
+Add your variables as `KEY=value` pairs (for example `NODE_ENV=production`).
+</Step>
+<Step>
+Save and redeploy. The new variables are injected into your container.
+</Step>
+</Steps>
+
+## Secret variables
+
+Some values — API keys, passwords, tokens — shouldn't be visible in the UI or
+API responses. Mark a variable's key as **secret** and Better-PaaS redacts its
+value everywhere it's displayed, the same way it handles deploy tokens.
+
+<Callout type="info">
+  Secret values are still passed to your app normally at runtime — they're just
+  hidden from API responses and the dashboard so they don't leak over your
+  shoulder or through logs.
+</Callout>
+
+## The PORT variable
+
+Better-PaaS sets a `PORT` variable telling your app which port to listen on.
+Always bind your server to it:
+
+```js title="Node.js example"
+const port = process.env.PORT || 3000;
+app.listen(port);
+```
+
+```python title="Python example"
+import os
+port = int(os.environ.get("PORT", 8000))
+```
+
+If your app ignores `PORT` and listens on a fixed port, health checks will fail
+and the deploy won't go live.
+
+## Variables from attached databases
+
+When you [attach a managed database](/docs/guides/databases) to an app,
+Better-PaaS automatically injects its connection variables (host, port, user,
+password, database name / connection URL). You don't set these by hand.
+
+## Next step
+
+<Cards>
+  <Card
+    title="Databases & add-ons"
+    href="/docs/guides/databases"
+    description="Add a managed Postgres, Redis, or MySQL."
+  />
+</Cards>

@@ -4,7 +4,8 @@ import React, { useEffect, useState, useCallback } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Eye, EyeOff, RefreshCw } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
+import OnboardCard from "@/components/ui/onboard-card"
 import { authApi } from "@/lib/api"
 import { getToken, setToken, clearToken } from "@/lib/auth"
 
@@ -89,8 +90,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (phase === "checking") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
-        <RefreshCw className="h-5 w-5 animate-spin" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <OnboardCard
+          duration={3000}
+          step1="Connecting"
+          step2="Verifying session"
+          step3="Loading dashboard"
+        />
       </div>
     )
   }

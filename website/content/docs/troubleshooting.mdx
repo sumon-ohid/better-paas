@@ -1,0 +1,128 @@
+---
+title: Troubleshooting
+description: Fixes for the most common Better-PaaS issues.
+icon: LifeBuoy
+---
+
+Stuck? Most problems fall into a handful of buckets. Find your symptom below.
+
+## I can't log in to the dashboard
+
+<Accordions>
+<Accordion title="I don't know my admin token">
+Print it on the server:
+
+```bash
+cd ~/better-paas/backend && ./server token
+```
+
+It's also saved at `backend/data/admin_token.txt` and printed in the backend
+logs on first run.
+</Accordion>
+
+<Accordion title="I'm getting locked out (HTTP 429)">
+Too many bad token attempts triggered the
+[brute-force lockout](/docs/security#brute-force-protection). Wait for the
+`Retry-After` period, then sign in with the correct token. If you're behind a
+proxy and the lockout seems to hit everyone, set `TRUST_PROXY=true` so it keys
+on the real client IP.
+</Accordion>
+
+<Accordion title="The dashboard can't reach the API">
+Check `NEXT_PUBLIC_API_URL` points to the right backend host/port, and that the
+backend is running (`sudo systemctl status better-paas-backend`). CORS issues?
+Set `DASHBOARD_ORIGIN` to your dashboard's origin.
+</Accordion>
+</Accordions>
+
+## My deploy failed
+
+<Accordions>
+<Accordion title="The build fails">
+Open the app and read the **build logs** — Nixpacks and your build tools print
+the exact error. Common causes: a missing dependency, a failing build command,
+or no lockfile. Fix it in your repo and **Redeploy**.
+</Accordion>
+
+<Accordion title="The build succeeds but the app won't start">
+Almost always a **port** issue. Better-PaaS sets a `PORT` environment variable —
+your app must listen on it rather than a hard-coded port. See
+[Environment Variables](/docs/guides/environment-variables#the-port-variable).
+</Accordion>
+
+<Accordion title="A private repo won't clone">
+Better-PaaS needs a Git access token to clone private repositories. Add one when
+deploying, or save it under **Settings → Git**. Tokens are
+[encrypted at rest](/docs/security#encryption-at-rest).
+</Accordion>
+</Accordions>
+
+## My custom domain has no HTTPS
+
+<Accordions>
+<Accordion title="The certificate won't issue">
+Caddy can only get a certificate once your domain resolves to the server. Check:
+
+- The DNS `A` record points to the correct server IP and has propagated
+  (`dig yourdomain.com`).
+- `ACME_EMAIL` is set in the backend environment.
+- Ports **80 and 443** are open on your firewall — Let's Encrypt needs them.
+
+Then remove and re-add the domain. See
+[Custom Domains](/docs/guides/custom-domains#troubleshooting).
+</Accordion>
+</Accordions>
+
+## My server is running out of space
+
+<Accordions>
+<Accordion title="Reclaim disk used by Docker">
+Old images and build cache add up. From the dashboard, use **Prune Docker** to
+run `docker system prune`, which removes stopped containers, unused networks,
+dangling images, and build cache. Running containers are not affected.
+</Accordion>
+
+<Accordion title="Trim old backups">
+If `BACKUP_INTERVAL_HOURS` is set, only the last 10 backups are kept
+automatically. Delete any manual backups you no longer need from the **Backups**
+screen.
+</Accordion>
+</Accordions>
+
+## An update broke something
+
+<Accordions>
+<Accordion title="The update didn't come up">
+Better-PaaS health-checks new builds and **automatically rolls back** to the
+previous version if the new one fails to start. If you're still seeing issues,
+check the backend logs:
+
+```bash
+journalctl -u better-paas-backend -f
+```
+</Accordion>
+
+<Accordion title="I want to go back to a previous app version">
+That's a [rollback](/docs/guides/rollbacks), done per-app from the
+**Deployments** tab — separate from updating Better-PaaS itself.
+</Accordion>
+</Accordions>
+
+## Checking service health
+
+```bash
+# Are the services running?
+sudo systemctl status better-paas-backend
+sudo systemctl status better-paas-frontend
+
+# Follow backend logs live
+journalctl -u better-paas-backend -f
+
+# Is the API healthy?
+curl http://localhost:8080/api/health
+```
+
+## Still stuck?
+
+Open an issue on [GitHub](https://github.com/sumon-ohid/better-paas) with your
+symptom, what you tried, and the relevant logs.

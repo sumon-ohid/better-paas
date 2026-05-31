@@ -128,6 +128,8 @@ func main() {
 	// System
 	mux.HandleFunc("/api/health", handleHealth)
 	mux.HandleFunc("/api/auth/verify", handleAuthVerify)
+	mux.HandleFunc("/api/system/onboarding", handleOnboardingGet)
+	mux.HandleFunc("/api/system/onboarding/complete", handleOnboardingComplete)
 	mux.HandleFunc("/api/docker/prune", handleDockerPrune)
 	mux.HandleFunc("/api/deployments/history", handleDeploymentHistory)
 	mux.HandleFunc("/api/metrics/apps", handlePerAppMetrics)

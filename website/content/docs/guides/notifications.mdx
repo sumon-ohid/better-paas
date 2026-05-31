@@ -1,0 +1,54 @@
+---
+title: Deploy Notifications
+description: Get a Slack or webhook alert whenever a deploy succeeds or fails.
+icon: Bell
+---
+
+You don't want to babysit the dashboard during every deploy. Better-PaaS can
+notify you the moment a deploy succeeds or fails — through **Slack** or a
+**generic webhook**.
+
+## Configuring notifications
+
+<Steps>
+<Step>
+Go to **Settings → Notifications** in the dashboard.
+</Step>
+<Step>
+Add a **Slack** webhook URL, a **generic** webhook URL, or both.
+</Step>
+<Step>
+Save. From now on you'll be pinged on every deploy outcome.
+</Step>
+</Steps>
+
+## Slack notifications
+
+To get a Slack webhook URL, create an **Incoming Webhook** in your Slack
+workspace (Slack → Apps → Incoming Webhooks), pick a channel, and copy the URL it
+gives you. Paste that into Better-PaaS.
+
+You'll get a message in that channel for each deploy, including whether it
+succeeded or failed and which app it was.
+
+## Generic webhooks
+
+Prefer to route notifications somewhere else — Discord, a custom endpoint, an
+automation tool? Use the **generic webhook**. Better-PaaS sends an HTTP request
+with the deploy details, and you can handle it however you like.
+
+## Testing your setup
+
+Use the **Test** button on the Notifications screen to send a sample
+notification right away, so you can confirm everything's wired up before your
+next real deploy.
+
+## Next step
+
+<Cards>
+  <Card
+    title="Backups"
+    href="/docs/guides/backups"
+    description="Protect your control plane data."
+  />
+</Cards>

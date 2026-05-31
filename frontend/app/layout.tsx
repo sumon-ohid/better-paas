@@ -4,6 +4,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ToastProvider } from "@/components/ui/toast"
 import { AuthGate } from "@/components/auth-gate"
+import { OnboardingGate } from "@/components/onboarding-gate"
 import { cn } from "@/lib/utils";
 
 const interHeading = Inter({subsets:['latin'],variable:'--font-heading'});
@@ -31,7 +32,9 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <ToastProvider>
-            <AuthGate>{children}</AuthGate>
+            <AuthGate>
+              <OnboardingGate>{children}</OnboardingGate>
+            </AuthGate>
           </ToastProvider>
         </ThemeProvider>
       </body>

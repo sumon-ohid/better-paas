@@ -1,0 +1,66 @@
+---
+title: Persistent Volumes
+description: Keep files and data alive across redeploys for stateful apps.
+icon: HardDrive
+---
+
+By default, a container's filesystem is wiped on every redeploy — you get a
+fresh start each time. That's perfect for stateless apps, but a problem if your
+app stores files locally (uploads, a SQLite database, generated assets).
+
+**Volumes** solve this: they're storage that lives *outside* the container and
+survives redeploys.
+
+## When you need a volume
+
+Use a volume when your app writes data to disk that must persist, such as:
+
+- User-uploaded files
+- A local SQLite database
+- Generated caches or assets you don't want to rebuild
+- Any state that should outlive a single deploy
+
+<Callout type="info" title="Prefer a managed database when you can">
+  For relational data, an attached [managed database](/docs/guides/databases) is
+  usually a better choice than a volume + SQLite — it's easier to back up and
+  scale. Use volumes for files and genuinely file-based state.
+</Callout>
+
+## Declaring a volume
+
+<Steps>
+<Step>
+Open your app and go to the **Modify Config** tab.
+</Step>
+<Step>
+Add a volume in the form `name:/container/path`, for example:
+
+```text
+uploads:/app/data
+```
+
+This maps a persistent volume named `uploads` to the `/app/data` directory
+inside your container.
+</Step>
+<Step>
+Save and redeploy. Anything your app writes to `/app/data` now survives future
+redeploys.
+</Step>
+</Steps>
+
+## How it works
+
+The part before the colon is the **volume name** (a stable identifier
+Better-PaaS keeps around). The part after the colon is the **path inside your
+container** where it's mounted. On redeploy, the same named volume is re-attached
+to the new container at that path, so your data is right where you left it.
+
+## Next step
+
+<Cards>
+  <Card
+    title="Logs & terminal"
+    href="/docs/guides/logs-and-terminal"
+    description="Inspect and debug a running container."
+  />
+</Cards>

@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { AppDomains } from "@/components/app-domains"
+import { SitePreview } from "@/components/site-preview"
 import {
   Dialog,
   DialogContent,
@@ -75,6 +76,24 @@ const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 const ChevronRightIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-right" />
 
 export type AppTab = "overview" | "config" | "domains" | "logs" | "terminal" | "deployments"
+
+// timeAgo renders a short, human-friendly relative time like "11d ago" or
+// "just now". Falls back to an empty string for invalid dates.
+function timeAgo(date: string | number | Date): string {
+  const then = new Date(date).getTime()
+  if (Number.isNaN(then)) return ""
+  const secs = Math.round((Date.now() - then) / 1000)
+  if (secs < 45) return "just now"
+  const mins = Math.round(secs / 60)
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  if (days < 30) return `${days}d ago`
+  const months = Math.round(days / 30)
+  if (months < 12) return `${months}mo ago`
+  return `${Math.round(months / 12)}y ago`
+}
 
 // githubCommitUrl builds a link to a specific commit on GitHub from the app's
 // git repo URL. Returns "" for non-GitHub remotes or when the SHA is missing.
@@ -569,6 +588,22 @@ function AppDetailPage() {
     )
   }
 
+  // The deployment currently serving traffic: prefer the one that produced the
+  // live image, otherwise fall back to the most recent successful build.
+  const activeDeployment =
+    deployments.find((d) => d.id === app.activeDeployId) ??
+    deployments.find((d) => !!d.image && d.image === app.activeImage) ??
+    deployments.find((d) => d.status === "success") ??
+    deployments[0] ??
+    null
+
+  const overviewCommit = app.activeCommit || activeDeployment?.commit || ""
+  const overviewCommitMsg = app.activeCommitMsg || activeDeployment?.commitMsg || ""
+  const overviewCommitUrl = overviewCommit ? githubCommitUrl(app.gitRepo, overviewCommit) : ""
+  const overviewDomains = (app.domains && app.domains.length > 0 ? app.domains : [app.url]).filter(
+    Boolean,
+  )
+
   const tabs: { id: AppTab; label: string }[] = [
     { id: "overview", label: "Overview" },
     { id: "config", label: "Configuration" },
@@ -664,6 +699,114 @@ function AppDetailPage() {
           {currentTab === "overview" && (
             <div className="h-full overflow-y-auto p-4 md:p-6">
               <div className="mx-auto max-w-4xl space-y-6 animate-in fade-in-50 duration-200">
+              {/* Vercel-style hero: live site preview and deployment summary in one card */}
+              <Card className="border-border bg-card/72 backdrop-blur-xl p-5">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                  {/* Live site preview */}
+                  <SitePreview url={app.url} status={app.status} />
+
+                  {/* Deployment summary — snapshot of the live release */}
+                  <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+                  {/* Created */}
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground block">Created</span>
+                    <div className="flex items-center gap-1.5 text-sm text-foreground">
+                      <NucleoIcon name="cloud" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-medium">{new Date(app.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                      <span className="text-muted-foreground">{timeAgo(app.createdAt)}</span>
+                    </div>
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground block">Status</span>
+                    <StatusBadge status={app.status} />
+                  </div>
+
+                  {/* Duration */}
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground block">Duration</span>
+                    <div className="flex items-center gap-1.5 text-sm text-foreground">
+                      <NucleoIcon name="activity" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-medium tabular-nums">
+                        {activeDeployment?.duration || "—"}
+                      </span>
+                      {activeDeployment?.createdAt && (
+                        <span className="text-muted-foreground">{timeAgo(activeDeployment.createdAt)}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Domains */}
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground block">Domains</span>
+                    <div className="space-y-1">
+                      <a
+                        href={app.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors"
+                      >
+                        <NucleoIcon name="web" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="truncate">{overviewDomains[0].replace(/^https?:\/\//, "")}</span>
+                        {overviewDomains.length > 1 && (
+                          <Badge variant="secondary" size="sm" className="shrink-0">
+                            +{overviewDomains.length - 1}
+                          </Badge>
+                        )}
+                      </a>
+                      {overviewDomains.slice(1, 3).map((d) => (
+                        <a
+                          key={d}
+                          href={d.startsWith("http") ? d : `https://${d}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <NucleoIcon name="link" className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{d.replace(/^https?:\/\//, "")}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Source */}
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <span className="text-xs font-medium text-muted-foreground block">Source</span>
+                    <div className="space-y-1">
+                      {app.branch && (
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                          <GitBranchIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate font-mono">{app.branch}</span>
+                        </div>
+                      )}
+                      {overviewCommit ? (
+                        overviewCommitUrl ? (
+                          <a
+                            href={overviewCommitUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                            title={overviewCommitMsg || undefined}
+                          >
+                            <GitCommitIcon className="h-3 w-3 shrink-0" />
+                            <span className="font-mono">{overviewCommit.slice(0, 7)}</span>
+                            {overviewCommitMsg && <span className="truncate">{overviewCommitMsg}</span>}
+                          </a>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <GitCommitIcon className="h-3 w-3 shrink-0" />
+                            <span className="font-mono">{overviewCommit.slice(0, 7)}</span>
+                            {overviewCommitMsg && <span className="truncate">{overviewCommitMsg}</span>}
+                          </div>
+                        )
+                      ) : null}
+                    </div>
+                  </div>
+                  </div>
+                </div>
+              </Card>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">

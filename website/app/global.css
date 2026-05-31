@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/*
+ * Better-PaaS brand theme.
+ * Brand indigo matches the dashboard (#5e6ad2 light / #8b7ff6 dark).
+ * Fumadocs reads these HSL-less hex values through its color tokens.
+ */
+:root {
+  --color-fd-primary: #5e6ad2;
+  --color-fd-ring: #5e6ad2;
+}
+
+.dark {
+  --color-fd-primary: #8b7ff6;
+  --color-fd-ring: #8b7ff6;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+/* Subtle brand-tinted radial backdrop for the marketing pages. */
+.bp-hero-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--color-fd-foreground) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-fd-foreground) 6%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+}

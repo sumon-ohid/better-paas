@@ -1,0 +1,117 @@
+---
+title: Security
+description: How Better-PaaS protects your dashboard, your secrets, and your server.
+icon: ShieldCheck
+---
+
+Better-PaaS is built so the secure path is the default path. You don't have to
+be a security expert to run it safely. This page explains how it protects you
+and the few things you should do yourself.
+
+## The admin token
+
+The entire control plane is protected by a single **admin bearer token**.
+
+- On first run, Better-PaaS generates a strong random token, prints it to the
+  logs, and saves it to `backend/data/admin_token.txt`.
+- You paste it into the dashboard sign-in screen to log in.
+- **Every** API and WebSocket request must carry it:
+  - HTTP: `Authorization: Bearer <token>`
+  - WebSocket: `?token=<token>`
+
+To pin or rotate the token, set `ADMIN_TOKEN` in the backend environment.
+
+```bash title="Reprint the token any time"
+cd ~/better-paas/backend && ./server token
+```
+
+<Callout type="warn" title="Treat the token like a password">
+  Anyone with the token has full control of your Better-PaaS instance. Don't
+  commit it, paste it into chats, or put it in client-side code.
+</Callout>
+
+## Brute-force protection
+
+Could an attacker just guess the token? No. Repeated bad tokens from an IP
+trigger an **escalating lockout** — the server responds with HTTP `429` and a
+`Retry-After` header, slowing guesses to a crawl. Combined with a 256-bit token,
+guessing is infeasible.
+
+If you run Better-PaaS behind a reverse proxy, set `TRUST_PROXY=true` so the
+lockout keys on the real client IP instead of the proxy's.
+
+## Encryption at rest
+
+Sensitive values are **encrypted before they're written to the database** using
+AES-256-GCM:
+
+- Per-app deploy tokens (`gitToken`)
+- Your saved GitHub token
+
+The encryption key comes from `BETTER_PAAS_SECRET_KEY`, or is generated on first
+run at `backend/data/secret.key` (mode `0600`).
+
+This protects leaked database copies — an accidental commit, a stolen backup, an
+old snapshot. Existing cleartext values are read transparently and upgraded to
+ciphertext on the next write.
+
+<Callout type="info" title="For stronger protection">
+  By default the key lives next to the database, so encryption at rest doesn't
+  stop an attacker who can already read the *entire* data directory. For
+  defense against that, supply `BETTER_PAAS_SECRET_KEY` out-of-band (a secrets
+  manager or systemd credential) and keep it off the host.
+</Callout>
+
+## Network exposure
+
+By default the API binds to all interfaces so the dashboard is reachable from a
+remote browser. Because every route requires the admin token, this is safe to
+start with.
+
+For extra hardening, put Better-PaaS behind a reverse proxy and set
+`LISTEN_ADDR` to loopback (`127.0.0.1:8080`) so the API isn't directly exposed.
+
+## The data directory
+
+`backend/data/` holds your SQLite database, admin token, encryption key, and
+logs. It's created with `0700` permissions and is gitignored.
+
+<Callout type="warn" title="Never commit backend/data/">
+  It contains secrets. It's already in `.gitignore` — keep it that way.
+</Callout>
+
+## Your security checklist
+
+A short list of things worth doing on a production instance:
+
+<Steps>
+<Step>
+**Keep the admin token secret** and rotate it if you suspect exposure.
+</Step>
+<Step>
+**Open only the ports you need** on your server's firewall (typically 80, 443,
+and your SSH port).
+</Step>
+<Step>
+**Set `BETTER_PAAS_SECRET_KEY` out-of-band** for stronger encryption at rest.
+</Step>
+<Step>
+**Set `TRUST_PROXY=true`** if you run behind a reverse proxy.
+</Step>
+<Step>
+**Keep backups off-server** so a lost server doesn't mean lost data.
+</Step>
+<Step>
+**Keep Better-PaaS updated** — see [Updates](/docs/updates).
+</Step>
+</Steps>
+
+## Next step
+
+<Cards>
+  <Card
+    title="Configuration reference"
+    href="/docs/configuration"
+    description="Every environment variable explained."
+  />
+</Cards>
