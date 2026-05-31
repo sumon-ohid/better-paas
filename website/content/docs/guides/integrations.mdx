@@ -1,0 +1,95 @@
+---
+title: GitHub & Cloudflare
+description: Connect GitHub to browse and deploy your repos, and Cloudflare to manage DNS for custom domains.
+icon: Plug
+---
+
+Better-PaaS connects to two outside services to make deploying smoother:
+**GitHub** for browsing and deploying your repositories, and **Cloudflare** for
+creating DNS records for [custom domains](/docs/guides/custom-domains) without
+leaving the dashboard. Both are managed under **Settings → Integrations**.
+
+## GitHub
+
+Connecting GitHub lets you skip pasting Git URLs by hand. Once linked, the
+[deploy wizard](/docs/getting-started/first-deploy) can:
+
+- **Browse your repositories** and pick one from a list.
+- **Select a branch** from a dropdown.
+- **Browse folders** to choose a root directory (handy for monorepos).
+- **Auto-detect the framework** so build, install, and start commands are filled
+  in for you.
+
+A connected token is also what lets Better-PaaS **clone private repositories**.
+
+### Connecting
+
+<Steps>
+<Step>
+Go to **Settings → Integrations** (or connect during
+[onboarding](/docs/getting-started/installation)).
+</Step>
+<Step>
+Create a **personal access token (PAT)** on GitHub with the **`repo`** scope.
+The connect dialog links you straight to the right page.
+</Step>
+<Step>
+Paste the token and save. Better-PaaS verifies it, then stores it
+[encrypted at rest](/docs/security#encryption-at-rest) on your server — it never
+leaves the box.
+</Step>
+</Steps>
+
+<Callout type="info" title="Public repos don't need a token">
+  You can always deploy a public repository by pasting its URL. The GitHub
+  connection is about browsing your repos and cloning private ones.
+</Callout>
+
+Disconnect any time from **Settings → Integrations**; the stored token is
+removed.
+
+## Cloudflare
+
+If your domain's DNS is hosted on Cloudflare, you can point a
+[custom domain](/docs/guides/custom-domains) at your server straight from the
+dashboard — no clicking around the Cloudflare panel.
+
+### Connecting
+
+<Steps>
+<Step>
+Create a **Cloudflare API token** scoped to edit DNS for your zone.
+</Step>
+<Step>
+In **Settings → Integrations**, paste the token. Better-PaaS verifies it against
+Cloudflare before saving, so you get immediate feedback. It's stored
+[encrypted at rest](/docs/security#encryption-at-rest).
+</Step>
+</Steps>
+
+### Creating a DNS record
+
+With Cloudflare connected, when you add a custom domain Better-PaaS can create or
+update the **A record** that points the hostname at your server's public IP. The
+record is created **DNS-only (un-proxied)** on purpose, so [Caddy](/docs/guides/custom-domains)
+keeps full control of TLS and can complete the Let's Encrypt HTTP-01 challenge.
+
+<Callout type="info" title="Longest-zone matching">
+  Better-PaaS picks the most specific zone in your connected account, so
+  `app.foo.example.com` correctly resolves to the `example.com` zone.
+</Callout>
+
+## Next step
+
+<Cards>
+  <Card
+    title="Custom domains & HTTPS"
+    href="/docs/guides/custom-domains"
+    description="Point your domain at an app with automatic HTTPS."
+  />
+  <Card
+    title="Deploying an app"
+    href="/docs/guides/deploying-an-app"
+    description="The full deployment guide, including build config."
+  />
+</Cards>

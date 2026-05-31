@@ -59,7 +59,20 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 ```
 
 The exact variable names appear in the app's config after you attach, so you can
-match them precisely.
+match them precisely. As a reference, each type injects:
+
+| Type | Variables injected |
+| ---- | ------------------ |
+| **Postgres** | `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` |
+| **MySQL** | `DATABASE_URL`, `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` |
+| **Redis** | `REDIS_URL`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` |
+
+## Browsing and querying data
+
+You don't need a separate database client to peek inside an add-on. From the
+**Add-ons** screen you can open a built-in explorer to browse tables, page
+through rows, and run queries (or `redis-cli` commands) against a running
+database. See [Database Explorer](/docs/guides/database-explorer).
 
 ## Detaching and deleting
 
@@ -75,6 +88,11 @@ match them precisely.
 ## Next step
 
 <Cards>
+  <Card
+    title="Database Explorer"
+    href="/docs/guides/database-explorer"
+    description="Browse tables and run queries from the dashboard."
+  />
   <Card
     title="Persistent volumes"
     href="/docs/guides/volumes"

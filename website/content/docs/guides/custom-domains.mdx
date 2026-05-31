@@ -30,6 +30,12 @@ registrar that points the domain to your server's IP address:
   fail until it does. DNS changes can take a few minutes to a few hours.
 </Callout>
 
+<Callout type="info" title="On Cloudflare? Skip the manual record">
+  If your domain's DNS is on Cloudflare, connect a Cloudflare API token and
+  Better-PaaS can create this A record for you straight from the dashboard. See
+  [GitHub & Cloudflare](/docs/guides/integrations#cloudflare).
+</Callout>
+
 ## Step 2 — Set an email for Let's Encrypt
 
 Let's Encrypt uses an email address for expiry notices. Set it in the backend

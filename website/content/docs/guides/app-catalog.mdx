@@ -1,0 +1,119 @@
+---
+title: App Catalog & Custom Images
+description: Deploy popular open-source apps in one click, or run any Docker image or Dockerfile with no Git repo.
+icon: Store
+---
+
+Not every app you want to run lives in your own Git repository. Better-PaaS has
+an **App Catalog** of popular self-hosted software you can deploy in one click,
+plus the ability to run **any Docker image** or **a pasted Dockerfile** directly
+— no repo required.
+
+You'll find all of this on the **App Catalog** screen in the dashboard sidebar.
+
+## One-click catalog apps
+
+The catalog is a curated set of single-container, open-source apps — monitoring
+tools, note-taking apps, password managers, media servers, developer utilities,
+and more (Uptime Kuma, Vaultwarden, Jellyfin, Gotify, Stirling PDF, and others).
+
+<Steps>
+<Step>
+Open **App Catalog** and browse or search the available apps.
+</Step>
+<Step>
+Click an app, give it a **name**, and fill in any **settings** it asks for
+(some apps need an initial admin password or similar).
+</Step>
+<Step>
+Click **Deploy**. Better-PaaS pulls the pinned image, starts it through the same
+[zero-downtime pipeline](/docs/guides/rollbacks) as your other apps, and routes
+it through Caddy.
+</Step>
+</Steps>
+
+Catalog apps get the exact same treatment as git-based apps: a live URL,
+[logs](/docs/guides/logs-and-terminal), [metrics](/docs/guides/logs-and-terminal#host-level-metrics),
+[custom domains](/docs/guides/custom-domains), [rollbacks](/docs/guides/rollbacks),
+and an in-container [terminal](/docs/guides/logs-and-terminal#in-browser-terminal).
+
+<Callout type="info" title="Pinned, single-container images">
+  Catalog images are pinned to a major/minor version line (not `latest`) so
+  deploys are repeatable. The catalog is intentionally single-container —
+  multi-container stacks (e.g. apps that need a separate database) are excluded
+  until Docker Compose support lands, rather than shipping something that would
+  fail. Apps that need data persistence get a managed
+  [volume](/docs/guides/volumes) automatically.
+</Callout>
+
+### Apps that need extra setup
+
+A few catalog apps have caveats — for example, a log viewer that needs read-only
+access to the Docker socket, or a media server where you mount your library as
+an extra volume. When an app has such a note, the catalog shows it before you
+deploy. Add any required [volume](/docs/guides/volumes) mapping from the app's
+**Configuration** tab after the first deploy.
+
+## Deploy from a Docker image
+
+Want something that isn't in the catalog? Run **any image** from Docker Hub or
+another public registry.
+
+<Steps>
+<Step>
+On the **App Catalog** screen, open **Custom Deploy → From Docker image**.
+</Step>
+<Step>
+Enter the image reference, e.g. `nginx:1.27` or `ghcr.io/owner/app:tag`.
+</Step>
+<Step>
+Set the **port** your image listens on, plus any
+[environment variables](/docs/guides/environment-variables),
+[volumes](/docs/guides/volumes), [domains](/docs/guides/custom-domains), or
+[resource limits](/docs/guides/resource-limits) you need, then deploy.
+</Step>
+</Steps>
+
+<Callout type="warn" title="Pin a tag">
+  Use a specific tag rather than `latest` so redeploys are repeatable. Public
+  registries only for now.
+</Callout>
+
+## Deploy from a Dockerfile
+
+You can also paste a **self-contained Dockerfile** and have Better-PaaS build and
+run it on the server — no Git repo needed.
+
+<Steps>
+<Step>
+Open **Custom Deploy → From a Dockerfile**.
+</Step>
+<Step>
+Paste your Dockerfile. It must contain a `FROM` instruction.
+</Step>
+<Step>
+Configure the port, env vars, volumes, and limits as above, then deploy.
+</Step>
+</Steps>
+
+<Callout type="warn" title="No build context">
+  Because there's no repository, there's no build context — `COPY` and `ADD` of
+  local files won't work. The Dockerfile must fetch everything it needs (install
+  packages, `ADD https://…`, etc.). If you need to ship local files, use a
+  [Git deploy](/docs/guides/deploying-an-app) instead.
+</Callout>
+
+## Next step
+
+<Cards>
+  <Card
+    title="Databases & add-ons"
+    href="/docs/guides/databases"
+    description="Attach a managed Postgres, Redis, or MySQL to any app."
+  />
+  <Card
+    title="Persistent volumes"
+    href="/docs/guides/volumes"
+    description="Keep data across redeploys for stateful catalog apps."
+  />
+</Cards>

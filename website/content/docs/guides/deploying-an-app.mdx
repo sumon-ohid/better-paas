@@ -46,6 +46,32 @@ out how to build and run it based on the files it finds:
   port — almost every framework supports this out of the box.
 </Callout>
 
+## Build configuration
+
+Auto-detection covers most apps, but you can override any part of it from the
+deploy wizard or an app's **Configuration** tab:
+
+| Setting | What it does |
+| ------- | ------------ |
+| **Root directory** | Build from a subdirectory instead of the repo root — useful for monorepos. Better-PaaS re-detects the framework for the directory you pick, and you can browse the repo's folders to choose one. |
+| **Install / build / start commands** | Override the commands Nixpacks would run. Leave blank to use the detected defaults. |
+| **Port override** | Tell Better-PaaS the exact port your app listens on, instead of relying on the injected `PORT`. |
+| **Health check path** | An HTTP path (e.g. `/health`) probed before traffic cuts over to a new deploy. Leave empty for a plain TCP check. See [Rollbacks & zero-downtime](/docs/guides/rollbacks). |
+
+### Building from a Dockerfile
+
+When your repo contains a `Dockerfile`, Better-PaaS detects it and offers a
+**build method** choice in the deploy wizard: **Nixpacks** or **Dockerfile**.
+Pick Dockerfile to build the image exactly as your `Dockerfile` describes
+instead of letting Nixpacks infer the build. You can point at a non-default
+Dockerfile path if it isn't at the repo root.
+
+<Callout type="info" title="No repo? Deploy an image or Dockerfile directly">
+  You can also run a prebuilt registry image or a pasted Dockerfile with no Git
+  repository at all — see the [App Catalog & Custom Images](/docs/guides/app-catalog)
+  guide.
+</Callout>
+
 ## Triggering a deploy
 
 There are three ways to deploy:

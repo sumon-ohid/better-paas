@@ -1,0 +1,65 @@
+---
+title: Server Terminal
+description: Open an interactive shell on the host machine running Better-PaaS, right from your browser.
+icon: SquareTerminal
+---
+
+Sometimes you need to get onto the box itself — to check disk usage, inspect a
+file, or run a quick command. The **Server Terminal** opens an interactive shell
+on the **host machine** running Better-PaaS, straight from your browser. It's
+like SSHing into your server without leaving the dashboard.
+
+You'll find it as **Server Terminal** in the dashboard sidebar.
+
+<Callout type="warn" title="This is full host access">
+  The Server Terminal is **not** sandboxed to a container — it's a real shell on
+  the host, running with the same privileges as Better-PaaS. Anyone who can
+  reach it can do anything on your server. Treat access to your dashboard
+  accordingly, and keep your [admin token](/docs/security#the-admin-token)
+  secret.
+</Callout>
+
+## Opening a session
+
+Click **Server Terminal** in the sidebar. Better-PaaS allocates a real
+pseudo-terminal and attaches it to a host shell (`bash`, `zsh`, or `sh`,
+whichever it finds first). Because it's a genuine TTY, interactive programs
+behave exactly as they would over SSH — colored output, line editing, tab
+completion, pagers like `less`, and full-screen apps like `top` or `vim` all
+work. The session is rendered with xterm.js.
+
+If the connection drops, use **Reconnect** to start a fresh session.
+
+## Server Terminal vs. app Terminal
+
+Better-PaaS has two different terminals — don't confuse them:
+
+| | **Server Terminal** | **App Terminal** |
+| --- | --- | --- |
+| Where | Sidebar → Server Terminal | Inside an app → **Terminal** tab |
+| Runs in | The **host machine** | That **app's container** |
+| Scope | Everything on the server | Just that one app |
+| Use for | Host disk, system files, server-wide tasks | Debugging a single app's environment |
+
+For per-app debugging, use the [container terminal](/docs/guides/logs-and-terminal#in-browser-terminal)
+instead — it's scoped to just that app.
+
+## Keyboard shortcut
+
+Press <kbd>g</kbd> then <kbd>t</kbd> anywhere in the dashboard to jump straight
+to the Server Terminal.
+
+## Next step
+
+<Cards>
+  <Card
+    title="Logs & app terminal"
+    href="/docs/guides/logs-and-terminal"
+    description="Stream logs and open a shell inside a single container."
+  />
+  <Card
+    title="Security"
+    href="/docs/security"
+    description="How access to your instance is protected."
+  />
+</Cards>

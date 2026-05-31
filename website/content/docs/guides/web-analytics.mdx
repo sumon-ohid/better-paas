@@ -1,0 +1,88 @@
+---
+title: Web Analytics
+description: Privacy-friendly, cookie-free visitor analytics for your deployed sites.
+icon: ChartBar
+---
+
+Better-PaaS includes a lightweight, privacy-friendly **web analytics** tool —
+think Plausible or Umami, built right in. Add a one-line script to any site you
+deploy and see pageviews, unique visitors, and where your traffic comes from,
+without cookies or consent banners.
+
+You'll find it on the **Web Analytics** screen in the dashboard sidebar.
+
+## What you get
+
+- **Pageviews** and **unique visitors**, with a **views-per-visitor** ratio.
+- A **traffic-over-time** chart (hourly for a single day, daily for longer
+  ranges), switchable across **1 / 7 / 30 / 90 day** windows.
+- **Top pages** — your most-visited paths.
+- **Top referrers** — where visitors come from.
+- **Browsers & devices** — a breakdown of your visitors' environment.
+
+## Adding analytics to a site
+
+<Steps>
+<Step>
+Open **Web Analytics** and select the app you want to track.
+</Step>
+<Step>
+Copy the **tracking snippet**. It looks like this:
+
+```html
+<script defer data-site="<appId>" src="https://YOUR_SERVER:8080/api/analytics/script.js"></script>
+```
+</Step>
+<Step>
+Paste it into the `<head>` of your site so it loads on every page, then
+redeploy. Pageviews start showing up right away — including client-side route
+changes in single-page apps.
+</Step>
+</Steps>
+
+<Callout type="info" title="Not sure where the snippet goes?">
+  The Analytics screen has a **Copy AI prompt** button. It generates a
+  ready-to-paste instruction — including the exact snippet and per-framework
+  placement guidance (plain HTML, Next.js, Vite/React, Vue/Nuxt, SvelteKit,
+  Astro, Angular) — that you can hand to an AI coding assistant to install it
+  correctly.
+</Callout>
+
+## How it stays private
+
+The tracker is designed to need **no cookie banner**:
+
+- **No cookies, no localStorage, no fingerprinting.** Nothing is stored in the
+  visitor's browser.
+- **No persistent visitor IDs and no raw IPs stored.** A visitor's identity for
+  counting "unique visitors" is a salted hash of (app, IP, user-agent) using a
+  salt that **rotates daily** and is never persisted in a way that ties back to
+  an individual. After the day rolls over, the salt is gone, so yesterday's
+  hashes can't be correlated with today's.
+- **Bounded retention.** Raw events are pruned automatically after 90 days.
+
+The script sends a pageview on load and on SPA navigations (it patches the
+History API and listens for `popstate`), using `navigator.sendBeacon` when
+available so the request survives a page unload.
+
+<Callout type="info" title="Why the script and collector are public">
+  The tracking script (`/api/analytics/script.js`) and the collector endpoint
+  (`/api/track`) are reachable without the admin token — they have to be, since
+  they run on your public, deployed sites. Your analytics *dashboard* queries
+  remain behind the admin token like everything else.
+</Callout>
+
+## Next step
+
+<Cards>
+  <Card
+    title="Custom domains"
+    href="/docs/guides/custom-domains"
+    description="Serve tracked sites from your own domain with HTTPS."
+  />
+  <Card
+    title="Tour of the dashboard"
+    href="/docs/getting-started/the-dashboard"
+    description="See where every screen lives."
+  />
+</Cards>

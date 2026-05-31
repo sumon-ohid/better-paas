@@ -3,15 +3,20 @@
   "icon": "BookOpen",
   "pages": [
     "deploying-an-app",
+    "app-catalog",
     "auto-deploy",
     "custom-domains",
+    "integrations",
     "environment-variables",
     "databases",
+    "database-explorer",
     "scheduled-jobs",
     "rollbacks",
     "resource-limits",
     "volumes",
     "logs-and-terminal",
+    "server-terminal",
+    "web-analytics",
     "notifications",
     "backups"
   ]

@@ -45,20 +45,27 @@ The **Deploy** screen is where you create a new app from a Git repository. See
 Open an app to find tabs for each capability:
 
 - **Overview** — status, URL, resource usage (live CPU and memory).
+- **Configuration** — environment variables, build settings, resource limits,
+  volumes, auto-deploy, and more.
+- **Domains** — add custom domains with automatic HTTPS.
 - **Logs** — real-time container output, streamed over WebSocket and persisted
   to disk so they survive restarts.
+- **Terminal** — open a shell directly inside the running container.
 - **Deployments** — the full deploy history. Roll back to any previous
   successful deploy from here.
-- **Modify Config** — environment variables, resource limits, volumes,
-  auto-deploy, and more.
-- **Domains** — add custom domains with automatic HTTPS.
-- **Terminal** — open a shell directly inside the running container.
+
+## App Catalog
+
+The **App Catalog** screen deploys popular open-source apps in one click, and
+lets you run **any Docker image** or a **pasted Dockerfile** with no Git repo.
+See [App Catalog & Custom Images](/docs/guides/app-catalog).
 
 ## Add-ons
 
 The **Add-ons** screen manages one-click databases and caches —
 **Postgres**, **Redis**, and **MySQL**. Create one, then attach it to an app to
-automatically inject connection environment variables. See
+automatically inject connection environment variables. You can also
+[browse and query](/docs/guides/database-explorer) a running database here. See
 [Databases & Add-ons](/docs/guides/databases).
 
 ## Cron
@@ -70,21 +77,37 @@ migrations, cleanups, report generation, and so on. See
 ## Backups
 
 Snapshot the control plane's data directory (database, tokens, logs) on demand
-or on a schedule, and download the archive. See [Backups](/docs/guides/backups).
+or on a schedule, configure off-server storage, and download the archive. See
+[Backups](/docs/guides/backups).
 
-## Health
+## Web Analytics
 
-A live view of host-level metrics — overall CPU, memory, and disk usage — so you
-can keep an eye on how loaded your server is.
+Privacy-friendly, cookie-free visitor analytics for your deployed sites —
+pageviews, unique visitors, top pages, and referrers. See
+[Web Analytics](/docs/guides/web-analytics).
+
+## Server Terminal
+
+An interactive shell on the **host machine** running Better-PaaS, straight from
+your browser. See [Server Terminal](/docs/guides/server-terminal).
+
+## Node Health
+
+A live view of host-level metrics — overall CPU, memory, and disk usage, plus
+service uptime — so you can keep an eye on how loaded your server is.
 
 ## Settings
 
 Global configuration for your Better-PaaS instance:
 
-- **Git** — save access tokens for cloning private repositories.
+- **General** — session and node info, interface theme.
+- **Updates** — check for and apply new Better-PaaS releases.
+- **Integrations** — connect [GitHub](/docs/guides/integrations#github) (for
+  browsing and cloning repos) and [Cloudflare](/docs/guides/integrations#cloudflare)
+  (for custom-domain DNS).
 - **Notifications** — Slack and webhook alerts on deploy success/failure.
-- **Backups** — automatic backup schedule and storage options.
-- **Software Updates** — check for and apply new Better-PaaS releases.
+- **Maintenance** — Docker cleanup (prune unused images, containers, and build
+  cache).
 
 ## Next step
 

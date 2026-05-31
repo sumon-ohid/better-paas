@@ -41,7 +41,12 @@ storage, etc.).
 
 ## Scheduled backups
 
-To back up automatically, set the backup interval in the backend environment:
+The easiest way to automate backups is from the **Backups** screen: turn on
+**Run backups automatically**, set the interval in hours, and choose how many
+recent backups to keep. Old backups beyond that count are pruned automatically.
+
+You can also set a schedule through the backend environment, which is handy for
+provisioning a server before the dashboard is up:
 
 ```bash title="backend/.env"
 # Take a snapshot every 6 hours; keeps the last 10 automatically.
@@ -53,10 +58,15 @@ the most recent 10 backups, pruning older ones.
 
 ## Storage options
 
-Backups can also be configured for off-server storage (such as S3-compatible
-object storage) from **Settings → Backups**, so a snapshot lives somewhere other
-than the server it's protecting. Use the **Test** option there to confirm your
-storage credentials work before relying on them.
+Backups can also be configured for off-server storage from the **Backups**
+screen. Toggle on **offsite storage** and enter your **S3-compatible** bucket
+details (AWS S3, Cloudflare R2, MinIO) — bucket, region, endpoint, and
+credentials. Each new backup is then uploaded to your bucket, so a snapshot
+lives somewhere other than the server it's protecting. Use the **Test** button
+to confirm your storage credentials work before relying on them.
+
+The same screen also has the **automatic backup** controls — turn on a schedule,
+set the interval, and choose how many recent backups to keep.
 
 ## Restoring
 
