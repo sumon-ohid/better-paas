@@ -41,6 +41,7 @@ import { AppShell, useToast } from "@/components/app-shell"
 import { api } from "@/lib/api"
 import type { Addon, App } from "@/lib/types"
 import { NucleoIcon } from "@/components/nucleo-icons"
+import { DbExplorer } from "@/components/db-explorer"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
@@ -53,6 +54,7 @@ const LockIcon = (props: IconProps) => <NucleoIcon {...props} name="lock" />
 const ChevronIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-down" />
 const InfoIcon = (props: IconProps) => <NucleoIcon {...props} name="info" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
+const ExploreIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
 
 // Per-type metadata so the UI can explain exactly what each database gives an app.
 const TYPE_META: Record<
@@ -148,6 +150,9 @@ export default function AddonsPage() {
   const [detachTarget, setDetachTarget] = useState<{ addon: Addon; app: App } | null>(null)
   const [detachRedeploy, setDetachRedeploy] = useState(true)
   const [detaching, setDetaching] = useState(false)
+
+  // Database explorer state
+  const [exploreAddon, setExploreAddon] = useState<Addon | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -270,7 +275,7 @@ export default function AddonsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
+      <div className="mx-auto max-w-6xl space-y-6 p-3 md:p-6">
         {/* Header */}
         <div className="flex items-center gap-2.5">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -290,11 +295,11 @@ export default function AddonsPage() {
           <div className="min-w-0 space-y-6">
             {/* Create */}
             <Card>
-              <CardHeader className="border-b border-border/40">
+              <CardHeader className="border-b border-border/40 max-sm:p-4">
                 <CardTitle className="text-base">Create a database</CardTitle>
                 <CardDescription>{typeMeta(type).blurb}</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-wrap items-end gap-3 pt-4">
+              <CardContent className="flex flex-wrap items-end gap-3 pt-4 max-sm:px-4 max-sm:pb-4">
                 <div className="flex flex-col gap-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">Type</Label>
                   <Select value={type} onValueChange={(v) => v && setType(v)}>
@@ -328,7 +333,7 @@ export default function AddonsPage() {
 
             {/* List */}
             <Card>
-              <CardHeader className="border-b border-border/40">
+              <CardHeader className="border-b border-border/40 max-sm:p-4">
                 <CardTitle className="flex items-center gap-2 text-base">
                   Your databases
                   <button onClick={load} className="text-muted-foreground hover:text-foreground" aria-label="Refresh">
@@ -336,7 +341,7 @@ export default function AddonsPage() {
                   </button>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-4">
+              <CardContent className="pt-4 max-sm:px-3 max-sm:pb-3">
                 {addons.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border py-10 text-center">
                     <DatabaseIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
@@ -353,15 +358,15 @@ export default function AddonsPage() {
                       const attached = attachedAppsFor(addon)
                       const envEntries = Object.entries(addon.connEnv || {})
                       return (
-                        <div key={addon.id} className="space-y-3 rounded-lg border border-border bg-card/40 p-3.5">
+                        <div key={addon.id} className="space-y-3 rounded-lg border border-border bg-card/40 p-3.5 max-sm:p-3">
                           {/* Top row */}
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="flex min-w-0 items-center gap-2.5">
                               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50">
                                 <DatabaseIcon className="h-4 w-4 text-muted-foreground" />
                               </div>
                               <div className="min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                   <span className="truncate text-sm font-semibold text-foreground">{addon.name}</span>
                                   <Badge variant="info" size="sm">{meta.short}</Badge>
                                   <Badge variant={sb.variant} size="sm">{sb.label}</Badge>
@@ -371,8 +376,22 @@ export default function AddonsPage() {
                                 </p>
                               </div>
                             </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                              <Button variant="outline" onClick={() => openAttach(addon)} className="h-8 gap-1.5">
+                            <div className="flex shrink-0 items-center gap-2 max-sm:w-full">
+                              <Button
+                                variant="outline"
+                                onClick={() => setExploreAddon(addon)}
+                                disabled={addon.status !== "running"}
+                                className="h-8 gap-1.5 max-sm:flex-1"
+                                title={
+                                  addon.status === "running"
+                                    ? "Browse tables and run queries"
+                                    : "Database must be running to explore"
+                                }
+                              >
+                                <ExploreIcon className="h-3.5 w-3.5" />
+                                Explore
+                              </Button>
+                              <Button variant="outline" onClick={() => openAttach(addon)} className="h-8 gap-1.5 max-sm:flex-1">
                                 <LinkIcon className="h-3.5 w-3.5" />
                                 <span className="hidden sm:inline">Attach to app</span>
                                 <span className="sm:hidden">Attach</span>
@@ -674,6 +693,11 @@ export default function AddonsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Database explorer (full-screen studio) */}
+      {exploreAddon && (
+        <DbExplorer addon={exploreAddon} onClose={() => setExploreAddon(null)} />
+      )}
     </AppShell>
   )
 }

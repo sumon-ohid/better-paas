@@ -36,6 +36,10 @@ func initDB() {
 		log.Fatalf("[db] failed to run migrations: %v", err)
 	}
 
+	if err := runAnalyticsMigrations(); err != nil {
+		log.Fatalf("[db] failed to run analytics migrations: %v", err)
+	}
+
 	migrateFromJSON()
 	loadStateFromDB()
 }

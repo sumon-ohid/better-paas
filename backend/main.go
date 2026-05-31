@@ -55,6 +55,9 @@ func main() {
 	// Start automatic backups if configured (BACKUP_INTERVAL_HOURS).
 	startBackupScheduler()
 
+	// Start the analytics retention pruner (bounds the events table).
+	startAnalyticsPruner()
+
 	// Start Caddy reverse proxy subprocess
 	startCaddySubprocess()
 
@@ -98,6 +101,11 @@ func main() {
 	mux.HandleFunc("/api/addons/attach", handleAddonAttach)
 	mux.HandleFunc("/api/addons/detach", handleAddonDetach)
 
+	// Database explorer (browse tables / run queries against an add-on)
+	mux.HandleFunc("/api/addons/db/tables", handleAddonDBTables)
+	mux.HandleFunc("/api/addons/db/table", handleAddonDBTable)
+	mux.HandleFunc("/api/addons/db/query", handleAddonDBQuery)
+
 	// Scheduled jobs (cron)
 	mux.HandleFunc("/api/cron", handleCronList)
 	mux.HandleFunc("/api/cron/create", handleCronCreate)
@@ -135,8 +143,17 @@ func main() {
 	mux.HandleFunc("/api/metrics/apps", handlePerAppMetrics)
 	mux.HandleFunc("/api/apps/runtime-logs", handleRuntimeLogHistory)
 
+	// Website analytics — authed dashboard queries.
+	mux.HandleFunc("/api/analytics", handleAnalyticsQuery)
+	mux.HandleFunc("/api/analytics/overview", handleAnalyticsOverview)
+
 	// Public webhook endpoint (authenticated by per-app HMAC signature).
 	mux.HandleFunc("/api/webhooks/github/", handleGitHubWebhook)
+
+	// Public analytics collector + tracking script (embedded on deployed
+	// sites, so reachable without the admin token; see publicPaths below).
+	mux.HandleFunc("/api/track", handleTrack)
+	mux.HandleFunc("/api/analytics/script.js", handleAnalyticsScript)
 
 	// WebSockets (auth enforced inside each handler via ?token=).
 	mux.HandleFunc("/ws/stats", handleStatsWS)
@@ -205,6 +222,10 @@ func envInt(key string, def int) int {
 var publicPaths = map[string]bool{
 	"/api/health":      true,
 	"/api/auth/verify": true,
+	// Analytics ingestion + the embeddable tracking script run on third-party
+	// deployed sites, which never carry the admin token.
+	"/api/track":               true,
+	"/api/analytics/script.js": true,
 }
 
 // authGate enforces bearer-token auth on every API route except public ones.

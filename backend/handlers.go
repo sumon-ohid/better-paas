@@ -236,7 +236,9 @@ func handleStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct{ ID string `json:"id"` }
+	var req struct {
+		ID string `json:"id"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "Bad request", http.StatusBadRequest)
 		return
@@ -277,7 +279,9 @@ func handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct{ ID string `json:"id"` }
+	var req struct {
+		ID string `json:"id"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "Bad request", http.StatusBadRequest)
 		return
@@ -321,7 +325,9 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct{ ID string `json:"id"` }
+	var req struct {
+		ID string `json:"id"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "Bad request", http.StatusBadRequest)
 		return
@@ -374,6 +380,9 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := dbDeleteCronJobsForApp(req.ID); err != nil {
 		log.Printf("[db] failed to delete cron jobs: %v", err)
+	}
+	if err := dbDeleteAnalyticsForApp(req.ID); err != nil {
+		log.Printf("[db] failed to delete analytics: %v", err)
 	}
 	if err := detachAppFromAddons(req.ID); err != nil {
 		log.Printf("[db] failed to detach add-ons: %v", err)
@@ -511,7 +520,9 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct{ ID string `json:"id"` }
+	var req struct {
+		ID string `json:"id"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "Bad request", http.StatusBadRequest)
 		return

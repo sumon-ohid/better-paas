@@ -127,6 +127,16 @@ export interface Addon {
   createdAt: string
 }
 
+// Result of a database explorer operation (table browse or ad-hoc query).
+// A cell is `null` when the underlying value is a real SQL NULL.
+export interface DbQueryResult {
+  columns: string[]
+  rows: (string | null)[][]
+  message?: string
+  error?: string
+  total?: number
+}
+
 export interface CronJob {
   id: string
   appId: string
@@ -226,4 +236,38 @@ export interface GitHubFile {
   encoding: string
   size: number
   download_url: string
+}
+
+// ── Website analytics ─────────────────────────────────────────────────────────
+
+export interface AnalyticsBucket {
+  date: string
+  views: number
+  visitors: number
+}
+
+export interface AnalyticsBreakdown {
+  label: string
+  count: number
+}
+
+export interface AnalyticsSummary {
+  appId: string
+  appName: string
+  rangeDays: number
+  totalViews: number
+  totalVisitors: number
+  timeseries: AnalyticsBucket[]
+  topPages: AnalyticsBreakdown[]
+  topReferrers: AnalyticsBreakdown[]
+  browsers: AnalyticsBreakdown[]
+  os: AnalyticsBreakdown[]
+  devices: AnalyticsBreakdown[]
+}
+
+export interface AnalyticsOverviewRow {
+  appId: string
+  appName: string
+  views: number
+  visitors: number
 }

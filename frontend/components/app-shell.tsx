@@ -57,6 +57,7 @@ const SpinIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
 const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
 const ArchiveIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
+const ChartIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
 const MoonIcon = (props: IconProps) => <NucleoIcon {...props} name="moon" />
 const SunIcon = (props: IconProps) => <NucleoIcon {...props} name="sun" />
 const SignOutIcon = (props: IconProps) => <NucleoIcon {...props} name="logout" />
@@ -175,6 +176,12 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
       href: "/backups",
     },
     {
+      id: "analytics",
+      label: "Web Analytics",
+      icon: <ChartIcon className="h-3.5 w-3.5 text-chart-1" />,
+      href: "/analytics",
+    },
+    {
       id: "settings",
       label: "Settings",
       icon: <SettingsIcon className="h-3.5 w-3.5 text-muted-foreground" />,
@@ -247,6 +254,13 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             shortcut: "G L",
             icon: <TerminalIcon className="h-4 w-4 text-chart-2" />,
             action: () => router.push("/logs"),
+          },
+          {
+            id: "nav-analytics",
+            label: "Go to Web Analytics",
+            shortcut: "",
+            icon: <ChartIcon className="h-4 w-4 text-chart-1" />,
+            action: () => router.push("/analytics"),
           },
           {
             id: "nav-settings",

@@ -11,12 +11,15 @@ import type {
   Addon,
   CronJob,
   NotificationConfig,
+  DbQueryResult,
   BackupInfo,
   BackupConfig,
   WebhookInfo,
   SystemVersion,
   UpdateStatus,
   UpdateProgress,
+  AnalyticsSummary,
+  AnalyticsOverviewRow,
 } from "./types"
 import { getToken } from "./auth"
 
@@ -164,6 +167,22 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ addonId, appId }),
       }),
+    // ── Database explorer ─────────────────────────────────────────────────
+    dbTables: (id: string) =>
+      req<{ type: string; tables: string[] }>("/api/addons/db/tables", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
+    dbTable: (id: string, table: string, limit = 50, offset = 0) =>
+      req<DbQueryResult>("/api/addons/db/table", {
+        method: "POST",
+        body: JSON.stringify({ id, table, limit, offset }),
+      }),
+    dbQuery: (id: string, query: string) =>
+      req<DbQueryResult>("/api/addons/db/query", {
+        method: "POST",
+        body: JSON.stringify({ id, query }),
+      }),
   },
 
   // ── Scheduled jobs (cron) ───────────────────────────────────────────────────
@@ -275,6 +294,21 @@ export const api = {
 
   deployments: {
     history: () => req<DeploymentRecord[]>("/api/deployments/history"),
+  },
+
+  // ── Website analytics ───────────────────────────────────────────────────────
+  analytics: {
+    summary: (appId: string, days: 1 | 7 | 30 | 90 = 7) =>
+      req<AnalyticsSummary>(
+        `/api/analytics?id=${encodeURIComponent(appId)}&days=${days}`,
+      ),
+    overview: (days: 1 | 7 | 30 | 90 = 7) =>
+      req<AnalyticsOverviewRow[]>(`/api/analytics/overview?days=${days}`),
+    // URL of the embeddable tracking script (served by the backend).
+    scriptUrl: () => `${BASE_URL}/api/analytics/script.js`,
+    // The one-line snippet the operator pastes into their deployed site.
+    snippet: (appId: string) =>
+      `<script defer data-site="${appId}" src="${BASE_URL}/api/analytics/script.js"></script>`,
   },
 }
 
