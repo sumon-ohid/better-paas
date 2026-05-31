@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -72,4 +73,48 @@ func mergeEnvVars(existing, incoming map[string]string, secretKeys []string) map
 		out[k] = v
 	}
 	return out
+}
+
+// validateBuildMethod normalizes and validates the build method and Dockerfile
+// path. Returns the normalized (method, dockerfilePath). An empty method
+// defaults to "nixpacks". The Dockerfile path is constrained to a safe relative
+// path (no absolute paths or "..") since it is joined onto the clone dir.
+func validateBuildMethod(method, dockerfilePath string) (string, string, error) {
+	method = strings.TrimSpace(strings.ToLower(method))
+	if method == "" {
+		method = "nixpacks"
+	}
+	switch method {
+	case "nixpacks":
+		return method, "", nil
+	case "compose":
+		return "", "", fmt.Errorf("docker compose builds are not supported yet")
+	case "dockerfile":
+		path := strings.TrimSpace(dockerfilePath)
+		if path == "" {
+			path = "Dockerfile"
+		}
+		if !safeRelPath(path) {
+			return "", "", fmt.Errorf("invalid Dockerfile path: must be a relative path inside the repo")
+		}
+		return method, path, nil
+	default:
+		return "", "", fmt.Errorf("invalid build method %q (use nixpacks or dockerfile)", method)
+	}
+}
+
+// safeRelPath reports whether p is a relative path that stays within its base
+// (no leading slash, no "." escape via ".." segments).
+func safeRelPath(p string) bool {
+	p = strings.TrimSpace(p)
+	if p == "" || strings.HasPrefix(p, "/") || strings.HasPrefix(p, "~") {
+		return false
+	}
+	// Reject any ".." segment.
+	for _, seg := range strings.Split(filepath.ToSlash(p), "/") {
+		if seg == ".." {
+			return false
+		}
+	}
+	return true
 }

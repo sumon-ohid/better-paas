@@ -28,6 +28,15 @@ type App struct {
 	InstallCommand string            `json:"installCommand"`
 	PortOverride   int               `json:"portOverride"`
 
+	// ── Build method ─────────────────────────────────────────────────────────
+	// How the image is produced from the repo:
+	//   "nixpacks"   (default) — auto-detected build via Nixpacks
+	//   "dockerfile"           — `docker build` against a Dockerfile in the repo
+	//   "compose"              — (planned) docker compose; not yet implemented
+	BuildMethod    string `json:"buildMethod"`
+	DockerfilePath string `json:"dockerfilePath"` // path to Dockerfile, relative to the build context (default "Dockerfile")
+	ComposePath    string `json:"composePath"`    // path to compose file (reserved for compose support)
+
 	// ── Custom domains + TLS (caddy auto-HTTPS) ──────────────────────────────
 	Domains []string `json:"domains"` // extra hostnames served over HTTPS
 

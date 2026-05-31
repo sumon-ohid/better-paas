@@ -121,6 +121,9 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		HealthPath     string            `json:"healthPath"`
 		SecretKeys     []string          `json:"secretKeys"`
 		AutoDeploy     bool              `json:"autoDeploy"`
+		BuildMethod    string            `json:"buildMethod"`
+		DockerfilePath string            `json:"dockerfilePath"`
+		ComposePath    string            `json:"composePath"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -143,6 +146,12 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := validateDomains(req.Domains); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	buildMethod, dockerfilePath, err := validateBuildMethod(req.BuildMethod, req.DockerfilePath)
+	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -174,6 +183,9 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		HealthPath:     req.HealthPath,
 		SecretKeys:     req.SecretKeys,
 		AutoDeploy:     req.AutoDeploy,
+		BuildMethod:    buildMethod,
+		DockerfilePath: dockerfilePath,
+		ComposePath:    req.ComposePath,
 		WebhookSecret:  generateRandomID() + generateRandomID(), // 20-char webhook secret
 	}
 	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
@@ -398,6 +410,8 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		HealthPath     string            `json:"healthPath"`
 		SecretKeys     []string          `json:"secretKeys"`
 		AutoDeploy     *bool             `json:"autoDeploy"`
+		BuildMethod    *string           `json:"buildMethod"`
+		DockerfilePath *string           `json:"dockerfilePath"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -414,6 +428,23 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+	}
+
+	// Validate build method when provided. We resolve the effective method +
+	// dockerfile path so an unset path defaults correctly.
+	var normMethod, normDockerfile string
+	buildMethodChanged := req.BuildMethod != nil
+	if buildMethodChanged {
+		df := ""
+		if req.DockerfilePath != nil {
+			df = *req.DockerfilePath
+		}
+		m, p, err := validateBuildMethod(*req.BuildMethod, df)
+		if err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		normMethod, normDockerfile = m, p
 	}
 
 	ip := getLocalIP()
@@ -440,6 +471,10 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 			apps[i].SecretKeys = req.SecretKeys
 			if req.AutoDeploy != nil {
 				apps[i].AutoDeploy = *req.AutoDeploy
+			}
+			if buildMethodChanged {
+				apps[i].BuildMethod = normMethod
+				apps[i].DockerfilePath = normDockerfile
 			}
 			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
 			full := apps[i] // full copy WITH secrets for DB persistence

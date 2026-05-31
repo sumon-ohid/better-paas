@@ -47,6 +47,8 @@ import { FlaskDark } from "@/components/ui/svgs/flaskDark"
 import { Fastapi } from "@/components/ui/svgs/fastapi"
 import { Java } from "@/components/ui/svgs/java"
 import { Microsoft } from "@/components/ui/svgs/microsoft"
+import { Docker } from "@/components/ui/svgs/docker"
+import { Nix } from "@/components/ui/svgs/nix"
 import { api } from "@/lib/api"
 import { GitCompareArrows } from "lucide-react"
 
@@ -675,6 +677,10 @@ export default function DeployPage() {
   const [deployInstallCommand, setDeployInstallCommand] = useState("")
   const [deployEnvVars, setDeployEnvVars] = useState<{ key: string; value: string }[]>([])
 
+  // ── Build method (nixpacks | dockerfile) ────────────────────────────────────
+  const [deployBuildMethod, setDeployBuildMethod] = useState<"nixpacks" | "dockerfile">("nixpacks")
+  const [deployDockerfilePath, setDeployDockerfilePath] = useState("Dockerfile")
+
   // ── Advanced config (resource limits, domains, volumes, health, auto-deploy) ─
   const [deployMemory, setDeployMemory] = useState("")
   const [deployCpus, setDeployCpus] = useState("")
@@ -1056,6 +1062,8 @@ export default function DeployPage() {
           .map((v) => v.trim())
           .filter(Boolean),
         autoDeploy: deployAutoDeploy,
+        buildMethod: deployBuildMethod,
+        dockerfilePath: deployBuildMethod === "dockerfile" ? deployDockerfilePath.trim() || "Dockerfile" : undefined,
       })
       router.push(`/logs?appId=${newApp.id}&mode=build`)
     } catch (err) {
@@ -1388,6 +1396,59 @@ export default function DeployPage() {
                   </div>
                 ) : null}
 
+                {/* Build method selector */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Build Method
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "nixpacks" as const, label: "Nixpacks", desc: "Auto-detect", icon: <Nix className="h-5 w-5 text-foreground" /> },
+                      { id: "dockerfile" as const, label: "Dockerfile", desc: "Your Dockerfile", icon: <Docker className="h-5 w-5" /> },
+                      { id: "compose" as const, label: "Compose", desc: "Coming soon", icon: <Docker className="h-5 w-5 opacity-60" />, disabled: true },
+                    ].map((opt) => {
+                      const active = deployBuildMethod === opt.id
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          disabled={opt.disabled}
+                          onClick={() => !opt.disabled && setDeployBuildMethod(opt.id as "nixpacks" | "dockerfile")}
+                          className={`flex flex-col items-start gap-1.5 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                            active
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/40 hover:bg-muted/30"
+                          }`}
+                        >
+                          {opt.icon}
+                          <span className="flex flex-col">
+                            <span className="text-sm font-semibold text-foreground">{opt.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {deployBuildMethod === "dockerfile" && (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Dockerfile Path
+                    </Label>
+                    <Input
+                      value={deployDockerfilePath}
+                      onChange={(e) => setDeployDockerfilePath(e.target.value)}
+                      placeholder="Dockerfile"
+                      className="h-9 text-sm font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Relative to the root directory. Install/build/start commands are ignored — your
+                      Dockerfile controls the build. Make sure it exposes the app on the port below.
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
@@ -1423,42 +1484,46 @@ export default function DeployPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Install Command
-                  </Label>
-                  <Input
-                    value={deployInstallCommand}
-                    onChange={(e) => setDeployInstallCommand(e.target.value)}
-                    placeholder="npm install"
-                    className="h-9 text-sm font-mono"
-                  />
-                </div>
+                {deployBuildMethod === "nixpacks" && (
+                  <>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Install Command
+                      </Label>
+                      <Input
+                        value={deployInstallCommand}
+                        onChange={(e) => setDeployInstallCommand(e.target.value)}
+                        placeholder="npm install"
+                        className="h-9 text-sm font-mono"
+                      />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Build Command
-                    </Label>
-                    <Input
-                      value={deployBuildCommand}
-                      onChange={(e) => setDeployBuildCommand(e.target.value)}
-                      placeholder="npm run build"
-                      className="h-9 text-sm font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Start Command
-                    </Label>
-                    <Input
-                      value={deployStartCommand}
-                      onChange={(e) => setDeployStartCommand(e.target.value)}
-                      placeholder="npm start"
-                      className="h-9 text-sm font-mono"
-                    />
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Build Command
+                        </Label>
+                        <Input
+                          value={deployBuildCommand}
+                          onChange={(e) => setDeployBuildCommand(e.target.value)}
+                          placeholder="npm run build"
+                          className="h-9 text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Start Command
+                        </Label>
+                        <Input
+                          value={deployStartCommand}
+                          onChange={(e) => setDeployStartCommand(e.target.value)}
+                          placeholder="npm start"
+                          className="h-9 text-sm font-mono"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Advanced: resource limits, health check, domains, volumes */}
                 <div className="pt-2 mt-2 border-t border-border/40 space-y-4">

@@ -23,6 +23,9 @@ export interface App {
   healthPath?: string
   secretKeys?: string[]
   autoDeploy?: boolean
+  buildMethod?: string
+  dockerfilePath?: string
+  composePath?: string
   activeImage?: string
   activeDeployId?: string
   activeCommit?: string
@@ -85,6 +88,9 @@ export interface DeployRequest {
   healthPath?: string
   secretKeys?: string[]
   autoDeploy?: boolean
+  buildMethod?: string
+  dockerfilePath?: string
+  composePath?: string
 }
 
 export interface UpdateRequest {
@@ -104,6 +110,8 @@ export interface UpdateRequest {
   healthPath?: string
   secretKeys?: string[]
   autoDeploy?: boolean
+  buildMethod?: string
+  dockerfilePath?: string
 }
 
 export interface Addon {

@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -272,94 +271,28 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			localLog(fmt.Sprintf("📂 Using sub-directory build context: %s", app.RootDir))
 		}
 
-		// ── 3. Detect required Node version, THEN patch package.json ──────────
-		// Detection must happen before patching, because patchPackageJSON strips
-		// the engines field that tells us which Node version the app needs.
-		nodeVersion := detectNodeVersion(buildSubDir, defaultNodeVersion)
-		patchPackageJSON(app.ID, buildDir, localLog)
-
-		// ── 3b. Reconcile package manager ─────────────────────────────────────
-		// Nixpacks only provisions the package manager it detects from the repo
-		// (packageManager field / lockfile). A forced command that uses a
-		// different manager — e.g. "pnpm install" against an npm repo — fails in
-		// the build with "<pm>: command not found". Rewrite the forced commands
-		// to the detected manager so the correct binary is always present.
-		installCmd, buildCmd, startCmd := app.InstallCommand, app.BuildCommand, app.StartCommand
-		if readPackageJSON(filepath.Join(buildSubDir, "package.json")) != nil {
-			pm := detectPackageManager(buildSubDir)
-			if c := reconcilePkgManagerCmd(installCmd, pm); c != installCmd {
-				localLog(fmt.Sprintf("📦 Adjusted install command for detected package manager (%s): %q → %q", pm, installCmd, c))
-				installCmd = c
-			}
-			if c := reconcilePkgManagerCmd(buildCmd, pm); c != buildCmd {
-				localLog(fmt.Sprintf("🔧 Adjusted build command for detected package manager (%s): %q → %q", pm, buildCmd, c))
-				buildCmd = c
-			}
-			if c := reconcilePkgManagerCmd(startCmd, pm); c != startCmd {
-				localLog(fmt.Sprintf("🚀 Adjusted start command for detected package manager (%s): %q → %q", pm, startCmd, c))
-				startCmd = c
-			}
-		}
-
-		// ── 4. Remove restrictive .dockerignore ──────────────────────────────
-		dockerignorePath := filepath.Join(buildSubDir, ".dockerignore")
-		if _, err := os.Stat(dockerignorePath); err == nil {
-			os.Rename(dockerignorePath, dockerignorePath+".bak")
-			localLog("📝 Removed restrictive .dockerignore for Nixpacks build")
-		}
-
-		// ── 5. Build with Nixpacks → unique image tag per deploy ──────────────
+		// ── 3. Build the image (method depends on app.BuildMethod) ────────────
 		image = fmt.Sprintf("%s:%s", app.Name, deployID)
-		localLog("🔍 Analyzing workspace with Nixpacks...")
-
-		// nodeVersion was detected in step 3, before engines were stripped, so
-		// genuine requirements (e.g. a workspace pinned to >=24) are honored
-		// instead of silently downgraded.
-		localLog(fmt.Sprintf("🟢 Using Node.js %s", nodeVersion))
-
-		nixpacksArgs := []string{"build", buildSubDir, "--name", image, "--env", "NIXPACKS_NODE_VERSION=" + nodeVersion}
-		for k, v := range app.EnvVars {
-			nixpacksArgs = append(nixpacksArgs, "--env", fmt.Sprintf("%s=%s", k, v))
-		}
-		if installCmd != "" {
-			nixpacksArgs = append(nixpacksArgs, "--install-cmd", installCmd)
-		}
-		if buildCmd != "" {
-			nixpacksArgs = append(nixpacksArgs, "--build-cmd", buildCmd)
-		}
-		if startCmd != "" {
-			nixpacksArgs = append(nixpacksArgs, "--start-cmd", startCmd)
+		method := app.BuildMethod
+		if method == "" {
+			method = "nixpacks"
 		}
 
-		nixpacksCmd := exec.Command("nixpacks", nixpacksArgs...)
-		stdout, err := nixpacksCmd.StdoutPipe()
-		if err != nil {
-			localLog(fmt.Sprintf("✖ Failed to open Nixpacks output: %v", err))
+		var buildErr error
+		switch method {
+		case "dockerfile":
+			buildErr = buildWithDockerfile(app, buildSubDir, image, localLog)
+		case "compose":
+			// Compose support is not yet wired into the single-container
+			// pipeline; fail clearly rather than silently building nothing.
+			localLog("✖ Docker Compose builds are not supported yet.")
 			finish("failed", "")
 			return
+		default:
+			buildErr = buildWithNixpacks(app, buildDir, buildSubDir, image, localLog)
 		}
-		nixpacksCmd.Stderr = nixpacksCmd.Stdout
-
-		if err := nixpacksCmd.Start(); err != nil {
-			localLog(fmt.Sprintf("✖ Failed to start Nixpacks: %v", err))
-			finish("failed", "")
-			return
-		}
-
-		reader := bufio.NewReader(stdout)
-		for {
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				if err != io.EOF {
-					localLog(fmt.Sprintf("✖ Output read error: %v", err))
-				}
-				break
-			}
-			localLog(strings.TrimRight(line, "\n"))
-		}
-
-		if err := nixpacksCmd.Wait(); err != nil {
-			localLog(fmt.Sprintf("✖ Nixpacks build failed: %v", err))
+		if buildErr != nil {
+			localLog(fmt.Sprintf("✖ Build failed: %v", buildErr))
 			finish("failed", "")
 			return
 		}
@@ -433,6 +366,117 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 
 	localLog(fmt.Sprintf("✅ Deployment complete! App live at: %s", app.URL))
 	finish("success", image)
+}
+
+// ---------------------------------------------------------------------------
+// Build methods
+// ---------------------------------------------------------------------------
+
+// buildWithNixpacks builds an image from the repo using Nixpacks (the default,
+// auto-detecting builder). buildDir is the clone root; buildSubDir is the
+// (possibly nested) build context.
+func buildWithNixpacks(app App, buildDir, buildSubDir, image string, localLog func(string)) error {
+	// Detect required Node version BEFORE patching, because patchPackageJSON
+	// strips the engines field that tells us which Node version the app needs.
+	nodeVersion := detectNodeVersion(buildSubDir, defaultNodeVersion)
+	patchPackageJSON(app.ID, buildDir, localLog)
+
+	// Reconcile package manager: Nixpacks only provisions the package manager it
+	// detects from the repo. A forced command using a different manager (e.g.
+	// "pnpm install" on an npm repo) fails with "<pm>: command not found".
+	installCmd, buildCmd, startCmd := app.InstallCommand, app.BuildCommand, app.StartCommand
+	if readPackageJSON(filepath.Join(buildSubDir, "package.json")) != nil {
+		pm := detectPackageManager(buildSubDir)
+		if c := reconcilePkgManagerCmd(installCmd, pm); c != installCmd {
+			localLog(fmt.Sprintf("📦 Adjusted install command for detected package manager (%s): %q → %q", pm, installCmd, c))
+			installCmd = c
+		}
+		if c := reconcilePkgManagerCmd(buildCmd, pm); c != buildCmd {
+			localLog(fmt.Sprintf("🔧 Adjusted build command for detected package manager (%s): %q → %q", pm, buildCmd, c))
+			buildCmd = c
+		}
+		if c := reconcilePkgManagerCmd(startCmd, pm); c != startCmd {
+			localLog(fmt.Sprintf("🚀 Adjusted start command for detected package manager (%s): %q → %q", pm, startCmd, c))
+			startCmd = c
+		}
+	}
+
+	// Remove a restrictive .dockerignore so Nixpacks sees the full context.
+	dockerignorePath := filepath.Join(buildSubDir, ".dockerignore")
+	if _, err := os.Stat(dockerignorePath); err == nil {
+		os.Rename(dockerignorePath, dockerignorePath+".bak")
+		localLog("📝 Removed restrictive .dockerignore for Nixpacks build")
+	}
+
+	localLog("🔍 Analyzing workspace with Nixpacks...")
+	localLog(fmt.Sprintf("🟢 Using Node.js %s", nodeVersion))
+
+	args := []string{"build", buildSubDir, "--name", image, "--env", "NIXPACKS_NODE_VERSION=" + nodeVersion}
+	for k, v := range app.EnvVars {
+		args = append(args, "--env", fmt.Sprintf("%s=%s", k, v))
+	}
+	if installCmd != "" {
+		args = append(args, "--install-cmd", installCmd)
+	}
+	if buildCmd != "" {
+		args = append(args, "--build-cmd", buildCmd)
+	}
+	if startCmd != "" {
+		args = append(args, "--start-cmd", startCmd)
+	}
+	return streamBuildCommand(exec.Command("nixpacks", args...), localLog)
+}
+
+// buildWithDockerfile builds an image from a Dockerfile in the repo using
+// `docker build`. Honors app.DockerfilePath (default "Dockerfile"), passes env
+// vars as build args, and uses buildSubDir as the build context.
+func buildWithDockerfile(app App, buildSubDir, image string, localLog func(string)) error {
+	dockerfile := strings.TrimSpace(app.DockerfilePath)
+	if dockerfile == "" {
+		dockerfile = "Dockerfile"
+	}
+	// Resolve the Dockerfile relative to the build context and ensure it exists.
+	dfPath := filepath.Join(buildSubDir, dockerfile)
+	if _, err := os.Stat(dfPath); err != nil {
+		return fmt.Errorf("Dockerfile not found at %q in the repository", dockerfile)
+	}
+	localLog(fmt.Sprintf("🐳 Building from Dockerfile: %s", dockerfile))
+
+	args := []string{"build", "-f", dfPath, "-t", image}
+	// Surface env vars as build args so Dockerfiles can ARG them if needed.
+	// (They are also injected at runtime by startContainer.)
+	for k, v := range app.EnvVars {
+		args = append(args, "--build-arg", fmt.Sprintf("%s=%s", k, v))
+	}
+	args = append(args, buildSubDir)
+	return streamBuildCommand(exec.Command("docker", args...), localLog)
+}
+
+// streamBuildCommand runs a build command, streaming combined stdout/stderr to
+// the deploy log line by line, and returns an error if it exits non-zero.
+func streamBuildCommand(cmd *exec.Cmd, localLog func(string)) error {
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to open build output: %w", err)
+	}
+	cmd.Stderr = cmd.Stdout
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start build: %w", err)
+	}
+	reader := bufio.NewReader(stdout)
+	for {
+		line, rerr := reader.ReadString('\n')
+		if len(line) > 0 {
+			localLog(strings.TrimRight(line, "\n"))
+		}
+		if rerr != nil {
+			break
+		}
+	}
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("build exited with error: %w", err)
+	}
+	return nil
 }
 
 // startContainer runs an image as a detached container with the app's env,
