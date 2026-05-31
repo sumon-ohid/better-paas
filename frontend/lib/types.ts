@@ -26,6 +26,8 @@ export interface App {
   buildMethod?: string
   dockerfilePath?: string
   composePath?: string
+  image?: string
+  catalogId?: string
   activeImage?: string
   activeDeployId?: string
   activeCommit?: string
@@ -125,6 +127,41 @@ export interface Addon {
   connEnv?: Record<string, string>
   attachedApps?: string[]
   createdAt: string
+}
+
+// ── App catalog (one-click deploys) ───────────────────────────────────────────
+
+export interface CatalogEnv {
+  key: string
+  value: string
+  description: string
+  required: boolean
+  secret: boolean
+  generate: boolean
+}
+
+export interface CatalogTemplate {
+  id: string
+  name: string
+  description: string
+  category: string
+  image: string
+  port: number
+  volumePath: string
+  env: CatalogEnv[] | null
+  healthPath: string
+  website: string
+  icon: string
+  notes: string
+}
+
+export interface CatalogDeployRequest {
+  templateId: string
+  name?: string
+  envVars?: Record<string, string>
+  domains?: string[]
+  memory?: string
+  cpus?: string
 }
 
 // Result of a database explorer operation (table browse or ad-hoc query).

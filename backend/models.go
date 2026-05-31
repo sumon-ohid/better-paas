@@ -33,9 +33,19 @@ type App struct {
 	//   "nixpacks"   (default) — auto-detected build via Nixpacks
 	//   "dockerfile"           — `docker build` against a Dockerfile in the repo
 	//   "compose"              — (planned) docker compose; not yet implemented
+	//   "image"                — run a prebuilt registry image directly (catalog
+	//                            one-click apps); no clone/build step
 	BuildMethod    string `json:"buildMethod"`
 	DockerfilePath string `json:"dockerfilePath"` // path to Dockerfile, relative to the build context (default "Dockerfile")
 	ComposePath    string `json:"composePath"`    // path to compose file (reserved for compose support)
+
+	// Image is the prebuilt registry image to run when BuildMethod == "image"
+	// (e.g. "louislam/uptime-kuma:1"). Empty for git-based apps.
+	Image string `json:"image,omitempty"`
+
+	// CatalogID records which catalog template an app was deployed from, when
+	// applicable (purely informational; lets the UI badge catalog apps).
+	CatalogID string `json:"catalogId,omitempty"`
 
 	// ── Custom domains + TLS (caddy auto-HTTPS) ──────────────────────────────
 	Domains []string `json:"domains"` // extra hostnames served over HTTPS

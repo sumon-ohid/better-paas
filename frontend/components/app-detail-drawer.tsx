@@ -45,6 +45,7 @@ interface App {
   healthPath?: string
   secretKeys?: string[]
   autoDeploy?: boolean
+  image?: string
 }
 
 interface ServerStats {
@@ -511,23 +512,31 @@ export function AppDetailDrawer({
 
                  <div className="flex justify-between items-center">
                    <span className="text-muted-foreground font-medium">Repository URL</span>
-                   <a
-                     href={app.gitRepo}
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     className="font-mono text-xs text-foreground max-w-[180px] truncate hover:text-primary transition-colors"
-                   >
-                     {app.gitRepo}
-                   </a>
+                   {app.gitRepo ? (
+                     <a
+                       href={app.gitRepo}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="font-mono text-xs text-foreground max-w-[180px] truncate hover:text-primary transition-colors"
+                     >
+                       {app.gitRepo}
+                     </a>
+                   ) : (
+                     <span className="font-mono text-xs text-muted-foreground max-w-[180px] truncate">
+                       {app.image || "—"}
+                     </span>
+                   )}
                  </div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground font-medium">Branch</span>
-                  <span className="inline-flex items-center gap-1 font-mono text-xs bg-muted/40 border border-border px-1.5 py-0.5 rounded text-muted-foreground">
-                    <GitBranchIcon className="h-2.5 w-2.5" />
-                    {app.branch}
-                  </span>
-                </div>
+                {app.branch && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Branch</span>
+                    <span className="inline-flex items-center gap-1 font-mono text-xs bg-muted/40 border border-border px-1.5 py-0.5 rounded text-muted-foreground">
+                      <GitBranchIcon className="h-2.5 w-2.5" />
+                      {app.branch}
+                    </span>
+                  </div>
+                )}
 
                 {app.rootDir && app.rootDir !== "." && (
                   <div className="flex justify-between items-center">

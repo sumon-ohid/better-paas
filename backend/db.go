@@ -128,6 +128,8 @@ CREATE TABLE IF NOT EXISTS meta (
 		{"apps", "build_method", "TEXT"},
 		{"apps", "dockerfile_path", "TEXT"},
 		{"apps", "compose_path", "TEXT"},
+		{"apps", "image", "TEXT"},
+		{"apps", "catalog_id", "TEXT"},
 		{"deployments", "image", "TEXT"},
 		{"deployments", "trigger", "TEXT"},
 		{"deployments", "commit_sha", "TEXT"},
@@ -225,7 +227,7 @@ func loadStateFromDB() {
 	apps = []App{}
 	buildLogs = make(map[string][]string)
 
-	rows, err := sqliteDB.Query(`SELECT id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override, domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path FROM apps`)
+	rows, err := sqliteDB.Query(`SELECT id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override, domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, image, catalog_id FROM apps`)
 	if err != nil {
 		log.Printf("[db] failed to load apps: %v", err)
 		return
@@ -238,9 +240,10 @@ func loadStateFromDB() {
 		var domainsJSON, volumesJSON, secretKeysJSON sql.NullString
 		var memory, cpus, healthPath, activeContainer, activeImage, activeDeployID, webhookSecret sql.NullString
 		var buildMethod, dockerfilePath, composePath sql.NullString
+		var image, catalogID sql.NullString
 		var autoDeploy sql.NullBool
 		err := rows.Scan(&a.ID, &a.Name, &a.Status, &a.GitRepo, &a.Branch, &a.Port, &a.URL, &a.CreatedAt, &a.GitToken, &a.RootDir, &envJSON, &a.BuildCommand, &a.StartCommand, &a.InstallCommand, &a.PortOverride,
-			&domainsJSON, &memory, &cpus, &volumesJSON, &healthPath, &activeContainer, &activeImage, &activeDeployID, &secretKeysJSON, &webhookSecret, &autoDeploy, &buildMethod, &dockerfilePath, &composePath)
+			&domainsJSON, &memory, &cpus, &volumesJSON, &healthPath, &activeContainer, &activeImage, &activeDeployID, &secretKeysJSON, &webhookSecret, &autoDeploy, &buildMethod, &dockerfilePath, &composePath, &image, &catalogID)
 		if err != nil {
 			log.Printf("[db] failed to scan app: %v", err)
 			continue
@@ -268,6 +271,8 @@ func loadStateFromDB() {
 		a.BuildMethod = buildMethod.String
 		a.DockerfilePath = dockerfilePath.String
 		a.ComposePath = composePath.String
+		a.Image = image.String
+		a.CatalogID = catalogID.String
 		a.GitToken = decryptSecret(a.GitToken)
 		apps = append(apps, a)
 		buildLogs[a.ID] = []string{}
@@ -305,8 +310,8 @@ func dbSaveAppTx(tx *sql.Tx, app App) error {
 	encWebhook := encryptSecret(app.WebhookSecret)
 	_, err := tx.Exec(`
 		INSERT INTO apps (id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override,
-			domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, image, catalog_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name,
 			status=excluded.status,
@@ -334,9 +339,11 @@ func dbSaveAppTx(tx *sql.Tx, app App) error {
 			auto_deploy=excluded.auto_deploy,
 			build_method=excluded.build_method,
 			dockerfile_path=excluded.dockerfile_path,
-			compose_path=excluded.compose_path
+			compose_path=excluded.compose_path,
+			image=excluded.image,
+			catalog_id=excluded.catalog_id
 	`, app.ID, app.Name, app.Status, app.GitRepo, app.Branch, app.Port, app.URL, app.CreatedAt, encToken, app.RootDir, string(envJSON), app.BuildCommand, app.StartCommand, app.InstallCommand, app.PortOverride,
-		string(domainsJSON), app.Memory, app.CPUs, string(volumesJSON), app.HealthPath, app.ActiveContainer, app.ActiveImage, app.ActiveDeployID, string(secretKeysJSON), encWebhook, app.AutoDeploy, app.BuildMethod, app.DockerfilePath, app.ComposePath)
+		string(domainsJSON), app.Memory, app.CPUs, string(volumesJSON), app.HealthPath, app.ActiveContainer, app.ActiveImage, app.ActiveDeployID, string(secretKeysJSON), encWebhook, app.AutoDeploy, app.BuildMethod, app.DockerfilePath, app.ComposePath, app.Image, app.CatalogID)
 	return err
 }
 

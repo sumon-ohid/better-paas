@@ -58,6 +58,7 @@ const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="server" 
 const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
 const ArchiveIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 const ChartIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
+const StoreIcon = (props: IconProps) => <NucleoIcon {...props} name="layers" />
 const MoonIcon = (props: IconProps) => <NucleoIcon {...props} name="moon" />
 const SunIcon = (props: IconProps) => <NucleoIcon {...props} name="sun" />
 const SignOutIcon = (props: IconProps) => <NucleoIcon {...props} name="logout" />
@@ -144,6 +145,12 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
       icon: <GlobeIcon className="h-3.5 w-3.5 text-chart-1" />,
       href: "/",
       badge: appCount,
+    },
+    {
+      id: "catalog",
+      label: "App Catalog",
+      icon: <StoreIcon className="h-3.5 w-3.5 text-chart-2" />,
+      href: "/catalog",
     },
     {
       id: "health",
@@ -247,6 +254,13 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             shortcut: "G A",
             icon: <GlobeIcon className="h-4 w-4 text-chart-1" />,
             action: () => router.push("/"),
+          },
+          {
+            id: "nav-catalog",
+            label: "Go to App Catalog",
+            shortcut: "",
+            icon: <StoreIcon className="h-4 w-4 text-chart-2" />,
+            action: () => router.push("/catalog"),
           },
           {
             id: "nav-health",

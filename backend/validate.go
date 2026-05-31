@@ -87,6 +87,9 @@ func validateBuildMethod(method, dockerfilePath string) (string, string, error) 
 	switch method {
 	case "nixpacks":
 		return method, "", nil
+	case "image":
+		// Prebuilt-image deploys (catalog one-click apps). No Dockerfile path.
+		return method, "", nil
 	case "compose":
 		return "", "", fmt.Errorf("docker compose builds are not supported yet")
 	case "dockerfile":

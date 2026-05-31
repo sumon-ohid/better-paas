@@ -2,23 +2,82 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
-/*
- * Better-PaaS brand theme.
- * Brand indigo matches the dashboard (#5e6ad2 light / #8b7ff6 dark).
- * Fumadocs reads these HSL-less hex values through its color tokens.
- */
+/* ──────────────────────────────────────────────────────────────────────────
+ * Better-PaaS marketing theme.
+ *
+ * The site shares one continuous surface with the dashboard (frontend/). We
+ * override fumadocs' neutral tokens with the *exact* dashboard palette so the
+ * landing page and the product look identical, then layer a small set of
+ * micro-component classes (bp-card / bp-surface / bp-primary) ported from the
+ * dashboard's du-* treatments.
+ *
+ * Design rules: near-monochrome, one accent (brand indigo/violet), hairline
+ * borders, soft monochrome shadows. No colorful gradients, no grid/dot
+ * textures. Depth comes from fills, borders, and type — not effects.
+ * ────────────────────────────────────────────────────────────────────────── */
+
 :root {
+  /* fumadocs tokens — light mode, mapped to the dashboard palette. */
+  --color-fd-background: #f7f8fa;
+  --color-fd-foreground: #14151b;
+  --color-fd-muted: #eef0f3;
+  --color-fd-muted-foreground: #62646f;
+  --color-fd-popover: #ffffff;
+  --color-fd-popover-foreground: #20212b;
+  --color-fd-card: #ffffff;
+  --color-fd-card-foreground: #20212b;
+  --color-fd-border: rgba(20, 21, 31, 0.09);
   --color-fd-primary: #5e6ad2;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: #eef0f3;
+  --color-fd-secondary-foreground: #20212b;
+  --color-fd-accent: rgba(94, 106, 210, 0.08);
+  --color-fd-accent-foreground: #20212b;
   --color-fd-ring: #5e6ad2;
+
+  /* Landing-page semantic palette. */
+  --bp-primary: #5e6ad2;
+  --bp-primary-foreground: #ffffff;
+  --bp-success: #3c9f7a;
+  --bp-warning: #d6a34a;
+  --bp-danger: #d55372;
+  --bp-accent-2: #88a2f6;
 }
 
 .dark {
+  /* fumadocs tokens — dark mode, mapped 1:1 to the dashboard's dark palette. */
+  --color-fd-background: #0c0d0e;
+  --color-fd-foreground: #ededed;
+  --color-fd-muted: rgba(255, 255, 255, 0.05);
+  --color-fd-muted-foreground: rgba(255, 255, 255, 0.46);
+  --color-fd-popover: #161618;
+  --color-fd-popover-foreground: #ededed;
+  --color-fd-card: #121214;
+  --color-fd-card-foreground: #ededed;
+  --color-fd-border: rgba(255, 255, 255, 0.08);
   --color-fd-primary: #8b7ff6;
-  --color-fd-ring: #8b7ff6;
+  --color-fd-primary-foreground: #0a0a0b;
+  --color-fd-secondary: rgba(255, 255, 255, 0.055);
+  --color-fd-secondary-foreground: #ededed;
+  --color-fd-accent: rgba(255, 255, 255, 0.06);
+  --color-fd-accent-foreground: #ededed;
+  --color-fd-ring: rgba(139, 127, 246, 0.5);
+
+  --bp-primary: #8b7ff6;
+  --bp-primary-foreground: #0a0a0b;
+  --bp-success: #5fe0a0;
+  --bp-warning: #f5d04a;
+  --bp-danger: #f1542e;
+  --bp-accent-2: #5aa9f6;
 }
 
 html {
   scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+}
+
+body {
+  letter-spacing: -0.011em;
 }
 
 html > body[data-scroll-locked] {
@@ -26,18 +85,243 @@ html > body[data-scroll-locked] {
   --removed-body-scroll-bar-size: 0px !important;
 }
 
-/* Tiled dotted backdrop for the marketing pages.
- * Two SVG variants keep the dots legible in both themes:
- * dark dots on light backgrounds, light dots on dark. The radial mask
- * fades the pattern out so content stays readable. */
-.bp-hero-grid {
-  background-image: url('/hero-pattern-light.svg');
-  background-repeat: repeat;
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+/* Tighter, more confident display tracking for big headings. */
+.bp-display {
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  text-wrap: balance;
 }
 
-.dark .bp-hero-grid {
-  background-image: url('/hero-pattern-dark.svg');
+.bp-balance {
+  text-wrap: balance;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   bp-card — the dashboard's du-card: flat fill in light mode, and in dark mode
+   a faint top-left interior sheen plus a gradient-border ring drawn on ::after
+   so it follows the element's own radius. This monochrome ring (white at low
+   alpha) is structure, not decoration — it is what makes panels read as glass.
+   ────────────────────────────────────────────────────────────────────────── */
+.bp-card {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--color-fd-border);
+  background: var(--color-fd-card);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+}
+
+.dark .bp-card {
+  background:
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.025) 26%,
+      rgba(255, 255, 255, 0) 46%
+    ),
+    var(--color-fd-card);
+  border: 0;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+}
+
+.dark .bp-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 0.75px;
+  background:
+    radial-gradient(
+      125% 125% at 0% 0%,
+      rgba(255, 255, 255, 0.4) 0%,
+      rgba(255, 255, 255, 0.12) 18%,
+      rgba(255, 255, 255, 0.04) 34%,
+      rgba(255, 255, 255, 0) 52%
+    ),
+    linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Hover lift for interactive cards. */
+.bp-card-interactive {
+  transition:
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+.bp-card-interactive:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in oklab, var(--bp-primary) 32%, var(--color-fd-border));
+}
+.dark .bp-card-interactive:hover {
+  box-shadow: 0 18px 50px -20px rgba(0, 0, 0, 0.7);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   bp-surface — du-surface: the same ring, built with background-clip so it can
+   sit on buttons/pills that own their pseudo-elements.
+   ────────────────────────────────────────────────────────────────────────── */
+.bp-surface {
+  --du-fill: var(--color-fd-card);
+  border: 1px solid var(--color-fd-border);
+  background: var(--du-fill);
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+.bp-surface:hover {
+  background: color-mix(in srgb, var(--color-fd-card), var(--color-fd-foreground) 4%);
+}
+
+.dark .bp-surface {
+  --du-fill: var(--color-fd-popover);
+  --du-glow: 0.45;
+  background:
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.1),
+      rgba(255, 255, 255, 0.03) 26%,
+      rgba(255, 255, 255, 0) 46%
+    )
+    padding-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) padding-box,
+    radial-gradient(
+      125% 125% at 0% 0%,
+      rgba(255, 255, 255, var(--du-glow)) 0%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.3)) 18%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.08)) 34%,
+      rgba(255, 255, 255, 0) 52%
+    )
+    border-box,
+    linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)) border-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) border-box;
+  border: 0.75px solid transparent;
+}
+.dark .bp-surface:hover {
+  --du-fill: color-mix(in srgb, var(--color-fd-popover), white 7%);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   bp-primary — du-primary: solid brand button with a top-left spotlight ring.
+   ────────────────────────────────────────────────────────────────────────── */
+.bp-primary {
+  --du-fill: var(--bp-primary);
+  --du-glow: 0.7;
+  color: var(--bp-primary-foreground);
+  background:
+    radial-gradient(
+      135% 120% at 0% 0%,
+      rgba(255, 255, 255, 0.24),
+      rgba(255, 255, 255, 0.08) 26%,
+      rgba(255, 255, 255, 0) 46%
+    )
+    padding-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) padding-box,
+    radial-gradient(
+      125% 125% at 0% 0%,
+      rgba(255, 255, 255, var(--du-glow)) 0%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.35)) 18%,
+      rgba(255, 255, 255, calc(var(--du-glow) * 0.1)) 34%,
+      rgba(255, 255, 255, 0) 52%
+    )
+    border-box,
+    linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.18)) border-box,
+    linear-gradient(var(--du-fill), var(--du-fill)) border-box;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 2px 0 color-mix(in oklab, var(--bp-primary) 30%, transparent);
+  transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.06s ease;
+}
+.bp-primary:hover {
+  --du-fill: color-mix(in srgb, var(--bp-primary), white 9%);
+  box-shadow: 0 4px 16px -4px color-mix(in oklab, var(--bp-primary) 50%, transparent);
+}
+.bp-primary:active {
+  --du-fill: color-mix(in srgb, var(--bp-primary), black 6%);
+  transform: translateY(1px);
+}
+
+/* Hide scrollbars while keeping scroll behavior (horizontal showcases). */
+.bp-scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.bp-scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Scroll-reveal motion. Elements start translated + faded; an Intersection
+   Observer adds .is-visible. A per-element --bp-delay staggers groups. All
+   disabled under reduced-motion.
+   ────────────────────────────────────────────────────────────────────────── */
+.bp-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--bp-delay, 0ms);
+  will-change: opacity, transform;
+}
+.bp-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Soft blur-in variant — used for hero headlines so the type resolves into
+   focus rather than just sliding up. Slightly longer, gentler easing. */
+.bp-reveal-blur {
+  opacity: 0;
+  transform: translateY(14px);
+  filter: blur(12px);
+  transition:
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--bp-delay, 0ms);
+  will-change: opacity, transform, filter;
+}
+.bp-reveal-blur.is-visible {
+  opacity: 1;
+  transform: none;
+  filter: blur(0);
+}
+
+@keyframes bp-pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.bp-pulse-dot {
+  animation: bp-pulse-dot 1.8s ease-in-out infinite;
+}
+
+@keyframes bp-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.bp-marquee {
+  animation: bp-marquee 32s linear infinite;
+}
+.bp-marquee-group:hover .bp-marquee {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bp-reveal,
+  .bp-reveal-blur {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+  .bp-pulse-dot,
+  .bp-marquee {
+    animation: none !important;
+  }
 }

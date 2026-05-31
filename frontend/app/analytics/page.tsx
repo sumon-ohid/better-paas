@@ -35,7 +35,6 @@ const CopyIcon = (props: IconProps) => <NucleoIcon {...props} name="copy" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 const CpuIcon = (props: IconProps) => <NucleoIcon {...props} name="cpu" />
 const ExternalLinkIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
-const SparklesIcon = (props: IconProps) => <NucleoIcon {...props} name="sparkles" />
 
 const RANGES = [
   { value: "1", label: "24h", days: 1 as const },

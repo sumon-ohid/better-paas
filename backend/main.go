@@ -94,6 +94,10 @@ func main() {
 	mux.HandleFunc("/api/git/token/save", handleGitTokenSet)
 	mux.HandleFunc("/api/git/token/delete", handleGitTokenDelete)
 
+	// App catalog (one-click deploys of popular open-source apps)
+	mux.HandleFunc("/api/catalog", handleCatalog)
+	mux.HandleFunc("/api/catalog/deploy", handleCatalogDeploy)
+
 	// Managed add-ons (databases/caches)
 	mux.HandleFunc("/api/addons", handleAddons)
 	mux.HandleFunc("/api/addons/create", handleAddonCreate)

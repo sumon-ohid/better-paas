@@ -1255,3 +1255,18 @@ func findApp(id string) *App {
 	}
 	return nil
 }
+
+// findAppByName returns a copy of the app with the given name, or nil. App
+// names are unique (enforced by a UNIQUE constraint), so this identifies at
+// most one app.
+func findAppByName(name string) *App {
+	appsLock.Lock()
+	defer appsLock.Unlock()
+	for i := range apps {
+		if apps[i].Name == name {
+			clone := apps[i]
+			return &clone
+		}
+	}
+	return nil
+}

@@ -9,6 +9,8 @@ import type {
   GitHubFile,
   PerAppMetrics,
   Addon,
+  CatalogTemplate,
+  CatalogDeployRequest,
   CronJob,
   NotificationConfig,
   DbQueryResult,
@@ -142,6 +144,13 @@ export const api = {
         "/api/cloudflare/dns",
         { method: "POST", body: JSON.stringify({ domain }) },
       ),
+  },
+
+  // ── App catalog (one-click deploys) ─────────────────────────────────────────
+  catalog: {
+    list: () => req<CatalogTemplate[]>("/api/catalog"),
+    deploy: (data: CatalogDeployRequest) =>
+      req<App>("/api/catalog/deploy", { method: "POST", body: JSON.stringify(data) }),
   },
 
   // ── Managed add-ons (databases / caches) ────────────────────────────────────

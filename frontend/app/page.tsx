@@ -61,6 +61,7 @@ type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
 const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
 const GitCommitIcon = (props: IconProps) => <NucleoIcon {...props} name="git-commit" />
+const LayersIcon = (props: IconProps) => <NucleoIcon {...props} name="layers" />
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const SquareIcon = (props: IconProps) => <NucleoIcon {...props} name="square" />
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
@@ -115,7 +116,30 @@ function filterLabel(f: string) {
 
 // ── Repo cell (shared between table + cards) ──────────────────────────────────
 
-function RepoLink({ gitRepo }: { gitRepo: string }) {
+// SourceLink shows where an app came from. Git-based apps link out to their
+// repository; image-based (catalog) apps have no repo, so we surface the Docker
+// image instead. Apps with neither fall back to a neutral placeholder so the
+// badge never renders empty.
+function RepoLink({ gitRepo, image }: { gitRepo: string; image?: string }) {
+  if (!gitRepo) {
+    if (image) {
+      return (
+        <span
+          title={image}
+          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/30 px-2.5 py-1 text-xs font-mono text-muted-foreground"
+        >
+          <Docker className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{image}</span>
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-dashed border-border bg-muted/20 px-2.5 py-1 text-xs font-mono text-muted-foreground/70">
+        <GitBranchIcon className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">No repository</span>
+      </span>
+    )
+  }
   return (
     <a
       href={gitRepo}
@@ -135,6 +159,18 @@ function RepoLink({ gitRepo }: { gitRepo: string }) {
       )}
       <span className="truncate">{extractRepoName(gitRepo)}</span>
     </a>
+  )
+}
+
+// BranchBadge renders the deployed git branch. Image-based apps have no branch,
+// so it renders nothing rather than an empty pill.
+function BranchBadge({ branch }: { branch: string }) {
+  if (!branch) return null
+  return (
+    <Badge variant="outline" size="sm" className="gap-1 font-mono">
+      <GitBranchIcon className="h-3 w-3" />
+      {branch}
+    </Badge>
   )
 }
 
@@ -284,14 +320,11 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
       </TableCell>
 
       <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
-        <RepoLink gitRepo={app.gitRepo} />
+        <RepoLink gitRepo={app.gitRepo} image={app.image} />
       </TableCell>
 
       <TableCell className="py-4">
-        <Badge variant="outline" size="sm" className="gap-1 font-mono">
-          <GitBranchIcon className="h-3 w-3" />
-          {app.branch}
-        </Badge>
+        <BranchBadge branch={app.branch} />
       </TableCell>
 
       <TableCell className="py-4">
@@ -340,10 +373,7 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
 
       <div className="mt-3 flex items-center gap-2">
         <StatusBadge status={app.status} />
-        <Badge variant="outline" size="sm" className="gap-1 font-mono">
-          <GitBranchIcon className="h-3 w-3" />
-          {app.branch}
-        </Badge>
+        <BranchBadge branch={app.branch} />
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
           {formatRelativeTime(app.createdAt)}
         </span>
@@ -351,7 +381,7 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
 
       <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3" onClick={(e) => e.stopPropagation()}>
         <UrlLink url={app.url} />
-        <RepoLink gitRepo={app.gitRepo} />
+        <RepoLink gitRepo={app.gitRepo} image={app.image} />
       </div>
     </div>
   )
@@ -389,10 +419,7 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
       {/* Status + branch */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <StatusBadge status={app.status} />
-        <Badge variant="outline" size="sm" className="gap-1 font-mono">
-          <GitBranchIcon className="h-3 w-3" />
-          {app.branch}
-        </Badge>
+        <BranchBadge branch={app.branch} />
       </div>
 
       {/* URL + repo */}
@@ -401,11 +428,12 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
         onClick={(e) => e.stopPropagation()}
       >
         <UrlLink url={app.url} />
-        <RepoLink gitRepo={app.gitRepo} />
+        <RepoLink gitRepo={app.gitRepo} image={app.image} />
       </div>
 
-      {/* Latest deployed commit */}
-      {app.activeCommitMsg && (
+      {/* Latest deployed commit (git apps) or source note (image apps) — keeps
+          card heights aligned regardless of deploy source. */}
+      {app.activeCommitMsg ? (
         <div
           className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground"
           title={app.activeCommitMsg}
@@ -413,7 +441,14 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
           <GitCommitIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
           <span className="line-clamp-2 min-w-0">{app.activeCommitMsg}</span>
         </div>
-      )}
+      ) : !app.gitRepo ? (
+        <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
+          <LayersIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+          <span className="line-clamp-2 min-w-0">
+            {app.catalogId ? "Deployed from catalog" : "Prebuilt image deployment"}
+          </span>
+        </div>
+      ) : null}
 
       {/* Footer: deployed time */}
       <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-3">

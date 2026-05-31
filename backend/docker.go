@@ -242,6 +242,21 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			commitSHA = src.Commit
 			commitMsg = src.CommitMsg
 		}
+	} else if app.BuildMethod == "image" {
+		// ── Image path: run a prebuilt registry image, no clone/build ────────
+		image = strings.TrimSpace(app.Image)
+		if image == "" {
+			localLog("✖ No image specified for image-based deployment.")
+			finish("failed", "")
+			return
+		}
+		localLog(fmt.Sprintf("🐳 Pulling image %s ...", image))
+		if err := streamBuildCommand(exec.Command("docker", "pull", image), localLog); err != nil {
+			localLog(fmt.Sprintf("✖ Failed to pull image: %v", err))
+			finish("failed", "")
+			return
+		}
+		localLog("✔ Image pulled successfully.")
 	} else {
 		// ── 1. Clone repository ──────────────────────────────────────────────
 		localLog(fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
