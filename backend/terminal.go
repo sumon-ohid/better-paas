@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"sync"
 
@@ -153,6 +154,128 @@ func handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// /ws/host-terminal — interactive PTY shell on the host (the server itself)
+// ---------------------------------------------------------------------------
+//
+// Same wire protocol and rendering as /ws/terminal, but instead of exec'ing
+// into a container it spawns a login shell directly on the host machine that
+// Better-PaaS runs on. This gives the operator a full terminal to the server
+// from the dashboard — inspect disk, tail system logs, run docker, etc.
+//
+// SECURITY: this grants shell access to the host with the same privileges as
+// the Better-PaaS process. It is gated behind the same admin auth token as
+// every other privileged endpoint (wsAuthOK), but operators should be aware
+// that anyone who can reach this socket with a valid token has the keys to the
+// machine.
+
+// hostShellCandidates are tried in order; the first shell present on the host
+// is used. Falls back to "sh" found on PATH.
+var hostShellCandidates = []string{"/bin/bash", "/bin/zsh", "/bin/sh"}
+
+func handleHostTerminalWS(w http.ResponseWriter, r *http.Request) {
+	if !wsAuthOK(w, r) {
+		return
+	}
+	log.Printf("[WS/host-terminal] Connect")
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("[WS/host-terminal] Upgrade failed: %v", err)
+		return
+	}
+	defer func() {
+		log.Printf("[WS/host-terminal] Disconnect")
+		conn.Close()
+	}()
+
+	shell := pickHostShell()
+	if shell == "" {
+		wsSendTerminal(conn, "No shell (/bin/bash, /bin/zsh or /bin/sh) found on the host.\r\n")
+		return
+	}
+
+	// Start the shell attached to a real PTY so interactive programs behave
+	// just like a normal terminal session.
+	cmd := exec.Command(shell)
+	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		wsSendTerminal(conn, "Failed to start terminal session: "+err.Error()+"\r\n")
+		return
+	}
+
+	var once sync.Once
+	cleanup := func() {
+		once.Do(func() {
+			ptmx.Close()
+			if cmd.Process != nil {
+				cmd.Process.Kill()
+			}
+			cmd.Wait()
+		})
+	}
+	defer cleanup()
+
+	// Pump PTY output → WebSocket (binary frames preserve escape sequences).
+	go func() {
+		buf := make([]byte, 8192)
+		for {
+			n, readErr := ptmx.Read(buf)
+			if n > 0 {
+				if err := conn.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
+					break
+				}
+			}
+			if readErr != nil {
+				break
+			}
+		}
+		conn.Close()
+	}()
+
+	// Pump WebSocket control frames → PTY.
+	for {
+		mt, data, readErr := conn.ReadMessage()
+		if readErr != nil {
+			break
+		}
+		if mt != websocket.TextMessage {
+			continue
+		}
+		var msg terminalClientMsg
+		if err := json.Unmarshal(data, &msg); err != nil {
+			continue
+		}
+		switch msg.Type {
+		case "input":
+			if _, err := ptmx.Write([]byte(msg.Data)); err != nil {
+				cleanup()
+				return
+			}
+		case "resize":
+			if msg.Cols > 0 && msg.Rows > 0 {
+				pty.Setsize(ptmx, &pty.Winsize{Cols: msg.Cols, Rows: msg.Rows})
+			}
+		}
+	}
+}
+
+// pickHostShell returns the first shell from hostShellCandidates that exists
+// and is executable on the host, or "" if none can be found.
+func pickHostShell() string {
+	for _, sh := range hostShellCandidates {
+		if info, err := os.Stat(sh); err == nil && !info.IsDir() {
+			return sh
+		}
+	}
+	// Last resort: resolve "sh" from PATH.
+	if p, err := exec.LookPath("sh"); err == nil {
+		return p
+	}
+	return ""
 }
 
 // wsSendTerminal writes a plain status string as a binary frame so the xterm.js

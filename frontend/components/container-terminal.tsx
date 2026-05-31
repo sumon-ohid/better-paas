@@ -5,7 +5,7 @@ import { useTheme } from "next-themes"
 import { Terminal, type ITheme } from "@xterm/xterm"
 import { FitAddon } from "@xterm/addon-fit"
 import "@xterm/xterm/css/xterm.css"
-import { createTerminalWs } from "@/lib/api"
+import { createTerminalWs, createHostTerminalWs } from "@/lib/api"
 import { NucleoIcon } from "@/components/nucleo-icons"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
@@ -55,18 +55,24 @@ const LIGHT_THEME: ITheme = {
   ...ANSI_COLORS,
 }
 
-interface ContainerTerminalProps {
-  appId: string
-  appName: string
+interface XtermShellProps {
+  /** Factory that opens the backing WebSocket for this shell session. */
+  connect: () => WebSocket
+  /** Label shown in the terminal chrome header, e.g. "web — shell". */
+  title: string
   /** Bumping this value forces a reconnect (used by the Reconnect button). */
   reconnectToken: number
+  /** Re-create the socket whenever these change (alongside reconnectToken). */
+  sessionKey?: string
 }
 
 /**
- * A real PTY-backed terminal rendered with xterm.js, bridged to the backend
- * `/ws/terminal` WebSocket. Handles input, resize, and clean teardown.
+ * The shared xterm.js shell surface. Renders the terminal chrome + xterm host
+ * and bridges keystrokes/resize to a WebSocket-backed PTY. Both the per-app
+ * container terminal and the host (server) terminal render through this so the
+ * UI/UX stays identical.
  */
-export function ContainerTerminal({ appId, appName, reconnectToken }: ContainerTerminalProps) {
+function XtermShell({ connect, title, reconnectToken, sessionKey }: XtermShellProps) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
   const [connected, setConnected] = useState(false)
@@ -103,7 +109,7 @@ export function ContainerTerminal({ appId, appName, reconnectToken }: ContainerT
     safeFit()
     term.focus()
 
-    const ws = createTerminalWs(appId)
+    const ws = connect()
     ws.binaryType = "arraybuffer"
 
     const sendResize = () => {
@@ -164,7 +170,7 @@ export function ContainerTerminal({ appId, appName, reconnectToken }: ContainerT
     // resolvedTheme is intentionally omitted: it's only used for the initial
     // palette here, and the effect below live-updates it without reconnecting.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appId, reconnectToken])
+  }, [sessionKey, reconnectToken])
 
   // Live-update the terminal palette when the app theme changes, without
   // tearing down the active shell session.
@@ -185,7 +191,7 @@ export function ContainerTerminal({ appId, appName, reconnectToken }: ContainerT
         </div>
         <span className="ml-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <TerminalIcon className="h-3 w-3" />
-          {appName} — shell
+          {title}
         </span>
         <span className="ml-auto flex items-center gap-1.5 text-[10px] uppercase tracking-wider">
           <span
@@ -200,6 +206,49 @@ export function ContainerTerminal({ appId, appName, reconnectToken }: ContainerT
       {/* xterm host — padded so output doesn't hug the border */}
       <div ref={hostRef} className="min-h-0 flex-1 overflow-hidden px-3 py-2" />
     </div>
+  )
+}
+
+interface ContainerTerminalProps {
+  appId: string
+  appName: string
+  /** Bumping this value forces a reconnect (used by the Reconnect button). */
+  reconnectToken: number
+}
+
+/**
+ * A real PTY-backed terminal rendered with xterm.js, bridged to the backend
+ * `/ws/terminal` WebSocket. Handles input, resize, and clean teardown.
+ */
+export function ContainerTerminal({ appId, appName, reconnectToken }: ContainerTerminalProps) {
+  return (
+    <XtermShell
+      connect={() => createTerminalWs(appId)}
+      title={`${appName} — shell`}
+      reconnectToken={reconnectToken}
+      sessionKey={appId}
+    />
+  )
+}
+
+interface HostTerminalProps {
+  /** Bumping this value forces a reconnect (used by the Reconnect button). */
+  reconnectToken: number
+}
+
+/**
+ * A real PTY-backed terminal bridged to the backend `/ws/host-terminal`
+ * WebSocket, giving the operator a shell on the server itself. Renders through
+ * the same XtermShell surface as the per-container terminal so the UI matches.
+ */
+export function HostTerminal({ reconnectToken }: HostTerminalProps) {
+  return (
+    <XtermShell
+      connect={() => createHostTerminalWs()}
+      title="server — shell"
+      reconnectToken={reconnectToken}
+      sessionKey="host"
+    />
   )
 }
 

@@ -399,3 +399,7 @@ export function createStatsWs(): WebSocket {
 export function createTerminalWs(appId: string): WebSocket {
   return new WebSocket(withToken(`${getWsBase()}/ws/terminal?appId=${appId}`))
 }
+
+export function createHostTerminalWs(): WebSocket {
+  return new WebSocket(withToken(`${getWsBase()}/ws/host-terminal`))
+}

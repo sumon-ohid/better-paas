@@ -160,6 +160,7 @@ func main() {
 	mux.HandleFunc("/ws/logs", handleLogsWS)
 	mux.HandleFunc("/ws/runtime-logs", handleRuntimeLogsWS)
 	mux.HandleFunc("/ws/terminal", handleTerminalWS)
+	mux.HandleFunc("/ws/host-terminal", handleHostTerminalWS)
 
 	// Auth gate, then CORS. Health stays public for uptime probes.
 	authed := authGate(mux)

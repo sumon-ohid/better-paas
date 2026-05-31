@@ -81,6 +81,7 @@ const SHORTCUT_SECTIONS: { heading: string; items: [string, string[]][] }[] = [
       ["Applications", ["g", "a"]],
       ["Node Health", ["g", "m"]],
       ["Live Logs", ["g", "l"]],
+      ["Server Terminal", ["g", "t"]],
       ["Settings", ["g", "s"]],
     ],
   },
@@ -156,6 +157,12 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
       icon: <TerminalIcon className="h-3.5 w-3.5 text-chart-2" />,
       href: "/logs",
       badge: hasActiveLogs ? "●" : undefined,
+    },
+    {
+      id: "terminal",
+      label: "Server Terminal",
+      icon: <TerminalIcon className="h-3.5 w-3.5 text-chart-3" />,
+      href: "/terminal",
     },
     {
       id: "addons",
@@ -256,6 +263,13 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             action: () => router.push("/logs"),
           },
           {
+            id: "nav-terminal",
+            label: "Go to Server Terminal",
+            shortcut: "G T",
+            icon: <TerminalIcon className="h-4 w-4 text-chart-3" />,
+            action: () => router.push("/terminal"),
+          },
+          {
             id: "nav-analytics",
             label: "Go to Web Analytics",
             shortcut: "",
@@ -314,6 +328,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
           a: "/",
           m: "/health",
           l: "/logs",
+          t: "/terminal",
           s: "/settings",
         }
         const dest = map[e.key.toLowerCase()]
