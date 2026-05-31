@@ -53,8 +53,6 @@ const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal
 const SettingsIcon = (props: IconProps) => <NucleoIcon {...props} name="settings" />
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 const KeyboardIcon = (props: IconProps) => <NucleoIcon {...props} name="keyboard" />
-const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
-const HelpCircleIcon = (props: IconProps) => <NucleoIcon {...props} name="help" />
 const SpinIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
 const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />

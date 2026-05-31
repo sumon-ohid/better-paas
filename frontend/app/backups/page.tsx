@@ -90,6 +90,8 @@ export default function BackupsPage() {
   }, [])
 
   useEffect(() => {
+    // Both loaders are async; setState runs after awaits, not synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadBackups()
     loadConfig()
   }, [loadBackups, loadConfig])

@@ -63,6 +63,8 @@ export default function CronPage() {
   }, [showToast])
 
   useEffect(() => {
+    // load is async; setState runs after awaits, not synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [load])
 

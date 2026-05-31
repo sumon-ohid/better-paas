@@ -198,6 +198,29 @@ function AppDetailPage() {
     fetchData()
   }, [fetchData])
 
+  // Probe the chosen directory for a Dockerfile. The selector is only shown when
+  // one exists; otherwise Nixpacks is forced. Declared before the effect that
+  // uses it so the reference is stable and the effect deps stay honest.
+  const checkDockerfile = useCallback(
+    async (dir: string) => {
+      if (!gitRepo || !branch) return
+      try {
+        const found = await findDockerfile(makeRepoRef(gitRepo), branch, dir)
+        if (found) {
+          setDockerfileAvailable(true)
+          setDockerfilePath((p) => p || found)
+        } else {
+          setDockerfileAvailable(false)
+          setBuildMethod("nixpacks")
+        }
+      } catch {
+        setDockerfileAvailable(false)
+        setBuildMethod("nixpacks")
+      }
+    },
+    [gitRepo, branch],
+  )
+
   // One-time probe for a Dockerfile in the app's current root dir, so the build
   // method selector appears for repos that have a Dockerfile even if the app is
   // currently built with Nixpacks. Runs once after the repo/branch load.
@@ -206,6 +229,7 @@ function AppDetailPage() {
     if (dockerfileProbed.current) return
     if (!gitRepo || !branch) return
     dockerfileProbed.current = true
+    // checkDockerfile is async; setState runs after awaits, not synchronously.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     checkDockerfile(rootDir || "")
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -415,23 +439,6 @@ function AppDetailPage() {
 
   // Probe the chosen directory for a Dockerfile. The selector is only shown when
   // one exists; otherwise Nixpacks is forced.
-  const checkDockerfile = async (dir: string) => {
-    if (!gitRepo || !branch) return
-    try {
-      const found = await findDockerfile(makeRepoRef(gitRepo), branch, dir)
-      if (found) {
-        setDockerfileAvailable(true)
-        setDockerfilePath((p) => p || found)
-      } else {
-        setDockerfileAvailable(false)
-        setBuildMethod("nixpacks")
-      }
-    } catch {
-      setDockerfileAvailable(false)
-      setBuildMethod("nixpacks")
-    }
-  }
-
   const redetectForRootDir = useCallback(
     async (dir: string) => {
       if (!gitRepo || !branch) return
@@ -452,7 +459,7 @@ function AppDetailPage() {
         setIsDetectingFramework(false)
       }
     },
-    [gitRepo, branch],
+    [gitRepo, branch, checkDockerfile],
   )
 
   const handleRootDirChange = (value: string) => {

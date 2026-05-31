@@ -81,13 +81,6 @@ const TYPE_META: Record<
 
 const ADDON_TYPES = Object.entries(TYPE_META).map(([id, m]) => ({ id, label: m.label }))
 
-// Internal ports each database listens on (for the type reference card).
-const TYPE_PORTS: Record<string, number> = {
-  postgres: 5432,
-  mysql: 3306,
-  redis: 6379,
-}
-
 function typeMeta(type: string) {
   return TYPE_META[type] ?? { label: type, short: type, primaryVar: "", blurb: "" }
 }
@@ -169,6 +162,8 @@ export default function AddonsPage() {
   }, [showToast])
 
   useEffect(() => {
+    // load is async; setState runs after awaits, not synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
     const t = setInterval(load, 5000)
     return () => clearInterval(t)

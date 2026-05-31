@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -161,17 +161,38 @@ export function AppDetailDrawer({
     }
   }, [isOpen])
 
+  // Webhook info
+  const [webhookUrl, setWebhookUrl] = useState("")
+  const [webhookSecret, setWebhookSecret] = useState("")
+  const [webhookCopied, setWebhookCopied] = useState(false)
+
+  // Declared before the effect that uses it so the reference is stable and the
+  // effect dependency list stays honest.
+  const loadWebhook = useCallback(async () => {
+    if (!app) return
+    try {
+      const info = await api.apps.webhook(app.id)
+      setWebhookUrl(info.url)
+      setWebhookSecret(info.secret)
+    } catch (err) {
+      console.error(err)
+    }
+  }, [app])
+
   // Load webhook info when entering the settings tab.
   useEffect(() => {
     if (isOpen && activeTab === "settings" && app) {
+      // loadWebhook is async; setState runs after awaits, not synchronously.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadWebhook()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, activeTab, app?.id])
+  }, [isOpen, activeTab, app, loadWebhook])
 
   // Poll per-container metrics while the drawer is open for a running app.
   useEffect(() => {
     if (!isOpen || !app || app.status !== "running") {
+      // Clear stale metrics when the drawer closes or the app isn't running.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAppMetrics(null)
       return
     }
@@ -214,11 +235,6 @@ export function AppDetailDrawer({
   const [domains, setDomains] = useState("")
   const [volumes, setVolumes] = useState("")
   const [autoDeploy, setAutoDeploy] = useState(false)
-
-  // Webhook info
-  const [webhookUrl, setWebhookUrl] = useState("")
-  const [webhookSecret, setWebhookSecret] = useState("")
-  const [webhookCopied, setWebhookCopied] = useState(false)
 
   useEffect(() => {
     if (app) {
@@ -291,16 +307,6 @@ export function AppDetailDrawer({
       alert("Failed to update application settings.")
     } finally {
       setIsSaving(false)
-    }
-  }
-
-  const loadWebhook = async () => {
-    try {
-      const info = await api.apps.webhook(app.id)
-      setWebhookUrl(info.url)
-      setWebhookSecret(info.secret)
-    } catch (err) {
-      console.error(err)
     }
   }
 

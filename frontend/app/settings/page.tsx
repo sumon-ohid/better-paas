@@ -35,7 +35,6 @@ const InfoIcon = (props: IconProps) => <NucleoIcon {...props} name="info" />
 const AlertTriangleIcon = (props: IconProps) => <NucleoIcon {...props} name="triangle-alert" />
 const LockIcon = (props: IconProps) => <NucleoIcon {...props} name="lock" />
 const BellIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
-const CloudIcon = (props: IconProps) => <NucleoIcon {...props} name="cloud" />
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
