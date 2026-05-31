@@ -28,269 +28,18 @@ import type { GitHubRepo, GitHubContent } from "@/lib/types"
 import { GitHubConnectModal } from "@/components/github-connect-modal"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
-import { ReactLight } from "@/components/ui/svgs/reactLight"
-import { Nodejs } from "@/components/ui/svgs/nodejs"
-import { NextjsIconDark } from "@/components/ui/svgs/nextjsIconDark"
-import { Vite } from "@/components/ui/svgs/vite"
-import { Python } from "@/components/ui/svgs/python"
-import { Golang } from "@/components/ui/svgs/golang"
-import { Svelte } from "@/components/ui/svgs/svelte"
-import { AstroIconDark } from "@/components/ui/svgs/astroIconDark"
-import { Bun } from "@/components/ui/svgs/bun"
-import { DenoDark } from "@/components/ui/svgs/denoDark"
-import { PhpDark } from "@/components/ui/svgs/phpDark"
-import { RustDark } from "@/components/ui/svgs/rustDark"
-import { Ruby } from "@/components/ui/svgs/ruby"
-import { RemixDark } from "@/components/ui/svgs/remixDark"
-import { Django } from "@/components/ui/svgs/django"
-import { FlaskDark } from "@/components/ui/svgs/flaskDark"
-import { Fastapi } from "@/components/ui/svgs/fastapi"
-import { Java } from "@/components/ui/svgs/java"
-import { Microsoft } from "@/components/ui/svgs/microsoft"
 import { Docker } from "@/components/ui/svgs/docker"
 import { Nix } from "@/components/ui/svgs/nix"
+import {
+  FRAMEWORKS,
+  detectFrameworkByName,
+  detectFrameworkByFiles,
+  detectFrameworkForDir,
+  findDockerfile,
+} from "@/lib/framework-detection"
 import { api } from "@/lib/api"
 import { GitCompareArrows } from "lucide-react"
-
-// Framework definitions (18 supported frameworks)
-type FrameworkIcon = React.FC<React.SVGProps<SVGSVGElement>>
-
-const FRAMEWORKS = [
-  {
-    id: "nextjs",
-    name: "Next.js",
-    color: "text-foreground",
-    icon: NextjsIconDark,
-    keywords: ["next", "nextjs"],
-    buildCmd: "pnpm run build",
-    startCmd: "pnpm start",
-    installCmd: "pnpm install",
-    port: 3000,
-  },
-  {
-    id: "svelte",
-    name: "Svelte / SvelteKit",
-    color: "text-[#ff3e00]",
-    icon: Svelte,
-    keywords: ["svelte", "sveltekit"],
-    buildCmd: "pnpm run build",
-    startCmd: "pnpm start",
-    installCmd: "pnpm install",
-    port: 4173,
-  },
-  {
-    id: "astro",
-    name: "Astro",
-    color: "text-[#e83e8c]",
-    icon: AstroIconDark,
-    keywords: ["astro"],
-    buildCmd: "pnpm run build",
-    startCmd: "pnpm start",
-    installCmd: "pnpm install",
-    port: 4321,
-  },
-  {
-    id: "vite",
-    name: "Vite",
-    color: "text-[#646cff]",
-    icon: Vite,
-    keywords: ["vite"],
-    buildCmd: "pnpm run build",
-    startCmd: "pnpm dlx serve dist",
-    installCmd: "pnpm install",
-    port: 4173,
-  },
-  {
-    id: "react",
-    name: "React (CRA)",
-    color: "text-[#61dafb]",
-    icon: ReactLight,
-    keywords: ["react"],
-    buildCmd: "pnpm run build",
-    startCmd: "pnpm dlx serve build",
-    installCmd: "pnpm install",
-    port: 3000,
-  },
-  {
-    id: "remix",
-    name: "Remix",
-    color: "text-[#121212]",
-    icon: RemixDark,
-    keywords: ["remix"],
-    buildCmd: "pnpm run build",
-    startCmd: "pnpm start",
-    installCmd: "pnpm install",
-    port: 3000,
-  },
-  {
-    id: "bun",
-    name: "Bun",
-    color: "text-[#fbf0df]",
-    icon: Bun,
-    keywords: ["bun"],
-    buildCmd: "bun run build",
-    startCmd: "bun run start",
-    installCmd: "bun install",
-    port: 3000,
-  },
-  {
-    id: "node",
-    name: "Node.js Server",
-    color: "text-[#68a063]",
-    icon: Nodejs,
-    keywords: ["node", "express", "fastify", "nestjs"],
-    buildCmd: "",
-    startCmd: "node server.js",
-    installCmd: "pnpm install",
-    port: 3000,
-  },
-  {
-    id: "deno",
-    name: "Deno",
-    color: "text-[#70ffaf]",
-    icon: DenoDark,
-    keywords: ["deno"],
-    buildCmd: "deno task build",
-    startCmd: "deno task start",
-    installCmd: "deno cache deps.ts",
-    port: 8000,
-  },
-  {
-    id: "django",
-    name: "Django",
-    color: "text-[#44b78b]",
-    icon: Django,
-    keywords: ["django"],
-    buildCmd: "",
-    startCmd: "python manage.py runserver 0.0.0.0:$PORT",
-    installCmd: "",
-    port: 8000,
-  },
-  {
-    id: "flask",
-    name: "Flask",
-    color: "text-[#f2f2f2]",
-    icon: FlaskDark,
-    keywords: ["flask"],
-    buildCmd: "",
-    startCmd: "python app.py",
-    installCmd: "",
-    port: 5000,
-  },
-  {
-    id: "fastapi",
-    name: "FastAPI",
-    color: "text-[#009688]",
-    icon: Fastapi,
-    keywords: ["fastapi"],
-    buildCmd: "",
-    startCmd: "uvicorn main:app --host 0.0.0.0 --port $PORT",
-    installCmd: "",
-    port: 8000,
-  },
-  {
-    id: "python",
-    name: "Python",
-    color: "text-[#3776ab]",
-    icon: Python,
-    keywords: ["python"],
-    buildCmd: "",
-    startCmd: "python app.py",
-    installCmd: "",
-    port: 5000,
-  },
-  {
-    id: "go",
-    name: "Go",
-    color: "text-[#00add8]",
-    icon: Golang,
-    keywords: ["go", "golang"],
-    buildCmd: "go build -o app",
-    startCmd: "./app",
-    installCmd: "go mod download",
-    port: 8080,
-  },
-  {
-    id: "php",
-    name: "PHP",
-    color: "text-[#777bb4]",
-    icon: PhpDark,
-    keywords: ["php", "laravel", "symfony"],
-    buildCmd: "",
-    startCmd: "php -S 0.0.0.0:$PORT",
-    installCmd: "composer install",
-    port: 8000,
-  },
-  {
-    id: "rust",
-    name: "Rust",
-    color: "text-[#dea584]",
-    icon: RustDark,
-    keywords: ["rust"],
-    buildCmd: "cargo build --release",
-    startCmd: "./target/release/app",
-    installCmd: "cargo fetch",
-    port: 8080,
-  },
-  {
-    id: "ruby",
-    name: "Ruby on Rails",
-    color: "text-[#cc342d]",
-    icon: Ruby,
-    keywords: ["ruby", "rails", "sinatra"],
-    buildCmd: "",
-    startCmd: "bundle exec rails server -b 0.0.0.0 -p $PORT",
-    installCmd: "bundle install",
-    port: 3000,
-  },
-  {
-    id: "elixir",
-    name: "Elixir / Phoenix",
-    color: "text-[#7e66a0]",
-    icon: null as FrameworkIcon | null,
-    keywords: ["elixir", "phoenix"],
-    buildCmd: "mix assets.deploy",
-    startCmd: "mix phx.server",
-    installCmd: "mix deps.get",
-    port: 4000,
-  },
-  {
-    id: "java",
-    name: "Java (Spring Boot)",
-    color: "text-[#e76f00]",
-    icon: Java,
-    keywords: ["java", "spring", "springboot"],
-    buildCmd: "./mvnw package -DskipTests",
-    startCmd: "java -jar target/*.jar",
-    installCmd: "",
-    port: 8080,
-  },
-  {
-    id: "dotnet",
-    name: ".NET / ASP.NET Core",
-    color: "text-[#512bd4]",
-    icon: Microsoft,
-    keywords: ["dotnet", "aspnet", "csharp", "netcore"],
-    buildCmd: "dotnet publish -c Release -o out",
-    startCmd: "dotnet out/*.dll",
-    installCmd: "",
-    port: 8080,
-  },
-  {
-    id: "staticfile",
-    name: "Static Site",
-    color: "text-[#00d8ff]",
-    icon: null as FrameworkIcon | null,
-    keywords: ["static", "jekyll", "hugo", "eleventy", "gatsby"],
-    buildCmd: "",
-    // Leave the start command empty so Nixpacks' native staticfile provider
-    // serves the files with nginx (bound to $PORT). The image has no Python, so
-    // a "python -m http.server" command here would fail at runtime.
-    startCmd: "",
-    installCmd: "",
-    port: 8080,
-  },
-]
+import { Textarea } from "@/components/ui/textarea"
 
 // Styled fallback for frameworks without svgl assets (Elixir/Phoenix only)
 function FallbackIcon({ label }: { label: string; color: string }) {
@@ -299,345 +48,6 @@ function FallbackIcon({ label }: { label: string; color: string }) {
       {label.slice(0, 2).toUpperCase()}
     </div>
   )
-}
-
-// Fallback: detect framework from repo name / description keywords
-function detectFrameworkByName(repo: GitHubRepo | null): (typeof FRAMEWORKS)[0] | null {
-  if (!repo) return null
-  const name = repo.name.toLowerCase()
-  const desc = (repo.description || "").toLowerCase()
-  const text = `${name} ${desc}`
-
-  for (const fw of FRAMEWORKS) {
-    for (const kw of fw.keywords) {
-      if (text.includes(kw)) return fw
-    }
-  }
-  return null
-}
-
-type Framework = (typeof FRAMEWORKS)[0]
-
-// A detection match plus how confident we are in it. "high" means a
-// framework-specific signal (config file, framework dependency, language
-// manifest) was found; "low" means we only saw a generic package.json with no
-// recognizable framework and fell back to a bare Node.js server.
-type DirMatch = { framework: Framework; confidence: "high" | "low" }
-
-// Where the framework was found, so callers can pre-fill the build root dir.
-type DetectionResult = { framework: Framework; rootDir: string }
-
-const fw = (id: string): Framework | null => FRAMEWORKS.find((f) => f.id === id) || null
-
-// safeContents lists a directory, returning [] instead of throwing so probing
-// non-existent subdirectories is cheap and harmless.
-async function safeContents(
-  repo: GitHubRepo,
-  branch: string,
-  dir: string,
-): Promise<GitHubContent[]> {
-  try {
-    return await api.git.contents(repo.full_name, branch, dir)
-  } catch {
-    return []
-  }
-}
-
-// detectInDir inspects a single directory (dir === "" is the repo root) and
-// returns the best framework match for it, or null if nothing is recognized.
-async function detectInDir(
-  repo: GitHubRepo,
-  branch: string,
-  dir: string,
-  contents: GitHubContent[],
-): Promise<DirMatch | null> {
-  const fileNames = new Set(contents.map((c) => c.name.toLowerCase()))
-  const join = (name: string) => (dir ? `${dir}/${name}` : name)
-  const high = (id: string): DirMatch | null => {
-    const f = fw(id)
-    return f ? { framework: f, confidence: "high" } : null
-  }
-
-  // 1. Config-file detection (most accurate when present).
-  if (
-    fileNames.has("next.config.js") ||
-    fileNames.has("next.config.ts") ||
-    fileNames.has("next.config.mjs") ||
-    fileNames.has("next.config.cjs")
-  )
-    return high("nextjs")
-  if (fileNames.has("svelte.config.js") || fileNames.has("svelte.config.ts"))
-    return high("svelte")
-  if (
-    fileNames.has("astro.config.mjs") ||
-    fileNames.has("astro.config.js") ||
-    fileNames.has("astro.config.ts")
-  )
-    return high("astro")
-  if (fileNames.has("remix.config.js") || fileNames.has("remix.config.mjs"))
-    return high("remix")
-  if (
-    fileNames.has("vite.config.js") ||
-    fileNames.has("vite.config.ts") ||
-    fileNames.has("vite.config.mjs")
-  )
-    return high("vite")
-
-  // 2. package.json: dependencies first, then scripts. Next.js (and most
-  // meta-frameworks) do NOT require a config file, so the dependency/script
-  // signal is what actually identifies them.
-  if (fileNames.has("package.json")) {
-    try {
-      const pkgFile = await api.git.file(repo.full_name, branch, join("package.json"))
-      const pkg = JSON.parse(pkgFile.content || "{}")
-      const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }
-      const depNames = Object.keys(deps).map((d) => d.toLowerCase())
-      const has = (n: string) => depNames.includes(n)
-
-      // Meta-frameworks are checked before plain Vite, because SvelteKit /
-      // Astro / Remix all list Vite as a dependency too.
-      if (has("next")) return high("nextjs")
-      if (has("@sveltejs/kit")) return high("svelte")
-      if (has("astro")) return high("astro")
-      if (has("@remix-run/dev") || has("@remix-run/react") || has("remix"))
-        return high("remix")
-      if (has("react-scripts")) return high("react")
-      if (has("vite")) return high("vite")
-      if (
-        has("@nestjs/core") ||
-        has("@nestjs/cli") ||
-        has("express") ||
-        has("fastify") ||
-        has("koa") ||
-        has("@hapi/hapi")
-      )
-        return high("node")
-
-      // Dependency hoisting in monorepos can strip the framework dep from a
-      // workspace's own package.json, so fall back to scanning its scripts.
-      const scripts = (pkg.scripts || {}) as Record<string, string>
-      const scriptText = Object.values(scripts).join(" ").toLowerCase()
-      if (/(^|[\s&|;])next(\s|$|\s+(build|start|dev))/.test(scriptText))
-        return high("nextjs")
-      if (/(^|[\s&|;])astro(\s|$)/.test(scriptText)) return high("astro")
-      if (/(^|[\s&|;])remix(\s|$)/.test(scriptText)) return high("remix")
-      if (/(^|[\s&|;])vite(\s|$)/.test(scriptText)) return high("vite")
-
-      // Generic Node project — low confidence so a stronger subdir match wins.
-      if (depNames.length > 0 || Object.keys(scripts).length > 0) {
-        const f = fw("node")
-        return f ? { framework: f, confidence: "low" } : null
-      }
-    } catch {
-      // fall through to other language checks
-    }
-  }
-
-  // 3. Python.
-  if (fileNames.has("requirements.txt")) {
-    const reqFile = await api.git.file(repo.full_name, branch, join("requirements.txt"))
-    const content = (reqFile.content || "").toLowerCase()
-    if (content.includes("django")) return high("django")
-    if (content.includes("flask")) return high("flask")
-    if (content.includes("fastapi")) return high("fastapi")
-    return high("python")
-  }
-  if (fileNames.has("pyproject.toml")) {
-    const pyFile = await api.git.file(repo.full_name, branch, join("pyproject.toml"))
-    const content = (pyFile.content || "").toLowerCase()
-    if (content.includes("django")) return high("django")
-    if (content.includes("flask")) return high("flask")
-    if (content.includes("fastapi")) return high("fastapi")
-    return high("python")
-  }
-
-  // 4. Other languages.
-  if (fileNames.has("go.mod")) return high("go")
-  if (fileNames.has("cargo.toml")) return high("rust")
-  if (fileNames.has("composer.json")) return high("php")
-  if (fileNames.has("gemfile")) return high("ruby")
-  if (fileNames.has("mix.exs")) return high("elixir")
-  if (fileNames.has("pom.xml") || fileNames.has("build.gradle")) return high("java")
-  if ([...fileNames].some((f) => f.endsWith(".csproj") || f.endsWith(".sln")))
-    return high("dotnet")
-
-  // 5. Bun / 6. Deno.
-  if (fileNames.has("bun.lockb")) return high("bun")
-  if (fileNames.has("deno.json") || fileNames.has("deno.jsonc")) return high("deno")
-
-  // 7. Static site — a plain index.html with no package.json or other language
-  // manifest. This is checked last so any real framework/manifest wins first;
-  // reaching here means the directory is just pre-built static files, which
-  // Nixpacks serves via its native nginx provider.
-  if (fileNames.has("index.html") || fileNames.has("index.htm"))
-    return high("staticfile")
-
-  return null
-}
-
-// collectSubdirCandidates returns subdirectories worth probing for the "real"
-// app in a full-stack / monorepo layout. It combines npm/yarn/pnpm workspace
-// globs from the root package.json with a curated list of common locations,
-// keeping only paths whose top-level segment actually exists at the root.
-async function collectSubdirCandidates(
-  repo: GitHubRepo,
-  branch: string,
-  rootContents: GitHubContent[],
-): Promise<string[]> {
-  const rootDirs = new Set(
-    rootContents.filter((c) => c.type === "dir").map((c) => c.name.toLowerCase()),
-  )
-  const out: string[] = []
-  const push = (raw: string) => {
-    const norm = raw.replace(/^\.\//, "").replace(/\/+$/, "").trim()
-    if (norm && !out.includes(norm)) out.push(norm)
-  }
-
-  // Expand workspace patterns from the root package.json (best-effort).
-  if (rootContents.some((c) => c.name.toLowerCase() === "package.json")) {
-    try {
-      const pkgFile = await api.git.file(repo.full_name, branch, "package.json")
-      const pkg = JSON.parse(pkgFile.content || "{}")
-      let patterns: string[] = []
-      if (Array.isArray(pkg.workspaces)) patterns = pkg.workspaces
-      else if (pkg.workspaces && Array.isArray(pkg.workspaces.packages))
-        patterns = pkg.workspaces.packages
-
-      for (const pat of patterns) {
-        if (typeof pat !== "string") continue
-        if (pat.endsWith("/*")) {
-          const base = pat.slice(0, -2)
-          if (base && !base.includes("*") && rootDirs.has(base.toLowerCase())) {
-            const children = await safeContents(repo, branch, base)
-            for (const ch of children) if (ch.type === "dir") push(`${base}/${ch.name}`)
-          }
-        } else if (!pat.includes("*")) {
-          push(pat)
-        }
-      }
-    } catch {
-      // ignore malformed package.json
-    }
-  }
-
-  // Curated common locations for the deployable frontend.
-  for (const c of ["frontend", "client", "web", "app", "www", "ui", "site"]) push(c)
-  for (const c of ["apps/web", "apps/frontend", "apps/app", "apps/client", "packages/web", "packages/app"])
-    push(c)
-
-  // Only probe paths whose first segment exists at the root, capped for safety.
-  return out.filter((p) => rootDirs.has(p.split("/")[0].toLowerCase())).slice(0, 12)
-}
-
-// isWorkspaceRoot reports whether the repo root defines a package-manager
-// workspace (pnpm-workspace.yaml, or a "workspaces" field in package.json).
-// For such monorepos the build MUST run from the repo root — that's where the
-// lockfile, the "packageManager" field, and workspace/catalog resolution live.
-function isWorkspaceRoot(
-  rootContents: GitHubContent[],
-  rootPkg: Record<string, unknown> | null,
-): boolean {
-  const names = new Set(rootContents.map((c) => c.name.toLowerCase()))
-  if (names.has("pnpm-workspace.yaml") || names.has("pnpm-workspace.yml")) return true
-  if (rootPkg) {
-    const ws = rootPkg.workspaces
-    if (Array.isArray(ws) && ws.length > 0) return true
-    if (ws && typeof ws === "object" && Array.isArray((ws as { packages?: unknown }).packages))
-      return true
-  }
-  return false
-}
-
-// detectFrameworkByFiles scans the repo root and, for full-stack/monorepo
-// layouts, common subdirectories to find the most specific framework. It
-// returns the matched framework together with the directory it was found in so
-// the caller can pre-fill the build root.
-//
-// Key rule: if the repo is a workspace monorepo, the build root stays at the
-// repo root even when the app lives in a subdirectory, because the package
-// manager (pnpm/yarn/npm workspaces) resolves dependencies, catalogs, and the
-// lockfile from the root. Only NON-workspace repos (e.g. an independent API at
-// the root + a separate frontend dir) build from the subdirectory.
-async function detectFrameworkByFiles(
-  repo: GitHubRepo,
-  branch: string,
-): Promise<DetectionResult | null> {
-  try {
-    console.log("[FrameworkScan] scanning:", repo.full_name, "branch:", branch)
-    const rootContents = await safeContents(repo, branch, "")
-    console.log("[FrameworkScan] root contents:", rootContents.map((c) => c.name))
-
-    // Fetch the root package.json once to detect workspaces.
-    let rootPkg: Record<string, unknown> | null = null
-    if (rootContents.some((c) => c.name.toLowerCase() === "package.json")) {
-      try {
-        const f = await api.git.file(repo.full_name, branch, "package.json")
-        rootPkg = JSON.parse(f.content || "{}")
-      } catch {
-        rootPkg = null
-      }
-    }
-    const monorepo = isWorkspaceRoot(rootContents, rootPkg)
-
-    const rootMatch = await detectInDir(repo, branch, "", rootContents)
-
-    // A confident, framework-specific root match wins outright. We only keep
-    // probing when the root is unrecognized or resolves to a bare Node server,
-    // which is the classic full-stack case (e.g. an API at the root with the
-    // Next.js app in /frontend).
-    if (rootMatch && rootMatch.confidence === "high" && rootMatch.framework.id !== "node") {
-      return { framework: rootMatch.framework, rootDir: "" }
-    }
-
-    const candidates = await collectSubdirCandidates(repo, branch, rootContents)
-    for (const dir of candidates) {
-      const contents = await safeContents(repo, branch, dir)
-      if (contents.length === 0) continue
-      const sub = await detectInDir(repo, branch, dir, contents)
-      if (sub && sub.confidence === "high" && sub.framework.id !== "node") {
-        // In a monorepo, build from the root (workspace tooling targets the
-        // app via its own scripts); otherwise build from the app's subdir.
-        const rootDir = monorepo ? "" : dir
-        console.log(
-          "[FrameworkScan] matched",
-          sub.framework.id,
-          "in subdir:",
-          dir,
-          monorepo ? "(monorepo → build from root)" : "(build from subdir)",
-        )
-        return { framework: sub.framework, rootDir }
-      }
-    }
-
-    // Nothing stronger found — return the root match (e.g. the Node server).
-    if (rootMatch) return { framework: rootMatch.framework, rootDir: "" }
-  } catch (err) {
-    console.error("[FrameworkScan] error:", err)
-  }
-
-  return null
-}
-
-// detectFrameworkForDir detects the framework for one specific directory only
-// (no monorepo/subdir traversal). It's used when the user manually changes the
-// build Root Directory, because the repo root and a subdirectory can be
-// completely different stacks (e.g. a Go API at the root with a Next.js app in
-// /frontend). Returns null when the directory has no recognizable framework.
-async function detectFrameworkForDir(
-  repo: GitHubRepo,
-  branch: string,
-  dir: string,
-): Promise<Framework | null> {
-  const normalized = dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()
-  try {
-    const contents = await safeContents(repo, branch, normalized)
-    if (contents.length === 0) return null
-    const match = await detectInDir(repo, branch, normalized, contents)
-    return match ? match.framework : null
-  } catch (err) {
-    console.error("[FrameworkScan] per-dir error:", err)
-    return null
-  }
 }
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
@@ -680,6 +90,10 @@ export default function DeployPage() {
   // ── Build method (nixpacks | dockerfile) ────────────────────────────────────
   const [deployBuildMethod, setDeployBuildMethod] = useState<"nixpacks" | "dockerfile">("nixpacks")
   const [deployDockerfilePath, setDeployDockerfilePath] = useState("Dockerfile")
+  // Whether the selected root directory actually contains a Dockerfile. The
+  // build-method selector is only shown when this is true; otherwise Nixpacks
+  // is the only option and we don't clutter the UI with a choice.
+  const [dockerfileAvailable, setDockerfileAvailable] = useState(false)
 
   // ── Advanced config (resource limits, domains, volumes, health, auto-deploy) ─
   const [deployMemory, setDeployMemory] = useState("")
@@ -767,6 +181,24 @@ export default function DeployPage() {
     }
   }
 
+  // Probe the chosen directory for a Dockerfile. The build-method selector is
+  // only revealed when one exists; otherwise we silently force Nixpacks.
+  const checkDockerfile = async (repo: GitHubRepo, branch: string, dir: string) => {
+    try {
+      const found = await findDockerfile(repo, branch, dir)
+      if (found) {
+        setDockerfileAvailable(true)
+        setDeployDockerfilePath(found)
+      } else {
+        setDockerfileAvailable(false)
+        setDeployBuildMethod("nixpacks")
+      }
+    } catch {
+      setDockerfileAvailable(false)
+      setDeployBuildMethod("nixpacks")
+    }
+  }
+
   const handleRepoSelect = (repoFullName: string) => {
     const repo = repos.find((r) => r.full_name === repoFullName) || null
     setSelectedRepo(repo)
@@ -804,10 +236,12 @@ export default function DeployPage() {
             setIsDetectingFramework(true)
             const detected = await detectFrameworkByFiles(repo, defaultBranch)
             setIsDetectingFramework(false)
+            const dir = detected?.rootDir || ""
             if (detected) {
               applyDetectedFramework(detected.framework)
               if (detected.rootDir) setDeployRootDir(detected.rootDir)
             }
+            await checkDockerfile(repo, defaultBranch, dir)
           }
         })
         .catch((err) => {
@@ -890,13 +324,15 @@ export default function DeployPage() {
           // Back to repo root: rerun the full scan (handles monorepos/subdirs).
           const detected = await detectFrameworkByFiles(selectedRepo, selectedBranch)
           applyDetectedFramework(detected ? detected.framework : null)
-          return
+        } else {
+          const fwForDir = await detectFrameworkForDir(selectedRepo, selectedBranch, normalized)
+          // Only overwrite the build config when we positively recognize the
+          // directory's stack; otherwise leave the current commands untouched so
+          // we don't clobber a user's manual edits with an empty guess.
+          if (fwForDir) applyDetectedFramework(fwForDir)
         }
-        const fwForDir = await detectFrameworkForDir(selectedRepo, selectedBranch, normalized)
-        // Only overwrite the build config when we positively recognize the
-        // directory's stack; otherwise leave the current commands untouched so
-        // we don't clobber a user's manual edits with an empty guess.
-        if (fwForDir) applyDetectedFramework(fwForDir)
+        // Re-check Dockerfile presence for the chosen directory.
+        await checkDockerfile(selectedRepo, selectedBranch, normalized)
       } finally {
         setIsDetectingFramework(false)
       }
@@ -998,10 +434,12 @@ export default function DeployPage() {
         setIsDetectingFramework(true)
         const detected = await detectFrameworkByFiles(repoObj, defaultBranch)
         setIsDetectingFramework(false)
+        const dir = detected?.rootDir || ""
         if (detected) {
           applyDetectedFramework(detected.framework)
           if (detected.rootDir) setDeployRootDir(detected.rootDir)
         }
+        await checkDockerfile(repoObj, defaultBranch, dir)
       }
     } catch (err) {
       setErrorMsg(`Failed to fetch branches: ${err instanceof Error ? err.message : "Unknown error"}`)
@@ -1077,7 +515,7 @@ export default function DeployPage() {
   }
 
   return (
-    <main className="relative min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
+    <main className="relative h-dvh bg-background text-foreground flex flex-col items-center overflow-y-auto p-4">
       {/* Close (desktop only) — return to the dashboard */}
       <button
         onClick={() => router.push("/")}
@@ -1087,7 +525,7 @@ export default function DeployPage() {
         <XIcon className="h-4 w-4" />
       </button>
 
-      <div className="relative w-full max-w-2xl">
+      <div className="relative my-auto w-full max-w-2xl shrink-0 py-4">
         {/* Step Indicator */}
         <div className="flex items-center mb-8 px-2">
           {[
@@ -1396,25 +834,25 @@ export default function DeployPage() {
                   </div>
                 ) : null}
 
-                {/* Build method selector */}
+                {/* Build method selector — only shown when the chosen directory
+                    actually contains a Dockerfile; otherwise Nixpacks is used. */}
+                {dockerfileAvailable && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Build Method
                   </Label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {[
                       { id: "nixpacks" as const, label: "Nixpacks", desc: "Auto-detect", icon: <Nix className="h-5 w-5 text-foreground" /> },
-                      { id: "dockerfile" as const, label: "Dockerfile", desc: "Your Dockerfile", icon: <Docker className="h-5 w-5" /> },
-                      { id: "compose" as const, label: "Compose", desc: "Coming soon", icon: <Docker className="h-5 w-5 opacity-60" />, disabled: true },
+                      { id: "dockerfile" as const, label: "Dockerfile", desc: "Use Dockerfile", icon: <Docker className="h-5 w-5" /> },
                     ].map((opt) => {
                       const active = deployBuildMethod === opt.id
                       return (
                         <button
                           key={opt.id}
                           type="button"
-                          disabled={opt.disabled}
-                          onClick={() => !opt.disabled && setDeployBuildMethod(opt.id as "nixpacks" | "dockerfile")}
-                          className={`flex flex-col items-start gap-1.5 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          onClick={() => setDeployBuildMethod(opt.id)}
+                          className={`flex flex-col items-start gap-1.5 rounded-lg border px-3 py-2.5 text-left transition-colors ${
                             active
                               ? "border-primary bg-primary/5"
                               : "border-border hover:border-primary/40 hover:bg-muted/30"
@@ -1430,6 +868,7 @@ export default function DeployPage() {
                     })}
                   </div>
                 </div>
+                )}
 
                 {deployBuildMethod === "dockerfile" && (
                   <div className="space-y-1">
@@ -1648,7 +1087,7 @@ export default function DeployPage() {
                 {/* Bulk paste textarea */}
                 {showBulkEnv && (
                   <div className="space-y-2 animate-in fade-in-50">
-                    <textarea
+                    <Textarea
                       value={bulkEnvText}
                       onChange={(e) => setBulkEnvText(e.target.value)}
                       placeholder={`KEY=value\nDATABASE_URL="postgres://..."\n# comments are ignored\nexport API_KEY=secret`}

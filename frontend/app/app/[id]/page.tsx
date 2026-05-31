@@ -13,6 +13,13 @@ import { Badge } from "@/components/ui/badge"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { AppDomains } from "@/components/app-domains"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -22,10 +29,18 @@ import {
   AlertDialogClose,
 } from "@/components/ui/alert-dialog"
 import { api, createRuntimeLogsWs } from "@/lib/api"
-import type { App, DeploymentRecord, LogEntry } from "@/lib/types"
+import type { App, DeploymentRecord, LogEntry, GitHubContent } from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
+import { Nix } from "@/components/ui/svgs/nix"
+import {
+  makeRepoRef,
+  detectFrameworkByFiles,
+  detectFrameworkForDir,
+  findDockerfile,
+  type Framework,
+} from "@/lib/framework-detection"
 import dynamic from "next/dynamic"
 
 // xterm.js touches the DOM on import, so load the terminal client-side only.
@@ -56,6 +71,8 @@ const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch"
 const GitCommitIcon = (props: IconProps) => <NucleoIcon {...props} name="git-commit" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
+const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
+const ChevronRightIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-right" />
 
 export type AppTab = "overview" | "config" | "domains" | "logs" | "terminal" | "deployments"
 
@@ -108,6 +125,21 @@ function AppDetailPage() {
   const [startCommand, setStartCommand] = useState("")
   const [installCommand, setInstallCommand] = useState("")
   const [portOverride, setPortOverride] = useState("")
+  const [buildMethod, setBuildMethod] = useState<"nixpacks" | "dockerfile">("nixpacks")
+  const [dockerfilePath, setDockerfilePath] = useState("Dockerfile")
+  const [dockerfileAvailable, setDockerfileAvailable] = useState(false)
+
+  // ── Framework detection (for the Root Directory field) ──────────────────────
+  const [detectedFramework, setDetectedFramework] = useState<Framework | null>(null)
+  const [isDetectingFramework, setIsDetectingFramework] = useState(false)
+  const rootDirDetectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Folder browser ──────────────────────────────────────────────────────────
+  const [showFolderBrowser, setShowFolderBrowser] = useState(false)
+  const [folderBrowserPath, setFolderBrowserPath] = useState("")
+  const [folderBrowserContents, setFolderBrowserContents] = useState<GitHubContent[]>([])
+  const [folderBrowserLoading, setFolderBrowserLoading] = useState(false)
+  const [folderBrowserBreadcrumbs, setFolderBrowserBreadcrumbs] = useState<string[]>([])
 
   // ── Logs ───────────────────────────────────────────────────────────────────
   const [logs, setLogs] = useState<LogEntry[]>([])
@@ -141,6 +173,11 @@ function AppDetailPage() {
         setStartCommand(found.startCommand || "")
         setInstallCommand(found.installCommand || "")
         setPortOverride(found.portOverride ? String(found.portOverride) : "")
+        setBuildMethod(found.buildMethod === "dockerfile" ? "dockerfile" : "nixpacks")
+        setDockerfilePath(found.dockerfilePath || "Dockerfile")
+        // If the app is already configured to use a Dockerfile, surface the
+        // selector immediately. Otherwise we probe the repo below to decide.
+        if (found.buildMethod === "dockerfile") setDockerfileAvailable(true)
 
         const loadedVars: { key: string; value: string }[] = []
         if (found.envVars) {
@@ -160,6 +197,19 @@ function AppDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
   }, [fetchData])
+
+  // One-time probe for a Dockerfile in the app's current root dir, so the build
+  // method selector appears for repos that have a Dockerfile even if the app is
+  // currently built with Nixpacks. Runs once after the repo/branch load.
+  const dockerfileProbed = useRef(false)
+  useEffect(() => {
+    if (dockerfileProbed.current) return
+    if (!gitRepo || !branch) return
+    dockerfileProbed.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    checkDockerfile(rootDir || "")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gitRepo, branch])
 
   // Poll while building
   useEffect(() => {
@@ -339,6 +389,8 @@ function AppDetailPage() {
         startCommand,
         installCommand,
         portOverride: portOverride ? parseInt(portOverride, 10) : 0,
+        buildMethod,
+        dockerfilePath: buildMethod === "dockerfile" ? dockerfilePath.trim() || "Dockerfile" : undefined,
       })
       showToast("Settings Saved", "Application configuration updated.")
       fetchData()
@@ -348,6 +400,116 @@ function AppDetailPage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  // ── Framework detection + folder browser (mirrors the deploy wizard) ────────
+  const applyDetectedFramework = (fwk: Framework | null) => {
+    setDetectedFramework(fwk)
+    if (fwk) {
+      setBuildCommand(fwk.buildCmd)
+      setStartCommand(fwk.startCmd)
+      setInstallCommand(fwk.installCmd)
+      setPortOverride(String(fwk.port))
+    }
+  }
+
+  // Probe the chosen directory for a Dockerfile. The selector is only shown when
+  // one exists; otherwise Nixpacks is forced.
+  const checkDockerfile = async (dir: string) => {
+    if (!gitRepo || !branch) return
+    try {
+      const found = await findDockerfile(makeRepoRef(gitRepo), branch, dir)
+      if (found) {
+        setDockerfileAvailable(true)
+        setDockerfilePath((p) => p || found)
+      } else {
+        setDockerfileAvailable(false)
+        setBuildMethod("nixpacks")
+      }
+    } catch {
+      setDockerfileAvailable(false)
+      setBuildMethod("nixpacks")
+    }
+  }
+
+  const redetectForRootDir = useCallback(
+    async (dir: string) => {
+      if (!gitRepo || !branch) return
+      const repo = makeRepoRef(gitRepo)
+      const normalized = dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()
+      setIsDetectingFramework(true)
+      try {
+        if (!normalized || normalized === ".") {
+          const detected = await detectFrameworkByFiles(repo, branch)
+          if (detected) applyDetectedFramework(detected.framework)
+        } else {
+          const fwForDir = await detectFrameworkForDir(repo, branch, normalized)
+          if (fwForDir) applyDetectedFramework(fwForDir)
+        }
+        // Re-check Dockerfile presence for the chosen directory.
+        await checkDockerfile(normalized)
+      } finally {
+        setIsDetectingFramework(false)
+      }
+    },
+    [gitRepo, branch],
+  )
+
+  const handleRootDirChange = (value: string) => {
+    setRootDir(value)
+    if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+    rootDirDetectTimer.current = setTimeout(() => redetectForRootDir(value), 600)
+  }
+
+  const loadFolderContents = useCallback(
+    async (path: string) => {
+      if (!gitRepo || !branch) return
+      setFolderBrowserLoading(true)
+      try {
+        const repo = makeRepoRef(gitRepo)
+        const data = await api.git.contents(repo.full_name, branch, path)
+        setFolderBrowserContents(data ?? [])
+        setFolderBrowserPath(path)
+      } catch (err) {
+        console.error("Failed to load folder contents:", err)
+        setFolderBrowserContents([])
+      } finally {
+        setFolderBrowserLoading(false)
+      }
+    },
+    [gitRepo, branch],
+  )
+
+  const openFolderBrowser = async () => {
+    if (!gitRepo || !branch) return
+    setShowFolderBrowser(true)
+    setFolderBrowserPath("")
+    setFolderBrowserBreadcrumbs([])
+    await loadFolderContents("")
+  }
+
+  const navigateIntoFolder = (folderName: string) => {
+    const newPath = folderBrowserPath ? `${folderBrowserPath}/${folderName}` : folderName
+    setFolderBrowserBreadcrumbs((prev) => [...prev, folderName])
+    loadFolderContents(newPath)
+  }
+
+  const navigateToBreadcrumb = (index: number) => {
+    if (index === -1) {
+      setFolderBrowserBreadcrumbs([])
+      loadFolderContents("")
+    } else {
+      const newCrumbs = folderBrowserBreadcrumbs.slice(0, index + 1)
+      setFolderBrowserBreadcrumbs(newCrumbs)
+      loadFolderContents(newCrumbs.join("/"))
+    }
+  }
+
+  const selectFolder = (path: string) => {
+    setRootDir(path)
+    setShowFolderBrowser(false)
+    if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+    redetectForRootDir(path)
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -635,12 +797,48 @@ function AppDetailPage() {
                   <Input value={branch} onChange={(e) => setBranch(e.target.value)} className="h-9 text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Root Directory
-                  </Label>
-                  <Input value={rootDir} onChange={(e) => setRootDir(e.target.value)} className="h-9 text-sm" />
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Root Directory
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={openFolderBrowser}
+                      disabled={!gitRepo || !branch}
+                      className="text-[10px] text-primary hover:underline disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      Browse…
+                    </button>
+                  </div>
+                  <Input
+                    value={rootDir}
+                    onChange={(e) => handleRootDirChange(e.target.value)}
+                    placeholder="./"
+                    className="h-9 text-sm"
+                  />
                 </div>
               </div>
+
+              {(isDetectingFramework || detectedFramework) && (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  {isDetectingFramework ? (
+                    <>
+                      <RefreshIcon className="h-4 w-4 animate-spin text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground">Scanning directory for a framework…</p>
+                    </>
+                  ) : detectedFramework ? (
+                    <>
+                      {detectedFramework.icon ? (
+                        <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                      ) : null}
+                      <p className="text-xs text-foreground">
+                        {detectedFramework.name} detected{" "}
+                        <span className="text-muted-foreground">— commands updated below</span>
+                      </p>
+                    </>
+                  ) : null}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -653,15 +851,62 @@ function AppDetailPage() {
                     className="h-9 text-sm"
                   />
                 </div>
-                 <div className="space-y-1">
-                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Build Pack</Label>
-                   <div className="h-9 px-2.5 bg-muted/40 border border-border rounded flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                     <Docker className="h-4 w-4 shrink-0" />
-                     Nixpacks → Docker
-                   </div>
-                 </div>
               </div>
 
+              {/* Build method selector — only when a Dockerfile exists in the
+                  chosen directory; otherwise Nixpacks is used. */}
+              {dockerfileAvailable && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Build Method
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "nixpacks" as const, label: "Nixpacks", desc: "Auto-detect", icon: <Nix className="h-5 w-5 text-foreground" /> },
+                    { id: "dockerfile" as const, label: "Dockerfile", desc: "Use Dockerfile", icon: <Docker className="h-5 w-5" /> },
+                  ].map((opt) => {
+                    const active = buildMethod === opt.id
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setBuildMethod(opt.id)}
+                        className={`flex flex-col items-start gap-1.5 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                          active ? "border-primary bg-primary/5" : "border-border hover:border-primary/40 hover:bg-muted/30"
+                        }`}
+                      >
+                        {opt.icon}
+                        <span className="flex flex-col">
+                          <span className="text-sm font-semibold text-foreground">{opt.label}</span>
+                          <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              )}
+
+              {dockerfileAvailable && buildMethod === "dockerfile" && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Dockerfile Path
+                  </Label>
+                  <Input
+                    value={dockerfilePath}
+                    onChange={(e) => setDockerfilePath(e.target.value)}
+                    placeholder="Dockerfile"
+                    className="h-9 text-sm font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Relative to the root directory. Install/build/start commands are ignored — your
+                    Dockerfile controls the build. Make sure it exposes the app on the port above.
+                  </p>
+                </div>
+              )}
+
+              {buildMethod === "nixpacks" && (
+              <>
               <div className="space-y-1">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Install Command
@@ -687,6 +932,8 @@ function AppDetailPage() {
                   <Input value={startCommand} onChange={(e) => setStartCommand(e.target.value)} className="h-9 text-sm" />
                 </div>
               </div>
+              </>
+              )}
 
               <div className="space-y-3 pt-2 border-t border-border">
                 <div className="flex items-center justify-between">
@@ -1142,6 +1389,105 @@ function AppDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Folder Browser Modal */}
+      <Dialog open={showFolderBrowser} onOpenChange={setShowFolderBrowser}>
+        <DialogContent className="sm:max-w-md max-h-[70vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold">Select Root Directory</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Choose the directory containing your project files.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground overflow-x-auto pb-1 px-6">
+            <button
+              className={`hover:text-foreground flex items-center gap-0.5 shrink-0 ${folderBrowserPath === "" ? "font-medium text-foreground" : ""}`}
+              onClick={() => navigateToBreadcrumb(-1)}
+            >
+              <NucleoIcon name="house" className="h-3 w-3" />
+              Root
+            </button>
+            {folderBrowserBreadcrumbs.map((crumb, i) => (
+              <React.Fragment key={i}>
+                <ChevronRightIcon className="h-3 w-3 shrink-0" />
+                <button
+                  className={`hover:text-foreground shrink-0 ${i === folderBrowserBreadcrumbs.length - 1 ? "font-medium text-foreground" : ""}`}
+                  onClick={() => navigateToBreadcrumb(i)}
+                >
+                  {crumb}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Current selection indicator */}
+          {folderBrowserPath && (
+            <div className="text-xs px-2 mb-2 py-1 mx-6 bg-primary/5 border border-primary/20 rounded text-primary font-medium">
+              Selected: ./{folderBrowserPath}
+            </div>
+          )}
+
+          {/* Folder list */}
+          <div className="flex-1 mb-2 overflow-y-auto border border-border rounded-md mx-6">
+            {folderBrowserLoading ? (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                <RefreshIcon className="h-4 w-4 animate-spin mr-2" />
+                Loading folders…
+              </div>
+            ) : folderBrowserContents.filter((i) => i.type === "dir").length === 0 ? (
+              <div className="text-center py-12 text-sm text-muted-foreground">
+                No subdirectories found.
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {folderBrowserContents
+                  .filter((item) => item.type === "dir")
+                  .map((item) => (
+                    <div
+                      key={item.path}
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 cursor-pointer group"
+                      onClick={() => navigateIntoFolder(item.name)}
+                    >
+                      <div className="flex items-center gap-2 text-sm text-foreground">
+                        <FolderIcon className="h-4 w-4 text-muted-foreground group-hover:text-amber-400" />
+                        {item.name}
+                      </div>
+                      <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between pt-3 border-t border-border/40 px-6 pb-6">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setRootDir("")
+                setShowFolderBrowser(false)
+                if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+                redetectForRootDir("")
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear selection
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => selectFolder(folderBrowserPath)}
+              className="text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Select {folderBrowserPath || "Root (./)"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   )
 }
