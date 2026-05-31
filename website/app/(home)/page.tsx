@@ -208,7 +208,7 @@ function Bento() {
       <div className="mt-16 grid gap-4 md:grid-cols-6">
         {/* Wide feature cell — live logs */}
         <Reveal className="md:col-span-4">
-          <div className="bp-card bp-card-interactive flex h-full flex-col justify-between gap-6 rounded-2xl p-7 md:flex-row md:items-center">
+          <div className="bp-card flex h-full flex-col justify-between gap-6 rounded-2xl p-7 md:flex-row md:items-center">
             <div className="max-w-sm">
               <IconTile>
                 <Terminal className="size-5" />
@@ -221,7 +221,7 @@ function Bento() {
                 straight from the dashboard.
               </p>
             </div>
-            <div className="w-full shrink-0 overflow-hidden rounded-xl bg-[#08090c] p-3.5 font-mono text-[11px] leading-relaxed md:w-64">
+            <div className="w-full shrink-0 overflow-hidden rounded-xl bg-transparent p-3.5 font-mono text-[11px] leading-relaxed md:w-64">
               <div className="text-slate-300">› Ready on :3000</div>
               <div className="text-slate-300">GET /api/health 200 · 4ms</div>
               <div className="text-[#93e0c0]">✔ deploy promoted</div>
@@ -236,7 +236,7 @@ function Bento() {
 
         {/* Tall-ish cell — resource limits */}
         <Reveal delay={80} className="md:col-span-2">
-          <div className="bp-card bp-card-interactive flex h-full flex-col rounded-2xl p-7">
+          <div className="bp-card flex h-full flex-col rounded-2xl p-7">
             <IconTile>
               <Cpu className="size-5" />
             </IconTile>
@@ -283,7 +283,7 @@ function Bento() {
           },
         ].map((f, i) => (
           <Reveal key={f.title} delay={i * 80} className="md:col-span-2">
-            <div className="bp-card bp-card-interactive flex h-full flex-col rounded-2xl p-7">
+            <div className="bp-card flex h-full flex-col rounded-2xl p-7">
               <IconTile>
                 <f.icon className="size-5" />
               </IconTile>
