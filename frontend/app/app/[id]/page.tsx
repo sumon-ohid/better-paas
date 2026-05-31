@@ -954,19 +954,6 @@ function AppDetailPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Port Override
-                  </Label>
-                  <Input
-                    value={portOverride}
-                    onChange={(e) => setPortOverride(e.target.value.replace(/\D/g, ""))}
-                    className="h-9 text-sm"
-                  />
-                </div>
-              </div>
-
               {/* Build method selector — only when a Dockerfile exists in the
                   chosen directory; otherwise Nixpacks is used. */}
               {dockerfileAvailable && (
@@ -1019,19 +1006,33 @@ function AppDetailPage() {
                 </div>
               )}
 
-              {buildMethod === "nixpacks" && (
-              <>
-              <div className="space-y-1">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Install Command
-                </Label>
-                <Input
-                  value={installCommand}
-                  onChange={(e) => setInstallCommand(e.target.value)}
-                  className="h-9 text-sm"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Port Override
+                  </Label>
+                  <Input
+                    value={portOverride}
+                    onChange={(e) => setPortOverride(e.target.value.replace(/\D/g, ""))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                {buildMethod === "nixpacks" && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Install Command
+                  </Label>
+                  <Input
+                    value={installCommand}
+                    onChange={(e) => setInstallCommand(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                )}
               </div>
 
+              {buildMethod === "nixpacks" && (
+              <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
