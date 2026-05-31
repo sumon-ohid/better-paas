@@ -301,6 +301,43 @@ html > body[data-scroll-locked] {
   animation: bp-pulse-dot 1.8s ease-in-out infinite;
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Feature showcase — Linear-style auto-advancing tabs.
+
+   ·bp-progress-fill: a vertical rail on the active tab that fills top→bottom
+    over --bp-progress-duration, then fires `animationend` so the component can
+    advance to the next feature. Pauses (freezes mid-fill) while [data-paused].
+   ·bp-demo-in / bp-fade-up: the crossfade for the swapped demo panel and the
+    expanding description on the active tab.
+   ────────────────────────────────────────────────────────────────────────── */
+@keyframes bp-progress-fill {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.bp-progress-fill {
+  transform-origin: top;
+  animation: bp-progress-fill var(--bp-progress-duration, 6000ms) linear forwards;
+}
+.bp-progress-fill[data-paused='true'] {
+  animation-play-state: paused;
+}
+
+@keyframes bp-demo-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+.bp-demo-in {
+  animation: bp-demo-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes bp-fade-up {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.bp-fade-up {
+  animation: bp-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @keyframes bp-marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
@@ -322,6 +359,14 @@ html > body[data-scroll-locked] {
   }
   .bp-pulse-dot,
   .bp-marquee {
+    animation: none !important;
+  }
+  .bp-progress-fill {
+    animation: none !important;
+    transform: scaleY(1);
+  }
+  .bp-demo-in,
+  .bp-fade-up {
     animation: none !important;
   }
 }

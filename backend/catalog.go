@@ -514,3 +514,272 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	// Image-based deploy: gitURL is unused.
 	go runDeployment(newApp, "", deployID, logFile, "catalog", "")
 }
+
+// ---------------------------------------------------------------------------
+// Shared helpers for custom (non-template) deploys
+// ---------------------------------------------------------------------------
+
+// customDeployCommon holds the fields shared by the image and Dockerfile custom
+// deploy endpoints.
+type customDeployCommon struct {
+	Name       string            `json:"name"`
+	EnvVars    map[string]string `json:"envVars"`
+	SecretKeys []string          `json:"secretKeys"`
+	Domains    []string          `json:"domains"`
+	Memory     string            `json:"memory"`
+	CPUs       string            `json:"cpus"`
+	Volumes    []string          `json:"volumes"`
+	Port       int               `json:"port"`
+	HealthPath string            `json:"healthPath"`
+}
+
+// validateCustomDeploy validates the common fields and returns a resolved app
+// name, or writes an error response and returns ok=false.
+func validateCustomDeploy(w http.ResponseWriter, c customDeployCommon, fallbackName string) (string, bool) {
+	name := strings.TrimSpace(c.Name)
+	if name == "" {
+		name = fallbackName
+	}
+	if !validAppName(name) {
+		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
+		return "", false
+	}
+	if findAppByName(name) != nil {
+		jsonError(w, fmt.Sprintf("an app named %q already exists", name), http.StatusConflict)
+		return "", false
+	}
+	if err := validateResourceLimits(c.Memory, c.CPUs); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return "", false
+	}
+	if err := validateDomains(c.Domains); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return "", false
+	}
+	if err := validateVolumes(c.Volumes); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return "", false
+	}
+	return name, true
+}
+
+// cleanEnvVars drops blank keys and returns the secret keys that actually
+// correspond to a provided variable.
+func cleanEnvVars(in map[string]string, secretKeys []string) (map[string]string, []string) {
+	out := map[string]string{}
+	for k, v := range in {
+		k = strings.TrimSpace(k)
+		if k == "" {
+			continue
+		}
+		out[k] = v
+	}
+	secret := map[string]bool{}
+	for _, k := range secretKeys {
+		secret[strings.TrimSpace(k)] = true
+	}
+	var keys []string
+	for k := range out {
+		if secret[k] {
+			keys = append(keys, k)
+		}
+	}
+	return out, keys
+}
+
+// startCustomDeploy persists a new app and kicks off the deploy pipeline. It
+// assumes the caller has already validated name, limits, domains, and volumes.
+func startCustomDeploy(w http.ResponseWriter, newApp App, trigger string) {
+	ip := getLocalIP()
+	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
+
+	appsLock.Lock()
+	apps = append(apps, newApp)
+	appsLock.Unlock()
+
+	if err := dbSaveApp(newApp); err != nil {
+		log.Printf("[db] failed to save custom app: %v", err)
+	}
+
+	buildLogsLock.Lock()
+	buildLogs[newApp.ID] = []string{}
+	buildLogsLock.Unlock()
+
+	rebuildCaddyfile()
+
+	deployID := generateRandomID()
+	logFile := filepath.Join("data", "logs", newApp.ID, deployID+".log")
+	os.MkdirAll(filepath.Dir(logFile), 0755)
+	dep := DeploymentRecord{
+		ID:        deployID,
+		AppID:     newApp.ID,
+		AppName:   newApp.Name,
+		Status:    "building",
+		LogFile:   logFile,
+		CreatedAt: time.Now(),
+		Trigger:   trigger,
+	}
+	if err := dbCreateDeployment(dep); err != nil {
+		log.Printf("[db] failed to create deployment: %v", err)
+	}
+
+	jsonOK(w, newApp.Public())
+	go runDeployment(newApp, "", deployID, logFile, trigger, "")
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/catalog/deploy-image — deploy any registry image
+// ---------------------------------------------------------------------------
+
+func handleCatalogDeployImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		customDeployCommon
+		Image string `json:"image"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, "Bad request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	image, err := validateImageRef(req.Image)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Derive a fallback app name from the image (e.g. ghcr.io/owner/app:tag → app).
+	fallback := imageBaseName(image)
+	name, ok := validateCustomDeploy(w, req.customDeployCommon, fallback)
+	if !ok {
+		return
+	}
+
+	envVars, secretKeys := cleanEnvVars(req.EnvVars, req.SecretKeys)
+
+	newApp := App{
+		ID:            generateRandomID(),
+		Name:          name,
+		Status:        "building",
+		Port:          allocatePortLocked(),
+		CreatedAt:     time.Now(),
+		EnvVars:       envVars,
+		SecretKeys:    secretKeys,
+		PortOverride:  req.Port,
+		Domains:       req.Domains,
+		Memory:        req.Memory,
+		CPUs:          req.CPUs,
+		Volumes:       req.Volumes,
+		HealthPath:    req.HealthPath,
+		BuildMethod:   "image",
+		Image:         image,
+		WebhookSecret: generateRandomID() + generateRandomID(),
+	}
+	startCustomDeploy(w, newApp, "image")
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/catalog/deploy-dockerfile — build & run an inline Dockerfile
+// ---------------------------------------------------------------------------
+
+func handleCatalogDeployDockerfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		customDeployCommon
+		Dockerfile string `json:"dockerfile"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, "Bad request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	content := strings.TrimSpace(req.Dockerfile)
+	if content == "" {
+		jsonError(w, "dockerfile content is required", http.StatusBadRequest)
+		return
+	}
+	if len(content) > 64*1024 {
+		jsonError(w, "dockerfile is too large (max 64 KB)", http.StatusBadRequest)
+		return
+	}
+	if !strings.Contains(strings.ToUpper(content), "FROM ") {
+		jsonError(w, "dockerfile must contain a FROM instruction", http.StatusBadRequest)
+		return
+	}
+
+	name, ok := validateCustomDeploy(w, req.customDeployCommon, "app")
+	if !ok {
+		return
+	}
+
+	envVars, secretKeys := cleanEnvVars(req.EnvVars, req.SecretKeys)
+
+	newApp := App{
+		ID:                generateRandomID(),
+		Name:              name,
+		Status:            "building",
+		Port:              allocatePortLocked(),
+		CreatedAt:         time.Now(),
+		EnvVars:           envVars,
+		SecretKeys:        secretKeys,
+		PortOverride:      req.Port,
+		Domains:           req.Domains,
+		Memory:            req.Memory,
+		CPUs:              req.CPUs,
+		Volumes:           req.Volumes,
+		HealthPath:        req.HealthPath,
+		BuildMethod:       "dockerfile-inline",
+		DockerfileContent: content,
+		WebhookSecret:     generateRandomID() + generateRandomID(),
+	}
+	startCustomDeploy(w, newApp, "dockerfile")
+}
+
+// imageBaseName extracts a usable app-name seed from an image reference by
+// taking the last path segment and stripping any tag/digest, then sanitizing.
+func imageBaseName(image string) string {
+	s := image
+	if at := strings.Index(s, "@"); at >= 0 {
+		s = s[:at]
+	}
+	// Take the final path segment.
+	if slash := strings.LastIndex(s, "/"); slash >= 0 {
+		s = s[slash+1:]
+	}
+	// Strip the tag.
+	if colon := strings.Index(s, ":"); colon >= 0 {
+		s = s[:colon]
+	}
+	s = strings.ToLower(s)
+	// Keep only allowed characters.
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	out := strings.Trim(b.String(), "-")
+	if len(out) < 2 {
+		return "app"
+	}
+	if len(out) > 40 {
+		out = strings.Trim(out[:40], "-")
+	}
+	return out
+}
+
+// allocatePortLocked acquires appsLock and allocates a free host port. The
+// underlying allocatePort requires the caller to hold appsLock.
+func allocatePortLocked() int {
+	appsLock.Lock()
+	defer appsLock.Unlock()
+	return allocatePort()
+}

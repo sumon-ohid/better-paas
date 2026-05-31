@@ -95,13 +95,9 @@ function Footer() {
           ))}
         </div>
 
-        <div className="mt-14 flex flex-col items-center justify-between gap-3 border-t border-fd-border pt-6 text-xs text-fd-muted-foreground sm:flex-row">
+        <div className="mt-14 flex flex-col items-center justify-center gap-3 pt-6 text-xs text-fd-muted-foreground sm:flex-row">
           <span>
             © {new Date().getFullYear()} {appName}. Released under an open source license.
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-(--bp-success) bp-pulse-dot" />
-            All systems operational
           </span>
         </div>
       </div>

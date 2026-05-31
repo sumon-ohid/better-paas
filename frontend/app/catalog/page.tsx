@@ -18,9 +18,17 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { AppShell, useToast } from "@/components/app-shell"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/menu"
+import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
-import type { CatalogTemplate, CatalogEnv } from "@/lib/types"
+import type { CatalogTemplate, CatalogEnv, App } from "@/lib/types"
 import { NucleoIcon } from "@/components/nucleo-icons"
+import { Docker } from "@/components/ui/svgs/docker"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
@@ -29,6 +37,13 @@ const ExternalIcon = (props: IconProps) => <NucleoIcon {...props} name="external
 const InfoIcon = (props: IconProps) => <NucleoIcon {...props} name="info" />
 const StoreIcon = (props: IconProps) => <NucleoIcon {...props} name="layers" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const ChevronDownIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-down" />
+const DockerIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
+const TrashIcon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
+const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
+
+// A simple key/value env var row used by the custom-deploy modals.
+type EnvRow = { key: string; value: string; secret: boolean }
 
 // Logos come from the community dashboard-icons CDN. Only the slug is stored
 // server-side; we build the URL here.
@@ -77,6 +92,9 @@ export default function CatalogPage() {
   const [deploying, setDeploying] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
 
+  // Custom-deploy modals ("image" | "dockerfile" | null)
+  const [customMode, setCustomMode] = useState<"image" | "dockerfile" | null>(null)
+
   const load = useCallback(async () => {
     try {
       const data = await api.catalog.list()
@@ -124,6 +142,10 @@ export default function CatalogPage() {
     setErrorMsg("")
   }
 
+  const openCustom = (mode: "image" | "dockerfile") => {
+    setCustomMode(mode)
+  }
+
   const handleDeploy = async () => {
     if (!selected) return
     const name = deployName.trim()
@@ -159,17 +181,52 @@ export default function CatalogPage() {
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-6 p-3 md:p-6">
         {/* Header */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <StoreIcon className="h-6 w-6" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <StoreIcon className="h-6 w-6" />
+            </div>
+            <div>
+              <h2>App Catalog</h2>
+              <p className="text-sm text-muted-foreground">
+                Deploy popular open-source apps in a few clicks. Each runs as a single container with its
+                own storage.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2>App Catalog</h2>
-            <p className="text-sm text-muted-foreground">
-              Deploy popular open-source apps in a few clicks. Each runs as a single container with its
-              own storage.
-            </p>
-          </div>
+
+          {/* Custom deploy dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant={"outline"} className="h-9 shrink-0 gap-1.5">
+                  <Docker className="h-4 w-4" />
+                  Custom Deploy
+                  <ChevronDownIcon className="h-3.5 w-3.5 opacity-80" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuItem onClick={() => openCustom("image")} className="items-start gap-2.5 py-2">
+                <DockerIcon className="mt-0.5 h-4 w-4 text-chart-2" />
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">From Docker image</p>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Run any image from Docker Hub or another registry.
+                  </p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openCustom("dockerfile")} className="items-start gap-2.5 py-2">
+                <TerminalIcon className="mt-0.5 h-4 w-4 text-chart-4" />
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">From a Dockerfile</p>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Paste a Dockerfile and we&apos;ll build and run it — no repo needed.
+                  </p>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Search + category filter */}
@@ -363,6 +420,337 @@ export default function CatalogPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Custom deploy modal (image / dockerfile) */}
+      <CustomDeployModal
+        key={customMode ?? "closed"}
+        mode={customMode}
+        onClose={() => setCustomMode(null)}
+        onDeployed={(app) => router.push(`/logs?appId=${app.id}&mode=build`)}
+      />
     </AppShell>
+  )
+}
+
+// ── Env var editor ────────────────────────────────────────────────────────────
+// Reusable key/value rows shared by both custom-deploy modes. A row can be
+// flagged secret so its value is masked and persisted as a secret env var.
+function EnvVarEditor({
+  rows,
+  onChange,
+}: {
+  rows: EnvRow[]
+  onChange: (rows: EnvRow[]) => void
+}) {
+  const update = (i: number, patch: Partial<EnvRow>) => {
+    const next = rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
+    onChange(next)
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-semibold text-muted-foreground">Environment variables</Label>
+        <button
+          type="button"
+          onClick={() => onChange([...rows, { key: "", value: "", secret: false }])}
+          className="flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/85"
+        >
+          <PlusIcon className="h-3 w-3" />
+          Add
+        </button>
+      </div>
+      {rows.length === 0 ? (
+        <p className="rounded-md border border-dashed border-border py-3 text-center text-[11px] text-muted-foreground">
+          No environment variables.
+        </p>
+      ) : (
+        <div className="max-h-[160px] space-y-2 overflow-y-auto pr-1">
+          {rows.map((row, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Input
+                value={row.key}
+                onChange={(e) => update(i, { key: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "") })}
+                placeholder="VARIABLE_NAME"
+                className="h-8 flex-1 font-mono text-xs"
+              />
+              <Input
+                type={row.secret ? "password" : "text"}
+                value={row.value}
+                onChange={(e) => update(i, { value: e.target.value })}
+                placeholder="value"
+                className="h-8 flex-1 font-mono text-xs"
+              />
+              <button
+                type="button"
+                onClick={() => update(i, { secret: !row.secret })}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                  row.secret
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+                title={row.secret ? "Stored as a secret (value hidden)" : "Mark as secret"}
+              >
+                <NucleoIcon name="lock" className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-destructive-foreground hover:bg-destructive/10"
+                aria-label="Remove variable"
+              >
+                <TrashIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Custom deploy modal ─────────────────────────────────────────────────────────
+// Handles both "Deploy from Docker image" and "Deploy from a Dockerfile". The
+// two share the same advanced fields (name, port, env, volumes, domains,
+// resource limits); only the primary input and the deploy call differ.
+function CustomDeployModal({
+  mode,
+  onClose,
+  onDeployed,
+}: {
+  mode: "image" | "dockerfile" | null
+  onClose: () => void
+  onDeployed: (app: App) => void
+}) {
+  const [name, setName] = useState("")
+  const [image, setImage] = useState("")
+  const [dockerfile, setDockerfile] = useState("")
+  const [port, setPort] = useState("")
+  const [healthPath, setHealthPath] = useState("")
+  const [domains, setDomains] = useState("")
+  const [volumes, setVolumes] = useState("")
+  const [memory, setMemory] = useState("")
+  const [cpus, setCpus] = useState("")
+  const [envRows, setEnvRows] = useState<EnvRow[]>([])
+  const [deploying, setDeploying] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
+
+  const isImage = mode === "image"
+
+  const buildCommon = () => {
+    const envVars: Record<string, string> = {}
+    const secretKeys: string[] = []
+    for (const r of envRows) {
+      const k = r.key.trim()
+      if (!k) continue
+      envVars[k] = r.value
+      if (r.secret) secretKeys.push(k)
+    }
+    return {
+      name: name.trim() || undefined,
+      envVars,
+      secretKeys,
+      domains: domains
+        .split(/[\n,]/)
+        .map((d) => d.trim())
+        .filter(Boolean),
+      volumes: volumes
+        .split(/[\n,]/)
+        .map((v) => v.trim())
+        .filter(Boolean),
+      memory: memory.trim(),
+      cpus: cpus.trim(),
+      port: port ? parseInt(port, 10) : 0,
+      healthPath: healthPath.trim(),
+    }
+  }
+
+  const handleDeploy = async () => {
+    // Name is optional (server derives one), but if given it must be valid.
+    const n = name.trim()
+    if (n && !/^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$/.test(n)) {
+      setErrorMsg("Name must be 2-40 lowercase letters, digits, or hyphens.")
+      return
+    }
+    if (isImage && !image.trim()) {
+      setErrorMsg("Enter a Docker image, e.g. nginx:1.27.")
+      return
+    }
+    if (!isImage && !dockerfile.trim()) {
+      setErrorMsg("Paste a Dockerfile to deploy.")
+      return
+    }
+    if (!isImage && !/from\s+/i.test(dockerfile)) {
+      setErrorMsg("The Dockerfile must contain a FROM instruction.")
+      return
+    }
+
+    setDeploying(true)
+    setErrorMsg("")
+    try {
+      const app = isImage
+        ? await api.catalog.deployImage({ ...buildCommon(), image: image.trim() })
+        : await api.catalog.deployDockerfile({ ...buildCommon(), dockerfile })
+      onDeployed(app)
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Deployment failed.")
+      setDeploying(false)
+    }
+  }
+
+  return (
+    <Dialog open={!!mode} onOpenChange={(open) => !open && !deploying && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            {isImage ? (
+              <DockerIcon className="h-4 w-4 text-chart-2" />
+            ) : (
+              <TerminalIcon className="h-4 w-4 text-chart-4" />
+            )}
+            {isImage ? "Deploy from Docker image" : "Deploy from a Dockerfile"}
+          </DialogTitle>
+          <DialogDescription>
+            {isImage
+              ? "Run any public image from Docker Hub or another registry. It deploys through the same zero-downtime pipeline as your other apps."
+              : "Paste a self-contained Dockerfile. We build the image on this server and run it — no Git repo required."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[60vh] space-y-4 overflow-y-auto px-6 pb-2">
+          {errorMsg && (
+            <Alert variant="error">
+              <NucleoIcon name="triangle-alert" />
+              <AlertDescription>{errorMsg}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Primary input */}
+          {isImage ? (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Docker image</Label>
+              <Input
+                value={image}
+                onChange={(e) => setImage(e.target.value)}
+                placeholder="nginx:1.27 or ghcr.io/owner/app:tag"
+                className="h-9 font-mono text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Public registries only for now. Pin a tag (avoid <code className="font-mono">latest</code>)
+                so redeploys are repeatable.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Dockerfile</Label>
+              <Textarea
+                value={dockerfile}
+                onChange={(e) => setDockerfile(e.target.value)}
+                placeholder={"FROM alpine:3.20\nRUN apk add --no-cache caddy\nEXPOSE 80\nCMD [\"caddy\", \"file-server\", \"--listen\", \":80\"]"}
+                className="min-h-[160px] font-mono text-xs"
+              />
+              <div className="flex gap-2 rounded-lg border border-warning/30 bg-warning/5 p-2.5 text-[11px] leading-snug text-muted-foreground">
+                <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                <span>
+                  There&apos;s no build context, so <code className="font-mono">COPY</code> /{" "}
+                  <code className="font-mono">ADD</code> of local files won&apos;t work. The Dockerfile
+                  must fetch everything it needs (packages, <code className="font-mono">ADD https://…</code>).
+                  Need local files? Use a Git deploy instead.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Name */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-muted-foreground">App name (optional)</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+              placeholder={isImage ? "Derived from the image if left blank" : "my-app"}
+              className="h-9 text-sm"
+            />
+          </div>
+
+          {/* Port + health path */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Container port</Label>
+              <Input
+                value={port}
+                onChange={(e) => setPort(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="e.g. 80"
+                className="h-9 font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Health path</Label>
+              <Input
+                value={healthPath}
+                onChange={(e) => setHealthPath(e.target.value)}
+                placeholder="/ (optional)"
+                className="h-9 font-mono text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Env vars */}
+          <EnvVarEditor rows={envRows} onChange={setEnvRows} />
+
+          {/* Advanced */}
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+            <p className="text-xs font-semibold text-foreground">Advanced (optional)</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Persistent volumes</Label>
+              <Input
+                value={volumes}
+                onChange={(e) => setVolumes(e.target.value)}
+                placeholder="my-data:/data, /host/path:/container/path"
+                className="h-8 font-mono text-xs"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Comma- or newline-separated. Named volumes survive redeploys.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Custom domains</Label>
+              <Input
+                value={domains}
+                onChange={(e) => setDomains(e.target.value)}
+                placeholder="app.example.com"
+                className="h-8 font-mono text-xs"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Memory</Label>
+                <Input
+                  value={memory}
+                  onChange={(e) => setMemory(e.target.value)}
+                  placeholder="512m"
+                  className="h-8 font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">CPUs</Label>
+                <Input
+                  value={cpus}
+                  onChange={(e) => setCpus(e.target.value)}
+                  placeholder="0.5"
+                  className="h-8 font-mono text-xs"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" disabled={deploying}>Cancel</Button>} />
+          <Button onClick={handleDeploy} loading={deploying} className="gap-1.5">
+            <PlusIcon className="h-3.5 w-3.5" />
+            {isImage ? "Pull & deploy" : "Build & deploy"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

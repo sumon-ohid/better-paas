@@ -43,6 +43,12 @@ type App struct {
 	// (e.g. "louislam/uptime-kuma:1"). Empty for git-based apps.
 	Image string `json:"image,omitempty"`
 
+	// DockerfileContent holds an inline Dockerfile when
+	// BuildMethod == "dockerfile-inline" (deploy a Dockerfile without a repo).
+	// It is written to a temp build dir and built with `docker build`. There is
+	// no build context, so COPY/ADD of local files won't work.
+	DockerfileContent string `json:"dockerfileContent,omitempty"`
+
 	// CatalogID records which catalog template an app was deployed from, when
 	// applicable (purely informational; lets the UI badge catalog apps).
 	CatalogID string `json:"catalogId,omitempty"`

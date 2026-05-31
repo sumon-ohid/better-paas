@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   GitBranch,
   Globe,
@@ -275,7 +275,7 @@ function LogsDemo() {
           streaming
         </span>
       </div>
-      <div className="mt-4 flex-1 overflow-hidden rounded-xl bg-[#08090c] p-3.5 font-mono text-[11px] leading-relaxed">
+      <div className="mt-4 flex-1 overflow-hidden rounded-xl bg-transparent p-3.5 font-mono text-[11px] leading-relaxed">
         {lines.map((l, i) => (
           <div key={i} className="flex gap-2.5">
             <span className="shrink-0 text-slate-600">[{`12:0${i}:11`}]</span>
@@ -302,61 +302,129 @@ const DEMOS: Record<TabId, () => React.ReactElement> = {
   logs: LogsDemo,
 };
 
+// How long each feature stays active before auto-advancing to the next.
+const AUTOPLAY_MS = 6500;
+
 export function FeatureShowcase() {
   const [active, setActive] = useState<TabId>('deploy');
+  const [paused, setPaused] = useState(false);
+  // Bump on every selection/advance so the progress rail remounts and restarts
+  // its fill animation from 0 (otherwise re-selecting a tab does nothing).
+  const [cycle, setCycle] = useState(0);
+
+  const activeIndex = TABS.findIndex((t) => t.id === active);
   const ActiveDemo = DEMOS[active];
 
+  const goTo = useCallback((id: TabId) => {
+    setActive(id);
+    setCycle((c) => c + 1);
+  }, []);
+
+  // The progress rail on the active tab fires this when its fill completes.
+  const advance = useCallback(() => {
+    setActive((current) => {
+      const i = TABS.findIndex((t) => t.id === current);
+      return TABS[(i + 1) % TABS.length].id;
+    });
+    setCycle((c) => c + 1);
+  }, []);
+
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[1fr_1.1fr] lg:gap-12">
+    <div
+      className="grid items-start gap-6 lg:grid-cols-[1fr_1.15fr] lg:gap-14"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
       {/* Tab list */}
-      <div className="flex flex-col gap-1.5">
+      <ul className="flex flex-col">
         {TABS.map((tab) => {
           const isActive = tab.id === active;
           return (
-            <button
-              key={tab.id}
-              type="button"
-              onMouseEnter={() => setActive(tab.id)}
-              onClick={() => setActive(tab.id)}
-              aria-pressed={isActive}
-              className={`group relative flex items-start gap-3.5 rounded-xl p-4 text-left transition-colors ${
-                isActive ? 'bg-fd-card' : 'hover:bg-fd-card/50'
-              }`}
-            >
-              {/* Active accent rail */}
-              <span
-                className={`absolute inset-y-3 left-0 w-0.5 rounded-full bg-fd-primary transition-opacity ${
-                  isActive ? 'opacity-100' : 'opacity-0'
-                }`}
-              />
-              <span
-                className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  isActive ? 'bp-primary' : 'bg-fd-primary/10 text-fd-primary'
+            <li key={tab.id} className="relative">
+              {/* Track + animated progress rail on the left edge */}
+              <span className="absolute inset-y-0 left-0 w-0.5 rounded-full bg-fd-border" />
+              {isActive && (
+                <span
+                  key={cycle}
+                  data-paused={paused}
+                  onAnimationEnd={advance}
+                  style={{ ['--bp-progress-duration' as string]: `${AUTOPLAY_MS}ms` }}
+                  className="bp-progress-fill absolute inset-y-0 left-0 w-0.5 rounded-full bg-fd-primary"
+                />
+              )}
+
+              <button
+                type="button"
+                onClick={() => goTo(tab.id)}
+                aria-pressed={isActive}
+                className={`group flex w-full items-start gap-3.5 rounded-r-xl py-4 pl-5 pr-4 text-left transition-opacity duration-300 ${
+                  isActive ? '' : 'opacity-60 hover:opacity-100'
                 }`}
               >
-                <tab.icon className="size-4.5" />
-              </span>
-              <span className="min-w-0">
-                <span className="font-semibold text-fd-foreground">{tab.title}</span>
                 <span
-                  className={`mt-1 block text-sm leading-relaxed text-fd-muted-foreground transition-all duration-300 ${
+                  className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-all duration-300 ${
                     isActive
-                      ? 'max-h-24 opacity-100'
-                      : 'max-h-0 overflow-hidden opacity-0 lg:max-h-24 lg:opacity-100'
+                      ? 'bp-primary'
+                      : 'bg-fd-primary/10 text-fd-primary group-hover:bg-fd-primary/15'
                   }`}
                 >
-                  {tab.desc}
+                  <tab.icon className="size-4.5" />
                 </span>
-              </span>
-            </button>
+                <span className="min-w-0 pt-1">
+                  <span
+                    className={`block font-semibold transition-colors ${
+                      isActive ? 'text-fd-foreground' : 'text-fd-foreground/80'
+                    }`}
+                  >
+                    {tab.title}
+                  </span>
+                  {/* Description expands for the active tab; stays open on
+                      desktop so the list reads as a stable column. */}
+                  <span
+                    className={`grid transition-all duration-300 ${
+                      isActive
+                        ? 'mt-1.5 grid-rows-[1fr] opacity-100'
+                        : 'grid-rows-[0fr] opacity-0 lg:mt-1.5 lg:grid-rows-[1fr] lg:opacity-100'
+                    }`}
+                  >
+                    <span className="overflow-hidden">
+                      <span className="block text-sm leading-relaxed text-fd-muted-foreground">
+                        {tab.desc}
+                      </span>
+                    </span>
+                  </span>
+                </span>
+              </button>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       {/* Active demo */}
       <div className="lg:sticky lg:top-24">
-        <div key={active} className="bp-reveal is-visible">
+        <div key={active} className="bp-demo-in">
           <ActiveDemo />
+        </div>
+
+        {/* Pager dots — current position + quick jump, like Linear's hero. */}
+        <div className="mt-5 flex items-center justify-center gap-2">
+          {TABS.map((tab, i) => {
+            const isActive = i === activeIndex;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => goTo(tab.id)}
+                aria-label={`Show ${tab.title}`}
+                aria-pressed={isActive}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  isActive
+                    ? 'w-6 bg-fd-primary'
+                    : 'w-1.5 bg-fd-border hover:bg-fd-muted-foreground/40'
+                }`}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

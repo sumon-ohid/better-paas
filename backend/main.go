@@ -97,6 +97,8 @@ func main() {
 	// App catalog (one-click deploys of popular open-source apps)
 	mux.HandleFunc("/api/catalog", handleCatalog)
 	mux.HandleFunc("/api/catalog/deploy", handleCatalogDeploy)
+	mux.HandleFunc("/api/catalog/deploy-image", handleCatalogDeployImage)
+	mux.HandleFunc("/api/catalog/deploy-dockerfile", handleCatalogDeployDockerfile)
 
 	// Managed add-ons (databases/caches)
 	mux.HandleFunc("/api/addons", handleAddons)

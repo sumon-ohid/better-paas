@@ -1,5 +1,9 @@
+'use client';
+
+import { useState } from 'react';
 import {
   Globe,
+  Layers,
   Activity,
   Terminal,
   Database,
@@ -24,24 +28,42 @@ import { LogoMark } from '@/components/logo';
 import { StatusDot, StatusBadge, BranchBadge, RepoPill, Kbd } from './primitives';
 
 /* ──────────────────────────────────────────────────────────────────────────
- * ProductDemo — a pixel-faithful static replica of the Better-PaaS dashboard.
+ * ProductDemo — a pixel-faithful, lightly interactive replica of the
+ * Better-PaaS dashboard.
  *
  * Reconstructed directly from the real app:
  *   · the inset AppShell (frontend/components/app-shell.tsx): sidebar header
- *     with logo + version pill, the "Search commands… ⌘K" button, the nav list
- *     with colored glyphs and badges, and the footer (Sign out / shortcuts);
- *     the h-14 header with a sidebar trigger and the "Deploy service · N" CTA.
+ *     with logo + version pill, the "Search commands… ⌘K" button, the full nav
+ *     list with colored glyphs and badges, and the footer (Sign out /
+ *     shortcuts); the h-14 header with a sidebar trigger and the
+ *     "Deploy service · N" CTA.
  *   · the Applications screen (frontend/app/page.tsx): the filter toolbar
  *     (search, status toggles, view toggle, Prune Docker) and the AppGridCard
  *     grid with status, branch, url, repo, commit message, and deployed time.
  *
+ * Interactivity (so the hero feels like the real product):
+ *   · clicking a sidebar item selects it,
+ *   · the status toggles filter the visible apps,
+ *   · the grid/list toggle switches the apps layout.
+ *
  * It is the hero focal point, so it is rendered large.
  * ────────────────────────────────────────────────────────────────────────── */
 
-const NAV = [
+type NavItem = {
+  icon: typeof Globe;
+  label: string;
+  color: string;
+  active?: boolean;
+  badge?: string;
+};
+
+// Full nav, in the same order as the real dashboard sidebar (app-shell.tsx).
+const NAV: NavItem[] = [
   { icon: Globe, label: 'Applications', color: 'text-fd-primary', active: true, badge: '6' },
+  { icon: Layers, label: 'App Catalog', color: 'text-(--bp-accent-2)' },
   { icon: Activity, label: 'Node Health', color: 'text-(--bp-success)' },
   { icon: Terminal, label: 'Live Logs', color: 'text-(--bp-accent-2)', badge: '●' },
+  { icon: Terminal, label: 'Server Terminal', color: 'text-(--bp-success)' },
   { icon: Database, label: 'Databases', color: 'text-(--bp-warning)' },
   { icon: Clock, label: 'Scheduled Jobs', color: 'text-(--bp-danger)' },
   { icon: Archive, label: 'Backups', color: 'text-(--bp-accent-2)' },
@@ -49,9 +71,11 @@ const NAV = [
   { icon: Settings, label: 'Settings', color: 'text-fd-muted-foreground' },
 ];
 
+type AppStatus = 'running' | 'building' | 'stopped' | 'failed';
+
 type DemoApp = {
   name: string;
-  status: 'running' | 'building' | 'stopped' | 'failed';
+  status: AppStatus;
   url: string;
   repo: string;
   branch: string;
@@ -66,6 +90,16 @@ const APPS: DemoApp[] = [
   { name: 'worker-billing', status: 'stopped', url: '—', repo: 'acme/billing', branch: 'release', commit: 'chore: bump stripe sdk', deployed: '3d ago' },
   { name: 'analytics-edge', status: 'running', url: 'stats.acme.dev', repo: 'acme/edge', branch: 'main', commit: 'perf: cache geo lookups', deployed: '5h ago' },
   { name: 'legacy-cron', status: 'failed', url: '—', repo: 'acme/cron', branch: 'main', commit: 'fix: timezone in digest job', deployed: '2d ago' },
+];
+
+// Status toggle labels → app status. "Paused" maps to the `stopped` state, and
+// "All" (null) shows everything — mirrors STATUS_FILTERS in frontend/app/page.tsx.
+const FILTERS: { label: string; status: AppStatus | null }[] = [
+  { label: 'All', status: null },
+  { label: 'Running', status: 'running' },
+  { label: 'Building', status: 'building' },
+  { label: 'Paused', status: 'stopped' },
+  { label: 'Failed', status: 'failed' },
 ];
 
 /* AppGridCard — frontend/app/page.tsx */
@@ -122,7 +156,39 @@ function AppGridCard({ app }: { app: DemoApp }) {
   );
 }
 
+/* AppListRow — compact list layout mirroring the table view in
+ * frontend/app/page.tsx (Project · Status · URL · Repo · Deployed). */
+function AppListRow({ app }: { app: DemoApp }) {
+  return (
+    <div className="bp-card flex items-center gap-3 rounded-lg px-4 py-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <StatusDot status={app.status} />
+        <span className="truncate text-sm font-semibold text-fd-foreground">{app.name}</span>
+      </div>
+      <div className="hidden w-24 shrink-0 sm:block">
+        <StatusBadge status={app.status} />
+      </div>
+      <span className="hidden w-40 shrink-0 truncate font-mono text-xs text-fd-muted-foreground md:block">
+        {app.url === '—' ? '—' : app.url}
+      </span>
+      <span className="hidden w-40 shrink-0 truncate font-mono text-xs text-fd-muted-foreground lg:block">
+        {app.repo}
+      </span>
+      <span className="hidden shrink-0 text-xs tabular-nums text-fd-muted-foreground sm:block">
+        {app.deployed}
+      </span>
+      <MoreHorizontal className="size-4 shrink-0 text-fd-muted-foreground/70" />
+    </div>
+  );
+}
+
 export function ProductDemo() {
+  const [filter, setFilter] = useState<string>('All');
+  const [view, setView] = useState<'grid' | 'list'>('grid');
+
+  const activeStatus = FILTERS.find((f) => f.label === filter)?.status ?? null;
+  const visibleApps = activeStatus ? APPS.filter((a) => a.status === activeStatus) : APPS;
+
   return (
     // Mirrors the AppShell frame: inset content panel with rounded corners on a
     // transparent app background, rendered large for the hero.
@@ -155,10 +221,10 @@ export function ProductDemo() {
               {NAV.map((item) => (
                 <div
                   key={item.label}
-                  className={`flex w-full items-center justify-between rounded px-3 py-1.5 text-sm ${
+                  className={`flex w-full items-center justify-between rounded px-3 py-1.5 text-sm transition-colors ${
                     item.active
                       ? 'bg-fd-accent font-medium text-fd-foreground'
-                      : 'text-fd-foreground/75'
+                      : 'text-fd-foreground/75 hover:bg-fd-muted/30 hover:text-fd-foreground'
                   }`}
                 >
                   <span className="flex items-center gap-2">
@@ -219,37 +285,71 @@ export function ProductDemo() {
             </div>
 
             <div className="flex items-center gap-0.5 rounded-md border border-fd-border p-0.5">
-              {['All', 'Running', 'Building', 'Paused', 'Failed'].map((f, i) => (
-                <span
-                  key={f}
-                  className={`rounded px-2.5 py-0.5 text-sm ${
-                    i === 0 ? 'bg-fd-accent text-fd-foreground' : 'text-fd-muted-foreground'
+              {FILTERS.map((f) => (
+                <button
+                  key={f.label}
+                  type="button"
+                  onClick={() => setFilter(f.label)}
+                  className={`cursor-pointer rounded px-2.5 py-0.5 text-sm transition-colors ${
+                    filter === f.label
+                      ? 'bg-fd-accent text-fd-foreground'
+                      : 'text-fd-muted-foreground hover:text-fd-foreground'
                   }`}
                 >
-                  {f}
-                </span>
+                  {f.label}
+                </button>
               ))}
             </div>
 
             <div className="ml-auto flex items-center gap-2">
               <div className="hidden items-center gap-0.5 rounded-md border border-fd-border p-0.5 md:flex">
-                <span className="flex size-7 items-center justify-center rounded bg-fd-accent text-fd-foreground">
+                <button
+                  type="button"
+                  onClick={() => setView('grid')}
+                  aria-label="Grid view"
+                  className={`flex size-7 cursor-pointer items-center justify-center rounded transition-colors ${
+                    view === 'grid'
+                      ? 'bg-fd-accent text-fd-foreground'
+                      : 'text-fd-muted-foreground hover:text-fd-foreground'
+                  }`}
+                >
                   <LayoutGrid className="size-4" />
-                </span>
-                <span className="flex size-7 items-center justify-center rounded text-fd-muted-foreground">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('list')}
+                  aria-label="List view"
+                  className={`flex size-7 cursor-pointer items-center justify-center rounded transition-colors ${
+                    view === 'list'
+                      ? 'bg-fd-accent text-fd-foreground'
+                      : 'text-fd-muted-foreground hover:text-fd-foreground'
+                  }`}
+                >
                   <List className="size-4" />
-                </span>
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Page content — applications grid */}
+          {/* Page content — applications grid / list */}
           <div className="flex-1 overflow-hidden p-4 md:p-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {APPS.map((app) => (
-                <AppGridCard key={app.name} app={app} />
-              ))}
-            </div>
+            {visibleApps.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-fd-muted-foreground">
+                No applications match this filter.
+              </div>
+            ) : view === 'grid' ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {visibleApps.map((app) => (
+                  <AppGridCard key={app.name} app={app} />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {visibleApps.map((app) => (
+                  <AppListRow key={app.name} app={app} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

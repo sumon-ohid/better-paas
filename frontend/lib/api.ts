@@ -11,6 +11,8 @@ import type {
   Addon,
   CatalogTemplate,
   CatalogDeployRequest,
+  ImageDeployRequest,
+  DockerfileDeployRequest,
   CronJob,
   NotificationConfig,
   DbQueryResult,
@@ -151,6 +153,10 @@ export const api = {
     list: () => req<CatalogTemplate[]>("/api/catalog"),
     deploy: (data: CatalogDeployRequest) =>
       req<App>("/api/catalog/deploy", { method: "POST", body: JSON.stringify(data) }),
+    deployImage: (data: ImageDeployRequest) =>
+      req<App>("/api/catalog/deploy-image", { method: "POST", body: JSON.stringify(data) }),
+    deployDockerfile: (data: DockerfileDeployRequest) =>
+      req<App>("/api/catalog/deploy-dockerfile", { method: "POST", body: JSON.stringify(data) }),
   },
 
   // ── Managed add-ons (databases / caches) ────────────────────────────────────

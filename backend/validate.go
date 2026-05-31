@@ -51,6 +51,50 @@ func validateDomains(domains []string) error {
 	return nil
 }
 
+// volumeEntryRe matches a docker volume mapping "source:/container/path" with an
+// optional ":ro"/":rw" mode. The source is either a named volume
+// (letters/digits/._-) or an absolute host path. The container path must be
+// absolute. Values are passed to `docker run -v` as a single argv element (no
+// shell), but we still reject shell-hostile characters as defense-in-depth.
+var (
+	namedVolumeRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+)
+
+// validateVolumes checks each "source:/path[:mode]" entry. Empty entries are
+// skipped. The source may be a named volume or an absolute host path; the
+// destination must be an absolute container path.
+func validateVolumes(volumes []string) error {
+	for _, v := range volumes {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		if strings.ContainsAny(v, " \t\n\r;&|$`<>(){}\"'") {
+			return fmt.Errorf("invalid volume %q: contains illegal characters", v)
+		}
+		parts := strings.Split(v, ":")
+		if len(parts) < 2 || len(parts) > 3 {
+			return fmt.Errorf("invalid volume %q: use source:/container/path[:ro]", v)
+		}
+		src, dst := parts[0], parts[1]
+		if src == "" || dst == "" {
+			return fmt.Errorf("invalid volume %q: source and container path are required", v)
+		}
+		// Source: named volume or absolute host path.
+		if !strings.HasPrefix(src, "/") && !namedVolumeRe.MatchString(src) {
+			return fmt.Errorf("invalid volume source %q: use a named volume or an absolute path", src)
+		}
+		// Destination must be an absolute path inside the container.
+		if !strings.HasPrefix(dst, "/") {
+			return fmt.Errorf("invalid volume target %q: must be an absolute container path", dst)
+		}
+		if len(parts) == 3 && parts[2] != "ro" && parts[2] != "rw" {
+			return fmt.Errorf("invalid volume mode %q: use ro or rw", parts[2])
+		}
+	}
+	return nil
+}
+
 // mergeEnvVars reconciles an incoming env map with the stored one. The frontend
 // sends "***" for secret values it never received in cleartext; for those keys
 // we keep the previously stored value instead of overwriting it with the mask.
@@ -90,6 +134,10 @@ func validateBuildMethod(method, dockerfilePath string) (string, string, error) 
 	case "image":
 		// Prebuilt-image deploys (catalog one-click apps). No Dockerfile path.
 		return method, "", nil
+	case "dockerfile-inline":
+		// Inline-Dockerfile deploys (no repo). The Dockerfile content is stored
+		// on the app, not a path; nothing to validate here.
+		return method, "", nil
 	case "compose":
 		return "", "", fmt.Errorf("docker compose builds are not supported yet")
 	case "dockerfile":
@@ -120,4 +168,36 @@ func safeRelPath(p string) bool {
 		}
 	}
 	return true
+}
+
+// dockerImageRe is a permissive matcher for a Docker image reference:
+//
+//	[registry[:port]/]name[:tag][@sha256:digest]
+//
+// It deliberately allows lowercase names, digits, and the usual separators
+// (./_-), path slashes, an optional tag, and an optional digest. It is meant to
+// reject shell-hostile input (spaces, quotes, ;, &, |, $, backticks, …) rather
+// than to be a full OCI grammar, since the value is passed as a single argv
+// element to `docker pull`/`docker run` (never through a shell).
+var dockerImageRe = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[0-9]+)?(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*(?::[A-Za-z0-9_][A-Za-z0-9._-]*)?(?:@sha256:[a-f0-9]{64})?$`)
+
+// validateImageRef checks that an image reference is well-formed and free of
+// shell metacharacters. Returns the trimmed image string on success.
+func validateImageRef(image string) (string, error) {
+	image = strings.TrimSpace(image)
+	if image == "" {
+		return "", fmt.Errorf("image is required")
+	}
+	if len(image) > 255 {
+		return "", fmt.Errorf("image reference is too long")
+	}
+	// Defense-in-depth: reject obvious shell metacharacters and whitespace even
+	// though we never invoke a shell.
+	if strings.ContainsAny(image, " \t\n\r;&|$`<>(){}\\\"'") {
+		return "", fmt.Errorf("invalid image reference: contains illegal characters")
+	}
+	if !dockerImageRe.MatchString(image) {
+		return "", fmt.Errorf("invalid image reference %q: expected forms like nginx, nginx:1.27, ghcr.io/owner/app:tag", image)
+	}
+	return image, nil
 }

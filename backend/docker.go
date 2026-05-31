@@ -257,6 +257,38 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			return
 		}
 		localLog("✔ Image pulled successfully.")
+	} else if app.BuildMethod == "dockerfile-inline" {
+		// ── Inline-Dockerfile path: build from pasted Dockerfile, no repo ────
+		// There is no build context (no clone), so the Dockerfile must be
+		// self-contained — COPY/ADD of local files won't resolve.
+		content := strings.TrimSpace(app.DockerfileContent)
+		if content == "" {
+			localLog("✖ No Dockerfile content provided.")
+			finish("failed", "")
+			return
+		}
+		localLog(fmt.Sprintf("✨ Preparing inline Dockerfile build for app: %s", app.Name))
+		buildDir := filepath.Join("builds", app.Name)
+		os.RemoveAll(buildDir)
+		if err := os.MkdirAll(buildDir, 0755); err != nil {
+			localLog(fmt.Sprintf("✖ Failed to create build directory: %v", err))
+			finish("failed", "")
+			return
+		}
+		if err := os.WriteFile(filepath.Join(buildDir, "Dockerfile"), []byte(content), 0644); err != nil {
+			localLog(fmt.Sprintf("✖ Failed to write Dockerfile: %v", err))
+			finish("failed", "")
+			return
+		}
+		image = fmt.Sprintf("%s:%s", app.Name, deployID)
+		appForBuild := app
+		appForBuild.DockerfilePath = "Dockerfile"
+		if err := buildWithDockerfile(appForBuild, buildDir, image, localLog); err != nil {
+			localLog(fmt.Sprintf("✖ Build failed: %v", err))
+			finish("failed", "")
+			return
+		}
+		localLog("✔ Docker image built successfully!")
 	} else {
 		// ── 1. Clone repository ──────────────────────────────────────────────
 		localLog(fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))

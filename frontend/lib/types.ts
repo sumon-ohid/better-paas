@@ -164,6 +164,27 @@ export interface CatalogDeployRequest {
   cpus?: string
 }
 
+// Shared fields for custom (non-template) deploys.
+export interface CustomDeployBase {
+  name?: string
+  envVars?: Record<string, string>
+  secretKeys?: string[]
+  domains?: string[]
+  memory?: string
+  cpus?: string
+  volumes?: string[]
+  port?: number
+  healthPath?: string
+}
+
+export interface ImageDeployRequest extends CustomDeployBase {
+  image: string
+}
+
+export interface DockerfileDeployRequest extends CustomDeployBase {
+  dockerfile: string
+}
+
 // Result of a database explorer operation (table browse or ad-hoc query).
 // A cell is `null` when the underlying value is a real SQL NULL.
 export interface DbQueryResult {

@@ -39,7 +39,7 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden border-b border-fd-border">
+    <section className="relative overflow-hidden">
       <div className="relative mx-auto max-w-7xl px-6 pt-24 pb-16 sm:pt-32">
         <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
           <Reveal>
@@ -128,7 +128,7 @@ function InstallLine() {
 
 function TechStrip() {
   return (
-    <section className="border-b border-fd-border bg-fd-card/30">
+    <section className="bg-transparent">
       <div className="mx-auto max-w-6xl px-6 py-12">
         <p className="text-center text-xs font-medium uppercase tracking-[0.16em] text-fd-muted-foreground/70">
           Built on the tools you already trust
@@ -319,7 +319,7 @@ const steps = [
 
 function HowItWorks() {
   return (
-    <section className="border-y border-fd-border bg-fd-card/30">
+    <section className="bg-fd-card/30">
       <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
         <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
           <Reveal className="lg:sticky lg:top-24 lg:self-start">
@@ -417,7 +417,7 @@ function Security() {
         <div className="grid gap-4 sm:grid-cols-2">
           {securityPoints.map((p, i) => (
             <Reveal key={p.title} delay={i * 70}>
-              <div className="bp-card bp-card-interactive h-full rounded-2xl p-6">
+              <div className="bp-card h-full rounded-2xl p-6">
                 <IconTile size="sm">
                   <p.icon className="size-4" />
                 </IconTile>
@@ -436,7 +436,7 @@ function Security() {
 
 function CallToAction() {
   return (
-    <section className="border-t border-fd-border">
+    <section className="border-none">
       <div className="mx-auto max-w-6xl px-6 py-28">
         <Reveal>
           <div className="bp-card relative overflow-hidden rounded-3xl px-6 py-20 text-center sm:px-12">
