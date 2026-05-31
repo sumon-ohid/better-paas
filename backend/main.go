@@ -111,6 +111,10 @@ func main() {
 	mux.HandleFunc("/api/addons/db/tables", handleAddonDBTables)
 	mux.HandleFunc("/api/addons/db/table", handleAddonDBTable)
 	mux.HandleFunc("/api/addons/db/query", handleAddonDBQuery)
+	mux.HandleFunc("/api/addons/db/columns", handleAddonDBColumns)
+	mux.HandleFunc("/api/addons/db/row/insert", handleAddonDBRowInsert)
+	mux.HandleFunc("/api/addons/db/row/update", handleAddonDBRowUpdate)
+	mux.HandleFunc("/api/addons/db/row/delete", handleAddonDBRowDelete)
 
 	// Scheduled jobs (cron)
 	mux.HandleFunc("/api/cron", handleCronList)

@@ -16,6 +16,7 @@ import type {
   CronJob,
   NotificationConfig,
   DbQueryResult,
+  DbColumn,
   BackupInfo,
   BackupConfig,
   WebhookInfo,
@@ -188,15 +189,40 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ id }),
       }),
-    dbTable: (id: string, table: string, limit = 50, offset = 0) =>
+    dbTable: (id: string, table: string, limit = 50, offset = 0, orderBy?: string, orderDir?: "asc" | "desc") =>
       req<DbQueryResult>("/api/addons/db/table", {
         method: "POST",
-        body: JSON.stringify({ id, table, limit, offset }),
+        body: JSON.stringify({ id, table, limit, offset, orderBy, orderDir }),
       }),
     dbQuery: (id: string, query: string) =>
       req<DbQueryResult>("/api/addons/db/query", {
         method: "POST",
         body: JSON.stringify({ id, query }),
+      }),
+    dbColumns: (id: string, table: string) =>
+      req<{ columns: DbColumn[] }>("/api/addons/db/columns", {
+        method: "POST",
+        body: JSON.stringify({ id, table }),
+      }),
+    dbInsertRow: (id: string, table: string, values: Record<string, string | null>) =>
+      req<DbQueryResult>("/api/addons/db/row/insert", {
+        method: "POST",
+        body: JSON.stringify({ id, table, values }),
+      }),
+    dbUpdateRow: (
+      id: string,
+      table: string,
+      set: Record<string, string | null>,
+      where: Record<string, string | null>,
+    ) =>
+      req<DbQueryResult>("/api/addons/db/row/update", {
+        method: "POST",
+        body: JSON.stringify({ id, table, set, where }),
+      }),
+    dbDeleteRow: (id: string, table: string, where: Record<string, string | null>) =>
+      req<DbQueryResult>("/api/addons/db/row/delete", {
+        method: "POST",
+        body: JSON.stringify({ id, table, where }),
       }),
   },
 

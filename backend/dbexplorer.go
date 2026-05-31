@@ -142,6 +142,7 @@ func runSQL(a *Addon, sql string) dbQueryResult {
 			"-F", pgFieldSep,
 			"-R", pgRecSep,
 			"-P", "null="+pgNullMark,
+			"-P", "footer=off", // suppress the "(N rows)" line so it isn't parsed as data
 			"-v", "ON_ERROR_STOP=1",
 			"-c", sql,
 		)
@@ -365,8 +366,9 @@ func flattenFirstColumn(res dbQueryResult) []string {
 
 // browseTable returns one page of rows from a table plus the total row count.
 // The table name is validated against the live table list to keep it from
-// being anything other than a real identifier.
-func browseTable(a *Addon, table string, limit, offset int) dbQueryResult {
+// being anything other than a real identifier. orderBy, when set, must name a
+// real column; orderDir is "asc" or "desc".
+func browseTable(a *Addon, table string, limit, offset int, orderBy, orderDir string) dbQueryResult {
 	if limit <= 0 || limit > 1000 {
 		limit = 50
 	}
@@ -386,15 +388,37 @@ func browseTable(a *Addon, table string, limit, offset int) dbQueryResult {
 		return dbQueryResult{Error: "Table not found."}
 	}
 
+	// Validate the sort column against the real schema so it can't be injected.
+	var orderClause string
+	if orderBy != "" {
+		cols, cerr := getColumns(a, table)
+		if cerr != nil {
+			return dbQueryResult{Error: cerr.Error()}
+		}
+		if !columnExists(cols, orderBy) {
+			return dbQueryResult{Error: "Unknown sort column."}
+		}
+		dir := "ASC"
+		if strings.EqualFold(orderDir, "desc") {
+			dir = "DESC"
+		}
+		switch a.Type {
+		case "postgres":
+			orderClause = " ORDER BY " + pgQuoteIdent(orderBy) + " " + dir
+		case "mysql":
+			orderClause = " ORDER BY " + myQuoteIdent(orderBy) + " " + dir
+		}
+	}
+
 	var dataSQL, countSQL string
 	switch a.Type {
 	case "postgres":
 		ident := pgQuoteIdent(table)
-		dataSQL = fmt.Sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", ident, limit, offset)
+		dataSQL = fmt.Sprintf("SELECT * FROM %s%s LIMIT %d OFFSET %d", ident, orderClause, limit, offset)
 		countSQL = fmt.Sprintf("SELECT count(*) FROM %s", ident)
 	case "mysql":
 		ident := myQuoteIdent(table)
-		dataSQL = fmt.Sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", ident, limit, offset)
+		dataSQL = fmt.Sprintf("SELECT * FROM %s%s LIMIT %d OFFSET %d", ident, orderClause, limit, offset)
 		countSQL = fmt.Sprintf("SELECT count(*) FROM %s", ident)
 	default:
 		return dbQueryResult{Error: "Unsupported add-on type."}
@@ -410,6 +434,218 @@ func browseTable(a *Addon, table string, limit, offset int) dbQueryResult {
 		}
 	}
 	return res
+}
+
+// ---------------------------------------------------------------------------
+// Schema introspection + row mutations (Postgres / MySQL)
+// ---------------------------------------------------------------------------
+//
+// These power the editable grid: add row, edit cell, delete row. Identifiers
+// (table/column) are always validated against the live schema and quoted;
+// values are passed as properly-escaped SQL literals. Mutations are gated to
+// SQL engines (Redis has its own command console).
+
+// columnMeta describes one column for the add-row form and edit logic.
+type columnMeta struct {
+	Name       string  `json:"name"`
+	Type       string  `json:"type"`
+	Nullable   bool    `json:"nullable"`
+	PrimaryKey bool    `json:"primaryKey"`
+	Default    *string `json:"default"`
+}
+
+func columnExists(cols []columnMeta, name string) bool {
+	for _, c := range cols {
+		if c.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// pgQuoteLiteral escapes a string as a Postgres literal. standard_conforming_
+// strings is on by default, so only single quotes need doubling.
+func pgQuoteLiteral(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+// myQuoteLiteral escapes a string as a MySQL literal (backslash is an escape
+// character by default, so both it and quotes must be escaped).
+func myQuoteLiteral(s string) string {
+	r := strings.NewReplacer("\\", "\\\\", "'", "\\'")
+	return "'" + r.Replace(s) + "'"
+}
+
+// sqlLiteral renders a value (nil = SQL NULL) for the add-on's engine.
+func sqlLiteral(a *Addon, v *string) string {
+	if v == nil {
+		return "NULL"
+	}
+	if a.Type == "mysql" {
+		return myQuoteLiteral(*v)
+	}
+	return pgQuoteLiteral(*v)
+}
+
+func quoteIdentFor(a *Addon, s string) string {
+	if a.Type == "mysql" {
+		return myQuoteIdent(s)
+	}
+	return pgQuoteIdent(s)
+}
+
+// getColumns returns column metadata for a SQL table, including which columns
+// form the primary key. The table is validated against the live table list.
+func getColumns(a *Addon, table string) ([]columnMeta, error) {
+	tables, err := listTables(a)
+	if err != nil {
+		return nil, err
+	}
+	if !containsString(tables, table) {
+		return nil, fmt.Errorf("Table not found.")
+	}
+
+	var sql string
+	switch a.Type {
+	case "postgres":
+		lit := pgQuoteLiteral(table)
+		sql = `SELECT c.column_name, c.data_type, c.is_nullable, c.column_default,
+			CASE WHEN pk.column_name IS NOT NULL THEN 'YES' ELSE 'NO' END
+		FROM information_schema.columns c
+		LEFT JOIN (
+			SELECT kcu.column_name
+			FROM information_schema.table_constraints tc
+			JOIN information_schema.key_column_usage kcu
+				ON tc.constraint_name = kcu.constraint_name
+				AND tc.table_schema = kcu.table_schema
+			WHERE tc.constraint_type = 'PRIMARY KEY'
+				AND tc.table_schema = 'public'
+				AND tc.table_name = ` + lit + `
+		) pk ON pk.column_name = c.column_name
+		WHERE c.table_schema = 'public' AND c.table_name = ` + lit + `
+		ORDER BY c.ordinal_position`
+	case "mysql":
+		lit := myQuoteLiteral(table)
+		sql = `SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT,
+			CASE WHEN COLUMN_KEY = 'PRI' THEN 'YES' ELSE 'NO' END
+		FROM information_schema.columns
+		WHERE table_schema = DATABASE() AND table_name = ` + lit + `
+		ORDER BY ORDINAL_POSITION`
+	default:
+		return nil, fmt.Errorf("Schema introspection is only supported for Postgres and MySQL.")
+	}
+
+	res := runSQL(a, sql)
+	if res.Error != "" {
+		return nil, fmt.Errorf("%s", res.Error)
+	}
+
+	cols := make([]columnMeta, 0, len(res.Rows))
+	for _, row := range res.Rows {
+		if len(row) < 5 {
+			continue
+		}
+		cm := columnMeta{}
+		if row[0] != nil {
+			cm.Name = *row[0]
+		}
+		if row[1] != nil {
+			cm.Type = *row[1]
+		}
+		cm.Nullable = row[2] != nil && strings.EqualFold(strings.TrimSpace(*row[2]), "YES")
+		cm.Default = row[3]
+		cm.PrimaryKey = row[4] != nil && strings.EqualFold(strings.TrimSpace(*row[4]), "YES")
+		cols = append(cols, cm)
+	}
+	return cols, nil
+}
+
+// buildWhere renders a WHERE clause from a column→value map. nil values become
+// "col IS NULL". Columns are validated against the schema by the caller.
+func buildWhere(a *Addon, where map[string]*string) string {
+	parts := make([]string, 0, len(where))
+	for k, v := range where {
+		if v == nil {
+			parts = append(parts, quoteIdentFor(a, k)+" IS NULL")
+		} else {
+			parts = append(parts, quoteIdentFor(a, k)+" = "+sqlLiteral(a, v))
+		}
+	}
+	return strings.Join(parts, " AND ")
+}
+
+// insertRow inserts a row using only the provided columns (so column defaults
+// apply to omitted ones).
+func insertRow(a *Addon, table string, values map[string]*string) dbQueryResult {
+	cols, err := getColumns(a, table)
+	if err != nil {
+		return dbQueryResult{Error: err.Error()}
+	}
+	if len(values) == 0 {
+		return dbQueryResult{Error: "No values provided."}
+	}
+	colParts := make([]string, 0, len(values))
+	valParts := make([]string, 0, len(values))
+	for k, v := range values {
+		if !columnExists(cols, k) {
+			return dbQueryResult{Error: fmt.Sprintf("Unknown column %q.", k)}
+		}
+		colParts = append(colParts, quoteIdentFor(a, k))
+		valParts = append(valParts, sqlLiteral(a, v))
+	}
+	sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+		quoteIdentFor(a, table), strings.Join(colParts, ", "), strings.Join(valParts, ", "))
+	return runSQL(a, sql)
+}
+
+// updateRow updates the columns in `set` for rows matching `where`. A non-empty
+// where is required so a stray update can't touch the whole table.
+func updateRow(a *Addon, table string, set, where map[string]*string) dbQueryResult {
+	cols, err := getColumns(a, table)
+	if err != nil {
+		return dbQueryResult{Error: err.Error()}
+	}
+	if len(set) == 0 {
+		return dbQueryResult{Error: "No changes to apply."}
+	}
+	if len(where) == 0 {
+		return dbQueryResult{Error: "Refusing to update without a row identifier."}
+	}
+	for k := range set {
+		if !columnExists(cols, k) {
+			return dbQueryResult{Error: fmt.Sprintf("Unknown column %q.", k)}
+		}
+	}
+	for k := range where {
+		if !columnExists(cols, k) {
+			return dbQueryResult{Error: fmt.Sprintf("Unknown column %q.", k)}
+		}
+	}
+	setParts := make([]string, 0, len(set))
+	for k, v := range set {
+		setParts = append(setParts, quoteIdentFor(a, k)+" = "+sqlLiteral(a, v))
+	}
+	sql := fmt.Sprintf("UPDATE %s SET %s WHERE %s",
+		quoteIdentFor(a, table), strings.Join(setParts, ", "), buildWhere(a, where))
+	return runSQL(a, sql)
+}
+
+// deleteRow deletes rows matching `where` (which must be non-empty).
+func deleteRow(a *Addon, table string, where map[string]*string) dbQueryResult {
+	cols, err := getColumns(a, table)
+	if err != nil {
+		return dbQueryResult{Error: err.Error()}
+	}
+	if len(where) == 0 {
+		return dbQueryResult{Error: "Refusing to delete without a row identifier."}
+	}
+	for k := range where {
+		if !columnExists(cols, k) {
+			return dbQueryResult{Error: fmt.Sprintf("Unknown column %q.", k)}
+		}
+	}
+	sql := fmt.Sprintf("DELETE FROM %s WHERE %s", quoteIdentFor(a, table), buildWhere(a, where))
+	return runSQL(a, sql)
 }
 
 // ---------------------------------------------------------------------------
@@ -628,6 +864,8 @@ func handleAddonDBTable(w http.ResponseWriter, r *http.Request) {
 		Table  string `json:"table"`
 		Limit  int    `json:"limit"`
 		Offset int    `json:"offset"`
+		OrderBy  string `json:"orderBy"`
+		OrderDir string `json:"orderDir"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		jsonError(w, "Bad request", http.StatusBadRequest)
@@ -641,7 +879,7 @@ func handleAddonDBTable(w http.ResponseWriter, r *http.Request) {
 	if addon == nil {
 		return
 	}
-	jsonOK(w, browseTable(addon, req.Table, req.Limit, req.Offset).normalized())
+	jsonOK(w, browseTable(addon, req.Table, req.Limit, req.Offset, req.OrderBy, req.OrderDir).normalized())
 }
 
 // POST /api/addons/db/query — run an ad-hoc query / command.
@@ -671,4 +909,127 @@ func handleAddonDBQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, runSQL(addon, req.Query).normalized())
+}
+
+// requireSQLAddon resolves an add-on and rejects Redis (which has no editable
+// row/column model) for the mutation + schema endpoints.
+func requireSQLAddon(w http.ResponseWriter, id string) *Addon {
+	addon := resolveExplorerAddon(w, id)
+	if addon == nil {
+		return nil
+	}
+	if addon.Type == "redis" {
+		jsonError(w, "Editing is only supported for Postgres and MySQL.", http.StatusBadRequest)
+		return nil
+	}
+	return addon
+}
+
+// POST /api/addons/db/columns — column metadata for the add/edit-row UI.
+func handleAddonDBColumns(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID    string `json:"id"`
+		Table string `json:"table"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Table) == "" {
+		jsonError(w, "Table is required", http.StatusBadRequest)
+		return
+	}
+	addon := requireSQLAddon(w, req.ID)
+	if addon == nil {
+		return
+	}
+	cols, err := getColumns(addon, req.Table)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	jsonOK(w, map[string]any{"columns": cols})
+}
+
+// POST /api/addons/db/row/insert — add a row.
+func handleAddonDBRowInsert(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID     string             `json:"id"`
+		Table  string             `json:"table"`
+		Values map[string]*string `json:"values"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Table) == "" {
+		jsonError(w, "Table is required", http.StatusBadRequest)
+		return
+	}
+	addon := requireSQLAddon(w, req.ID)
+	if addon == nil {
+		return
+	}
+	jsonOK(w, insertRow(addon, req.Table, req.Values).normalized())
+}
+
+// POST /api/addons/db/row/update — edit a row, identified by its prior values.
+func handleAddonDBRowUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID    string             `json:"id"`
+		Table string             `json:"table"`
+		Set   map[string]*string `json:"set"`
+		Where map[string]*string `json:"where"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Table) == "" {
+		jsonError(w, "Table is required", http.StatusBadRequest)
+		return
+	}
+	addon := requireSQLAddon(w, req.ID)
+	if addon == nil {
+		return
+	}
+	jsonOK(w, updateRow(addon, req.Table, req.Set, req.Where).normalized())
+}
+
+// POST /api/addons/db/row/delete — delete a row, identified by its values.
+func handleAddonDBRowDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID    string             `json:"id"`
+		Table string             `json:"table"`
+		Where map[string]*string `json:"where"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Table) == "" {
+		jsonError(w, "Table is required", http.StatusBadRequest)
+		return
+	}
+	addon := requireSQLAddon(w, req.ID)
+	if addon == nil {
+		return
+	}
+	jsonOK(w, deleteRow(addon, req.Table, req.Where).normalized())
 }

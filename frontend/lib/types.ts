@@ -195,6 +195,15 @@ export interface DbQueryResult {
   total?: number
 }
 
+// Column metadata for the editable grid (add row / edit cell).
+export interface DbColumn {
+  name: string
+  type: string
+  nullable: boolean
+  primaryKey: boolean
+  default: string | null
+}
+
 export interface CronJob {
   id: string
   appId: string
