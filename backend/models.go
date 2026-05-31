@@ -46,6 +46,12 @@ type App struct {
 	ActiveImage     string `json:"activeImage,omitempty"`   // image tag currently serving traffic
 	ActiveDeployID  string `json:"activeDeployId,omitempty"` // deployment that produced ActiveImage
 
+	// ── Derived (not persisted on the apps row) ──────────────────────────────
+	// Populated at serve time from the latest deployment so the dashboard can
+	// show what's currently deployed without a second request.
+	ActiveCommit    string `json:"activeCommit,omitempty"`
+	ActiveCommitMsg string `json:"activeCommitMsg,omitempty"`
+
 	// ── Secret env vars ──────────────────────────────────────────────────────
 	// Keys listed here have their values redacted in API responses (mirrors
 	// how GitToken is handled). Values are still stored and injected at runtime.

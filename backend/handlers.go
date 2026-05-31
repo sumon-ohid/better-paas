@@ -80,6 +80,16 @@ func handleApps(w http.ResponseWriter, r *http.Request) {
 	}
 	appsLock.Unlock()
 
+	// Enrich each app with the commit info of its latest deployment so the
+	// dashboard can show what's currently deployed. Best-effort: a missing or
+	// errored lookup just leaves the fields empty.
+	for i := range result {
+		if dep, err := dbGetLatestDeployment(result[i].ID); err == nil && dep != nil {
+			result[i].ActiveCommit = dep.Commit
+			result[i].ActiveCommitMsg = dep.CommitMsg
+		}
+	}
+
 	jsonOK(w, result)
 }
 

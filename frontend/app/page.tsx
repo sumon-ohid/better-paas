@@ -60,6 +60,7 @@ import { Docker } from "@/components/ui/svgs/docker"
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
 const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
+const GitCommitIcon = (props: IconProps) => <NucleoIcon {...props} name="git-commit" />
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const SquareIcon = (props: IconProps) => <NucleoIcon {...props} name="square" />
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
@@ -121,17 +122,18 @@ function RepoLink({ gitRepo }: { gitRepo: string }) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center gap-1.5 text-sm font-mono text-muted-foreground hover:text-primary transition-colors"
+      title={gitRepo}
+      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/30 px-2.5 py-1 text-xs font-mono text-muted-foreground transition-colors hover:border-primary/30 hover:bg-muted/50 hover:text-primary"
     >
       {isGitHubRepo(gitRepo) ? (
         <>
-          <GithubLight className="h-4 w-4 shrink-0 dark:hidden" />
-          <GithubDark className="h-4 w-4 shrink-0 hidden dark:block" />
+          <GithubLight className="h-3.5 w-3.5 shrink-0 dark:hidden" />
+          <GithubDark className="h-3.5 w-3.5 shrink-0 hidden dark:block" />
         </>
       ) : (
-        <GitBranchIcon className="h-3.5 w-3.5" />
+        <GitBranchIcon className="h-3.5 w-3.5 shrink-0" />
       )}
-      <span className="truncate max-w-[140px]">{extractRepoName(gitRepo)}</span>
+      <span className="truncate">{extractRepoName(gitRepo)}</span>
     </a>
   )
 }
@@ -401,6 +403,17 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
         <UrlLink url={app.url} />
         <RepoLink gitRepo={app.gitRepo} />
       </div>
+
+      {/* Latest deployed commit */}
+      {app.activeCommitMsg && (
+        <div
+          className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground"
+          title={app.activeCommitMsg}
+        >
+          <GitCommitIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+          <span className="line-clamp-2 min-w-0">{app.activeCommitMsg}</span>
+        </div>
+      )}
 
       {/* Footer: deployed time */}
       <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-3">

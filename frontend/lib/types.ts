@@ -25,6 +25,8 @@ export interface App {
   autoDeploy?: boolean
   activeImage?: string
   activeDeployId?: string
+  activeCommit?: string
+  activeCommitMsg?: string
 }
 
 export interface ServerStats {
