@@ -144,11 +144,12 @@ function UrlLink({ url }: { url: string | undefined }) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center gap-1 text-sm font-mono text-primary hover:underline transition-colors"
+      title={url.replace("http://", "")}
+      className="flex min-w-0 items-center gap-1 text-sm font-mono text-primary hover:underline transition-colors"
     >
       <LinkIcon className="h-3 w-3 shrink-0 opacity-60" />
-      {url.replace("http://", "")}
-      <ExternalLinkIcon className="h-3 w-3 opacity-60" />
+      <span className="truncate">{url.replace("http://", "")}</span>
+      <ExternalLinkIcon className="h-3 w-3 shrink-0 opacity-60" />
     </a>
   )
 }

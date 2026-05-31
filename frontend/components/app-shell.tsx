@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { useAuth } from "@/components/auth-gate"
+import { api } from "@/lib/api"
 import { toastManager } from "@/components/ui/toast"
 import {
   CommandDialog,
@@ -106,6 +107,31 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
   const pathname = usePathname()
   const { resolvedTheme, setTheme } = useTheme()
   const { signOut } = useAuth()
+
+  // Build version shown in the sidebar header. We also surface whether a newer
+  // release exists so the operator notices updates without visiting Settings.
+  const [version, setVersion] = useState<string | null>(null)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    api.system
+      .version()
+      .then((v) => {
+        if (!cancelled) setVersion(v.version)
+      })
+      .catch(() => {})
+    // Non-blocking update check; cached server-side for 30 min so this is cheap.
+    api.system
+      .updateCheck()
+      .then((s) => {
+        if (!cancelled) setUpdateAvailable(s.configured && s.hasUpdate)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
@@ -328,10 +354,26 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                   alt="Better-PaaS Logo"
                   className="size-6"
               />
-              <div className="flex flex-col">
+              <div className="flex items-center gap-2">
                 <span className="font-bold text-base leading-none text-foreground">
                   Better-PaaS
                 </span>
+                {version && (
+                  updateAvailable ? (
+                    <button
+                      onClick={() => router.push("/settings")}
+                      className="flex items-center gap-1 rounded-sm bg-warning/10 px-1.5 py-0.5 text-[10px] font-mono leading-none text-warning hover:bg-warning/20 cursor-pointer"
+                      title="An update is available — open Settings"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                      {version}
+                    </button>
+                  ) : (
+                    <span className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[10px] font-mono leading-none text-muted-foreground/80">
+                      {version}
+                    </span>
+                  )
+                )}
               </div>
             </div>
           </SidebarHeader>
