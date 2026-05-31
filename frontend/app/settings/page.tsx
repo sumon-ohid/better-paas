@@ -18,6 +18,7 @@ import {
   AlertDialogClose,
 } from "@/components/ui/alert-dialog"
 import { AppShell, useToast } from "@/components/app-shell"
+import { useTheme } from "next-themes"
 import { api, ApiError } from "@/lib/api"
 import { useAuth } from "@/components/auth-gate"
 import { GitHubConnectModal } from "@/components/github-connect-modal"
@@ -39,10 +40,100 @@ const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const DownloadIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
+const LinkIcon = (props: IconProps) => <NucleoIcon {...props} name="link" />
+const SunIcon = (props: IconProps) => <NucleoIcon {...props} name="sun" />
+
+// Settings categories shown in the left sub-nav. Each maps to a group of cards
+// rendered in the content column.
+type SettingsSection = "general" | "updates" | "integrations" | "notifications" | "maintenance"
+
+const SETTINGS_SECTIONS: {
+  id: SettingsSection
+  label: string
+  description: string
+  Icon: (props: IconProps) => React.ReactElement
+}[] = [
+  { id: "general", label: "General", description: "Session and node info", Icon: SettingsIcon },
+  { id: "updates", label: "Updates", description: "Software version & releases", Icon: RefreshIcon },
+  { id: "integrations", label: "Integrations", description: "GitHub and Cloudflare", Icon: LinkIcon },
+  { id: "notifications", label: "Notifications", description: "Deploy alerts", Icon: BellIcon },
+  { id: "maintenance", label: "Maintenance", description: "Docker cleanup", Icon: TrashIcon },
+]
+
+// Interface theme options for the visual picker in the General section. Each
+// renders a small mockup preview so the choice reads at a glance.
+const THEME_OPTIONS: { id: "system" | "light" | "dark"; label: string }[] = [
+  { id: "system", label: "System preference" },
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+]
+
+// ThemePreview draws a tiny dashboard mockup (sidebar + content) in the given
+// palette. "system" is shown split down the middle (light left, dark right) to
+// signal it follows the OS setting.
+function ThemePreview({ variant }: { variant: "system" | "light" | "dark" }) {
+  if (variant === "system") {
+    return (
+      <div className="relative flex h-full w-full overflow-hidden">
+        <div className="w-1/2 overflow-hidden">
+          <MockDashboard palette="light" clip="left" />
+        </div>
+        <div className="w-1/2 overflow-hidden">
+          <MockDashboard palette="dark" clip="right" />
+        </div>
+      </div>
+    )
+  }
+  return <MockDashboard palette={variant} />
+}
+
+function MockDashboard({
+  palette,
+  clip,
+}: {
+  palette: "light" | "dark"
+  clip?: "left" | "right"
+}) {
+  const dark = palette === "dark"
+  const bg = dark ? "bg-zinc-900" : "bg-white"
+  const sidebar = dark ? "bg-zinc-800" : "bg-zinc-100"
+  const line = dark ? "bg-zinc-700" : "bg-zinc-200"
+  const lineStrong = dark ? "bg-zinc-600" : "bg-zinc-300"
+  // When used as a system split, keep the mockup full-width and let the parent
+  // clip it, so the two halves form one continuous dashboard.
+  const width = clip ? "w-[200%]" : "w-full"
+  const offset = clip === "right" ? "-translate-x-1/2" : ""
+  return (
+    <div className={`flex h-full ${width} ${offset} ${bg}`}>
+      <div className={`flex w-1/4 flex-col gap-1 p-1.5 ${sidebar}`}>
+        <div className={`h-1.5 w-3/4 rounded-full ${lineStrong}`} />
+        <div className={`h-1 w-full rounded-full ${line}`} />
+        <div className={`h-1 w-full rounded-full ${line}`} />
+        <div className={`h-1 w-2/3 rounded-full ${line}`} />
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-2">
+        <div className={`h-1.5 w-1/2 rounded-full ${lineStrong}`} />
+        <div className={`h-1 w-full rounded-full ${line}`} />
+        <div className={`h-1 w-5/6 rounded-full ${line}`} />
+        <div className={`mt-1 h-6 w-full rounded ${line}`} />
+      </div>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const { showToast } = useToast()
   const { signOut } = useAuth()
+  const { theme, setTheme } = useTheme()
+  // next-themes only knows the active theme on the client; gate the picker's
+  // selected state on mount to avoid a hydration mismatch.
+  const [mounted, setMounted] = useState(false)
+  React.useEffect(() => {
+    // One-time mount flag; intentional setState in effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true)
+  }, [])
+  const [activeSection, setActiveSection] = useState<SettingsSection>("general")
   const [pruning, setPruning] = useState(false)
   const [pruneOutput, setPruneOutput] = useState("")
   const [showPruneModal, setShowPruneModal] = useState(false)
@@ -224,6 +315,43 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Two-column layout: category nav on the left, section content on the right. */}
+        <div className="grid gap-6 md:grid-cols-[200px_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)]">
+          {/* Category nav. Horizontal scroll strip on mobile, vertical rail on md+. */}
+          <nav
+            aria-label="Settings categories"
+            className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 md:sticky md:top-6 md:mx-0 md:h-fit md:flex-col md:gap-0.5 md:overflow-visible md:px-0 md:pb-0"
+          >
+            {SETTINGS_SECTIONS.map((section) => {
+              const active = activeSection === section.id
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSection(section.id)}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors md:w-full ${
+                    active
+                      ? "bg-accent font-medium text-foreground"
+                      : "text-foreground/75 hover:bg-muted/20 hover:text-foreground"
+                  }`}
+                >
+                  <section.Icon className={`h-4 w-4 shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">{section.label}</span>
+                    <span className="hidden truncate text-[11px] font-normal text-muted-foreground lg:block">
+                      {section.description}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </nav>
+
+          {/* Section content */}
+          <div className="min-w-0 space-y-6">
+            {activeSection === "updates" && (
+              <>
         {/* Software Updates */}
         <Card>
           <CardHeader className="border-b border-border/40">
@@ -314,7 +442,11 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+              </>
+            )}
 
+            {activeSection === "maintenance" && (
+              <>
         {/* Docker Maintenance */}
         <Card>
           <CardHeader className="border-b border-border/40">
@@ -353,7 +485,11 @@ export default function SettingsPage() {
             )}
           </CardContent>
         </Card>
+              </>
+            )}
 
+            {activeSection === "notifications" && (
+              <>
         {/* Deploy Notifications */}
         <Card>
           <CardHeader className="border-b border-border/40">
@@ -410,7 +546,11 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+              </>
+            )}
 
+            {activeSection === "integrations" && (
+              <>
         {/* GitHub */}
         <Card>
           <CardHeader className="border-b border-border/40">
@@ -557,6 +697,59 @@ export default function SettingsPage() {
             )}
           </CardContent>
         </Card>
+              </>
+            )}
+
+            {activeSection === "general" && (
+              <>
+        {/* Interface theme */}
+        <Card>
+          <CardHeader className="border-b border-border/40">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <SunIcon className="h-4 w-4 text-muted-foreground" />
+              Interface theme
+            </CardTitle>
+            <CardDescription>Select or customize your UI theme.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {THEME_OPTIONS.map((opt) => {
+                const selected = mounted && (theme ?? "system") === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setTheme(opt.id)}
+                    aria-pressed={selected}
+                    className="group flex flex-col gap-2 text-left"
+                  >
+                    <span
+                      className={`relative block aspect-16/10 overflow-hidden rounded-xl border-2 transition-colors ${
+                        selected
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "border-border group-hover:border-primary/40"
+                      }`}
+                    >
+                      <ThemePreview variant={opt.id} />
+                      {selected && (
+                        <span className="absolute bottom-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                          <CheckIcon className="h-3 w-3" />
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`text-sm font-medium ${
+                        selected ? "text-foreground" : "text-muted-foreground"
+                      }`}
+                    >
+                      {opt.label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Session */}
         <Card>
@@ -602,6 +795,10 @@ export default function SettingsPage() {
             ))}
           </CardContent>
         </Card>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Prune confirm */}
