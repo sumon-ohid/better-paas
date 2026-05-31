@@ -160,6 +160,12 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	composePath, err := validateComposePath(req.ComposePath)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	gitURL := normalizeGitURL(req.GitRepo)
 	ip := getLocalIP()
 
@@ -189,7 +195,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		AutoDeploy:     req.AutoDeploy,
 		BuildMethod:    buildMethod,
 		DockerfilePath: dockerfilePath,
-		ComposePath:    req.ComposePath,
+		ComposePath:    composePath,
 		WebhookSecret:  generateRandomID() + generateRandomID(), // 20-char webhook secret
 	}
 	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
@@ -254,6 +260,13 @@ func handleStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Compose rows stop as a group (interdependent services).
+	if app.ComposeProject != "" {
+		stopComposeGroup(*app)
+		jsonOK(w, map[string]string{"status": "stopped"})
+		return
+	}
+
 	exec.Command("docker", "stop", app.containerName()).Run()
 	stopRuntimeLogCapture(req.ID)
 
@@ -294,6 +307,16 @@ func handleStart(w http.ResponseWriter, r *http.Request) {
 	app := findApp(req.ID)
 	if app == nil {
 		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+
+	// Compose rows start as a group.
+	if app.ComposeProject != "" {
+		if err := startComposeGroup(*app); err != nil {
+			jsonError(w, fmt.Sprintf("Failed to start compose project: %v", err), http.StatusInternalServerError)
+			return
+		}
+		jsonOK(w, map[string]string{"status": "running"})
 		return
 	}
 
@@ -340,6 +363,16 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	app := findApp(req.ID)
 	if app == nil {
 		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+
+	// ── Compose group: delete the entire project and all its rows ────────────
+	// A compose service can't be meaningfully deleted on its own (the project's
+	// network/volumes and sibling services depend on it), so deleting any row
+	// tears down the whole group.
+	if app.ComposeProject != "" {
+		deleteComposeGroup(*app)
+		jsonOK(w, map[string]string{"status": "deleted"})
 		return
 	}
 
@@ -540,10 +573,19 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 
 	ip := getLocalIP()
 
+	// For compose rows, always redeploy from the group's primary row so the
+	// whole project is rebuilt and all rows reconcile together.
+	redeployID := req.ID
+	if r := findApp(req.ID); r != nil && r.ComposeProject != "" {
+		if primary := composePrimaryRow(r.ComposeProject); primary != nil {
+			redeployID = primary.ID
+		}
+	}
+
 	appsLock.Lock()
 	var targetApp *App
 	for i := range apps {
-		if apps[i].ID == req.ID {
+		if apps[i].ID == redeployID {
 			apps[i].Status = "building"
 			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
 			clone := apps[i]
@@ -563,17 +605,17 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 	buildLogs[targetApp.ID] = []string{}
 	buildLogsLock.Unlock()
 
-	if err := dbUpdateAppStatus(req.ID, "building"); err != nil {
+	if err := dbUpdateAppStatus(targetApp.ID, "building"); err != nil {
 		log.Printf("[db] failed to update app status: %v", err)
 	}
 
 	// Create new deployment record.
 	deployID := generateRandomID()
-	logFile := filepath.Join("data", "logs", req.ID, deployID+".log")
+	logFile := filepath.Join("data", "logs", targetApp.ID, deployID+".log")
 	os.MkdirAll(filepath.Dir(logFile), 0755)
 	dep := DeploymentRecord{
 		ID:        deployID,
-		AppID:     req.ID,
+		AppID:     targetApp.ID,
 		AppName:   targetApp.Name,
 		Status:    "building",
 		LogFile:   logFile,

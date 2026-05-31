@@ -308,6 +308,15 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
           <span className="font-semibold text-base text-foreground group-hover:text-primary transition-colors">
             {app.name}
           </span>
+          {app.composeService && (
+            <span
+              title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
+              className="inline-flex items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
+            >
+              <Docker className="h-3 w-3" />
+              {app.composeService}
+            </span>
+          )}
         </div>
       </TableCell>
 
@@ -560,7 +569,15 @@ function ApplicationsDashboard() {
       const matchesStatus = statusFilter === "all" || app.status === statusFilter
       return matchesSearch && matchesStatus
     })
-    .sort((a, b) => compareByStatusPriority(a.status, b.status))
+    .sort((a, b) => {
+      // Keep compose-group rows adjacent (grouped by project, primary first),
+      // while preserving status-priority ordering across groups/standalone apps.
+      if (a.composeProject && b.composeProject && a.composeProject === b.composeProject) {
+        if (a.composePrimary !== b.composePrimary) return a.composePrimary ? -1 : 1
+        return (a.composeService || "").localeCompare(b.composeService || "")
+      }
+      return compareByStatusPriority(a.status, b.status)
+    })
 
   const isEmpty = !loading && filteredApps.length === 0
   const noAppsAtAll = !loading && apps.length === 0

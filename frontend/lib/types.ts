@@ -26,6 +26,12 @@ export interface App {
   buildMethod?: string
   dockerfilePath?: string
   composePath?: string
+  // Docker Compose grouping: a compose deploy is one project surfaced as one
+  // App row per service. These tie the rows together for grouped display.
+  composeProject?: string
+  composeService?: string
+  composeWeb?: boolean
+  composePrimary?: boolean
   image?: string
   catalogId?: string
   activeImage?: string

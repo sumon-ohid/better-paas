@@ -119,6 +119,17 @@ func collectPerAppMetrics() []PerAppMetrics {
 			nameToApp[parts[0]] = parts[1]
 		}
 	}
+
+	// Compose-service rows don't carry the better-paas-app label (compose owns
+	// the container), so map their resolved container name → appID directly.
+	appsLock.Lock()
+	for _, a := range apps {
+		if a.ComposeProject != "" && a.ActiveContainer != "" {
+			nameToApp[a.ActiveContainer] = a.ID
+		}
+	}
+	appsLock.Unlock()
+
 	if len(nameToApp) == 0 {
 		return []PerAppMetrics{}
 	}

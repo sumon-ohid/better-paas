@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Compose Multiservice — web</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.5; }
+      code { background: #f0f0f0; padding: 0.1rem 0.3rem; border-radius: 4px; }
+      .pill { display: inline-block; background: #0ea5e9; color: white; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+    <p class="pill">web service</p>
+    <h1>Hello from the web service</h1>
+    <p>
+      This is the <code>web</code> service of a multi-service Docker Compose
+      deployment. It is served by nginx and is web-facing, so the platform gave
+      it its own subdomain.
+    </p>
+    <p>
+      The sibling <code>api</code> service has its own subdomain too. The
+      <code>worker</code> and <code>db</code> services run alongside without
+      public URLs.
+    </p>
+  </body>
+</html>

@@ -1,0 +1,43 @@
+# Multi-service Docker Compose test project for the BaaS platform.
+#
+# Exercises the compose deploy path:
+#   - web  : web-facing (built from ./web)      → gets its own subdomain
+#   - api  : web-facing (built from ./api)       → gets its own subdomain,
+#            connects to `db` over the compose network to prove service DNS
+#   - worker: NOT web-facing (no published port) → appears as a row, no URL
+#   - db   : postgres datastore                  → recognized as a DB, no URL,
+#            and its host port is suppressed by the platform override
+#
+# The platform assigns the real host ports for web/api; the "published" values
+# below are only used for local `docker compose up` and are overridden on deploy.
+services:
+  web:
+    build: ./web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+  api:
+    build: ./api
+    ports:
+      - "3001:3001"
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+    depends_on:
+      - db
+
+  worker:
+    build: ./worker
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: appdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

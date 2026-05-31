@@ -321,3 +321,21 @@ export async function findDockerfile(repo: GitHubRepo, branch: string, dir: stri
   const variant = contents.find((c) => c.type === "file" && c.name.toLowerCase().startsWith("dockerfile"))
   return variant ? variant.name : null
 }
+
+// composeFileNames are the compose filenames we look for, in priority order,
+// matching docker compose's own resolution and the backend's findComposeFile.
+const composeFileNames = ["compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"]
+
+// findComposeFile returns the name of a Docker Compose file in the given
+// directory (e.g. "docker-compose.yml"), or null if none exists. Used to decide
+// whether to offer the Compose build method in the deploy wizard.
+export async function findComposeFile(repo: GitHubRepo, branch: string, dir: string): Promise<string | null> {
+  const normalized = dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()
+  const contents = await safeContents(repo, branch, normalized)
+  const names = new Map(contents.filter((c) => c.type === "file").map((c) => [c.name.toLowerCase(), c.name]))
+  for (const candidate of composeFileNames) {
+    const match = names.get(candidate)
+    if (match) return match
+  }
+  return null
+}

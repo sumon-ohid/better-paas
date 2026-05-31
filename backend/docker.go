@@ -135,9 +135,22 @@ func updateAppStatus(appID, status string) {
 //
 // IMPORTANT: callers must hold appsLock, since this reads the apps slice.
 func allocatePort() int {
+	return allocatePortAvoiding(nil)
+}
+
+// allocatePortAvoiding is allocatePort with an additional set of ports to treat
+// as already taken. It lets a single caller allocate several distinct ports
+// (e.g. one per web service of a compose group) before any of them have been
+// registered on an app row.
+//
+// IMPORTANT: callers must hold appsLock, since this reads the apps slice.
+func allocatePortAvoiding(extra map[int]bool) int {
 	inUse := make(map[int]bool, len(apps))
 	for _, a := range apps {
 		inUse[a.Port] = true
+	}
+	for p := range extra {
+		inUse[p] = true
 	}
 
 	const lo, hi = 9000, 9999
@@ -253,6 +266,14 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			commitSHA = src.Commit
 			commitMsg = src.CommitMsg
 		}
+	} else if app.BuildMethod == "compose" {
+		// ── Compose path: run a docker compose project, expand into N rows ───
+		// This path manages its own container lifecycle, port allocation, row
+		// registration, and Caddy rebuild, then returns; it does NOT fall
+		// through to the single-container start/cutover below.
+		status, sha, msg := deployComposeProject(app, gitURL, deployID, logFile, localLog)
+		finishDeployment(app, deployLogs, status, startedAt, deployID, logFile, "", trigger, sha, msg)
+		return
 	} else if app.BuildMethod == "image" {
 		// ── Image path: run a prebuilt registry image, no clone/build ────────
 		image = strings.TrimSpace(app.Image)
@@ -340,12 +361,6 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		switch method {
 		case "dockerfile":
 			buildErr = buildWithDockerfile(app, buildSubDir, image, localLog)
-		case "compose":
-			// Compose support is not yet wired into the single-container
-			// pipeline; fail clearly rather than silently building nothing.
-			localLog("✖ Docker Compose builds are not supported yet.")
-			finish("failed", "")
-			return
 		default:
 			buildErr = buildWithNixpacks(app, buildDir, buildSubDir, image, localLog)
 		}

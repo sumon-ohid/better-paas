@@ -42,6 +42,7 @@ import type { App, DeploymentRecord, LogEntry, GitHubContent } from "@/lib/types
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Nix } from "@/components/ui/svgs/nix"
 import {
   makeRepoRef,
@@ -154,7 +155,7 @@ function AppDetailPage() {
   const [startCommand, setStartCommand] = useState("")
   const [installCommand, setInstallCommand] = useState("")
   const [portOverride, setPortOverride] = useState("")
-  const [buildMethod, setBuildMethod] = useState<"nixpacks" | "dockerfile">("nixpacks")
+  const [buildMethod, setBuildMethod] = useState<"nixpacks" | "dockerfile" | "compose">("nixpacks")
   const [dockerfilePath, setDockerfilePath] = useState("Dockerfile")
   const [dockerfileAvailable, setDockerfileAvailable] = useState(false)
 
@@ -202,7 +203,7 @@ function AppDetailPage() {
         setStartCommand(found.startCommand || "")
         setInstallCommand(found.installCommand || "")
         setPortOverride(found.portOverride ? String(found.portOverride) : "")
-        setBuildMethod(found.buildMethod === "dockerfile" ? "dockerfile" : "nixpacks")
+        setBuildMethod(found.buildMethod === "dockerfile" ? "dockerfile" : found.buildMethod === "compose" ? "compose" : "nixpacks")
         setDockerfilePath(found.dockerfilePath || "Dockerfile")
         // If the app is already configured to use a Dockerfile, surface the
         // selector immediately. Otherwise we probe the repo below to decide.
@@ -233,6 +234,9 @@ function AppDetailPage() {
   const checkDockerfile = useCallback(
     async (dir: string) => {
       if (!gitRepo || !branch) return
+      // Compose rows aren't reconfigurable here (the compose file controls the
+      // build); never override their method by probing for a Dockerfile.
+      if (app?.composeProject) return
       try {
         const found = await findDockerfile(makeRepoRef(gitRepo), branch, dir)
         if (found) {
@@ -247,7 +251,7 @@ function AppDetailPage() {
         setBuildMethod("nixpacks")
       }
     },
-    [gitRepo, branch],
+    [gitRepo, branch, app?.composeProject],
   )
 
   // One-time probe for a Dockerfile in the app's current root dir, so the build
@@ -474,8 +478,14 @@ function AppDetailPage() {
         startCommand,
         installCommand,
         portOverride: portOverride ? parseInt(portOverride, 10) : 0,
-        buildMethod,
-        dockerfilePath: buildMethod === "dockerfile" ? dockerfilePath.trim() || "Dockerfile" : undefined,
+        // Compose rows don't expose a reconfigurable build method here; omit it
+        // so we never overwrite the stored "compose" method with a default.
+        ...(app.composeProject
+          ? {}
+          : {
+              buildMethod,
+              dockerfilePath: buildMethod === "dockerfile" ? dockerfilePath.trim() || "Dockerfile" : undefined,
+            }),
       })
       showToast("Settings Saved", "Application configuration updated.")
       fetchData()
@@ -916,6 +926,16 @@ function AppDetailPage() {
           {currentTab === "config" && (
             <div className="h-full overflow-y-auto p-4 md:p-6">
               <div className="mx-auto max-w-4xl space-y-5 animate-in fade-in-50 duration-200">
+               {app.composeService && (
+                 <Alert>
+                   <Docker className="h-4 w-4" />
+                   <AlertDescription>
+                     This is the <span className="font-mono font-semibold">{app.composeService}</span> service of a
+                     Docker Compose project. Build settings are controlled by the compose file in the repo, not here.
+                     Redeploy rebuilds the whole project; deleting any service removes the entire group.
+                   </AlertDescription>
+                 </Alert>
+               )}
                <div className="space-y-1">
                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                    Git Repository URL

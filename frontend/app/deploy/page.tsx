@@ -36,6 +36,7 @@ import {
   detectFrameworkByFiles,
   detectFrameworkForDir,
   findDockerfile,
+  findComposeFile,
 } from "@/lib/framework-detection"
 import { api } from "@/lib/api"
 import { GitCompareArrows } from "lucide-react"
@@ -87,13 +88,17 @@ export default function DeployPage() {
   const [deployInstallCommand, setDeployInstallCommand] = useState("")
   const [deployEnvVars, setDeployEnvVars] = useState<{ key: string; value: string }[]>([])
 
-  // ── Build method (nixpacks | dockerfile) ────────────────────────────────────
-  const [deployBuildMethod, setDeployBuildMethod] = useState<"nixpacks" | "dockerfile">("nixpacks")
+  // ── Build method (nixpacks | dockerfile | compose) ──────────────────────────
+  const [deployBuildMethod, setDeployBuildMethod] = useState<"nixpacks" | "dockerfile" | "compose">("nixpacks")
   const [deployDockerfilePath, setDeployDockerfilePath] = useState("Dockerfile")
   // Whether the selected root directory actually contains a Dockerfile. The
   // build-method selector is only shown when this is true; otherwise Nixpacks
   // is the only option and we don't clutter the UI with a choice.
   const [dockerfileAvailable, setDockerfileAvailable] = useState(false)
+  // Whether the selected root directory contains a Docker Compose file. When
+  // present, the Compose build method is offered.
+  const [composeAvailable, setComposeAvailable] = useState(false)
+  const [deployComposePath, setDeployComposePath] = useState("docker-compose.yml")
 
   // ── Advanced config (resource limits, domains, volumes, health, auto-deploy) ─
   const [deployMemory, setDeployMemory] = useState("")
@@ -181,20 +186,36 @@ export default function DeployPage() {
     }
   }
 
-  // Probe the chosen directory for a Dockerfile. The build-method selector is
-  // only revealed when one exists; otherwise we silently force Nixpacks.
-  const checkDockerfile = async (repo: GitHubRepo, branch: string, dir: string) => {
+  // Probe the chosen directory for a Dockerfile and/or a Compose file. The
+  // build-method selector is only revealed when at least one alternative to
+  // Nixpacks exists; otherwise we silently force Nixpacks.
+  const checkBuildOptions = async (repo: GitHubRepo, branch: string, dir: string) => {
     try {
-      const found = await findDockerfile(repo, branch, dir)
-      if (found) {
+      const [dockerfile, compose] = await Promise.all([
+        findDockerfile(repo, branch, dir),
+        findComposeFile(repo, branch, dir),
+      ])
+      if (dockerfile) {
         setDockerfileAvailable(true)
-        setDeployDockerfilePath(found)
+        setDeployDockerfilePath(dockerfile)
       } else {
         setDockerfileAvailable(false)
-        setDeployBuildMethod("nixpacks")
       }
+      if (compose) {
+        setComposeAvailable(true)
+        setDeployComposePath(compose)
+      } else {
+        setComposeAvailable(false)
+      }
+      // Force Nixpacks if the currently-selected method is no longer available.
+      setDeployBuildMethod((m) => {
+        if (m === "dockerfile" && !dockerfile) return "nixpacks"
+        if (m === "compose" && !compose) return "nixpacks"
+        return m
+      })
     } catch {
       setDockerfileAvailable(false)
+      setComposeAvailable(false)
       setDeployBuildMethod("nixpacks")
     }
   }
@@ -241,7 +262,7 @@ export default function DeployPage() {
               applyDetectedFramework(detected.framework)
               if (detected.rootDir) setDeployRootDir(detected.rootDir)
             }
-            await checkDockerfile(repo, defaultBranch, dir)
+            await checkBuildOptions(repo, defaultBranch, dir)
           }
         })
         .catch((err) => {
@@ -331,8 +352,8 @@ export default function DeployPage() {
           // we don't clobber a user's manual edits with an empty guess.
           if (fwForDir) applyDetectedFramework(fwForDir)
         }
-        // Re-check Dockerfile presence for the chosen directory.
-        await checkDockerfile(selectedRepo, selectedBranch, normalized)
+        // Re-check Dockerfile / Compose presence for the chosen directory.
+        await checkBuildOptions(selectedRepo, selectedBranch, normalized)
       } finally {
         setIsDetectingFramework(false)
       }
@@ -439,7 +460,7 @@ export default function DeployPage() {
           applyDetectedFramework(detected.framework)
           if (detected.rootDir) setDeployRootDir(detected.rootDir)
         }
-        await checkDockerfile(repoObj, defaultBranch, dir)
+        await checkBuildOptions(repoObj, defaultBranch, dir)
       }
     } catch (err) {
       setErrorMsg(`Failed to fetch branches: ${err instanceof Error ? err.message : "Unknown error"}`)
@@ -502,6 +523,7 @@ export default function DeployPage() {
         autoDeploy: deployAutoDeploy,
         buildMethod: deployBuildMethod,
         dockerfilePath: deployBuildMethod === "dockerfile" ? deployDockerfilePath.trim() || "Dockerfile" : undefined,
+        composePath: deployBuildMethod === "compose" ? deployComposePath.trim() || "docker-compose.yml" : undefined,
       })
       router.push(`/logs?appId=${newApp.id}&mode=build`)
     } catch (err) {
@@ -834,18 +856,19 @@ export default function DeployPage() {
                   </div>
                 ) : null}
 
-                {/* Build method selector — only shown when the chosen directory
-                    actually contains a Dockerfile; otherwise Nixpacks is used. */}
-                {dockerfileAvailable && (
+                {/* Build method selector — shown when the chosen directory has
+                    a Dockerfile and/or a Compose file; otherwise Nixpacks. */}
+                {(dockerfileAvailable || composeAvailable) && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Build Method
                   </Label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={`grid gap-2 ${dockerfileAvailable && composeAvailable ? "grid-cols-3" : "grid-cols-2"}`}>
                     {[
-                      { id: "nixpacks" as const, label: "Nixpacks", desc: "Auto-detect", icon: <Nix className="h-5 w-5 text-foreground" /> },
-                      { id: "dockerfile" as const, label: "Dockerfile", desc: "Use Dockerfile", icon: <Docker className="h-5 w-5" /> },
-                    ].map((opt) => {
+                      { id: "nixpacks" as const, label: "Nixpacks", desc: "Auto-detect", icon: <Nix className="h-5 w-5 text-foreground" />, show: true },
+                      { id: "dockerfile" as const, label: "Dockerfile", desc: "Use Dockerfile", icon: <Docker className="h-5 w-5" />, show: dockerfileAvailable },
+                      { id: "compose" as const, label: "Compose", desc: "Multi-service", icon: <Docker className="h-5 w-5" />, show: composeAvailable },
+                    ].filter((opt) => opt.show).map((opt) => {
                       const active = deployBuildMethod === opt.id
                       return (
                         <button
@@ -884,6 +907,26 @@ export default function DeployPage() {
                     <p className="text-[10px] text-muted-foreground">
                       Relative to the root directory. Install/build/start commands are ignored — your
                       Dockerfile controls the build. Make sure it exposes the app on the port below.
+                    </p>
+                  </div>
+                )}
+
+                {deployBuildMethod === "compose" && (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Compose File Path
+                    </Label>
+                    <Input
+                      value={deployComposePath}
+                      onChange={(e) => setDeployComposePath(e.target.value)}
+                      placeholder="docker-compose.yml"
+                      className="h-9 text-sm font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Each service becomes its own app, grouped together. Web-facing services (those
+                      publishing a port, excluding databases) each get a URL. Build/start commands and
+                      the port below are ignored — the compose file controls everything. Deploys recreate
+                      the project (brief downtime); managed databases are better added as Add-ons.
                     </p>
                   </div>
                 )}

@@ -32,12 +32,23 @@ type App struct {
 	// How the image is produced from the repo:
 	//   "nixpacks"   (default) — auto-detected build via Nixpacks
 	//   "dockerfile"           — `docker build` against a Dockerfile in the repo
-	//   "compose"              — (planned) docker compose; not yet implemented
+	//   "compose"              — `docker compose up` from a compose file in the
+	//                            repo; expands into one App row per service
 	//   "image"                — run a prebuilt registry image directly (catalog
 	//                            one-click apps); no clone/build step
 	BuildMethod    string `json:"buildMethod"`
 	DockerfilePath string `json:"dockerfilePath"` // path to Dockerfile, relative to the build context (default "Dockerfile")
-	ComposePath    string `json:"composePath"`    // path to compose file (reserved for compose support)
+	ComposePath    string `json:"composePath"`    // path to the compose file, relative to the build context (default "docker-compose.yml")
+
+	// ── Docker Compose grouping ──────────────────────────────────────────────
+	// A compose deploy creates one docker compose project (ComposeProject, the
+	// group key shared by every row) and one App row per service. Each row
+	// resolves to exactly one container, so all the single-container subsystems
+	// (Caddy routing, terminal, cron, runtime logs, metrics) keep working as-is.
+	ComposeProject string `json:"composeProject,omitempty"` // docker compose project name, e.g. "paas-ab12cd34ef" (group key)
+	ComposeService string `json:"composeService,omitempty"` // the compose service this row represents, e.g. "web"
+	ComposeWeb     bool   `json:"composeWeb"`               // true when this service is web-facing (gets a URL + Caddy route)
+	ComposePrimary bool   `json:"composePrimary"`           // the group's representative row (owns build logs + deployment records)
 
 	// Image is the prebuilt registry image to run when BuildMethod == "image"
 	// (e.g. "louislam/uptime-kuma:1"). Empty for git-based apps.

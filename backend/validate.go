@@ -139,7 +139,9 @@ func validateBuildMethod(method, dockerfilePath string) (string, string, error) 
 		// on the app, not a path; nothing to validate here.
 		return method, "", nil
 	case "compose":
-		return "", "", fmt.Errorf("docker compose builds are not supported yet")
+		// Docker Compose deploys. The compose file path is validated separately
+		// via validateComposePath (it lives in a different request field).
+		return method, "", nil
 	case "dockerfile":
 		path := strings.TrimSpace(dockerfilePath)
 		if path == "" {
@@ -150,8 +152,23 @@ func validateBuildMethod(method, dockerfilePath string) (string, string, error) 
 		}
 		return method, path, nil
 	default:
-		return "", "", fmt.Errorf("invalid build method %q (use nixpacks or dockerfile)", method)
+		return "", "", fmt.Errorf("invalid build method %q (use nixpacks, dockerfile, or compose)", method)
 	}
+}
+
+// validateComposePath normalizes and validates a compose file path. An empty
+// path is allowed (the deployer auto-detects the file in the repo); a provided
+// path is constrained to a safe relative path inside the repo, since it is
+// joined onto the clone dir and passed to `docker compose -f`.
+func validateComposePath(composePath string) (string, error) {
+	p := strings.TrimSpace(composePath)
+	if p == "" {
+		return "", nil
+	}
+	if !safeRelPath(p) {
+		return "", fmt.Errorf("invalid compose file path: must be a relative path inside the repo")
+	}
+	return p, nil
 }
 
 // safeRelPath reports whether p is a relative path that stays within its base
