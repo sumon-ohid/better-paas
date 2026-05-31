@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // getLocalIP returns the server's first non-loopback IPv4 address.
@@ -77,10 +78,54 @@ func rebuildCaddyfile() {
 	}
 }
 
-// startCaddySubprocess starts caddy as a background process if it is in PATH.
+// caddyAdminAddr is the loopback admin endpoint Caddy exposes (see the global
+// block written by rebuildCaddyfile). Used to detect a running instance and to
+// reload its config without spawning a second process.
+const caddyAdminAddr = "127.0.0.1:2019"
+
+// caddyRunning reports whether a Caddy admin endpoint is already responding,
+// which means an instance is live (started by a previous server run, systemd,
+// or a leftover dev relaunch).
+func caddyRunning() bool {
+	conn, err := net.DialTimeout("tcp", caddyAdminAddr, 500*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
+// reloadCaddy asks an already-running Caddy to load the current Caddyfile via
+// its admin API. `caddy reload` is a thin client over that API and is safe to
+// call repeatedly. Returns an error if the reload fails.
+func reloadCaddy() error {
+	cmd := exec.Command("caddy", "reload", "--config", "Caddyfile", "--address", caddyAdminAddr)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// startCaddySubprocess ensures exactly one Caddy instance is serving the
+// generated Caddyfile. If one is already running (detected via its admin port)
+// it reloads that instance instead of starting a second one — starting a
+// duplicate would race for ports :80/:2019 and, on platforms that allow the
+// rebind, leave multiple instances fielding requests (some with a stale/empty
+// config), which surfaces as blank pages on deployed apps.
 func startCaddySubprocess() {
 	if _, err := exec.LookPath("caddy"); err != nil {
 		log.Println("⚠️  Caddy not found in PATH. Dynamic subdomain routing (sslip.io) will not work.")
+		return
+	}
+
+	// If an instance is already up, just reload it with the current config
+	// rather than spawning another that would fight for the same ports.
+	if caddyRunning() {
+		if err := reloadCaddy(); err != nil {
+			log.Printf("⚠️  Caddy already running but reload failed: %v", err)
+		} else {
+			log.Println("Caddy already running — reloaded existing instance.")
+		}
 		return
 	}
 
