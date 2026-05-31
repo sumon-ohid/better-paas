@@ -151,14 +151,92 @@ func parseRange(s string, min, max int) (int, int) {
 	return lo, hi
 }
 
-// validCronExpr does a light syntax check on a 5-field expression.
+// validCronExpr validates a 5-field cron expression: it checks the field count
+// and that every field is structurally valid and within its allowed range, so
+// an expression that could never fire (e.g. "99 99 99 99 99") is rejected at
+// creation time rather than silently never running.
 func validCronExpr(expr string) bool {
-	if len(strings.Fields(expr)) != 5 {
+	fields := strings.Fields(expr)
+	if len(fields) != 5 {
 		return false
 	}
-	// Probe a handful of times; if it never errors structurally it's usable.
-	cronMatches(expr, time.Now())
+	bounds := [5][2]int{
+		{0, 59}, // minute
+		{0, 23}, // hour
+		{1, 31}, // day of month
+		{1, 12}, // month
+		{0, 6},  // day of week
+	}
+	for i, f := range fields {
+		if !validCronField(f, bounds[i][0], bounds[i][1]) {
+			return false
+		}
+	}
 	return true
+}
+
+// validCronField reports whether one cron field is syntactically valid and
+// within [min,max]. Supports the same grammar as fieldMatches: "*", exact
+// values, lists (A,B,C), ranges (A-B), and steps (*/N or A-B/N).
+func validCronField(field string, min, max int) bool {
+	if field == "" {
+		return false
+	}
+	for _, part := range strings.Split(field, ",") {
+		if part == "" {
+			return false
+		}
+		// Step: */N or A-B/N
+		if strings.Contains(part, "/") {
+			sp := strings.SplitN(part, "/", 2)
+			step, err := strconv.Atoi(sp[1])
+			if err != nil || step <= 0 {
+				return false
+			}
+			base := sp[0]
+			if base == "*" {
+				continue
+			}
+			if strings.Contains(base, "-") {
+				if !validCronRange(base, min, max) {
+					return false
+				}
+				continue
+			}
+			return false // a step base must be "*" or a range
+		}
+		// Range: A-B
+		if strings.Contains(part, "-") {
+			if !validCronRange(part, min, max) {
+				return false
+			}
+			continue
+		}
+		// Wildcard.
+		if part == "*" {
+			continue
+		}
+		// Exact value.
+		n, err := strconv.Atoi(part)
+		if err != nil || n < min || n > max {
+			return false
+		}
+	}
+	return true
+}
+
+// validCronRange validates an "A-B" range where min <= A <= B <= max.
+func validCronRange(s string, min, max int) bool {
+	parts := strings.SplitN(s, "-", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	lo, err1 := strconv.Atoi(parts[0])
+	hi, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return lo >= min && hi <= max && lo <= hi
 }
 
 // ---------------------------------------------------------------------------

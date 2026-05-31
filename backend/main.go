@@ -193,7 +193,12 @@ const maxRequestBody = 2 << 20 // 2 MiB
 
 func limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Body != nil && !strings.HasPrefix(r.URL.Path, "/ws/") {
+		// WebSocket upgrades are long-lived streams (exempt). The GitHub webhook
+		// endpoint applies its own, larger cap (maxWebhookBody) inside the
+		// handler, so we don't double-limit it here with the smaller default.
+		if r.Body != nil &&
+			!strings.HasPrefix(r.URL.Path, "/ws/") &&
+			!strings.HasPrefix(r.URL.Path, "/api/webhooks/") {
 			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 		}
 		next.ServeHTTP(w, r)

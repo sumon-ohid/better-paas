@@ -149,6 +149,10 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if err := validateVolumes(req.Volumes); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	buildMethod, dockerfilePath, err := validateBuildMethod(req.BuildMethod, req.DockerfilePath)
 	if err != nil {
@@ -438,6 +442,12 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if req.Volumes != nil {
+		if err := validateVolumes(req.Volumes); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
 
 	// Validate build method when provided. We resolve the effective method +
 	// dockerfile path so an unset path defaults correctly.
@@ -606,7 +616,7 @@ func handleGitBranches(w http.ResponseWriter, r *http.Request) {
 	cmd := exec.Command("git", "ls-remote", "--heads", authenticatedURL)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		jsonError(w, fmt.Sprintf("Failed to fetch branches: %s", string(output)), http.StatusInternalServerError)
+		jsonError(w, fmt.Sprintf("Failed to fetch branches: %s", scrubCredentials(string(output))), http.StatusInternalServerError)
 		return
 	}
 

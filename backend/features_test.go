@@ -51,11 +51,63 @@ func TestCronMatchesInvalid(t *testing.T) {
 }
 
 func TestValidCronExpr(t *testing.T) {
-	if !validCronExpr("0 * * * *") {
-		t.Error("expected '0 * * * *' to be valid")
+	valid := []string{
+		"0 * * * *",
+		"*/15 * * * *",
+		"30 2 * * 1-5",
+		"0,30 0-5 * * *",
+		"59 23 31 12 6",
+		"* * * * *",
 	}
-	if validCronExpr("0 * * *") {
-		t.Error("expected 4-field expr to be invalid")
+	for _, e := range valid {
+		if !validCronExpr(e) {
+			t.Errorf("expected %q to be valid", e)
+		}
+	}
+
+	invalid := []string{
+		"0 * * *",        // too few fields
+		"0 * * * * *",    // too many fields
+		"",               // empty
+		"60 * * * *",     // minute out of range
+		"* 24 * * *",     // hour out of range
+		"* * 0 * *",      // day-of-month below min
+		"* * * 13 *",     // month out of range
+		"* * * * 7",      // day-of-week out of range
+		"99 99 99 99 99", // all out of range (the silent no-op case)
+		"a b c d e",      // non-numeric
+		"*/0 * * * *",    // zero step
+		"5-2 * * * *",    // reversed range
+		"1,, * * * *",    // empty list element
+	}
+	for _, e := range invalid {
+		if validCronExpr(e) {
+			t.Errorf("expected %q to be invalid", e)
+		}
+	}
+}
+
+func TestScrubCredentials(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{
+			"fatal: could not read from https://ghp_secret123@github.com/acme/app.git",
+			"fatal: could not read from https://***@github.com/acme/app.git",
+		},
+		{
+			"cloning http://user:pass@example.com/repo",
+			"cloning http://***@example.com/repo",
+		},
+		{
+			"no credentials here https://github.com/acme/app",
+			"no credentials here https://github.com/acme/app",
+		},
+	}
+	for _, c := range cases {
+		if got := scrubCredentials(c.in); got != c.want {
+			t.Errorf("scrubCredentials(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }
 

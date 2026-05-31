@@ -53,6 +53,17 @@ func formatGitURL(gitURL, token string) string {
 	return "https://" + escaped + "@" + gitURL
 }
 
+// credentialURLRe matches the "userinfo@" portion of an http(s) URL, i.e. the
+// embedded token in a tokenized clone URL like "https://<token>@github.com/…".
+var credentialURLRe = regexp.MustCompile(`(https?://)[^/@\s]+@`)
+
+// scrubCredentials removes embedded basic-auth userinfo (e.g. an injected git
+// token) from any URLs in s, so tokens never reach build logs or API error
+// responses even if git itself fails to redact them. The host/path is kept.
+func scrubCredentials(s string) string {
+	return credentialURLRe.ReplaceAllString(s, "$1***@")
+}
+
 // normalizeGitURL ensures a git URL has a scheme.
 func normalizeGitURL(raw string) string {
 	if raw == "" || strings.HasPrefix(raw, "/") || filepath.IsAbs(raw) {
@@ -299,7 +310,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		authenticatedURL := formatGitURL(gitURL, app.GitToken)
 		cloneCmd := exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
 		if output, err := cloneCmd.CombinedOutput(); err != nil {
-			localLog(fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, string(output)))
+			localLog(fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, scrubCredentials(string(output))))
 			finish("failed", "")
 			return
 		}
