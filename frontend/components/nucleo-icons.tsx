@@ -39,6 +39,7 @@ import {
   Search,
   Server,
   Settings,
+  Sparkles,
   PanelLeft,
   Square,
   Terminal,
@@ -86,6 +87,7 @@ type NucleoIconName =
   | "search"
   | "server"
   | "settings"
+  | "sparkles"
   | "sidebar"
   | "square"
   | "terminal"
@@ -140,6 +142,7 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   search: Search,
   server: Server,
   settings: Settings,
+  sparkles: Sparkles,
   sidebar: PanelLeft,
   square: Square,
   terminal: Terminal,

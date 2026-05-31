@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "@/components/ui/select"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { AppShell, useToast } from "@/components/app-shell"
 import { StatusBadge } from "@/components/status-badge"
@@ -139,6 +146,8 @@ function AppDetailPage() {
   // ── Config edit states ─────────────────────────────────────────────────────
   const [gitRepo, setGitRepo] = useState("")
   const [branch, setBranch] = useState("")
+  const [branches, setBranches] = useState<string[]>([])
+  const [isFetchingBranches, setIsFetchingBranches] = useState(false)
   const [rootDir, setRootDir] = useState("")
   const [envVars, setEnvVars] = useState<{ key: string; value: string }[]>([])
   const [buildCommand, setBuildCommand] = useState("")
@@ -254,6 +263,38 @@ function AppDetailPage() {
     checkDockerfile(rootDir || "")
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gitRepo, branch])
+
+  // Fetch the repo's branches so the Configuration tab can offer a dropdown
+  // instead of a free-text field. Refetches whenever the repo URL changes.
+  const fetchBranches = useCallback(async (repoUrl: string) => {
+    if (!repoUrl) return
+    setIsFetchingBranches(true)
+    try {
+      const list = await api.git.branches(repoUrl)
+      setBranches(list ?? [])
+    } catch (err) {
+      console.error("Failed to fetch branches:", err)
+      setBranches([])
+    } finally {
+      setIsFetchingBranches(false)
+    }
+  }, [])
+
+  const branchesRepo = useRef<string | null>(null)
+  const branchesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (!gitRepo) return
+    if (branchesRepo.current === gitRepo) return
+    if (branchesTimer.current) clearTimeout(branchesTimer.current)
+    // Debounce so typing in the repo URL field doesn't fire a request per keystroke.
+    branchesTimer.current = setTimeout(() => {
+      branchesRepo.current = gitRepo
+      fetchBranches(gitRepo)
+    }, 500)
+    return () => {
+      if (branchesTimer.current) clearTimeout(branchesTimer.current)
+    }
+  }, [gitRepo, fetchBranches])
 
   // Poll while building
   useEffect(() => {
@@ -908,7 +949,32 @@ function AppDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Branch</Label>
-                  <Input value={branch} onChange={(e) => setBranch(e.target.value)} className="h-9 text-sm" />
+                  {isFetchingBranches ? (
+                    <div className="h-9 flex items-center gap-2 text-xs text-muted-foreground">
+                      <RefreshIcon className="h-3 w-3 animate-spin" />
+                      Fetching branches...
+                    </div>
+                  ) : branches.length > 0 ? (
+                    <Select value={branch} onValueChange={(v) => setBranch(v ?? "")}>
+                      <SelectTrigger className="h-9 text-sm w-full">
+                        <SelectValue placeholder="Select branch..." />
+                      </SelectTrigger>
+                      <SelectPopup>
+                        {branches.map((b) => (
+                          <SelectItem key={b} value={b}>
+                            {b}
+                          </SelectItem>
+                        ))}
+                      </SelectPopup>
+                    </Select>
+                  ) : (
+                    <Input
+                      value={branch}
+                      onChange={(e) => setBranch(e.target.value)}
+                      placeholder="main"
+                      className="h-9 text-sm"
+                    />
+                  )}
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">

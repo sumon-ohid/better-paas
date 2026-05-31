@@ -35,6 +35,7 @@ const CopyIcon = (props: IconProps) => <NucleoIcon {...props} name="copy" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 const CpuIcon = (props: IconProps) => <NucleoIcon {...props} name="cpu" />
 const ExternalLinkIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
+const SparklesIcon = (props: IconProps) => <NucleoIcon {...props} name="sparkles" />
 
 const RANGES = [
   { value: "1", label: "24h", days: 1 as const },
@@ -183,9 +184,11 @@ function BreakdownList({
 function EmbedSnippet({ appId }: { appId: string }) {
   const { showToast } = useToast()
   const [copied, setCopied] = useState(false)
+  const [promptCopied, setPromptCopied] = useState(false)
   const snippet = api.analytics.snippet(appId)
+  const prompt = api.analytics.installPrompt(appId)
 
-  const copy = useCallback(async () => {
+  const copySnippet = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(snippet)
       setCopied(true)
@@ -195,6 +198,21 @@ function EmbedSnippet({ appId }: { appId: string }) {
       showToast("Error", "Could not copy to clipboard.", "destructive")
     }
   }, [snippet, showToast])
+
+  const copyPrompt = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(prompt)
+      setPromptCopied(true)
+      showToast(
+        "Prompt copied",
+        "Paste it into any AI assistant to install tracking.",
+        "success",
+      )
+      setTimeout(() => setPromptCopied(false), 2000)
+    } catch {
+      showToast("Error", "Could not copy to clipboard.", "destructive")
+    }
+  }, [prompt, showToast])
 
   return (
     <Card>
@@ -207,27 +225,47 @@ function EmbedSnippet({ appId }: { appId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-4">
-        <div className="relative">
-          <pre className="overflow-x-auto rounded-lg border border-border/60 bg-[#090a0f] p-3 pr-12 font-mono text-xs leading-relaxed text-slate-100">
-            {snippet}
+        {/* Code block — themed via the design-system code tokens so it reads
+            cleanly in both light and dark mode. */}
+        <div className="overflow-hidden rounded-lg border border-border bg-transparent shadow-xs">
+          <pre className="overflow-x-auto p-3.5 font-mono text-xs leading-relaxed text-code-foreground">
+            <code>{snippet}</code>
           </pre>
+        </div>
+
+        {/* Action buttons — stack on mobile, row from sm up */}
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
           <Button
             variant="outline"
-            size="icon-sm"
-            onClick={copy}
-            aria-label="Copy snippet"
-            className="absolute right-2 top-2"
+            onClick={copySnippet}
+            className="w-full justify-center gap-1.5 sm:w-auto"
           >
             {copied ? (
               <CheckIcon className="h-4 w-4 text-success" />
             ) : (
               <CopyIcon className="h-4 w-4" />
             )}
+            {copied ? "Copied" : "Copy snippet"}
+          </Button>
+          <Button
+            onClick={copyPrompt}
+            className="w-full justify-center gap-1.5 sm:w-auto"
+          >
+            {promptCopied ? (
+              <CheckIcon className="h-4 w-4" />
+            ) : (
+              ""
+            )}
+            {promptCopied ? "Prompt copied" : "Copy AI prompt"}
           </Button>
         </div>
+
         <p className="mt-3 text-xs text-muted-foreground">
-          Pageviews are recorded automatically, including SPA route changes. Data appears here
-          within seconds.
+          Pageviews are recorded automatically, including SPA route changes. Not sure where it
+          goes? Use{" "}
+          <span className="font-medium text-foreground">Copy AI prompt</span> and paste it into
+          Cursor, Copilot, or any AI assistant — it explains how to install on plain HTML, Next.js,
+          Vite, Vue, SvelteKit, Astro, and more.
         </p>
       </CardContent>
     </Card>

@@ -309,7 +309,62 @@ export const api = {
     // The one-line snippet the operator pastes into their deployed site.
     snippet: (appId: string) =>
       `<script defer data-site="${appId}" src="${BASE_URL}/api/analytics/script.js"></script>`,
+    // A ready-to-paste prompt for an AI coding assistant (Cursor, Copilot,
+    // Claude, etc.) that explains how to install the tracking snippet into any
+    // kind of project, framework by framework.
+    installPrompt: (appId: string) => buildInstallPrompt(appId, BASE_URL),
   },
+}
+
+// buildInstallPrompt composes a self-contained instruction an operator can hand
+// to any AI coding assistant. It embeds the exact snippet plus per-framework
+// placement guidance so the assistant can install it correctly regardless of
+// the target stack.
+export function buildInstallPrompt(appId: string, baseUrl: string): string {
+  const snippet = `<script defer data-site="${appId}" src="${baseUrl}/api/analytics/script.js"></script>`
+  return `I want to add a lightweight, privacy-friendly web analytics tracking script to my website/app. Please add the following snippet so it loads on every page of the site:
+
+${snippet}
+
+Requirements:
+- The script must load on EVERY page/route, ideally once globally (not per-page).
+- Place it as close to the end of the <head> (or end of <body>) as the framework allows.
+- It is a third-party <script> tag: keep the "defer" attribute and the "data-site" attribute exactly as given. Do not rename or remove them.
+- Do NOT inline the script contents; load it from the given src URL.
+- No cookie banner or consent gating is required (the script sets no cookies and stores nothing in the browser).
+- It already tracks SPA / client-side route changes by hooking the History API, so I do NOT need to manually fire pageview events on navigation.
+
+Framework-specific placement (use whichever matches my project):
+
+1) Plain HTML / static site:
+   Paste the snippet inside the <head> of every HTML page (or your shared layout/partial/include).
+
+2) Next.js (App Router, app/ directory):
+   Use the next/script component in app/layout.tsx, inside <body>:
+     import Script from "next/script"
+     <Script defer data-site="${appId}" src="${baseUrl}/api/analytics/script.js" strategy="afterInteractive" />
+   (Do not paste a raw <script> tag into JSX.)
+
+3) Next.js (Pages Router, pages/ directory):
+   Add the same next/script component in pages/_app.tsx, OR add the raw tag in pages/_document.tsx inside <Head>.
+
+4) Vite / Create React App / any plain SPA:
+   Paste the raw snippet into the <head> of index.html.
+
+5) Vue 3 / Nuxt:
+   - Vue (Vite): paste the snippet into index.html <head>.
+   - Nuxt: add it via app.head in nuxt.config (script array with src, defer, and the data-site attribute).
+
+6) SvelteKit:
+   Paste the snippet into src/app.html inside <head>.
+
+7) Astro:
+   Paste the snippet into the <head> of your base layout (e.g. src/layouts/Layout.astro).
+
+8) Angular:
+   Paste the raw snippet into the <head> of src/index.html.
+
+After adding it, confirm the file you changed and verify the tag renders in the served HTML's <head>. Keep the src URL exactly as provided.`
 }
 
 // ── WebSocket helpers ─────────────────────────────────────────────────────────

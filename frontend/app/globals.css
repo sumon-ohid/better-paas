@@ -21,7 +21,7 @@
     --color-sidebar-accent: var(--sidebar-accent);
     --color-sidebar: var(--sidebar);
     --color-code-highlight: var(--code-highlight);
-    --code-foreground: var(--code-foreground);
+    --color-code-foreground: var(--code-foreground);
     --color-code: var(--code);
     --color-chart-5: var(--chart-5);
     --color-chart-4: var(--chart-4);

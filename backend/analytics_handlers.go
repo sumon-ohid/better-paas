@@ -26,7 +26,15 @@ import (
 
 const analyticsScript = `(function(){
   try {
+    // document.currentScript works for a normal <script> the browser parses
+    // from HTML. But framework loaders (Next.js next/script, etc.) inject the
+    // tag dynamically, and currentScript is null for injected scripts — so we
+    // fall back to locating our own tag by the script src path.
     var s = document.currentScript;
+    if (!s) {
+      var all = document.querySelectorAll('script[data-site][src*="/api/analytics/script.js"]');
+      s = all[all.length - 1];
+    }
     if (!s) return;
     var site = s.getAttribute('data-site');
     if (!site) return;
