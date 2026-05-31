@@ -26,6 +26,7 @@ import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { Eye, EyeOff } from "lucide-react"
 import type { NotificationConfig, UpdateStatus, SystemVersion } from "@/lib/types"
+import { Cloudflare } from "@/components/ui/svgs/cloudflare"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const TrashIcon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
@@ -470,7 +471,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="border-b border-border/40">
             <CardTitle className="flex items-center gap-2 text-base">
-              <CloudIcon className="h-4 w-4 text-[#f6821f]" />
+              <Cloudflare className="h-6 w-6 text-[#f6821f]" />
               Cloudflare DNS
               {cfConnected && (
                 <Badge variant="success" size="sm" className="ml-1 gap-1">
@@ -550,7 +551,7 @@ export default function SettingsPage() {
                 </div>
 
                 <Button onClick={handleSaveCloudflare} loading={cfSaving} className="gap-1.5">
-                  <CloudIcon className="h-3.5 w-3.5" />
+                  <Cloudflare className="h-5 w-5" />
                   {cfSaving ? "Verifying..." : "Connect Cloudflare"}
                 </Button>
               </>

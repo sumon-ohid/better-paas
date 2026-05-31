@@ -512,26 +512,6 @@ export default function AddonsPage() {
               </CardContent>
             </Card>
 
-            {/* Type reference */}
-            <Card>
-              <CardContent className="p-4">
-                <p className="mb-3 text-sm font-semibold">Database types</p>
-                <div className="space-y-2.5">
-                  {Object.entries(TYPE_META).map(([id, m]) => (
-                    <div key={id} className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-foreground">{m.label}</p>
-                        <p className="truncate font-mono text-[11px] text-muted-foreground">
-                          {m.primaryVar} · :{TYPE_PORTS[id]}
-                        </p>
-                      </div>
-                      <Badge variant="info" size="sm" className="shrink-0">{m.short}</Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Good to know */}
             <Card>
               <CardContent className="space-y-2.5 p-4 text-[11px] leading-snug text-muted-foreground">
