@@ -26,11 +26,18 @@ html > body[data-scroll-locked] {
   --removed-body-scroll-bar-size: 0px !important;
 }
 
-/* Subtle brand-tinted radial backdrop for the marketing pages. */
+/* Tiled dotted backdrop for the marketing pages.
+ * Two SVG variants keep the dots legible in both themes:
+ * dark dots on light backgrounds, light dots on dark. The radial mask
+ * fades the pattern out so content stays readable. */
 .bp-hero-grid {
-  background-image:
-    linear-gradient(to right, color-mix(in oklab, var(--color-fd-foreground) 6%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklab, var(--color-fd-foreground) 6%, transparent) 1px, transparent 1px);
-  background-size: 56px 56px;
+  background-image: url('/hero-pattern-light.svg');
+  background-repeat: repeat;
+  background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+}
+
+.dark .bp-hero-grid {
+  background-image: url('/hero-pattern-dark.svg');
 }
