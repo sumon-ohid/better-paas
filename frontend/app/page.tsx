@@ -648,7 +648,7 @@ function ApplicationsDashboard() {
         {/* Desktop card (grid) view */}
         <div className={`hidden ${viewMode === "card" ? "md:block" : ""}`}>
           {loading ? (
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} className="h-44 w-full rounded-xl" />
               ))}
@@ -658,7 +658,7 @@ function ApplicationsDashboard() {
               <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
               {filteredApps.map((app) => (
                 <AppGridCard key={app.id} app={app} onDelete={(a) => setDeleteTarget(a)} />
               ))}
