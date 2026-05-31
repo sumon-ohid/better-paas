@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { AppDomains } from "@/components/app-domains"
 import { SitePreview } from "@/components/site-preview"
+import { EnvVarsCard } from "@/components/env-vars-card"
 import {
   Dialog,
   DialogContent,
@@ -846,19 +847,7 @@ function AppDetailPage() {
               </Card>
 
               {app.envVars && Object.keys(app.envVars).length > 0 && (
-                <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                    Environment Variables
-                  </span>
-                  <div className="rounded-md border border-border bg-muted/20 p-3 space-y-1.5 font-mono text-xs">
-                    {Object.entries(app.envVars).map(([k, v]) => (
-                      <div key={k} className="flex justify-between gap-2">
-                        <span className="text-foreground font-semibold truncate">{k}</span>
-                        <span className="text-muted-foreground truncate max-w-[50%]">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
+                <EnvVarsCard envVars={app.envVars} secretKeys={app.secretKeys} />
               )}
 
               <div className="flex items-center gap-2 pt-2">

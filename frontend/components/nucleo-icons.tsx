@@ -30,6 +30,7 @@ import {
   Minus,
   Ellipsis,
   Eye,
+  EyeOff,
   Moon,
   Sun,
   Play,
@@ -75,6 +76,7 @@ type NucleoIconName =
   | "logout"
   | "minus"
   | "eye"
+  | "eye-off"
   | "moon"
   | "sun"
   | "more-horizontal"
@@ -128,6 +130,7 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   logout: LogOut,
   minus: Minus,
   eye: Eye,
+  "eye-off": EyeOff,
   moon: Moon,
   sun: Sun,
   "more-horizontal": Ellipsis,
