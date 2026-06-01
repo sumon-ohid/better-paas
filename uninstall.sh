@@ -129,6 +129,23 @@ clean_docker() {
 
 # ── Remove Repo & Data ────────────────────────────────────────────────────────
 clean_files() {
+  # Safety check: if running from a local repository checkout, do not delete the codebase!
+  if [ -f "$SCRIPT_DIR/backend/main.go" ]; then
+    warn "Running from a local development checkout. Accidental deletion of the repository is prevented."
+    
+    local data_dir="$SCRIPT_DIR/backend/data"
+    if [ -d "$data_dir" ]; then
+      echo ""
+      read -p "Do you want to delete only the database and logs at $data_dir? (y/N): " -r choice
+      if [[ "$choice" =~ ^[Yy]$ ]]; then
+        info "Removing databases and logs..."
+        rm -rf "$data_dir"
+        success "Databases and logs deleted."
+      fi
+    fi
+    return
+  fi
+
   echo ""
   read -p "Do you want to delete the Better-PaaS folder and all database/logs at $REPO_DIR? (y/N): " -r choice
   if [[ "$choice" =~ ^[Yy]$ ]]; then
