@@ -221,26 +221,30 @@ export function AddServerWizard({ open, onClose, onAdded }: AddServerWizardProps
         </DialogHeader>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex items-center justify-center sm:justify-between gap-1.5 sm:gap-2 pt-1 mb-3 max-w-[420px] mx-auto w-full">
           {([1, 2, 3] as WizardStep[]).map((s, i) => (
             <React.Fragment key={s}>
-              <div
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold border transition-colors ${
-                  step === s
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : step > s
-                      ? "border-success bg-success/15 text-success"
-                      : "border-border text-muted-foreground"
-                }`}
-              >
-                {step > s ? <CheckIcon className="h-3.5 w-3.5" /> : s}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold border transition-colors ${
+                    step === s
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : step > s
+                        ? "border-success bg-success/15 text-success"
+                        : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {step > s ? <CheckIcon className="h-3.5 w-3.5" /> : s}
+                </div>
+                <span
+                  className={`text-[10px] sm:text-xs whitespace-nowrap ${
+                    step === s ? "font-medium text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  {s === 1 ? "Server Info" : s === 2 ? "Add SSH Key" : "Test Connection"}
+                </span>
               </div>
-              <span
-                className={`text-xs ${step === s ? "font-medium text-foreground" : "text-muted-foreground"}`}
-              >
-                {s === 1 ? "Server Info" : s === 2 ? "Add SSH Key" : "Test Connection"}
-              </span>
-              {i < 2 && <div className="h-px flex-1 bg-border" />}
+              {i < 2 && <div className="h-px w-3 sm:flex-1 bg-border" />}
             </React.Fragment>
           ))}
         </div>
