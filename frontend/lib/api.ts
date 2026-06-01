@@ -472,6 +472,7 @@ export function createTerminalWs(appId: string): WebSocket {
   return new WebSocket(withToken(`${getWsBase()}/ws/terminal?appId=${appId}`))
 }
 
-export function createHostTerminalWs(): WebSocket {
-  return new WebSocket(withToken(`${getWsBase()}/ws/host-terminal`))
+export function createHostTerminalWs(serverId?: string): WebSocket {
+  const query = serverId && serverId !== "all" ? `?serverId=${serverId}` : ""
+  return new WebSocket(withToken(`${getWsBase()}/ws/host-terminal${query}`))
 }

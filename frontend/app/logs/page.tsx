@@ -7,6 +7,7 @@ import { AppShell, useToast } from "@/components/app-shell"
 import { StatusBadge } from "@/components/status-badge"
 import { api, createBuildLogsWs, createRuntimeLogsWs } from "@/lib/api"
 import type { App, LogEntry } from "@/lib/types"
+import { useActiveServer } from "@/components/server-context"
 import {
   Select,
   SelectTrigger,
@@ -29,6 +30,7 @@ function LogsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { showToast } = useToast()
+  const { activeServerId } = useActiveServer()
 
   const [apps, setApps] = useState<App[]>([])
   const [selectedAppId, setSelectedAppId] = useState<string>(searchParams.get("appId") ?? "")
@@ -146,6 +148,31 @@ function LogsPage() {
     }
   }, [])
 
+  const filteredApps = React.useMemo(() => {
+    return apps.filter((app) => {
+      const appServerId = app.serverId || "localhost"
+      const targetServerId = activeServerId === "all" ? "all" : (activeServerId === "localhost" ? "localhost" : activeServerId)
+      return targetServerId === "all" || appServerId === targetServerId
+    })
+  }, [apps, activeServerId])
+
+  // Reset selected app if it doesn't belong to the active server context
+  useEffect(() => {
+    if (selectedAppId && apps.length > 0) {
+      const app = apps.find((a) => a.id === selectedAppId)
+      if (app) {
+        const appServerId = app.serverId || "localhost"
+        const targetServerId = activeServerId === "all" ? "all" : (activeServerId === "localhost" ? "localhost" : activeServerId)
+        if (targetServerId !== "all" && appServerId !== targetServerId) {
+          setSelectedAppId("")
+          const url = new URL(window.location.href)
+          url.searchParams.delete("appId")
+          window.history.replaceState({}, "", url.toString())
+        }
+      }
+    }
+  }, [activeServerId, apps, selectedAppId])
+
   const selectedApp = apps.find((a) => a.id === selectedAppId)
 
   // Trigger a fresh build for the selected app, then follow its build logs.
@@ -222,7 +249,7 @@ function LogsPage() {
             </SelectTrigger>
             <SelectPopup>
               <SelectItem value="">— Select app —</SelectItem>
-              {apps.map((app) => (
+              {filteredApps.map((app) => (
                 <SelectItem key={app.id} value={app.id}>
                   {app.name}
                 </SelectItem>

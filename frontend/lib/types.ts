@@ -135,6 +135,7 @@ export interface Addon {
   connEnv?: Record<string, string>
   attachedApps?: string[]
   createdAt: string
+  serverId?: string
 }
 
 // ── App catalog (one-click deploys) ───────────────────────────────────────────

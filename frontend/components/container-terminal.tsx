@@ -231,6 +231,8 @@ export function ContainerTerminal({ appId, appName, reconnectToken }: ContainerT
   )
 }
 
+import { useActiveServer } from "@/components/server-context"
+
 interface HostTerminalProps {
   /** Bumping this value forces a reconnect (used by the Reconnect button). */
   reconnectToken: number
@@ -242,12 +244,32 @@ interface HostTerminalProps {
  * the same XtermShell surface as the per-container terminal so the UI matches.
  */
 export function HostTerminal({ reconnectToken }: HostTerminalProps) {
+  const { activeServerId, servers } = useActiveServer()
+
+  if (activeServerId === "all") {
+    return (
+      <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-lg border border-border bg-[#090a0f] text-sm text-slate-400 p-8 text-center space-y-4 font-mono select-none">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mx-auto">
+          <TerminalIcon className="h-6 w-6" />
+        </div>
+        <div className="space-y-1.5 max-w-sm">
+          <p className="font-semibold text-slate-200">Terminal Context Required</p>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Please select a specific server context (e.g. Localhost or a remote VPS) from the top header selector to access its host terminal.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const serverName = activeServerId === "localhost" ? "localhost" : (servers.find((s) => s.id === activeServerId)?.name ?? "server")
+
   return (
     <XtermShell
-      connect={() => createHostTerminalWs()}
-      title="server — shell"
+      connect={() => createHostTerminalWs(activeServerId)}
+      title={`${serverName} — host shell`}
       reconnectToken={reconnectToken}
-      sessionKey="host"
+      sessionKey={`host-${activeServerId}`}
     />
   )
 }

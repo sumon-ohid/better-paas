@@ -42,6 +42,7 @@ import { api } from "@/lib/api"
 import type { Addon, App } from "@/lib/types"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { DbExplorer } from "@/components/db-explorer"
+import { useActiveServer } from "@/components/server-context"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
@@ -128,12 +129,22 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
 
 export default function AddonsPage() {
   const { showToast } = useToast()
+  const { activeServerId, servers } = useActiveServer()
   const [addons, setAddons] = useState<Addon[]>([])
   const [apps, setApps] = useState<App[]>([])
   const [loading, setLoading] = useState(true)
   const [type, setType] = useState("postgres")
   const [name, setName] = useState("")
+  const [targetServer, setTargetServer] = useState("localhost")
   const [creating, setCreating] = useState(false)
+
+  useEffect(() => {
+    if (activeServerId === "all" || activeServerId === "localhost") {
+      setTargetServer("localhost")
+    } else {
+      setTargetServer(activeServerId)
+    }
+  }, [activeServerId])
 
   // Attach dialog state
   const [attachAddon, setAttachAddon] = useState<Addon | null>(null)
@@ -184,6 +195,14 @@ export default function AddonsPage() {
     },
     [apps],
   )
+
+  const filteredAddons = React.useMemo(() => {
+    return addons.filter((addon) => {
+      const addonServerId = addon.serverId || "localhost"
+      const targetServerId = activeServerId === "all" ? "all" : (activeServerId === "localhost" ? "localhost" : activeServerId)
+      return targetServerId === "all" || addonServerId === targetServerId
+    })
+  }, [addons, activeServerId])
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -315,6 +334,26 @@ export default function AddonsPage() {
                     </SelectPopup>
                   </Select>
                 </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">Target Server</Label>
+                  <Select
+                    value={targetServer}
+                    onValueChange={(v) => v && setTargetServer(v)}
+                    disabled={activeServerId !== "all"}
+                  >
+                    <SelectTrigger className="w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectPopup alignItemWithTrigger={false}>
+                      <SelectItem value="localhost">Localhost</SelectItem>
+                      {servers.map((s) => (
+                        <SelectItem key={s.id} value={s.id} disabled>
+                          {s.name} (Remote — Coming Soon)
+                        </SelectItem>
+                      ))}
+                    </SelectPopup>
+                  </Select>
+                </div>
                 <div className="flex min-w-[180px] flex-1 flex-col gap-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">Name</Label>
                   <Input
@@ -324,10 +363,22 @@ export default function AddonsPage() {
                     className="h-9 text-sm sm:h-8"
                   />
                 </div>
-                <Button onClick={handleCreate} loading={creating} className="gap-1.5">
-                  <PlusIcon className="h-3.5 w-3.5" />
-                  Create
-                </Button>
+                <div className="flex flex-col gap-1.5">
+                  <Button
+                    onClick={handleCreate}
+                    loading={creating}
+                    disabled={activeServerId !== "all" && activeServerId !== "localhost"}
+                    className="gap-1.5"
+                  >
+                    <PlusIcon className="h-3.5 w-3.5" />
+                    Create
+                  </Button>
+                </div>
+                {activeServerId !== "all" && activeServerId !== "localhost" && (
+                  <p className="text-xs text-destructive mt-1.5 w-full">
+                    Database creation is only supported on Localhost currently.
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -342,7 +393,7 @@ export default function AddonsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-4 max-sm:px-3 max-sm:pb-3">
-                {addons.length === 0 ? (
+                {filteredAddons.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border py-10 text-center">
                     <DatabaseIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
                     <p className="text-sm font-medium">No databases yet</p>
@@ -352,7 +403,7 @@ export default function AddonsPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {addons.map((addon) => {
+                    {filteredAddons.map((addon) => {
                       const meta = typeMeta(addon.type)
                       const sb = statusBadge(addon.status)
                       const attached = attachedAppsFor(addon)
@@ -572,6 +623,9 @@ export default function AddonsPage() {
                   ) : (
                     apps.map((app) => {
                       const already = (attachAddon?.attachedApps || []).includes(app.id)
+                      const appServerId = app.serverId || "localhost"
+                      const addonServerId = attachAddon?.serverId || "localhost"
+                      if (appServerId !== addonServerId) return null
                       return (
                         <SelectItem key={app.id} value={app.id} disabled={already}>
                           <span className="flex w-full items-center justify-between gap-2">

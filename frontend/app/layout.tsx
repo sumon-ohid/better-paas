@@ -4,6 +4,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ToastProvider } from "@/components/ui/toast"
 import { AuthGate } from "@/components/auth-gate"
+import { ServerProvider } from "@/components/server-context"
 import { OnboardingGate } from "@/components/onboarding-gate"
 import { cn } from "@/lib/utils";
 
@@ -33,7 +34,9 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             <AuthGate>
-              <OnboardingGate>{children}</OnboardingGate>
+              <ServerProvider>
+                <OnboardingGate>{children}</OnboardingGate>
+              </ServerProvider>
             </AuthGate>
           </ToastProvider>
         </ThemeProvider>

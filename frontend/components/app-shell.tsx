@@ -46,6 +46,15 @@ import {
 } from "@/components/ui/command"
 
 
+import { useActiveServer } from "@/components/server-context"
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "@/components/ui/select"
+
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
@@ -64,6 +73,49 @@ const MoonIcon = (props: IconProps) => <NucleoIcon {...props} name="moon" />
 const SunIcon = (props: IconProps) => <NucleoIcon {...props} name="sun" />
 const SignOutIcon = (props: IconProps) => <NucleoIcon {...props} name="logout" />
 const ServerStackIcon = (props: IconProps) => <NucleoIcon {...props} name="cloud" />
+
+// ── Server Selector ───────────────────────────────────────────────────────────
+
+function ServerSelector() {
+  const { activeServerId, setActiveServerId, servers } = useActiveServer()
+
+  return (
+    <Select value={activeServerId} onValueChange={(v) => v && setActiveServerId(v)}>
+      <SelectTrigger className="h-8 text-xs w-48 border bg-muted/10 hover:bg-muted/20">
+        <SelectValue placeholder="Select server context..." />
+      </SelectTrigger>
+      <SelectPopup alignItemWithTrigger={false}>
+        <SelectItem value="all">
+          <span className="flex items-center gap-2 text-xs">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary/60" />
+            <span>All Servers</span>
+          </span>
+        </SelectItem>
+        <SelectItem value="localhost">
+          <span className="flex items-center gap-2 text-xs">
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+            <span>Localhost</span>
+            <span className="rounded-sm bg-primary/10 px-1 py-0.2 text-[9px] font-mono text-primary leading-none">local</span>
+          </span>
+        </SelectItem>
+        {servers.map((server) => {
+          const isConnected = server.status === "connected"
+          const isError = server.status === "error"
+          const dotColor = isConnected ? "bg-success" : isError ? "bg-destructive" : "bg-muted-foreground/45"
+          return (
+            <SelectItem key={server.id} value={server.id}>
+              <span className="flex items-center gap-2 text-xs">
+                <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+                <span className="truncate">{server.name}</span>
+              </span>
+            </SelectItem>
+          )
+        })}
+      </SelectPopup>
+    </Select>
+  )
+}
+
 
 interface NavItem {
   id: string
@@ -513,13 +565,10 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         <SidebarInset className="du-card relative z-10 m-0 md:m-2 md:ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs/5">
           {/* Header Bar — pinned, never scrolls */}
           <header className="shrink-0 flex h-14 items-center justify-between border-b border-border bg-transparent px-4 select-none">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer" />
-              {/* <div className="h-3.5 w-px bg-border" />
-              <span className="text-sm font-mono text-muted-foreground flex items-center gap-1.5 font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-                Active Node: vps-us-east-1
-              </span> */}
+              <div className="h-4 w-px bg-border" />
+              <ServerSelector />
             </div>
             <div className="flex items-center gap-2">
               <Button
