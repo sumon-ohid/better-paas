@@ -167,7 +167,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             <ul className="mt-2 space-y-1 text-xs leading-relaxed text-muted-foreground/70">
               <li>backend startup logs (journalctl / docker logs)</li> or{" "}
               <li>
-                <code className="rounded bg-muted px-1 py-0.5">./server token</code> <br />
+                run <code className="rounded bg-muted px-1 py-0.5">./server token</code> from ~/better-paas/backend dir <br />
               </li>
             </ul>
           </div>
