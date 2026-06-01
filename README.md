@@ -1,64 +1,65 @@
 # better-paas
 
-A self-hosted PaaS: a Go control plane that builds Git repos with Nixpacks,
-runs them as Docker containers, and routes them through Caddy. A Next.js
-dashboard drives it all.
+A self-hosted, lightweight PaaS: a Go control plane that builds Git repositories with Nixpacks, runs them as Docker containers, and routes traffic through Caddy. Powered by a sleek, responsive Next.js dashboard.
 
-Join our community on [![Discord](https://img.shields.io/discord/1510984110980730940?color=7289da&label=discord&logo=discord)](https://discord.gg/9TP4xEs2) for support, updates, and discussion!
+[![Discord](https://img.shields.io/discord/1510984110980730940?color=7289da&label=discord&logo=discord)](https://discord.gg/9TP4xEs2)
+[![License](https://img.shields.io/badge/License-GNU%20AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/sumon-ohid/better-paas)](https://golang.org)
+[![Node Version](https://img.shields.io/badge/node-%3E%3D%2018-green.svg)](https://nodejs.org)
 
-## Installation
+---
 
-### Quick Install (Single Command)
+## ✨ Features
 
-Deploy to your Linux VPS (Ubuntu/Debian, CentOS/RHEL/Fedora/Rocky/Alma) or macOS host with a single command. This script installs system dependencies (Go, Docker, Nixpacks, Caddy, Node.js, pnpm), clones/updates the repository, builds the binaries, and configures system services:
+Beyond Git-based deploys, the control plane comes packed with features designed for simple self-hosting:
+
+*   **🔄 Zero-Downtime Deploys & Rollbacks**: New containers start on a fresh port and are health-checked before Caddy switches traffic and retires the old container. Roll back to any prior successful deploy with a single click.
+*   **🌐 Automatic HTTPS & Custom Domains**: Add domains to an app and Caddy issues Let's Encrypt certificates automatically.
+*   **🐙 Auto-Deploy on Git Push**: Set up webhook-based auto-deployment with secure per-app HMAC validation.
+*   **🔒 Hardened Security**: SQLite database encryption (AES-256-GCM) at rest for git tokens, and escalating brute-force IP lockout protection.
+*   **🗄️ Managed Databases**: One-click Postgres, Redis, and MySQL containers running on a shared internal network with automated connection environment injection.
+*   **📈 Per-App Metrics**: Live container CPU and memory usage statistics right in your dashboard.
+*   **⏱️ Scheduled Jobs (Cron)**: Run tasks (e.g. migrations or cleanups) inside an app's container on a cron schedule.
+*   **📁 Persistent Volumes**: Mount volumes (`name:/container/path`) to persist state across redeploys.
+*   **💬 Deploy Notifications**: Slack and generic webhook alerts on deployment success or failure.
+*   **📜 Runtime Log Streaming**: Captured container logs persist on disk and stream in real-time over WebSockets.
+*   **💾 On-Demand & Scheduled Backups**: Snapshot your SQLite database, logs, and configurations to download directly from the UI.
+*   **🙈 Redacted Secrets**: Mark sensitive environment variables so they are redacted in API responses.
+
+---
+
+## 🚀 Quick Start
+
+### 1. Installation
+
+#### Single-Command Quick Install (Recommended)
+Deploy to your Linux VPS (Ubuntu/Debian, CentOS/RHEL/Fedora/Rocky/Alma) or macOS host. This script automatically installs system dependencies (Go, Docker, Nixpacks, Caddy, Node.js, pnpm), clones/updates the repository, builds the binaries, and configures system services:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | BETTER_PAAS_REPO_URL=https://github.com/sumon-ohid/better-paas.git bash
 ```
 
 > [!NOTE]
-> On Linux, the installer must be run with root privileges to configure Caddy/Docker and install packages:
+> On Linux, the installer requires root privileges to configure Caddy/Docker and install packages:
 > `curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | sudo BETTER_PAAS_REPO_URL=https://github.com/sumon-ohid/better-paas.git bash`
 
----
-
-### Local Installation
-
-If you already have a checked-out copy of the repository, you can run the installer locally:
-
+#### Local Installation
+If you already have a checked-out copy of the repository:
 ```bash
 bash install.sh
 ```
 
----
-
-### Uninstalling
-
-To cleanly uninstall the control plane, stop the services, and optionally remove deployed apps and project files without affecting your system dependencies (Go, Node, Docker, etc.):
-
-```bash
-bash uninstall.sh
-```
-
-On Linux, the uninstaller must be run with root privileges:
-```bash
-sudo bash uninstall.sh
-```
-
----
-
-### Manual Build
-
+#### Manual Build
 If you prefer to build the components manually:
 
-#### Backend
+**Backend:**
 ```bash
 cd backend
 go build -o server .
 ./server
 ```
 
-#### Frontend
+**Frontend:**
 ```bash
 cd frontend
 pnpm install
@@ -66,153 +67,86 @@ pnpm build
 pnpm start
 ```
 
-## Authentication
+---
 
-The control plane is protected by a single admin bearer token.
+### 2. First-Time Login
 
-- On first run the backend generates a secure token, prints it to the logs,
-  and writes it to `backend/data/admin_token.txt`.
-- Open the dashboard and paste the token into the sign-in screen.
-- Every API and WebSocket request must carry it (`Authorization: Bearer <token>`
-  for HTTP, `?token=<token>` for WebSockets).
+1.   **Get Admin Token**: On first boot, the Go backend generates a secure admin bearer token, prints it to the console, and writes it to `backend/data/admin_token.txt`.
+2.   **Access Dashboard**: Open the Next.js dashboard in your browser (typically `http://localhost:3000` or your server's IP address).
+3.   **Authenticate**: Paste the token into the sign-in screen. Every subsequent API and WebSocket request carries this token (`Authorization: Bearer <token>` or `?token=<token>`).
 
-To pin or rotate the token, set `ADMIN_TOKEN` in the backend environment.
+---
 
-## Configuration
+### 3. Uninstalling
 
-Backend (see `backend/.env.example`):
-
-| Variable                | Default   | Purpose                                                   |
-| ----------------------- | --------- | --------------------------------------------------------- |
-| `ADMIN_TOKEN`           | generated | Admin bearer token. Overrides the auto-generated value.   |
-| `LISTEN_ADDR`           | `:8080`   | API listen address. Use `127.0.0.1:8080` behind a proxy.  |
-| `DASHBOARD_ORIGIN`      | reflected | Comma-separated allowed origins for CORS / WS.            |
-| `BETTER_PAAS_SECRET_KEY`| generated | 32-byte key (hex or base64) for at-rest secret encryption.|
-| `TRUST_PROXY`           | `false`   | Honor `X-Forwarded-For`/`X-Real-IP` (set when behind a proxy). |
-| `ACME_EMAIL`            | unset     | Email for Let's Encrypt registration (custom-domain HTTPS).|
-| `BACKUP_INTERVAL_HOURS` | `0`       | If >0, auto-snapshot `data/` every N hours (keeps last 10).|
-| `UPDATE_REPO`           | from remote | `owner/repo` slug the updater checks for new releases.   |
-
-## Features
-
-Beyond Git-based deploys, the control plane supports:
-
-- **Auto-deploy on git push** — each app exposes a GitHub webhook
-  (`/api/webhooks/github/<appID>`) authenticated by a per-app HMAC secret. Push
-  to the configured branch and the app redeploys. Set it up from an app's
-  "Modify Config" tab and toggle "Auto-deploy on git push".
-- **Automatic HTTPS + custom domains** — add domains to an app and Caddy issues
-  Let's Encrypt certificates automatically. Point the domain's DNS at this
-  server first, then set `ACME_EMAIL` for expiry notices.
-- **Zero-downtime deploys + rollback** — each build is tagged
-  `name:<deployID>`. New containers start on a fresh port and are health-checked
-  before Caddy switches traffic and the old container is retired. Roll back to
-  any prior successful deploy from the deployment history.
-- **Resource limits** — set per-app memory (`512m`, `1g`) and CPU (`0.5`, `2`)
-  caps, enforced via `docker run --memory/--cpus`.
-- **Persistent volumes** — declare `name:/container/path` volumes that survive
-  redeploys for stateful apps.
-- **Managed databases** — one-click Postgres, Redis, and MySQL containers on a
-  shared internal network. Attach one to an app to inject connection env vars.
-- **Per-app metrics** — live CPU/memory per container (via `docker stats`) in
-  the app drawer, in addition to host-level metrics.
-- **Scheduled jobs (cron)** — run commands inside an app's container on a cron
-  schedule (e.g. migrations, cleanup).
-- **Deploy notifications** — Slack and/or generic webhook notifications on
-  deploy success/failure (configure in Settings).
-- **Runtime log persistence** — container stdout/stderr is captured to disk so
-  logs survive restarts, with live streaming over WebSocket.
-- **Backups** — snapshot the `data/` directory (DB, tokens, logs) on demand or
-  on a schedule, and download the archive from the dashboard.
-- **Secret env vars** — mark env var keys as secret so their values are redacted
-  in API responses (mirroring how deploy tokens are handled).
-
-Frontend (see `frontend/.env.example`):
-
-| Variable              | Default                       | Purpose                          |
-| --------------------- | ----------------------------- | -------------------------------- |
-| `NEXT_PUBLIC_API_URL` | same host, port 8080          | Explicit backend API base URL.   |
-
-## Security notes
-
-- The API binds to all interfaces by default so the dashboard works from a
-  remote browser. Because every route requires the admin token, this is safe;
-  for extra hardening put it behind a reverse proxy and set `LISTEN_ADDR` to
-  loopback.
-- `backend/data/` (SQLite DB, admin token, encryption key, logs) is created
-  `0700` and is gitignored. Never commit it — it contains secrets.
-- **Brute-force protection:** repeated bad admin tokens from an IP trigger an
-  escalating lockout (HTTP `429` with `Retry-After`), so guessing the 256-bit
-  token is infeasible. Behind a reverse proxy, set `TRUST_PROXY=true` so the
-  lockout keys on the real client IP rather than the proxy's.
-- **At-rest encryption:** deploy tokens (per-app `gitToken`) and the GitHub
-  token are encrypted with AES-256-GCM before being written to SQLite. The key
-  comes from `BETTER_PAAS_SECRET_KEY` or, if unset, is generated on first run at
-  `backend/data/secret.key` (mode `0600`). This protects leaked DB copies
-  (backups, snapshots, an accidental commit). It does **not** protect against an
-  attacker who can already read the whole data directory, since the key lives
-  there too — for that, supply `BETTER_PAAS_SECRET_KEY` out-of-band (secrets
-  manager, systemd credential) and keep it off the host. Existing cleartext
-  values are read transparently and upgraded to ciphertext on the next write.
-
-## Releases & updates
-
-The control plane can update itself to the latest release with one click from
-**Settings → Software Updates**.
-
-### How releases are cut
-
-Releases are **tag-triggered**, not produced on every push. The GitHub Actions
-workflow (`.github/workflows/release.yml`) runs only when a tag matching `v*` is
-pushed:
+To cleanly stop control plane services and optionally clean up deployed apps/projects:
 
 ```bash
-git tag v1.2.3
-git push origin v1.2.3   # this builds and publishes the release
+bash uninstall.sh
 ```
 
-A normal push to `main` (or any branch) does **not** create a release. Each
-release tag becomes the version: the workflow cross-compiles the backend for
-`linux/amd64`, `linux/arm64`, `darwin/amd64`, and `darwin/arm64`, bakes the tag
-into the binary via `-ldflags "-X main.version=<tag>"`, and publishes the
-binaries plus a `SHA256SUMS` file to GitHub Releases.
+> [!NOTE]
+> On Linux, run the uninstaller with root privileges:
+> `sudo bash uninstall.sh`
 
-Keep tags semver-shaped (`vMAJOR.MINOR.PATCH`); the updater's version comparison
-parses `major.minor.patch` and ignores pre-release/build suffixes for ordering.
+---
 
-### How the in-app updater works
+## ⚙️ Configuration
 
-- The running version is baked in at build time. `install.sh` derives it from
-  `git describe --tags`; CI builds use the release tag. Unset builds (e.g.
-  `go run`) report `dev`, which the checker treats as older than any release.
-- **Check for updates** queries the GitHub Releases API for the repo named by
-  `UPDATE_REPO` (the installer sets this in the systemd unit from your git
-  remote; override it with the `UPDATE_REPO` env var). Results are cached for
-  30 minutes.
-- **Update now** is available only for git-checkout installs. It:
-  1. takes a backup of `data/` first (always),
-  2. launches a detached helper that `git fetch` + `git checkout <tag>`,
-     rebuilds the backend (swapping the new binary in only on a successful
-     build, keeping `server.bak`), rebuilds the frontend, and
-  3. restarts the services, then **health-checks the new build** at
-     `/api/health`. If it doesn't come up, the helper automatically restores the
-     previous binary and ref and restarts — so a bad release rolls itself back.
-- The server never replaces itself in-process; the helper runs in its own
-  session so it survives the restart. Your `data/` directory (DB, tokens, key)
-  is never touched by an update — schema changes are applied by the additive
-  migrations on the next boot.
-- `UPDATE_REPO` is resolved from the env var, then a stored value, then the
-  checkout's `git remote origin` URL — so git installs work even without the
-  env var set.
-- Check the build version headlessly with `./server version`.
+### Backend Options
+Backend configuration is managed via environment variables (see `backend/.env.example`):
 
-> Note: one-click update currently rebuilds from source on the host, so the
-> server needs the Go/Node/pnpm toolchain present. Downloading prebuilt release
-> binaries (and verifying their `SHA256SUMS`/signatures) is a planned follow-up.
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `ADMIN_TOKEN` | generated | Admin bearer token. Overrides the auto-generated value. |
+| `LISTEN_ADDR` | `:8080` | API listen address. Use `127.0.0.1:8080` behind a proxy. |
+| `DASHBOARD_ORIGIN` | reflected | Comma-separated allowed origins for CORS / WS. |
+| `BETTER_PAAS_SECRET_KEY`| generated | 32-byte key (hex or base64) for at-rest secret encryption. |
+| `TRUST_PROXY` | `false` | Honor `X-Forwarded-For`/`X-Real-IP` (set when behind a proxy). |
+| `ACME_EMAIL` | unset | Email for Let's Encrypt registration (custom-domain HTTPS). |
+| `BACKUP_INTERVAL_HOURS` | `0` | If >0, auto-snapshot `data/` every N hours (keeps last 10). |
+| `UPDATE_REPO` | from remote | `owner/repo` slug the updater checks for new releases. |
 
-You can inspect or override the update source from the systemd unit
-(`/etc/systemd/system/better-paas-backend.service`):
+### Frontend Options
+Frontend configuration (see `frontend/.env.example`):
 
-```ini
-Environment=UPDATE_REPO=your-org/better-paas
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_API_URL` | same host, port 8080 | Explicit backend API base URL. |
+
+To pin or rotate the admin token at any time, define `ADMIN_TOKEN` in your system environment.
+
+---
+
+## 🔒 Security Hardening
+
+*   **API Exposure**: The backend API binds to all interfaces by default to accommodate remote browsers. Because every request requires the admin token, this is secure. For maximum isolation, you can place it behind a local reverse proxy and set `LISTEN_ADDR` to `127.0.0.1:8080`.
+*   **Gitignored Secrets**: The SQLite database, keys, and logs are kept in `backend/data/` (created with `0700` permissions) and are excluded from git.
+*   **Brute-Force Protection**: Repeated failed login attempts from an IP trigger an escalating lockout window (`HTTP 429` with `Retry-After`). Set `TRUST_PROXY=true` behind proxies to track the real client IP.
+*   **At-Rest Encryption**: Deploy tokens (`gitToken`) and GitHub tokens are encrypted with `AES-256-GCM` before database insertion. The key is read from `BETTER_PAAS_SECRET_KEY` or generated locally in `backend/data/secret.key` (with `0600` permissions). Supply `BETTER_PAAS_SECRET_KEY` out-of-band (e.g. systemd credentials) to protect against an attacker who gains file-level access to the host.
+
+---
+
+## 🔄 Releases & Updates
+
+The control plane can update itself to the latest release with one click from **Settings → Software Updates**.
+
+### How Releases are Cut
+Releases are **tag-triggered** and do not run on every commit. Pushing a tag matching `v*` triggers the GitHub Actions workflow (`.github/workflows/release.yml`):
+
+```bash
+git tag v1.3.0
+git push origin v1.3.0   # builds and publishes the release
 ```
+
+Each release cross-compiles the Go backend for `linux/amd64`, `linux/arm64`, `darwin/amd64`, and `darwin/arm64`, embeds the version tag via `-ldflags "-X main.version=<tag>"`, and attaches the compiled binaries along with a `SHA256SUMS` verification manifest to the GitHub Release.
+
+### How the In-App Updater Works
+1.  **Version Checking**: The current running version is baked into the server binary. Updates check the GitHub Releases API for the repository slug defined in `UPDATE_REPO` (resolved from environment, database, or git remote origin).
+2.  **Backup & Download**: When triggering "Update now" (available for source-build/git-checkout installations), the server takes a backup snapshot of your `data/` folder.
+3.  **Self-Healing Compilation**: A detached helper script pulls the new tag, rebuilds the backend and frontend from source, and replaces the running binary on success (backing up the old binary as `server.bak`).
+4.  **Health Check & Fallback**: The helper restarts the service and queries `/api/health`. If the health check fails, it automatically rolls back by restoring the previous Go binary and Git ref, then restarting to prevent service downtime.
+5.  **Data Isolation**: SQLite schema changes are handled via additive migrations on next boot, ensuring update processes do not corrupt user database tables.
+
+> [!NOTE]
+> One-click updates build from source on the host and require the Go, Node, and pnpm toolchains. Support for pre-built binary distributions is a planned addition.
