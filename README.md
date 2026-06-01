@@ -1,11 +1,23 @@
-<img width="500" height="500" alt="Group 19" src="https://github.com/user-attachments/assets/d92c57e6-a22e-4039-870c-a01599430b46" />  # better-paas
+<p align="center">
+  <a href="https://github.com/sumon-ohid/better-paas">
+    <img src="https://github.com/user-attachments/assets/d92c57e6-a22e-4039-870c-a01599430b46" alt="better-paas Logo" width="80" height="80" />
+  </a>
+</p>
 
-A self-hosted, lightweight PaaS: a Go control plane that builds Git repositories with Nixpacks, runs them as Docker containers, and routes traffic through Caddy. Powered by a sleek, responsive Next.js dashboard.
+<h1 align="center">better-paas</h1>
 
-[![Discord](https://img.shields.io/discord/1510984110980730940?color=7289da&label=discord&logo=discord)](https://discord.gg/9TP4xEs2)
-[![License](https://img.shields.io/badge/License-GNU%20AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Go Version](https://img.shields.io/badge/go-%3E%3D%201.25-blue.svg)](https://golang.org)
-[![Node Version](https://img.shields.io/badge/node-%3E%3D%2018-green.svg)](https://nodejs.org)
+<p align="center">
+  A self-hosted, lightweight PaaS: a Go control plane that builds Git repositories with Nixpacks, runs them as Docker containers, and routes traffic through Caddy. Powered by a sleek, responsive Next.js dashboard.
+</p>
+
+<table align="center">
+  <tr>
+    <td><a href="https://discord.gg/9TP4xEs2"><img src="https://img.shields.io/badge/discord-chat-7289da?logo=discord&logoColor=white" alt="Discord" /></a></td>
+    <td><a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-GNU%20AGPL%20v3-blue.svg" alt="License" /></a></td>
+    <td><a href="https://golang.org"><img src="https://img.shields.io/badge/go-%3E%3D%201.25-blue.svg" alt="Go Version" /></a></td>
+    <td><a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D%2018-green.svg" alt="Node Version" /></a></td>
+  </tr>
+</table>
 
 ---
 
