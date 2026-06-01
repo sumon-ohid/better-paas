@@ -137,6 +137,10 @@ export default function AddonsPage() {
   const [name, setName] = useState("")
   const [targetServer, setTargetServer] = useState("localhost")
   const [creating, setCreating] = useState(false)
+  const targetServerLabel =
+    targetServer === "localhost"
+      ? "Localhost"
+      : servers.find((server) => server.id === targetServer)?.name ?? "Remote server"
 
   useEffect(() => {
     if (activeServerId === "all" || activeServerId === "localhost") {
@@ -342,11 +346,11 @@ export default function AddonsPage() {
                     disabled={activeServerId !== "all"}
                   >
                     <SelectTrigger className="w-44">
-                      <SelectValue />
+                      <span className="truncate">{targetServerLabel}</span>
                     </SelectTrigger>
                     <SelectPopup alignItemWithTrigger={false}>
                       <SelectItem value="localhost">Localhost</SelectItem>
-                      {servers.map((s) => (
+                      {servers.filter((s) => s.id !== "localhost").map((s) => (
                         <SelectItem key={s.id} value={s.id} disabled>
                           {s.name} (Remote — Coming Soon)
                         </SelectItem>

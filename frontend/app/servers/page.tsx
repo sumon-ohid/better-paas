@@ -520,17 +520,17 @@ interface ServerCardProps {
 function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCardProps) {
   return (
     <Card
-      className={`border transition-colors flex flex-col h-full min-w-0 ${
+      className={`group flex h-full min-w-0 flex-col overflow-hidden border transition-colors ${
         server.isLocal
-          ? "border-primary/20 bg-primary/5"
-          : "border-border bg-card"
+          ? "border-primary/20 bg-card"
+          : "border-border bg-card hover:border-primary/25"
       }`}
     >
-      <CardHeader className="pb-3">
+      <CardHeader className="border-b border-border/40 pb-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2.5 min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
             <div
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg mt-0.5 ${
+              className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
                 server.status === "connected"
                   ? "bg-success/15 text-success"
                   : server.status === "error"
@@ -538,11 +538,11 @@ function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCard
                     : "bg-muted text-muted-foreground"
               }`}
             >
-              <ServerIcon className="h-4 w-4" />
+              <ServerIcon className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <CardTitle className="text-sm font-semibold truncate" title={server.name}>
+                <CardTitle className="truncate text-base font-semibold" title={server.name}>
                   {server.name}
                 </CardTitle>
                 {server.isLocal && (
@@ -552,13 +552,13 @@ function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCard
                 )}
               </div>
               {server.description && (
-                <CardDescription className="text-xs mt-0.5 break-words">
+                <CardDescription className="mt-1 text-xs leading-relaxed break-words">
                   {server.description}
                 </CardDescription>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+          <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
             <StatusBadge status={server.status} />
             {!server.isLocal && (
               <Button
@@ -576,20 +576,20 @@ function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCard
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 pt-0 flex-1 flex flex-col justify-between">
+      <CardContent className="flex flex-1 flex-col justify-between gap-5 pt-4">
         <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div>
+          <div className="grid grid-cols-3 gap-2 rounded-lg border border-border/50 bg-muted/10 p-3 text-xs">
+            <div className="min-w-0">
               <span className="block text-muted-foreground/70 font-medium uppercase tracking-wider text-[10px]">Host</span>
               <span className="font-mono text-foreground truncate block" title={server.isLocal ? "localhost" : server.ip}>
                 {server.isLocal ? "localhost" : server.ip}
               </span>
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="block text-muted-foreground/70 font-medium uppercase tracking-wider text-[10px]">SSH Port</span>
               <span className="font-mono text-foreground">{server.port}</span>
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="block text-muted-foreground/70 font-medium uppercase tracking-wider text-[10px]">User</span>
               <span className="font-mono text-foreground truncate block" title={server.isLocal ? "—" : server.sshUser}>
                 {server.isLocal ? "—" : server.sshUser}
@@ -610,7 +610,7 @@ function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCard
           )}
         </div>
 
-        <div className="flex items-center gap-2 pt-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -656,7 +656,6 @@ function PublicKeyModal({
 }) {
   const [publicKey, setPublicKey] = useState("")
   const [loading, setLoading] = useState(false)
-  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!open || !serverId) return
@@ -668,11 +667,7 @@ function PublicKeyModal({
       .finally(() => setLoading(false))
   }, [open, serverId])
 
-  const copy = () => {
-    navigator.clipboard.writeText(publicKey)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const quickCommand = `mkdir -p ~/.ssh && echo '${publicKey}' >> ~/.ssh/authorized_keys`
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -690,31 +685,18 @@ function PublicKeyModal({
           {loading ? (
             <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
           ) : (
-            <div className="relative">
-              <pre className="rounded-lg border border-border bg-[#090a0f] p-3 text-[11px] text-green-400 font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap break-all max-h-40 overflow-y-auto">
-                {publicKey || "No key found — please recreate the server."}
-              </pre>
-              {publicKey && (
-                <button
-                  onClick={copy}
-                  className="absolute right-2 top-2 rounded bg-muted/60 p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {copied ? (
-                    <CheckIcon className="h-3.5 w-3.5 text-success" />
-                  ) : (
-                    <CopyIcon className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              )}
-            </div>
+            <CopyableCodeBlock
+              label="Authorized key"
+              value={publicKey || "No key found — please recreate the server."}
+              canCopy={!!publicKey}
+            />
           )}
           {publicKey && (
-            <div className="mt-3">
-              <Label className="text-xs text-muted-foreground">Quick command:</Label>
-              <pre className="mt-1.5 rounded-lg border border-border bg-[#090a0f] p-3 text-[11px] text-slate-200 font-mono overflow-x-auto whitespace-pre-wrap break-all">
-                {`echo '${publicKey}' >> ~/.ssh/authorized_keys`}
-              </pre>
-            </div>
+            <CopyableCodeBlock
+              className="mt-3"
+              label="Quick command"
+              value={quickCommand}
+            />
           )}
         </DialogPanel>
         <DialogFooter>
@@ -722,6 +704,55 @@ function PublicKeyModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function CopyableCodeBlock({
+  label,
+  value,
+  canCopy = true,
+  className = "",
+}: {
+  label: string
+  value: string
+  canCopy?: boolean
+  className?: string
+}) {
+  const { showToast } = useToast()
+  const [copied, setCopied] = useState(false)
+
+  const copy = async () => {
+    if (!canCopy) return
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      showToast("Copy failed", "Clipboard access is unavailable.", "destructive")
+    }
+  }
+
+  return (
+    <div className={className}>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+        {canCopy && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={copy}
+            className="h-7 gap-1.5 px-2 text-xs"
+          >
+            {copied ? <CheckIcon className="h-3.5 w-3.5 text-success" /> : <CopyIcon className="h-3.5 w-3.5" />}
+            {copied ? "Copied" : "Copy"}
+          </Button>
+        )}
+      </div>
+      <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-muted/25 p-3 font-mono text-[11px] leading-relaxed text-foreground shadow-inner">
+        {value}
+      </pre>
+    </div>
   )
 }
 

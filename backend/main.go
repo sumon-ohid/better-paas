@@ -71,6 +71,7 @@ func main() {
 	mux.HandleFunc("/api/apps/start", handleStart)
 	mux.HandleFunc("/api/apps/delete", handleDelete)
 	mux.HandleFunc("/api/apps/update", handleUpdate)
+	mux.HandleFunc("/api/apps/rename", handleRenameApp)
 	mux.HandleFunc("/api/apps/redeploy", handleRedeploy)
 	mux.HandleFunc("/api/apps/rollback", handleRollback)
 	mux.HandleFunc("/api/apps/webhook", handleWebhookInfo)

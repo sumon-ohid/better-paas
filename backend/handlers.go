@@ -146,10 +146,6 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	if serverID == "" {
 		serverID = "localhost"
 	}
-	if findAppByNameAndServer(req.Name, serverID) != nil {
-		jsonError(w, fmt.Sprintf("an app named %q already exists on this server", req.Name), http.StatusConflict)
-		return
-	}
 
 	if err := validateResourceLimits(req.Memory, req.CPUs); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
@@ -180,9 +176,14 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 
 	appsLock.Lock()
 	appID := generateRandomID()
+	taken := make(map[string]bool, len(apps))
+	for _, a := range apps {
+		taken[a.Name] = true
+	}
+	name := uniqueAppName(req.Name, taken)
 	newApp := App{
 		ID:             appID,
-		Name:           req.Name,
+		Name:           name,
 		Status:         "building",
 		GitRepo:        req.GitRepo,
 		Branch:         req.Branch,
@@ -576,6 +577,65 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	rebuildCaddyfile()
+	jsonOK(w, updated)
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/apps/rename
+// ---------------------------------------------------------------------------
+
+func handleRenameApp(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Bad request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if !validAppName(name) {
+		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
+		return
+	}
+
+	appsLock.Lock()
+	var updated *App
+	taken := make(map[string]bool, len(apps))
+	for _, a := range apps {
+		if a.ID != req.ID {
+			taken[a.Name] = true
+		}
+	}
+	resolvedName := uniqueAppName(name, taken)
+	for i := range apps {
+		if apps[i].ID == req.ID {
+			apps[i].Name = resolvedName
+			clone := apps[i].Public()
+			updated = &clone
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	if updated == nil {
+		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+	if full := findApp(req.ID); full != nil {
+		if err := dbSaveApp(*full); err != nil {
+			log.Printf("[db] failed to rename app: %v", err)
+			jsonError(w, "failed to save app name", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	jsonOK(w, updated)
 }
 

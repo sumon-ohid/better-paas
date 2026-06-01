@@ -346,7 +346,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 
 	// ── 1. Clone ─────────────────────────────────────────────────────────────
 	localLog(fmt.Sprintf("✨ Initializing Compose deployment for: %s", app.Name))
-	buildDir := filepath.Join("builds", app.Name)
+	buildDir := filepath.Join("builds", app.ID)
 	os.RemoveAll(buildDir)
 
 	localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, app.Branch))
@@ -647,9 +647,9 @@ func composeGroupRows(project string) []App {
 
 // composeDirForApp returns the on-disk compose working directory for a group,
 // honoring the primary row's RootDir. The build dir is keyed by the primary
-// row's name (that's where the repo was cloned).
+// row's ID (that's where the repo was cloned).
 func composeDirForApp(primary App) string {
-	dir := filepath.Join("builds", primary.Name)
+	dir := filepath.Join("builds", primary.ID)
 	if primary.RootDir != "" && primary.RootDir != "." && primary.RootDir != "./" {
 		dir = filepath.Join(dir, primary.RootDir)
 	}
@@ -732,9 +732,9 @@ func deleteComposeGroup(any App) {
 		os.RemoveAll(filepath.Join("data", "logs", r.ID))
 	}
 
-	// Remove the shared build directory (cloned once under the primary name).
+	// Remove the shared build directory (cloned once under the primary ID).
 	if primary != nil {
-		os.RemoveAll(filepath.Join("builds", primary.Name))
+		os.RemoveAll(filepath.Join("builds", primary.ID))
 	}
 
 	rebuildCaddyfile()

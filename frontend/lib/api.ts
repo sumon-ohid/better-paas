@@ -101,6 +101,8 @@ export const api = {
       req<{ status: string }>("/api/apps/delete", { method: "POST", body: JSON.stringify({ id }) }),
     update: (data: UpdateRequest) =>
       req<App>("/api/apps/update", { method: "POST", body: JSON.stringify(data) }),
+    rename: (id: string, name: string) =>
+      req<App>("/api/apps/rename", { method: "POST", body: JSON.stringify({ id, name }) }),
     redeploy: (id: string) =>
       req<App>("/api/apps/redeploy", { method: "POST", body: JSON.stringify({ id }) }),
     rollback: (id: string, deploymentId: string) =>
@@ -464,8 +466,8 @@ export function createRuntimeLogsWs(appId: string): WebSocket {
   return new WebSocket(withToken(`${getWsBase()}/ws/runtime-logs?appId=${appId}`))
 }
 
-export function createStatsWs(): WebSocket {
-  return new WebSocket(withToken(`${getWsBase()}/ws/stats`))
+export function createStatsWs(serverId = "localhost"): WebSocket {
+  return new WebSocket(withToken(`${getWsBase()}/ws/stats?serverId=${encodeURIComponent(serverId)}`))
 }
 
 export function createTerminalWs(appId: string): WebSocket {

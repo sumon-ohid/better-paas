@@ -324,7 +324,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			return
 		}
 		localLog(fmt.Sprintf("✨ Preparing inline Dockerfile build for app: %s", app.Name))
-		buildDir := filepath.Join("builds", app.Name)
+		buildDir := filepath.Join("builds", app.ID)
 		os.RemoveAll(buildDir)
 		if err := os.MkdirAll(buildDir, 0755); err != nil {
 			localLog(fmt.Sprintf("✖ Failed to create build directory: %v", err))
@@ -348,7 +348,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 	} else {
 		// ── 1. Clone repository ──────────────────────────────────────────────
 		localLog(fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
-		buildDir := filepath.Join("builds", app.Name)
+		buildDir := filepath.Join("builds", app.ID)
 		os.RemoveAll(buildDir)
 
 		localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, app.Branch))

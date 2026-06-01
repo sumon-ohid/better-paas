@@ -417,10 +417,6 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	if serverID == "" {
 		serverID = "localhost"
 	}
-	if findAppByNameAndServer(name, serverID) != nil {
-		jsonError(w, fmt.Sprintf("an app named %q already exists on this server", name), http.StatusConflict)
-		return
-	}
 	if err := validateResourceLimits(req.Memory, req.CPUs); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
@@ -456,24 +452,24 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 
 	// ── Persistent volume: generate a uniquely-named volume so redeploys keep
 	// data. Stateless templates (no VolumePath) get none.
+	appsLock.Lock()
+	appID := generateRandomID()
+	taken := make(map[string]bool, len(apps))
+	for _, a := range apps {
+		taken[a.Name] = true
+	}
+	name = uniqueAppName(name, taken)
 	var volumes []string
 	if tpl.VolumePath != "" {
 		volName := fmt.Sprintf("paas-%s-%s-data", name, generateRandomID()[:6])
 		volumes = append(volumes, fmt.Sprintf("%s:%s", volName, tpl.VolumePath))
 	}
-
-	appsLock.Lock()
-	appID := generateRandomID()
-	serverId := req.ServerID
-	if serverId == "" {
-		serverId = "localhost"
-	}
 	newApp := App{
 		ID:            appID,
 		Name:          name,
 		Status:        "building",
-		Port:          allocatePort(serverId),
-		ServerID:      serverId,
+		Port:          allocatePort(serverID),
+		ServerID:      serverID,
 		CreatedAt:     time.Now(),
 		EnvVars:       envVars,
 		SecretKeys:    secretKeys,
@@ -488,7 +484,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		CatalogID:     tpl.ID,
 		WebhookSecret: generateRandomID() + generateRandomID(),
 	}
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, appHostIP(serverId))
+	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, appHostIP(serverID))
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 
@@ -558,10 +554,6 @@ func validateCustomDeploy(w http.ResponseWriter, c customDeployCommon, fallbackN
 	if serverID == "" {
 		serverID = "localhost"
 	}
-	if findAppByNameAndServer(name, serverID) != nil {
-		jsonError(w, fmt.Sprintf("an app named %q already exists on this server", name), http.StatusConflict)
-		return "", false
-	}
 	if err := validateResourceLimits(c.Memory, c.CPUs); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return "", false
@@ -604,9 +596,13 @@ func cleanEnvVars(in map[string]string, secretKeys []string) (map[string]string,
 // startCustomDeploy persists a new app and kicks off the deploy pipeline. It
 // assumes the caller has already validated name, limits, domains, and volumes.
 func startCustomDeploy(w http.ResponseWriter, newApp App, trigger string) {
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, appHostIP(newApp.ServerID))
-
 	appsLock.Lock()
+	taken := make(map[string]bool, len(apps))
+	for _, a := range apps {
+		taken[a.Name] = true
+	}
+	newApp.Name = uniqueAppName(newApp.Name, taken)
+	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, appHostIP(newApp.ServerID))
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 

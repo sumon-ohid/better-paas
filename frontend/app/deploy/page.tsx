@@ -74,6 +74,7 @@ export default function DeployPage() {
   const [showGitHubModal, setShowGitHubModal] = useState(false)
   const [repos, setRepos] = useState<GitHubRepo[]>([])
   const [isLoadingRepos, setIsLoadingRepos] = useState(false)
+  const [showRepoList, setShowRepoList] = useState(true)
 
   // ── Selected repo & branch ─────────────────────────────────────────────────
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null)
@@ -136,6 +137,10 @@ export default function DeployPage() {
   // ── Servers ────────────────────────────────────────────────────────────────
   const [servers, setServers] = useState<Server[]>([])
   const [selectedServerId, setSelectedServerId] = useState("localhost")
+  const selectedServerLabel =
+    selectedServerId === "localhost"
+      ? "Localhost"
+      : servers.find((server) => server.id === selectedServerId)?.name ?? "Remote server"
 
   // Load servers on mount
   useEffect(() => {
@@ -245,6 +250,7 @@ export default function DeployPage() {
   const handleRepoSelect = (repoFullName: string) => {
     const repo = repos.find((r) => r.full_name === repoFullName) || null
     setSelectedRepo(repo)
+    setShowRepoList(false)
     setBranches([])
     setSelectedBranch("")
     setErrorMsg("")
@@ -302,6 +308,7 @@ export default function DeployPage() {
       setGitHubConnected(false)
       setRepos([])
       setSelectedRepo(null)
+      setShowRepoList(true)
       setBranches([])
       setSelectedBranch("")
     } catch {
@@ -456,6 +463,7 @@ export default function DeployPage() {
     }
 
     setSelectedRepo(repoObj)
+    setShowRepoList(false)
     setDeployName(repoName.toLowerCase().replace(/[^a-z0-9-]/g, ""))
 
     // Instant fallback detection from name/description
@@ -678,75 +686,77 @@ export default function DeployPage() {
                       </div>
                     </div>
 
-                    {/* Repo list — scrollable */}
-                    {isLoadingRepos ? (
-                      <div className="py-12 text-center text-xs text-muted-foreground">
-                        <RefreshIcon className="h-5 w-5 mx-auto mb-2 animate-spin opacity-50" />
-                        Loading repositories...
-                      </div>
-                    ) : repos.length === 0 ? (
-                      <div className="py-12 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
-                        No repositories found.
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                        {repos.map((repo) => {
-                          const isSelected = selectedRepo?.full_name === repo.full_name
-                          return (
-                            <button
-                              key={repo.full_name}
-                              onClick={() => handleRepoSelect(repo.full_name)}
-                              className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
-                                isSelected
-                                  ? "border-primary/50 bg-primary/5"
-                                  : "border-border bg-card/40 hover:bg-accent/30"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <div className="h-7 w-7 rounded-md bg-muted/50 flex items-center justify-center shrink-0">
-                                  <GithubLight className="h-4 w-4 dark:hidden" />
-                                  <GithubDark className="h-4 w-4 hidden dark:block" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-foreground truncate">
-                                      {repo.name}
-                                    </span>
-                                    {repo.private ? (
-                                      <span className="text-[10px] font-mono px-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                        private
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] font-mono px-1 rounded bg-muted/50 text-muted-foreground border border-border">
-                                        public
-                                      </span>
-                                    )}
+                    {/* Repo list — collapses after selection so config stays visible. */}
+                    {(showRepoList || !selectedRepo) && (
+                      isLoadingRepos ? (
+                        <div className="py-12 text-center text-xs text-muted-foreground">
+                          <RefreshIcon className="h-5 w-5 mx-auto mb-2 animate-spin opacity-50" />
+                          Loading repositories...
+                        </div>
+                      ) : repos.length === 0 ? (
+                        <div className="py-12 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
+                          No repositories found.
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                          {repos.map((repo) => {
+                            const isSelected = selectedRepo?.full_name === repo.full_name
+                            return (
+                              <button
+                                key={repo.full_name}
+                                onClick={() => handleRepoSelect(repo.full_name)}
+                                className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
+                                  isSelected
+                                    ? "border-primary/50 bg-primary/5"
+                                    : "border-border bg-card/40 hover:bg-accent/30"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <div className="h-7 w-7 rounded-md bg-muted/50 flex items-center justify-center shrink-0">
+                                    <GithubLight className="h-4 w-4 dark:hidden" />
+                                    <GithubDark className="h-4 w-4 hidden dark:block" />
                                   </div>
-                                  <p className="text-[11px] text-muted-foreground truncate">
-                                    {repo.description || "No description"}
-                                  </p>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-foreground truncate">
+                                        {repo.name}
+                                      </span>
+                                      {repo.private ? (
+                                        <span className="text-[10px] font-mono px-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                          private
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] font-mono px-1 rounded bg-muted/50 text-muted-foreground border border-border">
+                                          public
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground truncate">
+                                      {repo.description || "No description"}
+                                    </p>
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                                    {new Date(repo.updated_at).toLocaleDateString(undefined, {
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                  </span>
                                 </div>
-                                <span className="text-[10px] text-muted-foreground/60 shrink-0">
-                                  {new Date(repo.updated_at).toLocaleDateString(undefined, {
-                                    month: "short",
-                                    day: "numeric",
-                                  })}
-                                </span>
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )
                     )}
 
                     {/* Add public repo */}
-                    <button
+                    {(showRepoList || !selectedRepo) && <button
                       onClick={() => setShowPublicRepoModal(true)}
                       className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 hover:bg-accent/20 transition-all cursor-pointer"
                     >
                       <PlusIcon className="h-3.5 w-3.5" />
                       Deploy a public repository
-                    </button>
+                    </button>}
                   </div>
                 )}
 
@@ -763,19 +773,21 @@ export default function DeployPage() {
                         <p className="text-sm font-medium text-foreground truncate">{selectedRepo.name}</p>
                         <p className="text-[11px] text-muted-foreground truncate">{selectedRepo.full_name}</p>
                       </div>
-                      {!gitHubConnected && (
-                        <button
-                          onClick={() => {
+                      <button
+                        onClick={() => {
+                          if (gitHubConnected) {
+                            setShowRepoList(true)
+                          } else {
                             setSelectedRepo(null)
                             setBranches([])
                             setSelectedBranch("")
                             setDetectedFramework(null)
-                          }}
-                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          Change
-                        </button>
-                      )}
+                          }
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Change repository
+                      </button>
                     </div>
 
                     <div className="space-y-1">
@@ -830,7 +842,7 @@ export default function DeployPage() {
                       </Label>
                       <Select value={selectedServerId} onValueChange={(v) => setSelectedServerId(v ?? "localhost")}>
                         <SelectTrigger className="h-9 text-sm w-full">
-                          <SelectValue placeholder="Select target server..." />
+                          <span className="truncate">{selectedServerLabel}</span>
                         </SelectTrigger>
                         <SelectPopup>
                           {servers.map((s) => (

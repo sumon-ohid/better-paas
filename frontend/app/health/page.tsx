@@ -10,6 +10,7 @@ import { compareByStatusPriority } from "@/lib/status"
 import { api, createStatsWs } from "@/lib/api"
 import { Progress, ProgressIndicator } from "@/components/ui/progress"
 import type { ServerStats, App } from "@/lib/types"
+import { useActiveServer } from "@/components/server-context"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const CpuIcon = (props: IconProps) => <NucleoIcon {...props} name="cpu" />
@@ -32,6 +33,7 @@ function usageLabel(value: number): string {
 }
 
 export default function HealthPage() {
+  const { activeServerId, servers } = useActiveServer()
   const [stats, setStats] = useState<ServerStats>({
     cpuUsage: 0,
     memoryUsage: 0,
@@ -58,7 +60,17 @@ export default function HealthPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
 
-    const ws = createStatsWs()
+    const serverId = activeServerId === "all" ? "localhost" : activeServerId
+    setStats({
+      cpuUsage: 0,
+      memoryUsage: 0,
+      diskUsage: 0,
+      activeApps: 0,
+      timestamp: new Date().toISOString(),
+    })
+    setCpuHistory(Array(20).fill(0))
+    setMemHistory(Array(20).fill(0))
+    const ws = createStatsWs(serverId)
     ws.onmessage = (event) => {
       const data: ServerStats = JSON.parse(event.data)
       setStats(data)
@@ -70,9 +82,17 @@ export default function HealthPage() {
       ws.onclose = null
       ws.close()
     }
-  }, [fetchData])
+  }, [activeServerId, fetchData])
 
-  const runtimePct = (stats.activeApps / Math.max(apps.length, 1)) * 100
+  const selectedServerName =
+    activeServerId === "all"
+      ? "Localhost"
+      : activeServerId === "localhost"
+        ? "Localhost"
+        : servers.find((server) => server.id === activeServerId)?.name ?? "Selected server"
+  const selectedServerId = activeServerId === "all" ? "localhost" : activeServerId
+  const visibleApps = apps.filter((app) => (app.serverId || "localhost") === selectedServerId)
+  const runtimePct = (stats.activeApps / Math.max(visibleApps.length, 1)) * 100
   const nodeOnline = health?.status?.toLowerCase() === "ok" || health?.status?.toLowerCase() === "healthy"
 
   const statCards = [
@@ -106,7 +126,7 @@ export default function HealthPage() {
     },
     {
       label: "Active Runtimes",
-      value: `${stats.activeApps} / ${apps.length}`,
+      value: `${stats.activeApps} / ${visibleApps.length}`,
       icon: <GlobeIcon className="h-4 w-4 text-muted-foreground" />,
       progress: runtimePct,
       aside: (
@@ -122,7 +142,7 @@ export default function HealthPage() {
   const indicatorColor = (v: "success" | "warning" | "error") =>
     v === "error" ? "bg-destructive" : v === "warning" ? "bg-warning" : "bg-primary"
 
-  const sortedApps = [...apps].sort((a, b) => compareByStatusPriority(a.status, b.status))
+  const sortedApps = [...visibleApps].sort((a, b) => compareByStatusPriority(a.status, b.status))
 
   return (
     <AppShell appCount={apps.length}>
@@ -136,6 +156,7 @@ export default function HealthPage() {
             <h2>Node Health</h2>
             <p className="text-sm text-muted-foreground">
               Real-time system metrics for the active worker node.
+              <span className="ml-2 font-medium text-foreground">{selectedServerName}</span>
               {health && (
                 <span className="ml-2 font-mono text-xs text-muted-foreground/70">
                   Uptime: {health.uptime}
@@ -172,7 +193,7 @@ export default function HealthPage() {
             <CardHeader className="border-b border-border/40 pb-3">
               <CardTitle className="text-base">Service Health Summary</CardTitle>
               <CardDescription>
-                Per-container status overview for all deployed services.
+                Per-container status overview for {selectedServerName}.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 pt-4 overflow-y-auto">

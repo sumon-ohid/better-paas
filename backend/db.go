@@ -53,7 +53,7 @@ func runMigrations() error {
 	schema := `
 CREATE TABLE IF NOT EXISTS apps (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     status TEXT NOT NULL,
     git_repo TEXT,
     branch TEXT,
@@ -66,7 +66,9 @@ CREATE TABLE IF NOT EXISTS apps (
     build_command TEXT,
     start_command TEXT,
     install_command TEXT,
-    port_override INTEGER DEFAULT 0
+    port_override INTEGER DEFAULT 0,
+    server_id TEXT DEFAULT 'localhost',
+    UNIQUE(name)
 );
 
 CREATE TABLE IF NOT EXISTS deployments (
@@ -152,8 +154,159 @@ CREATE TABLE IF NOT EXISTS meta (
 		// SQLite has no "ADD COLUMN IF NOT EXISTS"; ignore the duplicate error.
 		_, _ = sqliteDB.Exec("ALTER TABLE " + c.table + " ADD COLUMN " + c.col + " " + c.def)
 	}
+
+	if err := migrateAppsUniqueConstraint(); err != nil {
+		log.Printf("[db] failed to migrate apps unique constraint: %v", err)
+		return err
+	}
+
 	return nil
 }
+
+func migrateAppsUniqueConstraint() error {
+	var tableSQL string
+	err := sqliteDB.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='apps'").Scan(&tableSQL)
+	if err != nil {
+		return nil // Table doesn't exist yet
+	}
+
+	hasGlobalUnique := strings.Contains(tableSQL, "UNIQUE(name)") || strings.Contains(tableSQL, "name TEXT NOT NULL UNIQUE")
+	hasServerScopedUnique := strings.Contains(tableSQL, "UNIQUE(name, server_id)")
+	if hasGlobalUnique && !hasServerScopedUnique {
+		return nil
+	}
+
+	log.Println("[db] Migrating apps table unique constraint to global name uniqueness...")
+
+	tx, err := sqliteDB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("PRAGMA foreign_keys=OFF"); err != nil {
+		return err
+	}
+
+	newTableSchema := `
+	CREATE TABLE apps_new (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		status TEXT NOT NULL,
+		git_repo TEXT,
+		branch TEXT,
+		port INTEGER NOT NULL,
+		url TEXT,
+		created_at DATETIME NOT NULL,
+		git_token TEXT,
+		root_dir TEXT,
+		env_vars TEXT,
+		build_command TEXT,
+		start_command TEXT,
+		install_command TEXT,
+		port_override INTEGER DEFAULT 0,
+		domains TEXT,
+		memory TEXT,
+		cpus TEXT,
+		volumes TEXT,
+		health_path TEXT,
+		active_container TEXT,
+		active_image TEXT,
+		active_deploy_id TEXT,
+		secret_keys TEXT,
+		webhook_secret TEXT,
+		auto_deploy INTEGER DEFAULT 0,
+		build_method TEXT,
+		dockerfile_path TEXT,
+		compose_path TEXT,
+		compose_project TEXT,
+		compose_service TEXT,
+		compose_web INTEGER DEFAULT 0,
+		compose_primary INTEGER DEFAULT 0,
+		image TEXT,
+		catalog_id TEXT,
+		dockerfile_content TEXT,
+		server_id TEXT DEFAULT 'localhost',
+		UNIQUE(name)
+	);`
+
+	if _, err := tx.Exec(newTableSchema); err != nil {
+		return err
+	}
+
+	copyDataSQL := `
+	SELECT 
+		id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override,
+		domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, COALESCE(server_id, 'localhost')
+	FROM apps;`
+
+	rows, err := tx.Query(copyDataSQL)
+	if err != nil {
+		return err
+	}
+	cols, err := rows.Columns()
+	if err != nil {
+		rows.Close()
+		return err
+	}
+	insertSQL := `
+	INSERT INTO apps_new (
+		id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override,
+		domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, server_id
+	)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+	taken := map[string]bool{}
+	for rows.Next() {
+		values := make([]interface{}, len(cols))
+		ptrs := make([]interface{}, len(cols))
+		for i := range values {
+			ptrs[i] = &values[i]
+		}
+		if err := rows.Scan(ptrs...); err != nil {
+			rows.Close()
+			return err
+		}
+		if len(values) > 1 {
+			switch name := values[1].(type) {
+			case string:
+				values[1] = uniqueAppName(name, taken)
+			case []byte:
+				values[1] = uniqueAppName(string(name), taken)
+			default:
+				values[1] = uniqueAppName("app", taken)
+			}
+		}
+		if _, err := tx.Exec(insertSQL, values...); err != nil {
+			rows.Close()
+			return err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+
+	if _, err := tx.Exec("DROP TABLE apps"); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec("ALTER TABLE apps_new RENAME TO apps"); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec("PRAGMA foreign_keys=ON"); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	log.Println("[db] Migrated apps table unique constraint successfully.")
+	return nil
+}
+
 
 // migrateFromJSON imports data from the legacy db.json file, then renames it.
 func migrateFromJSON() {
