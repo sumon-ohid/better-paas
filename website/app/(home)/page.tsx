@@ -110,7 +110,7 @@ function Hero() {
             className="mt-9 flex flex-col items-center gap-3 sm:flex-row"
           >
             <Link
-              href="/docs"
+              href="/docs/quickstart"
               className="bp-primary inline-flex h-11 items-center gap-2 rounded-lg px-6 text-sm font-medium"
             >
               Start deploying
@@ -473,7 +473,7 @@ function Integrations() {
               Better-PaaS builds your code with Nixpacks, runs it via Docker, and manages certificates and routing automatically with Caddy. No lock-in, just open standards.
             </p>
             <Link
-              href="/docs"
+              href="/docs#whats-under-the-hood"
               className="bp-primary inline-flex h-9 items-center gap-2 rounded-lg px-4 text-xs font-medium"
             >
               Learn about the architecture

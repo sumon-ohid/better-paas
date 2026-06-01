@@ -22,11 +22,7 @@ import { githubUrl } from '@/lib/shared';
  *   · collapses into an animated sheet menu on mobile.
  * ────────────────────────────────────────────────────────────────────────── */
 
-const NAV_LINKS: { label: string; href: string }[] = [
-  { label: 'Documentation', href: '/docs' },
-  { label: 'Quickstart', href: '/docs/quickstart' },
-  { label: 'Updates', href: '/docs/updates' },
-];
+const NAV_LINKS: { label: string; href: string }[] = [];
 
 function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -153,7 +149,7 @@ export function SiteHeader() {
           <span className="mx-1 hidden h-5 w-px bg-fd-border sm:block" />
 
           <Link
-            href="/docs"
+            href="/docs/quickstart"
             className="bp-primary hidden h-9 items-center gap-1.5 rounded-lg px-4 text-sm font-medium sm:inline-flex"
           >
             Get started
@@ -212,7 +208,7 @@ export function SiteHeader() {
 
             <div className="mt-4 flex items-center gap-2 border-t border-fd-border pt-4">
               <Link
-                href="/docs"
+                href="/docs/quickstart"
                 className="bp-primary inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium"
               >
                 Get started

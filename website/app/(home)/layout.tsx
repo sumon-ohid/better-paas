@@ -34,7 +34,7 @@ const footerNav: { heading: string; links: { label: string; href: string; extern
     links: [
       { label: 'Security model', href: '/docs/security' },
       { label: 'Troubleshooting', href: '/docs/troubleshooting' },
-      { label: 'Guides', href: '/docs/guides' },
+      { label: 'Guides', href: '/docs/guides/deploying-an-app' },
     ],
   },
   {
