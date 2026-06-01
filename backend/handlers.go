@@ -209,7 +209,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		WebhookSecret:  generateRandomID() + generateRandomID(), // 20-char webhook secret
 		ServerID:       serverID,
 	}
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, appHostIP(serverID))
+	newApp.URL = defaultAppURL(newApp.ID, serverID)
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 
@@ -555,7 +555,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 				apps[i].BuildMethod = normMethod
 				apps[i].DockerfilePath = normDockerfile
 			}
-			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, appHostIP(apps[i].ServerID))
+			apps[i].URL = defaultAppURL(apps[i].ID, apps[i].ServerID)
 			full := apps[i] // full copy WITH secrets for DB persistence
 			clone := apps[i].Public()
 			updated = &clone
@@ -671,7 +671,7 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 	for i := range apps {
 		if apps[i].ID == redeployID {
 			apps[i].Status = "building"
-			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, appHostIP(apps[i].ServerID))
+			apps[i].URL = defaultAppURL(apps[i].ID, apps[i].ServerID)
 			clone := apps[i]
 			targetApp = &clone
 			break

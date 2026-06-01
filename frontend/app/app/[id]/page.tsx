@@ -1,6 +1,12 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback, Suspense } from "react"
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  Suspense,
+} from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -38,7 +44,12 @@ import {
   AlertDialogClose,
 } from "@/components/ui/alert-dialog"
 import { api, createRuntimeLogsWs } from "@/lib/api"
-import type { App, DeploymentRecord, LogEntry, GitHubContent } from "@/lib/types"
+import type {
+  App,
+  DeploymentRecord,
+  LogEntry,
+  GitHubContent,
+} from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
@@ -55,7 +66,8 @@ import dynamic from "next/dynamic"
 
 // xterm.js touches the DOM on import, so load the terminal client-side only.
 const ContainerTerminal = dynamic(
-  () => import("@/components/container-terminal").then((m) => m.ContainerTerminal),
+  () =>
+    import("@/components/container-terminal").then((m) => m.ContainerTerminal),
   {
     ssr: false,
     loading: () => (
@@ -63,28 +75,49 @@ const ContainerTerminal = dynamic(
         Loading terminal…
       </div>
     ),
-  },
+  }
 )
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
-const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-left" />
+const ChevronLeftIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="chevron-left" />
+)
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const SquareIcon = (props: IconProps) => <NucleoIcon {...props} name="square" />
-const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const RefreshIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="refresh" />
+)
 const LoaderIcon = (props: IconProps) => <NucleoIcon {...props} name="loader" />
-const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
+const TerminalIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="terminal" />
+)
 const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
-const ExternalIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
+const ExternalIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="external" />
+)
 const CopyIcon = (props: IconProps) => <NucleoIcon {...props} name="copy" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
-const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
-const GitCommitIcon = (props: IconProps) => <NucleoIcon {...props} name="git-commit" />
+const EditIcon = (props: IconProps) => <NucleoIcon {...props} name="edit" />
+const GitBranchIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="branch" />
+)
+const GitCommitIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="git-commit" />
+)
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
-const ChevronRightIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-right" />
+const ChevronRightIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="chevron-right" />
+)
 
-export type AppTab = "overview" | "config" | "domains" | "logs" | "terminal" | "deployments"
+export type AppTab =
+  | "overview"
+  | "config"
+  | "domains"
+  | "logs"
+  | "terminal"
+  | "deployments"
 
 // timeAgo renders a short, human-friendly relative time like "11d ago" or
 // "just now". Falls back to an empty string for invalid dates.
@@ -132,16 +165,22 @@ function AppDetailPage() {
     (tab: AppTab) => {
       router.replace(`/app/${appId}?tab=${tab}`, { scroll: false })
     },
-    [router, appId],
+    [router, appId]
   )
 
   // ── Actions ────────────────────────────────────────────────────────────────
-    const [isToggling, setIsToggling] = useState(false)
-    const [isRedeploying, setIsRedeploying] = useState(false)
-    const [isSaving, setIsSaving] = useState(false)
+  const [isToggling, setIsToggling] = useState(false)
+  const [isRedeploying, setIsRedeploying] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [renameValue, setRenameValue] = useState("")
+  const [isRenaming, setIsRenaming] = useState(false)
+  const renameInputRef = useRef<HTMLInputElement | null>(null)
   const [expandedDepl, setExpandedDepl] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [rollbackTarget, setRollbackTarget] = useState<DeploymentRecord | null>(null)
+  const [rollbackTarget, setRollbackTarget] = useState<DeploymentRecord | null>(
+    null
+  )
   const [isRollingBack, setIsRollingBack] = useState(false)
 
   // ── Config edit states ─────────────────────────────────────────────────────
@@ -155,21 +194,29 @@ function AppDetailPage() {
   const [startCommand, setStartCommand] = useState("")
   const [installCommand, setInstallCommand] = useState("")
   const [portOverride, setPortOverride] = useState("")
-  const [buildMethod, setBuildMethod] = useState<"nixpacks" | "dockerfile" | "compose">("nixpacks")
+  const [buildMethod, setBuildMethod] = useState<
+    "nixpacks" | "dockerfile" | "compose"
+  >("nixpacks")
   const [dockerfilePath, setDockerfilePath] = useState("Dockerfile")
   const [dockerfileAvailable, setDockerfileAvailable] = useState(false)
 
   // ── Framework detection (for the Root Directory field) ──────────────────────
-  const [detectedFramework, setDetectedFramework] = useState<Framework | null>(null)
+  const [detectedFramework, setDetectedFramework] = useState<Framework | null>(
+    null
+  )
   const [isDetectingFramework, setIsDetectingFramework] = useState(false)
   const rootDirDetectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Folder browser ──────────────────────────────────────────────────────────
   const [showFolderBrowser, setShowFolderBrowser] = useState(false)
   const [folderBrowserPath, setFolderBrowserPath] = useState("")
-  const [folderBrowserContents, setFolderBrowserContents] = useState<GitHubContent[]>([])
+  const [folderBrowserContents, setFolderBrowserContents] = useState<
+    GitHubContent[]
+  >([])
   const [folderBrowserLoading, setFolderBrowserLoading] = useState(false)
-  const [folderBrowserBreadcrumbs, setFolderBrowserBreadcrumbs] = useState<string[]>([])
+  const [folderBrowserBreadcrumbs, setFolderBrowserBreadcrumbs] = useState<
+    string[]
+  >([])
 
   // ── Logs ───────────────────────────────────────────────────────────────────
   const [logs, setLogs] = useState<LogEntry[]>([])
@@ -203,7 +250,13 @@ function AppDetailPage() {
         setStartCommand(found.startCommand || "")
         setInstallCommand(found.installCommand || "")
         setPortOverride(found.portOverride ? String(found.portOverride) : "")
-        setBuildMethod(found.buildMethod === "dockerfile" ? "dockerfile" : found.buildMethod === "compose" ? "compose" : "nixpacks")
+        setBuildMethod(
+          found.buildMethod === "dockerfile"
+            ? "dockerfile"
+            : found.buildMethod === "compose"
+              ? "compose"
+              : "nixpacks"
+        )
         setDockerfilePath(found.dockerfilePath || "Dockerfile")
         // If the app is already configured to use a Dockerfile, surface the
         // selector immediately. Otherwise we probe the repo below to decide.
@@ -211,9 +264,13 @@ function AppDetailPage() {
 
         const loadedVars: { key: string; value: string }[] = []
         if (found.envVars) {
-          Object.entries(found.envVars).forEach(([k, v]) => loadedVars.push({ key: k, value: v }))
+          Object.entries(found.envVars).forEach(([k, v]) =>
+            loadedVars.push({ key: k, value: v })
+          )
         }
-        setEnvVars(loadedVars.length > 0 ? loadedVars : [{ key: "", value: "" }])
+        setEnvVars(
+          loadedVars.length > 0 ? loadedVars : [{ key: "", value: "" }]
+        )
       }
     } catch (err) {
       console.error(err)
@@ -227,6 +284,12 @@ function AppDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    if (!isEditingName) return
+    renameInputRef.current?.focus()
+    renameInputRef.current?.select()
+  }, [isEditingName])
 
   // Probe the chosen directory for a Dockerfile. The selector is only shown when
   // one exists; otherwise Nixpacks is forced. Declared before the effect that
@@ -251,7 +314,7 @@ function AppDetailPage() {
         setBuildMethod("nixpacks")
       }
     },
-    [gitRepo, branch, app?.composeProject],
+    [gitRepo, branch, app?.composeProject]
   )
 
   // One-time probe for a Dockerfile in the app's current root dir, so the build
@@ -336,7 +399,10 @@ function AppDetailPage() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data)
-      logBufferRef.current.push({ message: data.message, timestamp: data.timestamp })
+      logBufferRef.current.push({
+        message: data.message,
+        timestamp: data.timestamp,
+      })
       if (!flushTimerRef.current) {
         flushTimerRef.current = setTimeout(() => {
           const batch = [...logBufferRef.current]
@@ -398,55 +464,55 @@ function AppDetailPage() {
       }
       showToast(
         action === "stop" ? "Container Stopped" : "Container Started",
-        `${app.name} is now ${action === "stop" ? "stopped" : "running"}.`,
+        `${app.name} is now ${action === "stop" ? "stopped" : "running"}.`
       )
       fetchData()
     } catch (err) {
       showToast("Error", `Failed to ${action} container.`, "destructive")
       console.error(err)
-     } finally {
-       setIsToggling(false)
-     }
-   }
- 
-   const handleRedeploy = async () => {
-     if (!app) return
-     setIsRedeploying(true)
-     try {
-       await api.apps.redeploy(app.id)
-       showToast("Redeploy Started", `Triggering new build for ${app.name}...`)
-       fetchData()
-       setTab("deployments")
-     } catch (err) {
-       showToast("Error", "Failed to trigger redeployment.", "destructive")
-       console.error(err)
-     } finally {
-       setIsRedeploying(false)
-     }
-   }
- 
-    const handleRollback = async (dep: DeploymentRecord) => {
-      if (!app) return
-      setIsRollingBack(true)
-      try {
-        await api.apps.rollback(app.id, dep.id)
-        showToast(
-          "Rollback Started",
-          `Re-releasing ${dep.commit ? dep.commit.slice(0, 7) : "deployment"} for ${app.name}...`,
-        )
-        setRollbackTarget(null)
-        fetchData()
-        setTab("deployments")
-      } catch (err) {
-        showToast("Error", "Failed to start rollback.", "destructive")
-        console.error(err)
-      } finally {
-        setIsRollingBack(false)
-      }
+    } finally {
+      setIsToggling(false)
     }
+  }
 
-    const handleDelete = async () => {
-     if (!app) return
+  const handleRedeploy = async () => {
+    if (!app) return
+    setIsRedeploying(true)
+    try {
+      await api.apps.redeploy(app.id)
+      showToast("Redeploy Started", `Triggering new build for ${app.name}...`)
+      fetchData()
+      setTab("deployments")
+    } catch (err) {
+      showToast("Error", "Failed to trigger redeployment.", "destructive")
+      console.error(err)
+    } finally {
+      setIsRedeploying(false)
+    }
+  }
+
+  const handleRollback = async (dep: DeploymentRecord) => {
+    if (!app) return
+    setIsRollingBack(true)
+    try {
+      await api.apps.rollback(app.id, dep.id)
+      showToast(
+        "Rollback Started",
+        `Re-releasing ${dep.commit ? dep.commit.slice(0, 7) : "deployment"} for ${app.name}...`
+      )
+      setRollbackTarget(null)
+      fetchData()
+      setTab("deployments")
+    } catch (err) {
+      showToast("Error", "Failed to start rollback.", "destructive")
+      console.error(err)
+    } finally {
+      setIsRollingBack(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!app) return
     try {
       await api.apps.delete(app.id)
       showToast("App Deleted", `${app.name} has been removed.`)
@@ -484,7 +550,10 @@ function AppDetailPage() {
           ? {}
           : {
               buildMethod,
-              dockerfilePath: buildMethod === "dockerfile" ? dockerfilePath.trim() || "Dockerfile" : undefined,
+              dockerfilePath:
+                buildMethod === "dockerfile"
+                  ? dockerfilePath.trim() || "Dockerfile"
+                  : undefined,
             }),
       })
       showToast("Settings Saved", "Application configuration updated.")
@@ -494,6 +563,52 @@ function AppDetailPage() {
       console.error(err)
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const startRename = () => {
+    if (!app) return
+    setRenameValue(app.name)
+    setIsEditingName(true)
+  }
+
+  const cancelRename = () => {
+    setIsEditingName(false)
+    setRenameValue(app?.name ?? "")
+  }
+
+  const handleRename = async () => {
+    if (!app) return
+    const nextName = renameValue.trim()
+    if (nextName === app.name) {
+      setIsEditingName(false)
+      return
+    }
+    if (!/^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])$/.test(nextName)) {
+      showToast(
+        "Invalid name",
+        "Use 2-40 lowercase letters, digits, or hyphens.",
+        "destructive"
+      )
+      return
+    }
+
+    setIsRenaming(true)
+    try {
+      const updated = await api.apps.rename(app.id, nextName)
+      setApp(updated)
+      setIsEditingName(false)
+      showToast(
+        "Name saved",
+        updated.name === nextName
+          ? "Project name updated."
+          : `Project name saved as ${updated.name}.`
+      )
+    } catch (err) {
+      showToast("Error", "Failed to save project name.", "destructive")
+      console.error(err)
+    } finally {
+      setIsRenaming(false)
     }
   }
 
@@ -530,13 +645,16 @@ function AppDetailPage() {
         setIsDetectingFramework(false)
       }
     },
-    [gitRepo, branch, checkDockerfile],
+    [gitRepo, branch, checkDockerfile]
   )
 
   const handleRootDirChange = (value: string) => {
     setRootDir(value)
     if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
-    rootDirDetectTimer.current = setTimeout(() => redetectForRootDir(value), 600)
+    rootDirDetectTimer.current = setTimeout(
+      () => redetectForRootDir(value),
+      600
+    )
   }
 
   const loadFolderContents = useCallback(
@@ -555,7 +673,7 @@ function AppDetailPage() {
         setFolderBrowserLoading(false)
       }
     },
-    [gitRepo, branch],
+    [gitRepo, branch]
   )
 
   const openFolderBrowser = async () => {
@@ -567,7 +685,9 @@ function AppDetailPage() {
   }
 
   const navigateIntoFolder = (folderName: string) => {
-    const newPath = folderBrowserPath ? `${folderBrowserPath}/${folderName}` : folderName
+    const newPath = folderBrowserPath
+      ? `${folderBrowserPath}/${folderName}`
+      : folderName
     setFolderBrowserBreadcrumbs((prev) => [...prev, folderName])
     loadFolderContents(newPath)
   }
@@ -601,8 +721,14 @@ function AppDetailPage() {
   }
 
   const lineColor = (msg: string) => {
-    if (msg.startsWith("✖") || msg.includes(" Error") || msg.includes("failed")) return "text-destructive"
-    if (msg.startsWith("✅") || msg.startsWith("✔") || msg.includes("successfully")) return "text-success"
+    if (msg.startsWith("✖") || msg.includes(" Error") || msg.includes("failed"))
+      return "text-destructive"
+    if (
+      msg.startsWith("✅") ||
+      msg.startsWith("✔") ||
+      msg.includes("successfully")
+    )
+      return "text-success"
     if (
       msg.startsWith("📦") ||
       msg.startsWith("🔍") ||
@@ -621,7 +747,9 @@ function AppDetailPage() {
     return (
       <AppShell>
         <div className="flex h-full items-center justify-center">
-          <span className="text-sm text-muted-foreground animate-pulse">Loading application...</span>
+          <span className="animate-pulse text-sm text-muted-foreground">
+            Loading application...
+          </span>
         </div>
       </AppShell>
     )
@@ -631,7 +759,9 @@ function AppDetailPage() {
     return (
       <AppShell>
         <div className="flex h-full flex-col items-center justify-center gap-4">
-          <p className="text-sm text-muted-foreground">Application not found.</p>
+          <p className="text-sm text-muted-foreground">
+            Application not found.
+          </p>
           <Button onClick={() => router.push("/")} className="h-8 text-xs">
             Back to Dashboard
           </Button>
@@ -650,11 +780,14 @@ function AppDetailPage() {
     null
 
   const overviewCommit = app.activeCommit || activeDeployment?.commit || ""
-  const overviewCommitMsg = app.activeCommitMsg || activeDeployment?.commitMsg || ""
-  const overviewCommitUrl = overviewCommit ? githubCommitUrl(app.gitRepo, overviewCommit) : ""
-  const overviewDomains = (app.domains && app.domains.length > 0 ? app.domains : [app.url]).filter(
-    Boolean,
-  )
+  const overviewCommitMsg =
+    app.activeCommitMsg || activeDeployment?.commitMsg || ""
+  const overviewCommitUrl = overviewCommit
+    ? githubCommitUrl(app.gitRepo, overviewCommit)
+    : ""
+  const overviewDomains = (
+    app.domains && app.domains.length > 0 ? app.domains : [app.url]
+  ).filter(Boolean)
 
   const tabs: { id: AppTab; label: string }[] = [
     { id: "overview", label: "Overview" },
@@ -667,73 +800,135 @@ function AppDetailPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col h-full">
+      <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="border-b border-border bg-transparent px-4 py-3 shrink-0">
+        <div className="shrink-0 border-b border-border bg-transparent px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Button
                 variant={"link"}
                 onClick={() => router.push("/")}
-                className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                className="flex shrink-0 cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
                 <ChevronLeftIcon className="h-3.5 w-3.5" />
                 Dashboard
               </Button>
-              <span className="h-4 w-px bg-border shrink-0" />
+              <span className="h-4 w-px shrink-0 bg-border" />
               <div className="flex min-w-0 items-center gap-2.5">
-                <h1 className="truncate text-lg sm:text-xl font-bold text-foreground">{app.name}</h1>
+                {isEditingName ? (
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <Input
+                      ref={renameInputRef}
+                      value={renameValue}
+                      onChange={(e) =>
+                        setRenameValue(
+                          e.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-]/g, "")
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void handleRename()
+                        if (e.key === "Escape") cancelRename()
+                      }}
+                      disabled={isRenaming}
+                      className="h-8 w-[min(52vw,280px)] text-lg font-bold sm:text-xl"
+                      aria-label="Project name"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRename}
+                      disabled={isRenaming}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-success/10 hover:text-success disabled:cursor-not-allowed disabled:opacity-50"
+                      title="Save name"
+                      aria-label="Save name"
+                    >
+                      {isRenaming ? (
+                        <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <CheckIcon className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelRename}
+                      disabled={isRenaming}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                      title="Cancel"
+                      aria-label="Cancel rename"
+                    >
+                      <XIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <h1 className="truncate text-lg font-bold text-foreground sm:text-xl">
+                      {app.name}
+                    </h1>
+                    <button
+                      type="button"
+                      onClick={startRename}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title="Edit project name"
+                      aria-label="Edit project name"
+                    >
+                      <EditIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
                 <StatusBadge status={app.status} />
               </div>
               {app.branch && (
-                <span className="hidden sm:inline-flex shrink-0 items-center gap-1 text-xs font-mono text-muted-foreground">
+                <span className="hidden shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground sm:inline-flex">
                   <GitBranchIcon className="h-3 w-3" />
                   {app.branch}
                 </span>
               )}
             </div>
 
-              <div className="flex items-center gap-2">
-                {app.status === "running" ? (
-                  <Button
-                    onClick={() => handleToggle("stop")}
-                    disabled={isToggling}
-                    variant="outline"
-                    className="h-7 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-600"
-                  >
-                    <SquareIcon className="h-3 w-3 mr-1" />
-                    Stop
-                  </Button>
-                ) : app.status === "stopped" ? (
-                  <Button
-                    onClick={() => handleToggle("start")}
-                    disabled={isToggling}
-                    variant="outline"
-                    className="h-7 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
-                  >
-                    <PlayIcon className="h-3 w-3 mr-1" />
-                    Start
-                  </Button>
-                ) : null}
+            <div className="flex items-center gap-2">
+              {app.status === "running" ? (
                 <Button
-                  onClick={handleRedeploy}
-                  disabled={isRedeploying || app.status === "building"}
+                  onClick={() => handleToggle("stop")}
+                  disabled={isToggling}
                   variant="outline"
-                  className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+                  className="h-7 border-amber-500/30 text-xs text-amber-500 hover:bg-amber-500/10 hover:text-amber-600"
                 >
-                  <RefreshIcon className={`h-3 w-3 mr-1 ${isRedeploying ? "animate-spin" : ""}`} />
-                  {isRedeploying ? "Redeploying..." : "Redeploy"}
+                  <SquareIcon className="mr-1 h-3 w-3" />
+                  Stop
                 </Button>
-              </div>
+              ) : app.status === "stopped" ? (
+                <Button
+                  onClick={() => handleToggle("start")}
+                  disabled={isToggling}
+                  variant="outline"
+                  className="h-7 border-emerald-500/30 text-xs text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
+                >
+                  <PlayIcon className="mr-1 h-3 w-3" />
+                  Start
+                </Button>
+              ) : null}
+              <Button
+                onClick={handleRedeploy}
+                disabled={isRedeploying || app.status === "building"}
+                variant="outline"
+                className="h-7 border-primary/30 text-xs text-primary hover:bg-primary/10 hover:text-primary"
+              >
+                <RefreshIcon
+                  className={`mr-1 h-3 w-3 ${isRedeploying ? "animate-spin" : ""}`}
+                />
+                {isRedeploying ? "Redeploying..." : "Redeploy"}
+              </Button>
+            </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-1 mt-3 border-b border-border/50 overflow-x-auto scrollbar-none -mx-4 px-4">
+          <div className="-mx-4 mt-3 flex scrollbar-none items-center gap-1 overflow-x-auto border-b border-border/50 px-4">
             {tabs.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`shrink-0 rounded-t-md px-3 py-2 text-sm transition-all cursor-pointer border-b-2 -mb-px ${
+                className={`-mb-px shrink-0 cursor-pointer rounded-t-md border-b-2 px-3 py-2 text-sm transition-all ${
                   currentTab === t.id
                     ? "border-primary bg-muted/40 font-semibold text-foreground"
                     : "border-transparent font-medium text-muted-foreground hover:bg-muted/20 hover:text-foreground"
@@ -746,488 +941,627 @@ function AppDetailPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex min-h-0 flex-1 flex-col">
           {/* ── Overview ───────────────────────────────────────────────── */}
           {currentTab === "overview" && (
             <div className="h-full overflow-y-auto p-4 md:p-6">
-              <div className="mx-auto max-w-4xl space-y-6 animate-in fade-in-50 duration-200">
-              {/* Vercel-style hero: live site preview and deployment summary in one card */}
-              <Card className="border-border bg-card/72 backdrop-blur-xl p-5">
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                  {/* Live site preview (web-facing rows only). Non-web compose
+              <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-6 duration-200">
+                {/* Vercel-style hero: live site preview and deployment summary in one card */}
+                <Card className="border-border bg-card/72 p-5 backdrop-blur-xl">
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                    {/* Live site preview (web-facing rows only). Non-web compose
                       services (workers, databases) have no URL to preview. */}
-                  {app.url ? (
-                    <SitePreview url={app.url} status={app.status} />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card/72 p-6 text-center backdrop-blur-xl">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
-                        <NucleoIcon name="server" className="h-5 w-5 text-muted-foreground" />
+                    {app.url ? (
+                      <SitePreview url={app.url} status={app.status} />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card/72 p-6 text-center backdrop-blur-xl">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
+                          <NucleoIcon
+                            name="server"
+                            className="h-5 w-5 text-muted-foreground"
+                          />
+                        </div>
+                        <p className="text-sm font-medium text-foreground">
+                          {app.composeService
+                            ? `Internal service: ${app.composeService}`
+                            : "Internal service"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          This service has no public URL. Use the terminal and
+                          logs to inspect it.
+                        </p>
                       </div>
-                      <p className="text-sm font-medium text-foreground">
-                        {app.composeService ? `Internal service: ${app.composeService}` : "Internal service"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        This service has no public URL. Use the terminal and logs to inspect it.
-                      </p>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Deployment summary — snapshot of the live release */}
-                  <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-                  {/* Created */}
-                  <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground block">Created</span>
-                    <div className="flex items-center gap-1.5 text-sm text-foreground">
-                      <NucleoIcon name="cloud" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="font-medium">{new Date(app.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
-                      <span className="text-muted-foreground">{timeAgo(app.createdAt)}</span>
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground block">Status</span>
-                    <StatusBadge status={app.status} />
-                  </div>
-
-                  {/* Duration */}
-                  <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground block">Duration</span>
-                    <div className="flex items-center gap-1.5 text-sm text-foreground">
-                      <NucleoIcon name="activity" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="font-medium tabular-nums">
-                        {activeDeployment?.duration || "—"}
-                      </span>
-                      {activeDeployment?.createdAt && (
-                        <span className="text-muted-foreground">{timeAgo(activeDeployment.createdAt)}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Port Routing */}
-                  <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground block">Port Routing</span>
-                    <div className="flex items-center gap-1.5 text-sm text-foreground">
-                      <NucleoIcon name="server" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="font-mono font-medium tabular-nums">
-                        {app.port}
-                        {app.portOverride ? ` → ${app.portOverride}` : ""}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Domains */}
-                  <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground block">Domains</span>
-                    <div className="space-y-1">
-                      {overviewDomains.length === 0 ? (
-                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <NucleoIcon name="web" className="h-3.5 w-3.5 shrink-0" />
-                          <span>
-                            {app.composeService ? "Internal service — no public URL" : "No public URL"}
+                    {/* Deployment summary — snapshot of the live release */}
+                    <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+                      {/* Created */}
+                      <div className="space-y-1.5">
+                        <span className="block text-xs font-medium text-muted-foreground">
+                          Created
+                        </span>
+                        <div className="flex items-center gap-1.5 text-sm text-foreground">
+                          <NucleoIcon
+                            name="cloud"
+                            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                          />
+                          <span className="font-medium">
+                            {new Date(app.createdAt).toLocaleDateString(
+                              undefined,
+                              { month: "short", day: "numeric" }
+                            )}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {timeAgo(app.createdAt)}
                           </span>
                         </div>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-1.5">
-                            <a
-                              href={app.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors"
-                            >
-                              <NucleoIcon name="web" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              <span className="truncate">{overviewDomains[0].replace(/^https?:\/\//, "")}</span>
-                              {overviewDomains.length > 1 && (
-                                <Badge variant="secondary" size="sm" className="shrink-0">
-                                  +{overviewDomains.length - 1}
-                                </Badge>
-                              )}
-                            </a>
-                            <button
-                              onClick={handleCopyUrl}
-                              title="Copy URL"
-                              className="shrink-0 flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors border-0"
-                            >
-                              {copied ? <CheckIcon className="h-3 w-3 text-success" /> : <CopyIcon className="h-3 w-3" />}
-                            </button>
-                          </div>
-                          {overviewDomains.slice(1, 3).map((d) => (
-                            <a
-                              key={d}
-                              href={d.startsWith("http") ? d : `https://${d}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-                            >
-                              <NucleoIcon name="link" className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{d.replace(/^https?:\/\//, "")}</span>
-                            </a>
-                          ))}
-                        </>
-                      )}
-                    </div>
-                  </div>
+                      </div>
 
-                  {/* Source */}
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <span className="text-xs font-medium text-muted-foreground block">Source</span>
-                    <div className="space-y-1">
-                      <a
-                        href={app.gitRepo}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors"
-                      >
-                        {app.gitRepo.includes("github.com") ? (
-                          <>
-                            <GithubLight className="h-3.5 w-3.5 shrink-0 dark:hidden" />
-                            <GithubDark className="h-3.5 w-3.5 shrink-0 hidden dark:block" />
-                          </>
-                        ) : (
-                          <NucleoIcon name="branch" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        )}
-                        <span className="truncate font-mono">{app.gitRepo.replace(/^https?:\/\//, "")}</span>
-                        <ExternalIcon className="h-3 w-3 opacity-60 shrink-0" />
-                      </a>
-                      {app.branch && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <GitBranchIcon className="h-3 w-3 shrink-0" />
-                          <span className="truncate font-mono">{app.branch}</span>
+                      {/* Status */}
+                      <div className="space-y-1.5">
+                        <span className="block text-xs font-medium text-muted-foreground">
+                          Status
+                        </span>
+                        <StatusBadge status={app.status} />
+                      </div>
+
+                      {/* Duration */}
+                      <div className="space-y-1.5">
+                        <span className="block text-xs font-medium text-muted-foreground">
+                          Duration
+                        </span>
+                        <div className="flex items-center gap-1.5 text-sm text-foreground">
+                          <NucleoIcon
+                            name="activity"
+                            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                          />
+                          <span className="font-medium tabular-nums">
+                            {activeDeployment?.duration || "—"}
+                          </span>
+                          {activeDeployment?.createdAt && (
+                            <span className="text-muted-foreground">
+                              {timeAgo(activeDeployment.createdAt)}
+                            </span>
+                          )}
                         </div>
-                      )}
-                      {overviewCommit ? (
-                        overviewCommitUrl ? (
+                      </div>
+
+                      {/* Port Routing */}
+                      <div className="space-y-1.5">
+                        <span className="block text-xs font-medium text-muted-foreground">
+                          Port Routing
+                        </span>
+                        <div className="flex items-center gap-1.5 text-sm text-foreground">
+                          <NucleoIcon
+                            name="server"
+                            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                          />
+                          <span className="font-mono font-medium tabular-nums">
+                            {app.port}
+                            {app.portOverride ? ` → ${app.portOverride}` : ""}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Domains */}
+                      <div className="space-y-1.5">
+                        <span className="block text-xs font-medium text-muted-foreground">
+                          Domains
+                        </span>
+                        <div className="space-y-1">
+                          {overviewDomains.length === 0 ? (
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              <NucleoIcon
+                                name="web"
+                                className="h-3.5 w-3.5 shrink-0"
+                              />
+                              <span>
+                                {app.composeService
+                                  ? "Internal service — no public URL"
+                                  : "No public URL"}
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <a
+                                  href={app.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary"
+                                >
+                                  <NucleoIcon
+                                    name="web"
+                                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                                  />
+                                  <span className="truncate">
+                                    {overviewDomains[0].replace(
+                                      /^https?:\/\//,
+                                      ""
+                                    )}
+                                  </span>
+                                  {overviewDomains.length > 1 && (
+                                    <Badge
+                                      variant="secondary"
+                                      size="sm"
+                                      className="shrink-0"
+                                    >
+                                      +{overviewDomains.length - 1}
+                                    </Badge>
+                                  )}
+                                </a>
+                                <button
+                                  onClick={handleCopyUrl}
+                                  title="Copy URL"
+                                  className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded border-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                >
+                                  {copied ? (
+                                    <CheckIcon className="h-3 w-3 text-success" />
+                                  ) : (
+                                    <CopyIcon className="h-3 w-3" />
+                                  )}
+                                </button>
+                              </div>
+                              {overviewDomains.slice(1, 3).map((d) => (
+                                <a
+                                  key={d}
+                                  href={
+                                    d.startsWith("http") ? d : `https://${d}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
+                                >
+                                  <NucleoIcon
+                                    name="link"
+                                    className="h-3 w-3 shrink-0"
+                                  />
+                                  <span className="truncate">
+                                    {d.replace(/^https?:\/\//, "")}
+                                  </span>
+                                </a>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Source */}
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <span className="block text-xs font-medium text-muted-foreground">
+                          Source
+                        </span>
+                        <div className="space-y-1">
                           <a
-                            href={overviewCommitUrl}
+                            href={app.gitRepo}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-                            title={overviewCommitMsg || undefined}
+                            className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary"
                           >
-                            <GitCommitIcon className="h-3 w-3 shrink-0" />
-                            <span className="font-mono">{overviewCommit.slice(0, 7)}</span>
-                            {overviewCommitMsg && <span className="truncate">{overviewCommitMsg}</span>}
+                            {app.gitRepo.includes("github.com") ? (
+                              <>
+                                <GithubLight className="h-3.5 w-3.5 shrink-0 dark:hidden" />
+                                <GithubDark className="hidden h-3.5 w-3.5 shrink-0 dark:block" />
+                              </>
+                            ) : (
+                              <NucleoIcon
+                                name="branch"
+                                className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                              />
+                            )}
+                            <span className="truncate font-mono">
+                              {app.gitRepo.replace(/^https?:\/\//, "")}
+                            </span>
+                            <ExternalIcon className="h-3 w-3 shrink-0 opacity-60" />
                           </a>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <GitCommitIcon className="h-3 w-3 shrink-0" />
-                            <span className="font-mono">{overviewCommit.slice(0, 7)}</span>
-                            {overviewCommitMsg && <span className="truncate">{overviewCommitMsg}</span>}
-                          </div>
-                        )
-                      ) : null}
+                          {app.branch && (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <GitBranchIcon className="h-3 w-3 shrink-0" />
+                              <span className="truncate font-mono">
+                                {app.branch}
+                              </span>
+                            </div>
+                          )}
+                          {overviewCommit ? (
+                            overviewCommitUrl ? (
+                              <a
+                                href={overviewCommitUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
+                                title={overviewCommitMsg || undefined}
+                              >
+                                <GitCommitIcon className="h-3 w-3 shrink-0" />
+                                <span className="font-mono">
+                                  {overviewCommit.slice(0, 7)}
+                                </span>
+                                {overviewCommitMsg && (
+                                  <span className="truncate">
+                                    {overviewCommitMsg}
+                                  </span>
+                                )}
+                              </a>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <GitCommitIcon className="h-3 w-3 shrink-0" />
+                                <span className="font-mono">
+                                  {overviewCommit.slice(0, 7)}
+                                </span>
+                                {overviewCommitMsg && (
+                                  <span className="truncate">
+                                    {overviewCommitMsg}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  </div>
+                </Card>
+
+                {app.envVars && Object.keys(app.envVars).length > 0 && (
+                  <EnvVarsCard
+                    envVars={app.envVars}
+                    secretKeys={app.secretKeys}
+                  />
+                )}
+
+                <div className="flex items-center gap-2 pt-2">
+                  <Button
+                    onClick={() => setTab("config")}
+                    variant="outline"
+                    className="h-8 border-border text-xs"
+                  >
+                    Edit Configuration
+                  </Button>
+                  <Button
+                    onClick={() => setShowDeleteModal(true)}
+                    variant="outline"
+                    className="h-8 border-rose-500/30 text-xs text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
+                  >
+                    <Trash2Icon className="mr-1 h-3 w-3" />
+                    Delete
+                  </Button>
                 </div>
-              </Card>
-
-              {app.envVars && Object.keys(app.envVars).length > 0 && (
-                <EnvVarsCard envVars={app.envVars} secretKeys={app.secretKeys} />
-              )}
-
-              <div className="flex items-center gap-2 pt-2">
-                <Button
-                  onClick={() => setTab("config")}
-                  variant="outline"
-                  className="h-8 text-xs border-border"
-                >
-                  Edit Configuration
-                </Button>
-                <Button
-                  onClick={() => setShowDeleteModal(true)}
-                  variant="outline"
-                  className="h-8 text-xs border-rose-500/30 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
-                >
-                  <Trash2Icon className="h-3 w-3 mr-1" />
-                  Delete
-                </Button>
               </div>
             </div>
-          </div>
           )}
 
           {/* ── Configuration ──────────────────────────────────────────── */}
           {currentTab === "config" && (
             <div className="h-full overflow-y-auto p-4 md:p-6">
-              <div className="mx-auto max-w-4xl space-y-5 animate-in fade-in-50 duration-200">
-               {app.composeService && (
-                 <Alert>
-                   <Docker className="h-4 w-4" />
-                   <AlertDescription>
-                     This is the <span className="font-mono font-semibold">{app.composeService}</span> service of a
-                     Docker Compose project. Build settings are controlled by the compose file in the repo, not here.
-                     Redeploy rebuilds the whole project; deleting any service removes the entire group.
-                   </AlertDescription>
-                 </Alert>
-               )}
-               <div className="space-y-1">
-                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                   Git Repository URL
-                 </Label>
-                   <div className="relative flex items-center gap-2">
-                     <div className="relative flex-1">
-                       {app?.gitRepo?.includes("github.com") && (
-                         <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none z-10">
-                           <GithubLight className="h-4 w-4 dark:hidden" />
-                           <GithubDark className="h-4 w-4 hidden dark:block" />
-                         </div>
-                       )}
-                       <Input
-                         value={gitRepo}
-                         onChange={(e) => setGitRepo(e.target.value)}
-                         className={`h-9 text-sm ${app?.gitRepo?.includes("github.com") ? "pl-7" : ""}`}
-                       />
-                     </div>
-                     <a
-                       href={app.gitRepo}
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       className="h-9 w-9 rounded-md border border-border bg-muted/20 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors shrink-0"
-                       title="Open repository"
-                     >
-                       <ExternalIcon className="h-3.5 w-3.5" />
-                     </a>
-                   </div>
-               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-5 duration-200">
+                {app.composeService && (
+                  <Alert>
+                    <Docker className="h-4 w-4" />
+                    <AlertDescription>
+                      This is the{" "}
+                      <span className="font-mono font-semibold">
+                        {app.composeService}
+                      </span>{" "}
+                      service of a Docker Compose project. Build settings are
+                      controlled by the compose file in the repo, not here.
+                      Redeploy rebuilds the whole project; deleting any service
+                      removes the entire group.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="space-y-1">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Branch</Label>
-                  {isFetchingBranches ? (
-                    <div className="h-9 flex items-center gap-2 text-xs text-muted-foreground">
-                      <RefreshIcon className="h-3 w-3 animate-spin" />
-                      Fetching branches...
+                  <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Git Repository URL
+                  </Label>
+                  <div className="relative flex items-center gap-2">
+                    <div className="relative flex-1">
+                      {app?.gitRepo?.includes("github.com") && (
+                        <div className="pointer-events-none absolute top-1/2 left-2.5 z-10 -translate-y-1/2">
+                          <GithubLight className="h-4 w-4 dark:hidden" />
+                          <GithubDark className="hidden h-4 w-4 dark:block" />
+                        </div>
+                      )}
+                      <Input
+                        value={gitRepo}
+                        onChange={(e) => setGitRepo(e.target.value)}
+                        className={`h-9 text-sm ${app?.gitRepo?.includes("github.com") ? "pl-7" : ""}`}
+                      />
                     </div>
-                  ) : branches.length > 0 ? (
-                    <Select value={branch} onValueChange={(v) => setBranch(v ?? "")}>
-                      <SelectTrigger className="h-9 text-sm w-full">
-                        <SelectValue placeholder="Select branch..." />
-                      </SelectTrigger>
-                      <SelectPopup>
-                        {branches.map((b) => (
-                          <SelectItem key={b} value={b}>
-                            {b}
-                          </SelectItem>
-                        ))}
-                      </SelectPopup>
-                    </Select>
-                  ) : (
+                    <a
+                      href={app.gitRepo}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/20 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                      title="Open repository"
+                    >
+                      <ExternalIcon className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                      Branch
+                    </Label>
+                    {isFetchingBranches ? (
+                      <div className="flex h-9 items-center gap-2 text-xs text-muted-foreground">
+                        <RefreshIcon className="h-3 w-3 animate-spin" />
+                        Fetching branches...
+                      </div>
+                    ) : branches.length > 0 ? (
+                      <Select
+                        value={branch}
+                        onValueChange={(v) => setBranch(v ?? "")}
+                      >
+                        <SelectTrigger className="h-9 w-full text-sm">
+                          <SelectValue placeholder="Select branch..." />
+                        </SelectTrigger>
+                        <SelectPopup>
+                          {branches.map((b) => (
+                            <SelectItem key={b} value={b}>
+                              {b}
+                            </SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                    ) : (
+                      <Input
+                        value={branch}
+                        onChange={(e) => setBranch(e.target.value)}
+                        placeholder="main"
+                        className="h-9 text-sm"
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                        Root Directory
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={openFolderBrowser}
+                        disabled={!gitRepo || !branch}
+                        className="text-[10px] text-primary hover:underline disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        Browse…
+                      </button>
+                    </div>
                     <Input
-                      value={branch}
-                      onChange={(e) => setBranch(e.target.value)}
-                      placeholder="main"
+                      value={rootDir}
+                      onChange={(e) => handleRootDirChange(e.target.value)}
+                      placeholder="./"
                       className="h-9 text-sm"
                     />
+                  </div>
+                </div>
+
+                {(isDetectingFramework || detectedFramework) && (
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    {isDetectingFramework ? (
+                      <>
+                        <RefreshIcon className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground">
+                          Scanning directory for a framework…
+                        </p>
+                      </>
+                    ) : detectedFramework ? (
+                      <>
+                        {detectedFramework.icon ? (
+                          <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                        ) : null}
+                        <p className="text-xs text-foreground">
+                          {detectedFramework.name} detected{" "}
+                          <span className="text-muted-foreground">
+                            — commands updated below
+                          </span>
+                        </p>
+                      </>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* Build method selector — only when a Dockerfile exists in the
+                  chosen directory; otherwise Nixpacks is used. */}
+                {dockerfileAvailable && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                      Build Method
+                    </Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        {
+                          id: "nixpacks" as const,
+                          label: "Nixpacks",
+                          desc: "Auto-detect",
+                          icon: <Nix className="h-5 w-5 text-foreground" />,
+                        },
+                        {
+                          id: "dockerfile" as const,
+                          label: "Dockerfile",
+                          desc: "Use Dockerfile",
+                          icon: <Docker className="h-5 w-5" />,
+                        },
+                      ].map((opt) => {
+                        const active = buildMethod === opt.id
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setBuildMethod(opt.id)}
+                            className={`flex flex-col items-start gap-1.5 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                              active
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:border-primary/40 hover:bg-muted/30"
+                            }`}
+                          >
+                            {opt.icon}
+                            <span className="flex flex-col">
+                              <span className="text-sm font-semibold text-foreground">
+                                {opt.label}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {opt.desc}
+                              </span>
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {dockerfileAvailable && buildMethod === "dockerfile" && (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                      Dockerfile Path
+                    </Label>
+                    <Input
+                      value={dockerfilePath}
+                      onChange={(e) => setDockerfilePath(e.target.value)}
+                      placeholder="Dockerfile"
+                      className="h-9 font-mono text-sm"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Relative to the root directory. Install/build/start
+                      commands are ignored — your Dockerfile controls the build.
+                      Make sure it exposes the app on the port above.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                      Port Override
+                    </Label>
+                    <Input
+                      value={portOverride}
+                      onChange={(e) =>
+                        setPortOverride(e.target.value.replace(/\D/g, ""))
+                      }
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  {buildMethod === "nixpacks" && (
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                        Install Command
+                      </Label>
+                      <Input
+                        value={installCommand}
+                        onChange={(e) => setInstallCommand(e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
                   )}
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Root Directory
-                    </Label>
-                    <button
-                      type="button"
-                      onClick={openFolderBrowser}
-                      disabled={!gitRepo || !branch}
-                      className="text-[10px] text-primary hover:underline disabled:opacity-40 disabled:pointer-events-none"
-                    >
-                      Browse…
-                    </button>
-                  </div>
-                  <Input
-                    value={rootDir}
-                    onChange={(e) => handleRootDirChange(e.target.value)}
-                    placeholder="./"
-                    className="h-9 text-sm"
-                  />
-                </div>
-              </div>
 
-              {(isDetectingFramework || detectedFramework) && (
-                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                  {isDetectingFramework ? (
-                    <>
-                      <RefreshIcon className="h-4 w-4 animate-spin text-muted-foreground" />
-                      <p className="text-xs text-muted-foreground">Scanning directory for a framework…</p>
-                    </>
-                  ) : detectedFramework ? (
-                    <>
-                      {detectedFramework.icon ? (
-                        <detectedFramework.icon className="h-5 w-5 shrink-0" />
-                      ) : null}
-                      <p className="text-xs text-foreground">
-                        {detectedFramework.name} detected{" "}
-                        <span className="text-muted-foreground">— commands updated below</span>
-                      </p>
-                    </>
-                  ) : null}
-                </div>
-              )}
-
-              {/* Build method selector — only when a Dockerfile exists in the
-                  chosen directory; otherwise Nixpacks is used. */}
-              {dockerfileAvailable && (
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Build Method
-                </Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: "nixpacks" as const, label: "Nixpacks", desc: "Auto-detect", icon: <Nix className="h-5 w-5 text-foreground" /> },
-                    { id: "dockerfile" as const, label: "Dockerfile", desc: "Use Dockerfile", icon: <Docker className="h-5 w-5" /> },
-                  ].map((opt) => {
-                    const active = buildMethod === opt.id
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => setBuildMethod(opt.id)}
-                        className={`flex flex-col items-start gap-1.5 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                          active ? "border-primary bg-primary/5" : "border-border hover:border-primary/40 hover:bg-muted/30"
-                        }`}
-                      >
-                        {opt.icon}
-                        <span className="flex flex-col">
-                          <span className="text-sm font-semibold text-foreground">{opt.label}</span>
-                          <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-              )}
-
-              {dockerfileAvailable && buildMethod === "dockerfile" && (
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Dockerfile Path
-                  </Label>
-                  <Input
-                    value={dockerfilePath}
-                    onChange={(e) => setDockerfilePath(e.target.value)}
-                    placeholder="Dockerfile"
-                    className="h-9 text-sm font-mono"
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    Relative to the root directory. Install/build/start commands are ignored — your
-                    Dockerfile controls the build. Make sure it exposes the app on the port above.
-                  </p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Port Override
-                  </Label>
-                  <Input
-                    value={portOverride}
-                    onChange={(e) => setPortOverride(e.target.value.replace(/\D/g, ""))}
-                    className="h-9 text-sm"
-                  />
-                </div>
                 {buildMethod === "nixpacks" && (
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Install Command
-                  </Label>
-                  <Input
-                    value={installCommand}
-                    onChange={(e) => setInstallCommand(e.target.value)}
-                    className="h-9 text-sm"
-                  />
-                </div>
+                  <>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Build Command
+                        </Label>
+                        <Input
+                          value={buildCommand}
+                          onChange={(e) => setBuildCommand(e.target.value)}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Start Command
+                        </Label>
+                        <Input
+                          value={startCommand}
+                          onChange={(e) => setStartCommand(e.target.value)}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
-              </div>
 
-              {buildMethod === "nixpacks" && (
-              <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Build Command
-                  </Label>
-                  <Input value={buildCommand} onChange={(e) => setBuildCommand(e.target.value)} className="h-9 text-sm" />
+                <div className="space-y-3 border-t border-border pt-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                      Environment Variables
+                    </Label>
+                    <Button
+                      type="button"
+                      onClick={() =>
+                        setEnvVars((prev) => [...prev, { key: "", value: "" }])
+                      }
+                      className="flex h-6 cursor-pointer items-center gap-1 rounded border-0 bg-secondary px-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary/85"
+                    >
+                      <PlusIcon className="h-3 w-3 text-white dark:text-black" />
+                      <span className="text-white dark:text-black">
+                        Add Variables
+                      </span>
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {envVars.map((env, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={env.key}
+                          onChange={(e) => {
+                            const updated = [...envVars]
+                            updated[index].key = e.target.value
+                              .toUpperCase()
+                              .replace(/[^A-Z0-9_]/g, "")
+                            setEnvVars(updated)
+                          }}
+                          placeholder="NAME"
+                          className="h-8 flex-1 font-mono text-xs"
+                        />
+                        <Input
+                          value={env.value}
+                          onChange={(e) => {
+                            const updated = [...envVars]
+                            updated[index].value = e.target.value
+                            setEnvVars(updated)
+                          }}
+                          placeholder="value"
+                          className="h-8 flex-1 font-mono text-xs"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() =>
+                            setEnvVars((prev) =>
+                              prev.filter((_, i) => i !== index)
+                            )
+                          }
+                          variant="ghost"
+                          className="h-7 w-7 shrink-0 border-0 p-0 text-rose-400 hover:bg-rose-500/10"
+                        >
+                          <XIcon className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Start Command
-                  </Label>
-                  <Input value={startCommand} onChange={(e) => setStartCommand(e.target.value)} className="h-9 text-sm" />
-                </div>
-              </div>
-              </>
-              )}
 
-              <div className="space-y-3 pt-2 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Environment Variables
-                  </Label>
+                <div className="flex items-center gap-2 pt-2">
                   <Button
-                    type="button"
-                    onClick={() => setEnvVars((prev) => [...prev, { key: "", value: "" }])}
-                    className="h-6 cursor-pointer rounded bg-secondary text-secondary-foreground text-xs px-2 hover:bg-secondary/85 flex items-center gap-1 font-semibold border-0"
+                    onClick={() => setTab("overview")}
+                    variant="outline"
+                    className="h-8 border-border text-xs"
                   >
-                    <PlusIcon className="h-3 w-3 text-white dark:text-black" />
-                    <span className="text-white dark:text-black">
-                      Add Variables
-                    </span>
+                    Discard
+                  </Button>
+                  <Button
+                    onClick={handleSaveConfig}
+                    disabled={isSaving}
+                    className="h-8 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                  >
+                    {isSaving ? "Saving..." : "Save Configuration"}
                   </Button>
                 </div>
-                <div className="space-y-2">
-                  {envVars.map((env, index) => (
-                    <div key={index} className="flex gap-2 items-center">
-                      <Input
-                        value={env.key}
-                        onChange={(e) => {
-                          const updated = [...envVars]
-                          updated[index].key = e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "")
-                          setEnvVars(updated)
-                        }}
-                        placeholder="NAME"
-                        className="h-8 text-xs font-mono flex-1"
-                      />
-                      <Input
-                        value={env.value}
-                        onChange={(e) => {
-                          const updated = [...envVars]
-                          updated[index].value = e.target.value
-                          setEnvVars(updated)
-                        }}
-                        placeholder="value"
-                        className="h-8 text-xs font-mono flex-1"
-                      />
-                      <Button
-                        type="button"
-                        onClick={() => setEnvVars((prev) => prev.filter((_, i) => i !== index))}
-                        variant="ghost"
-                        className="h-7 w-7 hover:bg-rose-500/10 text-rose-400 p-0 shrink-0 border-0"
-                      >
-                        <XIcon className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <Button onClick={() => setTab("overview")} variant="outline" className="h-8 text-xs border-border">
-                  Discard
-                </Button>
-                <Button
-                  onClick={handleSaveConfig}
-                  disabled={isSaving}
-                  className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {isSaving ? "Saving..." : "Save Configuration"}
-                </Button>
               </div>
             </div>
-          </div>
           )}
 
           {/* ── Domains ────────────────────────────────────────────────── */}
@@ -1237,30 +1571,32 @@ function AppDetailPage() {
 
           {/* ── Logs ───────────────────────────────────────────────────── */}
           {currentTab === "logs" && (
-            <div className="flex-1 flex flex-col min-h-0 p-4 md:p-6 animate-in fade-in-50 duration-200">
-              <div className="flex items-center justify-between shrink-0">
+            <div className="animate-in fade-in-50 flex min-h-0 flex-1 flex-col p-4 duration-200 md:p-6">
+              <div className="flex shrink-0 items-center justify-between">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <TerminalIcon className="h-3.5 w-3.5" />
                   <span>Runtime Logs</span>
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${logsConnected ? "bg-success animate-pulse" : "bg-muted-foreground/30"}`}
+                    className={`h-1.5 w-1.5 rounded-full ${logsConnected ? "animate-pulse bg-success" : "bg-muted-foreground/30"}`}
                   />
                   <span>{logsConnected ? "Live" : "Disconnected"}</span>
                   {logs.length > 0 && (
-                    <span className="font-mono text-muted-foreground/50">· {logs.length} lines</span>
+                    <span className="font-mono text-muted-foreground/50">
+                      · {logs.length} lines
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => connectLogs()}
-                    className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                    className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Reconnect
                   </button>
                   {logs.length > 0 && (
                     <button
                       onClick={() => setLogs([])}
-                      className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                      className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
                       Clear
                     </button>
@@ -1268,19 +1604,21 @@ function AppDetailPage() {
                 </div>
               </div>
 
-              <div className="flex-1 mt-4 min-h-0 bg-transparent border border-border/80 rounded-lg overflow-hidden font-mono text-xs leading-relaxed flex flex-col">
-                <div className="flex items-center gap-2 px-4 py-2 shrink-0 select-none">
+              <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/80 bg-transparent font-mono text-xs leading-relaxed">
+                <div className="flex shrink-0 items-center gap-2 px-4 py-2 select-none">
                   {logsConnected && (
-                    <span className="ml-auto flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-success">
-                      <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                    <span className="ml-auto flex items-center gap-1.5 text-[10px] tracking-wider text-success uppercase">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
                       Live
                     </span>
                   )}
                 </div>
-                <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-0.5">
+                <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-4">
                   {logs.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 dark:text-slate-500 select-none">
-                      <TerminalIcon className={`h-8 w-8 opacity-25 ${logsConnected ? "animate-pulse" : ""}`} />
+                    <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 select-none dark:text-slate-500">
+                      <TerminalIcon
+                        className={`h-8 w-8 opacity-25 ${logsConnected ? "animate-pulse" : ""}`}
+                      />
                       {logsConnected ? (
                         <span>Connected — waiting for output…</span>
                       ) : (
@@ -1293,14 +1631,21 @@ function AppDetailPage() {
                   ) : (
                     <>
                       {logs.map((log, i) => (
-                        <div key={i} className="flex gap-4 group hover:bg-foreground/2 dark:hover:bg-white/2 rounded px-1 -mx-1">
-                          <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-10 text-right shrink-0 group-hover:text-muted-foreground/60 dark:group-hover:text-slate-500 transition-colors">
+                        <div
+                          key={i}
+                          className="group -mx-1 flex gap-4 rounded px-1 hover:bg-foreground/2 dark:hover:bg-white/2"
+                        >
+                          <span className="w-10 shrink-0 text-right text-muted-foreground/40 transition-colors select-none group-hover:text-muted-foreground/60 dark:text-slate-600 dark:group-hover:text-slate-500">
                             {i + 1}
                           </span>
-                          <span className="select-none text-muted-foreground/40 dark:text-slate-600 shrink-0">
+                          <span className="shrink-0 text-muted-foreground/40 select-none dark:text-slate-600">
                             {new Date(log.timestamp).toLocaleTimeString()}
                           </span>
-                          <span className={`${lineColor(log.message)} break-all`}>{log.message}</span>
+                          <span
+                            className={`${lineColor(log.message)} break-all`}
+                          >
+                            {log.message}
+                          </span>
                         </div>
                       ))}
                       <div ref={logEndRef} />
@@ -1313,8 +1658,8 @@ function AppDetailPage() {
 
           {/* ── Terminal ───────────────────────────────────────────────── */}
           {currentTab === "terminal" && (
-            <div className="flex-1 flex flex-col min-h-0 p-4 md:p-6 animate-in fade-in-50 duration-200">
-              <div className="flex items-center justify-between shrink-0">
+            <div className="animate-in fade-in-50 flex min-h-0 flex-1 flex-col p-4 duration-200 md:p-6">
+              <div className="flex shrink-0 items-center justify-between">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <TerminalIcon className="h-3.5 w-3.5" />
                   <span>Container Shell</span>
@@ -1322,7 +1667,7 @@ function AppDetailPage() {
                 {app.status === "running" && (
                   <button
                     onClick={() => setTermReconnectToken((t) => t + 1)}
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                    className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <RefreshIcon className="h-3 w-3" />
                     Reconnect
@@ -1331,15 +1676,17 @@ function AppDetailPage() {
               </div>
 
               {app.status !== "running" ? (
-                <div className="flex-1 mt-4 min-h-0 bg-card border border-border/80 rounded-lg flex flex-col items-center justify-center gap-3 text-muted-foreground/60 select-none">
+                <div className="mt-4 flex min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-border/80 bg-card text-muted-foreground/60 select-none">
                   <TerminalIcon className="h-8 w-8 opacity-25" />
-                  <span className="text-sm">The container must be running to open a terminal.</span>
+                  <span className="text-sm">
+                    The container must be running to open a terminal.
+                  </span>
                   {app.status === "stopped" && (
                     <Button
                       onClick={() => handleToggle("start")}
                       disabled={isToggling}
                       variant="outline"
-                      className="h-7 gap-1.5 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
+                      className="h-7 gap-1.5 border-emerald-500/30 text-xs text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
                     >
                       <PlayIcon className="h-3 w-3" />
                       Start container
@@ -1347,7 +1694,7 @@ function AppDetailPage() {
                   )}
                 </div>
               ) : (
-                <div className="flex-1 mt-4 min-h-0">
+                <div className="mt-4 min-h-0 flex-1">
                   <ContainerTerminal
                     appId={appId}
                     appName={app.name}
@@ -1358,214 +1705,249 @@ function AppDetailPage() {
             </div>
           )}
 
-           {/* ── Deployments ────────────────────────────────────────────── */}
-           {currentTab === "deployments" && (
-             <div className="h-full overflow-y-auto p-4 md:p-6 space-y-4 animate-in fade-in-50 duration-200">
-               <div>
-                 <h2 className="text-sm font-bold text-foreground">Deployment History</h2>
-                 <p className="text-xs text-muted-foreground mt-0.5">
-                   {deployments.length} deployment{deployments.length !== 1 ? "s" : ""} recorded.
-                 </p>
-               </div>
+          {/* ── Deployments ────────────────────────────────────────────── */}
+          {currentTab === "deployments" && (
+            <div className="animate-in fade-in-50 h-full space-y-4 overflow-y-auto p-4 duration-200 md:p-6">
+              <div>
+                <h2 className="text-sm font-bold text-foreground">
+                  Deployment History
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {deployments.length} deployment
+                  {deployments.length !== 1 ? "s" : ""} recorded.
+                </p>
+              </div>
 
-               {deployments.length === 0 ? (
-                 <div className="py-16 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
-                   <RefreshIcon className="h-6 w-6 mx-auto mb-3 opacity-20" />
-                   {app.status === "building"
-                     ? "Waiting for the current build to finish…"
-                     : "No deployments recorded for this project yet."}
-                 </div>
-               ) : (
-                 <div className="space-y-3">
-                   {deployments.map((dep, idx) => {
-                     const isExpanded = expandedDepl === dep.id
-                     const isBuilding = dep.status === "building" || dep.status === "in_progress"
-                     const isSuccess = dep.status === "success"
-                     const deployNumber = deployments.length - idx
-                     const isLive = !!dep.image && dep.image === app.activeImage
-                     const canRollback = isSuccess && !!dep.image && !isLive && !isBuilding
-                     const commitUrl = dep.commit ? githubCommitUrl(app.gitRepo, dep.commit) : ""
+              {deployments.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
+                  <RefreshIcon className="mx-auto mb-3 h-6 w-6 opacity-20" />
+                  {app.status === "building"
+                    ? "Waiting for the current build to finish…"
+                    : "No deployments recorded for this project yet."}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {deployments.map((dep, idx) => {
+                    const isExpanded = expandedDepl === dep.id
+                    const isBuilding =
+                      dep.status === "building" || dep.status === "in_progress"
+                    const isSuccess = dep.status === "success"
+                    const deployNumber = deployments.length - idx
+                    const isLive = !!dep.image && dep.image === app.activeImage
+                    const canRollback =
+                      isSuccess && !!dep.image && !isLive && !isBuilding
+                    const commitUrl = dep.commit
+                      ? githubCommitUrl(app.gitRepo, dep.commit)
+                      : ""
 
-                     return (
-                       <div
-                         key={dep.id}
-                         className="rounded-xl border border-border bg-card/72 backdrop-blur-xl overflow-hidden transition-shadow hover:shadow-sm"
-                       >
-                         {/* Header row — single flex row that wraps on small screens */}
-                         <div
-                           className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 cursor-pointer group"
-                           onClick={() => setExpandedDepl(isExpanded ? null : dep.id)}
-                         >
-                           {/* Status indicator */}
-                           <div className={`shrink-0 h-7 w-7 rounded-lg flex items-center justify-center ${
-                             isBuilding
-                               ? "bg-warning/10"
-                               : isSuccess
-                                 ? "bg-success/10"
-                                 : "bg-destructive/10"
-                           }`}>
-                             {isBuilding ? (
-                               <LoaderIcon className="h-3.5 w-3.5 text-warning animate-spin" />
-                             ) : isSuccess ? (
-                               <CheckIcon className="h-3.5 w-3.5 text-success" />
-                             ) : (
-                               <XIcon className="h-3.5 w-3.5 text-destructive" />
-                             )}
-                           </div>
+                    return (
+                      <div
+                        key={dep.id}
+                        className="overflow-hidden rounded-xl border border-border bg-card/72 backdrop-blur-xl transition-shadow hover:shadow-sm"
+                      >
+                        {/* Header row — single flex row that wraps on small screens */}
+                        <div
+                          className="group flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3"
+                          onClick={() =>
+                            setExpandedDepl(isExpanded ? null : dep.id)
+                          }
+                        >
+                          {/* Status indicator */}
+                          <div
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+                              isBuilding
+                                ? "bg-warning/10"
+                                : isSuccess
+                                  ? "bg-success/10"
+                                  : "bg-destructive/10"
+                            }`}
+                          >
+                            {isBuilding ? (
+                              <LoaderIcon className="h-3.5 w-3.5 animate-spin text-warning" />
+                            ) : isSuccess ? (
+                              <CheckIcon className="h-3.5 w-3.5 text-success" />
+                            ) : (
+                              <XIcon className="h-3.5 w-3.5 text-destructive" />
+                            )}
+                          </div>
 
-                           <span className="shrink-0 text-xs font-mono text-muted-foreground">
-                             #{deployNumber}
-                           </span>
+                          <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                            #{deployNumber}
+                          </span>
 
-                           {/* Commit message — flexes and truncates to fit the row */}
-                           <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium text-foreground">
-                             {dep.commitMsg ||
-                               (dep.trigger === "rollback" ? "Rollback" : "(no commit message)")}
-                           </span>
+                          {/* Commit message — flexes and truncates to fit the row */}
+                          <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium text-foreground">
+                            {dep.commitMsg ||
+                              (dep.trigger === "rollback"
+                                ? "Rollback"
+                                : "(no commit message)")}
+                          </span>
 
-                           {/* Commit hash → GitHub commit page */}
-                           {dep.commit &&
-                             (commitUrl ? (
-                               <a
-                                 href={commitUrl}
-                                 target="_blank"
-                                 rel="noopener noreferrer"
-                                 onClick={(e) => e.stopPropagation()}
-                                 className="shrink-0 inline-flex items-center gap-1 rounded border border-border/80 bg-muted/30 px-1.5 py-0.5 text-[11px] font-mono text-muted-foreground hover:border-primary/30 hover:text-primary transition-colors"
-                                 title="View commit on GitHub"
-                               >
-                                 <GitCommitIcon className="h-3 w-3" />
-                                 {dep.commit.slice(0, 7)}
-                                 <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
-                               </a>
-                             ) : (
-                               <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/80">
-                                 <GitCommitIcon className="h-3 w-3" />
-                                 {dep.commit.slice(0, 7)}
-                               </span>
-                             ))}
+                          {/* Commit hash → GitHub commit page */}
+                          {dep.commit &&
+                            (commitUrl ? (
+                              <a
+                                href={commitUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex shrink-0 items-center gap-1 rounded border border-border/80 bg-muted/30 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                                title="View commit on GitHub"
+                              >
+                                <GitCommitIcon className="h-3 w-3" />
+                                {dep.commit.slice(0, 7)}
+                                <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
+                              </a>
+                            ) : (
+                              <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
+                                <GitCommitIcon className="h-3 w-3" />
+                                {dep.commit.slice(0, 7)}
+                              </span>
+                            ))}
 
-                           {/* Branch */}
-                           {app.branch && (
-                             <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/80">
-                               <GitBranchIcon className="h-3 w-3" />
-                               {app.branch}
-                             </span>
-                           )}
+                          {/* Branch */}
+                          {app.branch && (
+                            <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
+                              <GitBranchIcon className="h-3 w-3" />
+                              {app.branch}
+                            </span>
+                          )}
 
-                           {/* Time */}
-                           <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
-                             {new Date(dep.createdAt).toLocaleString(undefined, {
-                               month: "short",
-                               day: "numeric",
-                               hour: "2-digit",
-                               minute: "2-digit",
-                             })}
-                           </span>
+                          {/* Time */}
+                          <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                            {new Date(dep.createdAt).toLocaleString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
 
-                           {/* Duration */}
-                           <span className="shrink-0 text-[11px] font-mono text-muted-foreground/70">
-                             {isBuilding ? "in progress" : dep.duration}
-                           </span>
+                          {/* Duration */}
+                          <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
+                            {isBuilding ? "in progress" : dep.duration}
+                          </span>
 
-                           {/* Status + live badges */}
-                           <Badge
-                             variant={isBuilding ? "warning" : isSuccess ? "success" : "error"}
-                             size="sm"
-                             className="shrink-0"
-                           >
-                             {isBuilding ? "Building" : isSuccess ? "Success" : "Failed"}
-                           </Badge>
+                          {/* Status + live badges */}
+                          <Badge
+                            variant={
+                              isBuilding
+                                ? "warning"
+                                : isSuccess
+                                  ? "success"
+                                  : "error"
+                            }
+                            size="sm"
+                            className="shrink-0"
+                          >
+                            {isBuilding
+                              ? "Building"
+                              : isSuccess
+                                ? "Success"
+                                : "Failed"}
+                          </Badge>
 
-                           {isLive && (
-                             <Badge variant="info" size="sm" className="shrink-0 gap-1">
-                               <span className="h-1.5 w-1.5 rounded-full bg-info" />
-                               Live
-                             </Badge>
-                           )}
+                          {isLive && (
+                            <Badge
+                              variant="info"
+                              size="sm"
+                              className="shrink-0 gap-1"
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-info" />
+                              Live
+                            </Badge>
+                          )}
 
-                           {/* Rollback (inline, no need to expand) */}
-                           {canRollback && (
-                             <button
-                               onClick={(e) => {
-                                 e.stopPropagation()
-                                 setRollbackTarget(dep)
-                               }}
-                               className="shrink-0 inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[11px] font-mono text-primary hover:bg-primary/15 cursor-pointer transition-colors"
-                               title="Roll back to this deployment"
-                             >
-                               <RefreshIcon className="h-3 w-3" />
-                               Rollback
-                             </button>
-                           )}
+                          {/* Rollback (inline, no need to expand) */}
+                          {canRollback && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setRollbackTarget(dep)
+                              }}
+                              className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[11px] text-primary transition-colors hover:bg-primary/15"
+                              title="Roll back to this deployment"
+                            >
+                              <RefreshIcon className="h-3 w-3" />
+                              Rollback
+                            </button>
+                          )}
 
-                           {/* Expand chevron */}
-                           <ChevronLeftIcon className={`ml-auto shrink-0 h-4 w-4 text-muted-foreground transition-transform duration-200 ${
-                             isExpanded ? "-rotate-90" : "rotate-180"
-                           }`} />
-                         </div>
-                         
-                         {/* Expanded log output */}
-                         {isExpanded && (
-                           <div className="border-t bg-transparent border-border/30">
-                             <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
-                               <span className="text-[11px] font-mono text-muted-foreground/50 dark:text-slate-500">
-                                 Build log · {dep.logs.length} lines
-                               </span>
-                               <div className="flex items-center gap-3">
-                                 {canRollback && (
-                                   <button
-                                     onClick={(e) => {
-                                       e.stopPropagation()
-                                       setRollbackTarget(dep)
-                                     }}
-                                     className="flex items-center gap-1 text-[11px] font-mono text-primary hover:text-primary/80 cursor-pointer transition-colors"
-                                   >
-                                     <RefreshIcon className="h-3 w-3" />
-                                     Rollback to this
-                                   </button>
-                                 )}
-                                 {isLive && (
-                                   <span className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50">
-                                     <CheckIcon className="h-3 w-3 text-info" />
-                                     Currently live
-                                   </span>
-                                 )}
-                                 <button
-                                   onClick={(e) => {
-                                     e.stopPropagation()
-                                     router.push(`/logs?appId=${appId}&mode=build`)
-                                   }}
-                                   className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer transition-colors"
-                                 >
-                                   <TerminalIcon className="h-3 w-3" />
-                                   Open full log
-                                 </button>
-                               </div>
-                             </div>
-                             <div className="px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300 max-h-80 overflow-y-auto space-y-0.5">
-                               {dep.logs.length === 0 ? (
-                                 <span className="text-muted-foreground/40 dark:text-slate-600 italic">No log output recorded.</span>
-                               ) : (
-                                 dep.logs.map((line, i) => (
-                                   <div key={i} className="flex gap-4">
-                                     <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-8 text-right shrink-0">
-                                       {i + 1}
-                                     </span>
-                                     <span className={lineColor(line)}>{line}</span>
-                                   </div>
-                                 ))
-                               )}
-                             </div>
-                           </div>
-                         )}
-                       </div>
-                     )
-                   })}
-                 </div>
-               )}
-             </div>
-           )}
+                          {/* Expand chevron */}
+                          <ChevronLeftIcon
+                            className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
+                              isExpanded ? "-rotate-90" : "rotate-180"
+                            }`}
+                          />
+                        </div>
+
+                        {/* Expanded log output */}
+                        {isExpanded && (
+                          <div className="border-t border-border/30 bg-transparent">
+                            <div className="flex items-center justify-between border-b border-border/20 px-4 py-2">
+                              <span className="font-mono text-[11px] text-muted-foreground/50 dark:text-slate-500">
+                                Build log · {dep.logs.length} lines
+                              </span>
+                              <div className="flex items-center gap-3">
+                                {canRollback && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setRollbackTarget(dep)
+                                    }}
+                                    className="flex cursor-pointer items-center gap-1 font-mono text-[11px] text-primary transition-colors hover:text-primary/80"
+                                  >
+                                    <RefreshIcon className="h-3 w-3" />
+                                    Rollback to this
+                                  </button>
+                                )}
+                                {isLive && (
+                                  <span className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground/50">
+                                    <CheckIcon className="h-3 w-3 text-info" />
+                                    Currently live
+                                  </span>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    router.push(
+                                      `/logs?appId=${appId}&mode=build`
+                                    )
+                                  }}
+                                  className="flex cursor-pointer items-center gap-1 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300"
+                                >
+                                  <TerminalIcon className="h-3 w-3" />
+                                  Open full log
+                                </button>
+                              </div>
+                            </div>
+                            <div className="max-h-80 space-y-0.5 overflow-y-auto px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300">
+                              {dep.logs.length === 0 ? (
+                                <span className="text-muted-foreground/40 italic dark:text-slate-600">
+                                  No log output recorded.
+                                </span>
+                              ) : (
+                                dep.logs.map((line, i) => (
+                                  <div key={i} className="flex gap-4">
+                                    <span className="w-8 shrink-0 text-right text-muted-foreground/40 select-none dark:text-slate-600">
+                                      {i + 1}
+                                    </span>
+                                    <span className={lineColor(line)}>
+                                      {line}
+                                    </span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1598,19 +1980,25 @@ function AppDetailPage() {
               ) : (
                 "this deployment"
               )}
-              {rollbackTarget?.commitMsg ? ` — “${rollbackTarget.commitMsg}”` : ""}. A new
-              deployment will be created and your live container will be replaced with it. No
-              rebuild happens, so it&apos;s fast.
+              {rollbackTarget?.commitMsg
+                ? ` — “${rollbackTarget.commitMsg}”`
+                : ""}
+              . A new deployment will be created and your live container will be
+              replaced with it. No rebuild happens, so it&apos;s fast.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="outline">Cancel</Button>} />
+            <AlertDialogClose
+              render={<Button variant="outline">Cancel</Button>}
+            />
             <Button
               onClick={() => rollbackTarget && handleRollback(rollbackTarget)}
               disabled={isRollingBack}
               className="gap-1.5"
             >
-              <RefreshIcon className={`h-4 w-4 ${isRollingBack ? "animate-spin" : ""}`} />
+              <RefreshIcon
+                className={`h-4 w-4 ${isRollingBack ? "animate-spin" : ""}`}
+              />
               {isRollingBack ? "Rolling back…" : "Confirm rollback"}
             </Button>
           </AlertDialogFooter>
@@ -1619,18 +2007,20 @@ function AppDetailPage() {
 
       {/* Folder Browser Modal */}
       <Dialog open={showFolderBrowser} onOpenChange={setShowFolderBrowser}>
-        <DialogContent className="sm:max-w-md max-h-[70vh] flex flex-col">
+        <DialogContent className="flex max-h-[70vh] flex-col sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-sm font-bold">Select Root Directory</DialogTitle>
+            <DialogTitle className="text-sm font-bold">
+              Select Root Directory
+            </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Choose the directory containing your project files.
             </DialogDescription>
           </DialogHeader>
 
           {/* Breadcrumbs */}
-          <div className="flex items-center gap-1 text-xs text-muted-foreground overflow-x-auto pb-1 px-6">
+          <div className="flex items-center gap-1 overflow-x-auto px-6 pb-1 text-xs text-muted-foreground">
             <button
-              className={`hover:text-foreground flex items-center gap-0.5 shrink-0 ${folderBrowserPath === "" ? "font-medium text-foreground" : ""}`}
+              className={`flex shrink-0 items-center gap-0.5 hover:text-foreground ${folderBrowserPath === "" ? "font-medium text-foreground" : ""}`}
               onClick={() => navigateToBreadcrumb(-1)}
             >
               <NucleoIcon name="house" className="h-3 w-3" />
@@ -1640,7 +2030,7 @@ function AppDetailPage() {
               <React.Fragment key={i}>
                 <ChevronRightIcon className="h-3 w-3 shrink-0" />
                 <button
-                  className={`hover:text-foreground shrink-0 ${i === folderBrowserBreadcrumbs.length - 1 ? "font-medium text-foreground" : ""}`}
+                  className={`shrink-0 hover:text-foreground ${i === folderBrowserBreadcrumbs.length - 1 ? "font-medium text-foreground" : ""}`}
                   onClick={() => navigateToBreadcrumb(i)}
                 >
                   {crumb}
@@ -1651,20 +2041,21 @@ function AppDetailPage() {
 
           {/* Current selection indicator */}
           {folderBrowserPath && (
-            <div className="text-xs px-2 mb-2 py-1 mx-6 bg-primary/5 border border-primary/20 rounded text-primary font-medium">
+            <div className="mx-6 mb-2 rounded border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-medium text-primary">
               Selected: ./{folderBrowserPath}
             </div>
           )}
 
           {/* Folder list */}
-          <div className="flex-1 mb-2 overflow-y-auto border border-border rounded-md mx-6">
+          <div className="mx-6 mb-2 flex-1 overflow-y-auto rounded-md border border-border">
             {folderBrowserLoading ? (
               <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-                <RefreshIcon className="h-4 w-4 animate-spin mr-2" />
+                <RefreshIcon className="mr-2 h-4 w-4 animate-spin" />
                 Loading folders…
               </div>
-            ) : folderBrowserContents.filter((i) => i.type === "dir").length === 0 ? (
-              <div className="text-center py-12 text-sm text-muted-foreground">
+            ) : folderBrowserContents.filter((i) => i.type === "dir").length ===
+              0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">
                 No subdirectories found.
               </div>
             ) : (
@@ -1674,7 +2065,7 @@ function AppDetailPage() {
                   .map((item) => (
                     <div
                       key={item.path}
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 cursor-pointer group"
+                      className="group flex cursor-pointer items-center justify-between px-4 py-2.5 hover:bg-muted/30"
                       onClick={() => navigateIntoFolder(item.name)}
                     >
                       <div className="flex items-center gap-2 text-sm text-foreground">
@@ -1689,7 +2080,7 @@ function AppDetailPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between gap-3 pt-3 border-t border-border/40 px-6 pb-6">
+          <div className="flex items-center justify-between gap-3 border-t border-border/40 px-6 pt-3 pb-6">
             <Button
               type="button"
               variant="ghost"
@@ -1697,7 +2088,8 @@ function AppDetailPage() {
               onClick={() => {
                 setRootDir("")
                 setShowFolderBrowser(false)
-                if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
+                if (rootDirDetectTimer.current)
+                  clearTimeout(rootDirDetectTimer.current)
                 redetectForRootDir("")
               }}
               className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
@@ -1709,10 +2101,12 @@ function AppDetailPage() {
               size="sm"
               onClick={() => selectFolder(folderBrowserPath)}
               title={`Select ${folderBrowserPath || "Root (./)"}`}
-              className="flex min-w-0 shrink items-center gap-1 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+              className="flex min-w-0 shrink items-center gap-1 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
             >
               <span className="shrink-0">Select</span>
-              <span className="truncate font-mono">{folderBrowserPath || "Root (./)"}</span>
+              <span className="truncate font-mono">
+                {folderBrowserPath || "Root (./)"}
+              </span>
             </Button>
           </div>
         </DialogContent>
@@ -1725,8 +2119,8 @@ export default function AppDetailRoute() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       }
     >

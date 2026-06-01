@@ -94,23 +94,42 @@ export const api = {
     deploy: (data: DeployRequest) =>
       req<App>("/api/deploy", { method: "POST", body: JSON.stringify(data) }),
     stop: (id: string) =>
-      req<{ status: string }>("/api/apps/stop", { method: "POST", body: JSON.stringify({ id }) }),
+      req<{ status: string }>("/api/apps/stop", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
     start: (id: string) =>
-      req<{ status: string }>("/api/apps/start", { method: "POST", body: JSON.stringify({ id }) }),
+      req<{ status: string }>("/api/apps/start", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
     delete: (id: string) =>
-      req<{ status: string }>("/api/apps/delete", { method: "POST", body: JSON.stringify({ id }) }),
+      req<{ status: string }>("/api/apps/delete", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
     update: (data: UpdateRequest) =>
-      req<App>("/api/apps/update", { method: "POST", body: JSON.stringify(data) }),
+      req<App>("/api/apps/update", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     rename: (id: string, name: string) =>
-      req<App>("/api/apps/rename", { method: "POST", body: JSON.stringify({ id, name }) }),
+      req<App>("/api/apps/rename", {
+        method: "POST",
+        body: JSON.stringify({ id, name }),
+      }),
     redeploy: (id: string) =>
-      req<App>("/api/apps/redeploy", { method: "POST", body: JSON.stringify({ id }) }),
+      req<App>("/api/apps/redeploy", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
     rollback: (id: string, deploymentId: string) =>
       req<App>("/api/apps/rollback", {
         method: "POST",
         body: JSON.stringify({ id, deploymentId }),
       }),
-    webhook: (id: string) => req<WebhookInfo>(`/api/apps/webhook?id=${encodeURIComponent(id)}`),
+    webhook: (id: string) =>
+      req<WebhookInfo>(`/api/apps/webhook?id=${encodeURIComponent(id)}`),
     regenerateWebhook: (id: string) =>
       req<{ secret: string }>("/api/apps/webhook/regenerate", {
         method: "POST",
@@ -128,7 +147,7 @@ export const api = {
       }),
     runtimeLogs: (id: string, lines = 500) =>
       req<{ logs: string[] }>(
-        `/api/apps/runtime-logs?id=${encodeURIComponent(id)}&lines=${lines}`,
+        `/api/apps/runtime-logs?id=${encodeURIComponent(id)}&lines=${lines}`
       ),
   },
 
@@ -159,11 +178,11 @@ export const api = {
     test: (id: string) =>
       req<{ status: string; dockerVersion?: string; error?: string }>(
         "/api/servers/test",
-        { method: "POST", body: JSON.stringify({ id }) },
+        { method: "POST", body: JSON.stringify({ id }) }
       ),
     publicKey: (id: string) =>
       req<{ publicKey: string }>(
-        `/api/servers/keys/public?id=${encodeURIComponent(id)}`,
+        `/api/servers/keys/public?id=${encodeURIComponent(id)}`
       ),
   },
   cloudflare: {
@@ -174,23 +193,40 @@ export const api = {
         body: JSON.stringify({ token }),
       }),
     deleteToken: () =>
-      req<{ status: string }>("/api/cloudflare/token/delete", { method: "DELETE" }),
+      req<{ status: string }>("/api/cloudflare/token/delete", {
+        method: "DELETE",
+      }),
     addDns: (domain: string) =>
-      req<{ status: string; domain: string; ip: string; zone: string; proxied: boolean }>(
-        "/api/cloudflare/dns",
-        { method: "POST", body: JSON.stringify({ domain }) },
-      ),
+      req<{
+        status: string
+        domain: string
+        ip: string
+        zone: string
+        proxied: boolean
+      }>("/api/cloudflare/dns", {
+        method: "POST",
+        body: JSON.stringify({ domain }),
+      }),
   },
 
   // ── App catalog (one-click deploys) ─────────────────────────────────────────
   catalog: {
     list: () => req<CatalogTemplate[]>("/api/catalog"),
     deploy: (data: CatalogDeployRequest) =>
-      req<App>("/api/catalog/deploy", { method: "POST", body: JSON.stringify(data) }),
+      req<App>("/api/catalog/deploy", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     deployImage: (data: ImageDeployRequest) =>
-      req<App>("/api/catalog/deploy-image", { method: "POST", body: JSON.stringify(data) }),
+      req<App>("/api/catalog/deploy-image", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     deployDockerfile: (data: DockerfileDeployRequest) =>
-      req<App>("/api/catalog/deploy-dockerfile", { method: "POST", body: JSON.stringify(data) }),
+      req<App>("/api/catalog/deploy-dockerfile", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 
   // ── Managed add-ons (databases / caches) ────────────────────────────────────
@@ -222,7 +258,14 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ id }),
       }),
-    dbTable: (id: string, table: string, limit = 50, offset = 0, orderBy?: string, orderDir?: "asc" | "desc") =>
+    dbTable: (
+      id: string,
+      table: string,
+      limit = 50,
+      offset = 0,
+      orderBy?: string,
+      orderDir?: "asc" | "desc"
+    ) =>
       req<DbQueryResult>("/api/addons/db/table", {
         method: "POST",
         body: JSON.stringify({ id, table, limit, offset, orderBy, orderDir }),
@@ -237,7 +280,11 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ id, table }),
       }),
-    dbInsertRow: (id: string, table: string, values: Record<string, string | null>) =>
+    dbInsertRow: (
+      id: string,
+      table: string,
+      values: Record<string, string | null>
+    ) =>
       req<DbQueryResult>("/api/addons/db/row/insert", {
         method: "POST",
         body: JSON.stringify({ id, table, values }),
@@ -246,13 +293,17 @@ export const api = {
       id: string,
       table: string,
       set: Record<string, string | null>,
-      where: Record<string, string | null>,
+      where: Record<string, string | null>
     ) =>
       req<DbQueryResult>("/api/addons/db/row/update", {
         method: "POST",
         body: JSON.stringify({ id, table, set, where }),
       }),
-    dbDeleteRow: (id: string, table: string, where: Record<string, string | null>) =>
+    dbDeleteRow: (
+      id: string,
+      table: string,
+      where: Record<string, string | null>
+    ) =>
       req<DbQueryResult>("/api/addons/db/row/delete", {
         method: "POST",
         body: JSON.stringify({ id, table, where }),
@@ -267,8 +318,16 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ appId, schedule, command }),
       }),
-    update: (data: { id: string; schedule?: string; command?: string; enabled?: boolean }) =>
-      req<CronJob>("/api/cron/update", { method: "POST", body: JSON.stringify(data) }),
+    update: (data: {
+      id: string
+      schedule?: string
+      command?: string
+      enabled?: boolean
+    }) =>
+      req<CronJob>("/api/cron/update", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     delete: (id: string) =>
       req<{ status: string }>("/api/cron/delete", {
         method: "POST",
@@ -331,26 +390,35 @@ export const api = {
       }),
     deleteToken: () =>
       req<{ status: string }>("/api/git/token/delete", { method: "DELETE" }),
-    repos: () => req<Array<{
-      full_name: string
-      name: string
-      clone_url: string
-      html_url: string
-      private: boolean
-      description: string
-      updated_at: string
-    }>>("/api/git/repos"),
+    repos: () =>
+      req<
+        Array<{
+          full_name: string
+          name: string
+          clone_url: string
+          html_url: string
+          private: boolean
+          description: string
+          updated_at: string
+        }>
+      >("/api/git/repos"),
     contents: (repo: string, branch: string, path?: string) =>
-      req<GitHubContent[]>(`/api/git/contents?repo=${encodeURIComponent(repo)}&branch=${encodeURIComponent(branch)}&path=${encodeURIComponent(path || "")}`),
+      req<GitHubContent[]>(
+        `/api/git/contents?repo=${encodeURIComponent(repo)}&branch=${encodeURIComponent(branch)}&path=${encodeURIComponent(path || "")}`
+      ),
     file: (repo: string, branch: string, path: string) =>
-      req<GitHubFile>(`/api/git/file?repo=${encodeURIComponent(repo)}&branch=${encodeURIComponent(branch)}&path=${encodeURIComponent(path)}`),
+      req<GitHubFile>(
+        `/api/git/file?repo=${encodeURIComponent(repo)}&branch=${encodeURIComponent(branch)}&path=${encodeURIComponent(path)}`
+      ),
   },
 
   system: {
     health: () =>
       req<{ status: string; timestamp: string; uptime: string }>("/api/health"),
     prune: () =>
-      req<{ status: string; output: string }>("/api/docker/prune", { method: "POST" }),
+      req<{ status: string; output: string }>("/api/docker/prune", {
+        method: "POST",
+      }),
     appMetrics: () => req<PerAppMetrics[]>("/api/metrics/apps"),
     version: () => req<SystemVersion>("/api/system/version"),
     updateCheck: (force = false) =>
@@ -359,11 +427,13 @@ export const api = {
     updateApply: () =>
       req<{ status: string; target: string; message: string }>(
         "/api/system/update/apply",
-        { method: "POST" },
+        { method: "POST" }
       ),
     onboarding: () => req<{ completed: boolean }>("/api/system/onboarding"),
     completeOnboarding: () =>
-      req<{ completed: boolean }>("/api/system/onboarding/complete", { method: "POST" }),
+      req<{ completed: boolean }>("/api/system/onboarding/complete", {
+        method: "POST",
+      }),
   },
 
   deployments: {
@@ -374,7 +444,7 @@ export const api = {
   analytics: {
     summary: (appId: string, days: 1 | 7 | 30 | 90 = 7) =>
       req<AnalyticsSummary>(
-        `/api/analytics?id=${encodeURIComponent(appId)}&days=${days}`,
+        `/api/analytics?id=${encodeURIComponent(appId)}&days=${days}`
       ),
     overview: (days: 1 | 7 | 30 | 90 = 7) =>
       req<AnalyticsOverviewRow[]>(`/api/analytics/overview?days=${days}`),
@@ -463,11 +533,17 @@ export function createBuildLogsWs(appId: string): WebSocket {
 }
 
 export function createRuntimeLogsWs(appId: string): WebSocket {
-  return new WebSocket(withToken(`${getWsBase()}/ws/runtime-logs?appId=${appId}`))
+  return new WebSocket(
+    withToken(`${getWsBase()}/ws/runtime-logs?appId=${appId}`)
+  )
 }
 
 export function createStatsWs(serverId = "localhost"): WebSocket {
-  return new WebSocket(withToken(`${getWsBase()}/ws/stats?serverId=${encodeURIComponent(serverId)}`))
+  return new WebSocket(
+    withToken(
+      `${getWsBase()}/ws/stats?serverId=${encodeURIComponent(serverId)}`
+    )
+  )
 }
 
 export function createTerminalWs(appId: string): WebSocket {

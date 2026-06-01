@@ -37,6 +37,7 @@ import {
   Eye,
   EyeOff,
   Moon,
+  Pencil,
   Sun,
   Play,
   Plus,
@@ -89,6 +90,7 @@ type NucleoIconName =
   | "eye"
   | "eye-off"
   | "moon"
+  | "edit"
   | "sun"
   | "more-horizontal"
   | "plus"
@@ -149,6 +151,7 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   eye: Eye,
   "eye-off": EyeOff,
   moon: Moon,
+  edit: Pencil,
   sun: Sun,
   "more-horizontal": Ellipsis,
   play: Play,
@@ -168,7 +171,12 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   x: X,
 }
 
-export function NucleoIcon({ name, className, style, ...props }: NucleoIconProps) {
+export function NucleoIcon({
+  name,
+  className,
+  style,
+  ...props
+}: NucleoIconProps) {
   const IconComponent = iconMap[name]
   if (!IconComponent) return null
   return (

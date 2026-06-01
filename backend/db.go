@@ -256,6 +256,7 @@ func migrateAppsUniqueConstraint() error {
 	)
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 	taken := map[string]bool{}
+	var appRows [][]interface{}
 	for rows.Next() {
 		values := make([]interface{}, len(cols))
 		ptrs := make([]interface{}, len(cols))
@@ -276,16 +277,18 @@ func migrateAppsUniqueConstraint() error {
 				values[1] = uniqueAppName("app", taken)
 			}
 		}
-		if _, err := tx.Exec(insertSQL, values...); err != nil {
-			rows.Close()
-			return err
-		}
+		appRows = append(appRows, values)
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
 		return err
 	}
 	rows.Close()
+	for _, values := range appRows {
+		if _, err := tx.Exec(insertSQL, values...); err != nil {
+			return err
+		}
+	}
 
 	if _, err := tx.Exec("DROP TABLE apps"); err != nil {
 		return err
@@ -306,7 +309,6 @@ func migrateAppsUniqueConstraint() error {
 	log.Println("[db] Migrated apps table unique constraint successfully.")
 	return nil
 }
-
 
 // migrateFromJSON imports data from the legacy db.json file, then renames it.
 func migrateFromJSON() {
@@ -450,6 +452,9 @@ func loadStateFromDB() {
 		a.ServerID = serverID.String
 		if a.ServerID == "" {
 			a.ServerID = "localhost"
+		}
+		if strings.Contains(a.URL, ".sslip.io") {
+			a.URL = defaultAppURL(a.ID, a.ServerID)
 		}
 		apps = append(apps, a)
 		buildLogs[a.ID] = []string{}

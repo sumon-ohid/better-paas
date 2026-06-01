@@ -27,16 +27,14 @@ func getLocalIP() string {
 }
 
 // appHostIP returns the public-ish host IP used for the default sslip.io URL.
-// Remote apps are routed through the remote target server, while local apps use
-// the control plane host.
-func appHostIP(serverID string) string {
-	if serverID != "" && serverID != "localhost" {
-		srv, err := dbGetServer(serverID)
-		if err == nil && srv != nil && !srv.IsLocal && strings.TrimSpace(srv.IP) != "" {
-			return srv.IP
-		}
-	}
+// The default route is served by this control-plane Caddy, even when the app
+// container itself runs on a remote target server.
+func appHostIP(_ string) string {
 	return getLocalIP()
+}
+
+func defaultAppURL(appID, serverID string) string {
+	return fmt.Sprintf("http://%s.%s.sslip.io", appID, appHostIP(serverID))
 }
 
 // rebuildCaddyfile regenerates the Caddyfile from the current app list.

@@ -484,7 +484,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		CatalogID:     tpl.ID,
 		WebhookSecret: generateRandomID() + generateRandomID(),
 	}
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, appHostIP(serverID))
+	newApp.URL = defaultAppURL(newApp.ID, serverID)
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 
@@ -602,7 +602,7 @@ func startCustomDeploy(w http.ResponseWriter, newApp App, trigger string) {
 		taken[a.Name] = true
 	}
 	newApp.Name = uniqueAppName(newApp.Name, taken)
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, appHostIP(newApp.ServerID))
+	newApp.URL = defaultAppURL(newApp.ID, newApp.ServerID)
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 
