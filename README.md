@@ -1,4 +1,4 @@
-# better-paas
+<img width="500" height="500" alt="Group 19" src="https://github.com/user-attachments/assets/d92c57e6-a22e-4039-870c-a01599430b46" />  # better-paas
 
 A self-hosted, lightweight PaaS: a Go control plane that builds Git repositories with Nixpacks, runs them as Docker containers, and routes traffic through Caddy. Powered by a sleek, responsive Next.js dashboard.
 
