@@ -520,69 +520,97 @@ interface ServerCardProps {
 function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCardProps) {
   return (
     <Card
-      className={`border transition-colors ${
+      className={`border transition-colors flex flex-col h-full min-w-0 ${
         server.isLocal
           ? "border-primary/20 bg-primary/5"
           : "border-border bg-card"
       }`}
     >
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5 min-w-0 flex-1">
             <div
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                server.isLocal ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg mt-0.5 ${
+                server.status === "connected"
+                  ? "bg-success/15 text-success"
+                  : server.status === "error"
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-muted text-muted-foreground"
               }`}
             >
               <ServerIcon className="h-4 w-4" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-semibold">{server.name}</CardTitle>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="text-sm font-semibold truncate" title={server.name}>
+                  {server.name}
+                </CardTitle>
                 {server.isLocal && (
-                  <span className="rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-mono text-primary">
+                  <span className="rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-mono text-primary shrink-0">
                     local
                   </span>
                 )}
               </div>
               {server.description && (
-                <CardDescription className="text-xs mt-0.5">{server.description}</CardDescription>
+                <CardDescription className="text-xs mt-0.5 break-words">
+                  {server.description}
+                </CardDescription>
               )}
             </div>
           </div>
-          <StatusBadge status={server.status} />
+          <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+            <StatusBadge status={server.status} />
+            {!server.isLocal && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onDelete}
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                id={`delete-server-${server.id}`}
+                title="Delete Server"
+              >
+                <TrashIcon className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3 pt-0">
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div>
-            <span className="block text-muted-foreground/70 font-medium uppercase tracking-wider text-[10px]">Host</span>
-            <span className="font-mono text-foreground">{server.isLocal ? "localhost" : server.ip}</span>
+      <CardContent className="space-y-4 pt-0 flex-1 flex flex-col justify-between">
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <span className="block text-muted-foreground/70 font-medium uppercase tracking-wider text-[10px]">Host</span>
+              <span className="font-mono text-foreground truncate block" title={server.isLocal ? "localhost" : server.ip}>
+                {server.isLocal ? "localhost" : server.ip}
+              </span>
+            </div>
+            <div>
+              <span className="block text-muted-foreground/70 font-medium uppercase tracking-wider text-[10px]">SSH Port</span>
+              <span className="font-mono text-foreground">{server.port}</span>
+            </div>
+            <div>
+              <span className="block text-muted-foreground/70 font-medium uppercase tracking-wider text-[10px]">User</span>
+              <span className="font-mono text-foreground truncate block" title={server.isLocal ? "—" : server.sshUser}>
+                {server.isLocal ? "—" : server.sshUser}
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="block text-muted-foreground/70 font-medium uppercase tracking-wider text-[10px]">SSH Port</span>
-            <span className="font-mono text-foreground">{server.port}</span>
-          </div>
-          <div>
-            <span className="block text-muted-foreground/70 font-medium uppercase tracking-wider text-[10px]">User</span>
-            <span className="font-mono text-foreground">{server.isLocal ? "—" : server.sshUser}</span>
-          </div>
+
+          {server.lastChecked && server.lastChecked !== "0001-01-01T00:00:00Z" && (
+            <p className="text-[11px] text-muted-foreground">
+              Last checked:{" "}
+              {new Date(server.lastChecked).toLocaleString(undefined, {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          )}
         </div>
 
-        {server.lastChecked && server.lastChecked !== "0001-01-01T00:00:00Z" && (
-          <p className="text-[11px] text-muted-foreground">
-            Last checked:{" "}
-            {new Date(server.lastChecked).toLocaleString(undefined, {
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
-        )}
-
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex items-center gap-2 pt-2 flex-wrap">
           <Button
             size="sm"
             variant="outline"
@@ -596,28 +624,16 @@ function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCard
           </Button>
 
           {!server.isLocal && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onViewKey}
-                className="h-7 gap-1.5 text-xs"
-                id={`view-key-${server.id}`}
-              >
-                <KeyIcon className="h-3 w-3" />
-                Public Key
-              </Button>
-
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={onDelete}
-                className="ml-auto h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                id={`delete-server-${server.id}`}
-              >
-                <TrashIcon className="h-3.5 w-3.5" />
-              </Button>
-            </>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onViewKey}
+              className="h-7 gap-1.5 text-xs"
+              id={`view-key-${server.id}`}
+            >
+              <KeyIcon className="h-3 w-3" />
+              Public Key
+            </Button>
           )}
         </div>
       </CardContent>
@@ -802,6 +818,7 @@ export default function ServersPage() {
           </div>
           <Button
             onClick={() => setShowAddWizard(true)}
+            variant="secondary"
             className="gap-1.5 text-sm"
             id="add-server-btn"
           >
