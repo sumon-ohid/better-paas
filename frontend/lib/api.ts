@@ -434,6 +434,10 @@ export const api = {
       req<{ completed: boolean }>("/api/system/onboarding/complete", {
         method: "POST",
       }),
+    resetOnboarding: () =>
+      req<{ completed: boolean }>("/api/system/onboarding/reset", {
+        method: "POST",
+      }),
   },
 
   deployments: {

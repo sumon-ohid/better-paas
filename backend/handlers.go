@@ -880,6 +880,18 @@ func handleOnboardingComplete(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]bool{"completed": true})
 }
 
+func handleOnboardingReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := dbSetMeta(onboardingMetaKey, "false"); err != nil {
+		jsonError(w, "Failed to save", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]bool{"completed": false})
+}
+
 // ---------------------------------------------------------------------------
 // POST /api/docker/prune
 // ---------------------------------------------------------------------------

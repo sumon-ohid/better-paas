@@ -26,7 +26,7 @@ import { GitHubConnectModal } from "@/components/github-connect-modal"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { NucleoIcon } from "@/components/nucleo-icons"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, RotateCcw } from "lucide-react"
 import type { NotificationConfig, UpdateStatus, SystemVersion } from "@/lib/types"
 import { Cloudflare } from "@/components/ui/svgs/cloudflare"
 
@@ -138,6 +138,8 @@ export default function SettingsPage() {
   const [pruning, setPruning] = useState(false)
   const [pruneOutput, setPruneOutput] = useState("")
   const [showPruneModal, setShowPruneModal] = useState(false)
+  const [resettingOnboarding, setResettingOnboarding] = useState(false)
+  const [showResetModal, setShowResetModal] = useState(false)
 
   // Notifications
   const [notif, setNotif] = useState<NotificationConfig>({
@@ -298,6 +300,20 @@ export default function SettingsPage() {
       console.error(err)
     } finally {
       setPruning(false)
+    }
+  }
+
+  const handleResetOnboarding = async () => {
+    setResettingOnboarding(true)
+    try {
+      showToast("Resetting onboarding...", "Restoring onboarding checklist status in the database.")
+      await api.system.resetOnboarding()
+      showToast("Reset complete", "Redirecting to initial setup flow...", "success")
+      window.location.href = "/"
+    } catch (err) {
+      showToast("Reset failed", err instanceof ApiError ? err.message : "Could not reset onboarding.", "destructive")
+    } finally {
+      setResettingOnboarding(false)
     }
   }
 
@@ -776,6 +792,25 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Onboarding Setup */}
+        <Card>
+          <CardHeader className="border-b border-border/40">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <RotateCcw className="h-4 w-4 text-muted-foreground" />
+              Onboarding Setup
+            </CardTitle>
+            <CardDescription>Reset the onboarding wizard to run the initial setup flow again.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between pt-4">
+            <p className="text-sm text-muted-foreground">
+              Resetting onboarding will guide you through connecting servers, GitHub, and deploying your first app.
+            </p>
+            <Button variant="outline" onClick={() => setShowResetModal(true)}>
+              Reset Onboarding
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* About */}
         <Card>
           <CardHeader className="border-b border-border/40">
@@ -868,6 +903,27 @@ export default function SettingsPage() {
             <Button onClick={handleApplyUpdate} loading={applyingUpdate} className="gap-1.5">
               <DownloadIcon className="h-3.5 w-3.5" />
               Back up &amp; update
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Onboarding reset confirm */}
+      <AlertDialog open={showResetModal} onOpenChange={setShowResetModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-warning/10 text-warning sm:mx-0">
+              <RotateCcw className="h-5 w-5" />
+            </div>
+            <AlertDialogTitle>Reset onboarding flow?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will update the database to set onboarding as incomplete and take you back to the initial setup flow. Your existing apps and server settings will not be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline">Cancel</Button>} />
+            <Button variant="destructive" onClick={handleResetOnboarding} loading={resettingOnboarding} className="gap-1.5">
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset &amp; reload
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
