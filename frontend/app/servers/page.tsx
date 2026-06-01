@@ -28,6 +28,14 @@ import {
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { api } from "@/lib/api"
 import type { Server } from "@/lib/types"
+import { IconMonitor, IconServer2 } from "nucleo-isometric"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/menu"
 
 // ── Icon aliases ──────────────────────────────────────────────────────────────
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
@@ -39,6 +47,8 @@ const CopyIcon = (props: IconProps) => <NucleoIcon {...props} name="copy" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 const KeyIcon = (props: IconProps) => <NucleoIcon {...props} name="lock" />
 const ArrowRightIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-right" />
+const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="clock" />
+const MoreIcon = (props: IconProps) => <NucleoIcon {...props} name="more-horizontal" />
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
@@ -520,14 +530,14 @@ interface ServerCardProps {
 function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCardProps) {
   return (
     <Card
-      className={`group flex h-full min-w-0 flex-col overflow-hidden border transition-colors ${
+      className={`group flex h-[210px] min-w-0 flex-col overflow-hidden border transition-colors ${
         server.isLocal
           ? "border-primary/20 bg-card"
           : "border-border bg-card hover:border-primary/25"
       }`}
     >
-      <CardHeader className="border-b border-border/40 pb-4">
-        <div className="flex items-start justify-between gap-3">
+      <CardHeader className="border-b border-border/40 p-5 pb-3">
+        <div className="flex items-start justify-between gap-3 w-full min-w-0">
           <div className="flex min-w-0 flex-1 items-start gap-3">
             <div
               className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
@@ -538,11 +548,15 @@ function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCard
                     : "bg-muted text-muted-foreground"
               }`}
             >
-              <ServerIcon className="h-5 w-5" />
+              {server.isLocal ? (
+                <IconMonitor className="h-6 w-6" />
+              ) : (
+                <IconServer2 className="h-6 w-6" />
+              )}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <CardTitle className="truncate text-base font-semibold" title={server.name}>
+              <div className="flex items-center gap-2 w-full min-w-0">
+                <CardTitle className="truncate text-base font-semibold flex-1 min-w-0" title={server.name}>
                   {server.name}
                 </CardTitle>
                 {server.isLocal && (
@@ -550,33 +564,63 @@ function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCard
                     local
                   </span>
                 )}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <StatusBadge status={server.status} />
+                </div>
               </div>
-              {server.description && (
-                <CardDescription className="mt-1 text-xs leading-relaxed break-words">
-                  {server.description}
-                </CardDescription>
-              )}
+              <div className="mt-1 h-4 w-full overflow-hidden min-w-0">
+                {server.description ? (
+                  <CardDescription className="text-xs leading-none text-muted-foreground truncate block" title={server.description}>
+                    {server.description}
+                  </CardDescription>
+                ) : (
+                  <span className="block text-xs leading-none text-muted-foreground/0 select-none">—</span>
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
-            <StatusBadge status={server.status} />
-            {!server.isLocal && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={onDelete}
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                id={`delete-server-${server.id}`}
-                title="Delete Server"
-              >
-                <TrashIcon className="h-3.5 w-3.5" />
-              </Button>
-            )}
+
+          <div className="flex shrink-0 items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    id={`server-actions-${server.id}`}
+                    title="Actions"
+                  >
+                    <MoreIcon className="h-4 w-4" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={onTest} disabled={testing}>
+                  <RefreshIcon className={`h-4 w-4 text-muted-foreground/75 ${testing ? "animate-spin" : ""}`} />
+                  {testing ? "Testing…" : "Test Connection"}
+                </DropdownMenuItem>
+
+                {!server.isLocal && (
+                  <>
+                    <DropdownMenuItem onClick={onViewKey}>
+                      <KeyIcon className="h-4 w-4 text-muted-foreground/75" />
+                      Public Key
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                      <TrashIcon className="h-4 w-4" />
+                      Delete Server
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col justify-between gap-5 pt-4">
+      <CardContent className="flex flex-1 flex-col justify-between p-5 pt-3">
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2 rounded-lg border border-border/50 bg-muted/10 p-3 text-xs">
             <div className="min-w-0">
@@ -597,44 +641,24 @@ function ServerCard({ server, onTest, onDelete, onViewKey, testing }: ServerCard
             </div>
           </div>
 
-          {server.lastChecked && server.lastChecked !== "0001-01-01T00:00:00Z" && (
-            <p className="text-[11px] text-muted-foreground">
-              Last checked:{" "}
-              {new Date(server.lastChecked).toLocaleString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onTest}
-            loading={testing}
-            className="h-7 gap-1.5 text-xs"
-            id={`test-server-${server.id}`}
-          >
-            <RefreshIcon className={`h-3 w-3 ${testing ? "animate-spin" : ""}`} />
-            {testing ? "Testing…" : "Test"}
-          </Button>
-
-          {!server.isLocal && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onViewKey}
-              className="h-7 gap-1.5 text-xs"
-              id={`view-key-${server.id}`}
-            >
-              <KeyIcon className="h-3 w-3" />
-              Public Key
-            </Button>
-          )}
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-3">
+            <ClockIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+            <span>
+              {server.lastChecked && server.lastChecked !== "0001-01-01T00:00:00Z" ? (
+                <>
+                  Last checked:{" "}
+                  {new Date(server.lastChecked).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </>
+              ) : (
+                "Never checked"
+              )}
+            </span>
+          </div>
         </div>
       </CardContent>
     </Card>

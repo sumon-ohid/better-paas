@@ -161,7 +161,7 @@ export default function HealthPage() {
         </div>
 
         {/* Stat Cards */}
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {statCards.map((card) => (
             <Card key={card.label} className="space-y-3 p-4">
               <div className="flex items-center justify-between">
@@ -170,9 +170,11 @@ export default function HealthPage() {
                 </span>
                 {card.icon}
               </div>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-3xl font-bold tabular-nums">{card.value}</span>
-                {card.aside}
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <span className="font-mono text-2xl sm:text-3xl font-bold tabular-nums shrink-0">{card.value}</span>
+                <div className="flex-1 min-w-0 max-w-[120px] flex justify-end">
+                  {card.aside}
+                </div>
               </div>
               <Progress value={card.progress} className="h-1.5 bg-muted">
                 <ProgressIndicator className={indicatorColor(card.variant)} />
@@ -183,7 +185,7 @@ export default function HealthPage() {
 
         {/* Health Detail Grid */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card className="max-h-100">
+          <Card className="max-h-[400px]">
             <CardHeader className="border-b border-border/40 pb-3">
               <CardTitle className="text-base">Service Health Summary</CardTitle>
               <CardDescription>
@@ -191,21 +193,21 @@ export default function HealthPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 pt-4 overflow-y-auto">
-              {apps.length === 0 ? (
+              {visibleApps.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  No deployed services yet.
+                  No deployed services on this node yet.
                 </div>
               ) : (
                 sortedApps.map((app) => (
                   <div
                     key={app.id}
-                    className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5"
+                    className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5 gap-3 min-w-0"
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <StatusDot status={app.status} />
-                      <span className="text-sm font-medium text-foreground">{app.name}</span>
+                      <span className="text-sm font-medium text-foreground truncate">{app.name}</span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
                       <span className="font-mono text-xs text-muted-foreground">:{app.port}</span>
                       <StatusBadge status={app.status} />
                     </div>

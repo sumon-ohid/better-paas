@@ -834,7 +834,11 @@ export function Sparkline({
     .join(" ")
 
   return (
-    <svg className="overflow-visible" width={width} height={height}>
+    <svg
+      className="overflow-visible w-full h-10 max-w-[120px]"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+    >
       <polyline
         fill="none"
         stroke={`url(#${id})`}
