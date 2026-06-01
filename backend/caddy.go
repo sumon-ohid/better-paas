@@ -75,6 +75,13 @@ func rebuildCaddyfile() {
 		log.Printf("Error writing Caddyfile: %v", err)
 	} else {
 		log.Println("Caddyfile rebuilt successfully")
+		if caddyRunning() {
+			if err := reloadCaddy(); err != nil {
+				log.Printf("⚠️ Error reloading Caddy: %v", err)
+			} else {
+				log.Println("Caddy reloaded successfully")
+			}
+		}
 	}
 }
 
