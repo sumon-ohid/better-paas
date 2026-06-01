@@ -207,6 +207,7 @@ function WelcomeScreen({
   skipping: boolean
 }) {
   const items = [
+    { title: "Setup server", desc: "Choose localhost or connect a remote VPS." },
     { title: "Connect GitHub", desc: "Link a token to browse and deploy your repositories." },
     { title: "Deploy your first app", desc: "Pick a repo and branch — we build and run it for you." },
     { title: "Manage everything", desc: "Logs, metrics, domains, databases, and backups in one place." },
@@ -216,7 +217,7 @@ function WelcomeScreen({
       <Image src="/logo.svg" alt="Better-PaaS" width={8340} height={840} className="size-11" />
       <h1 className="mt-5 text-2xl font-bold tracking-tight text-foreground">Welcome to Better-PaaS</h1>
       <p className="mt-1.5 text-sm text-muted-foreground">
-        Connect GitHub and deploy your first app in minutes.
+        Set up servers, connect GitHub, and deploy your first app in minutes.
       </p>
 
       <div className="mt-7 w-full rounded-xl border border-border bg-card/40 p-5 text-left">
