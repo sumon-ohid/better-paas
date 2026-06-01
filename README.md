@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install
 
 ---
 
-### Manual Build
+### Local Installation
 
 If you already have a checked-out copy of the repository, you can run the installer locally:
 
@@ -28,7 +28,26 @@ If you already have a checked-out copy of the repository, you can run the instal
 bash install.sh
 ```
 
-Or build the components manually:
+---
+
+### Uninstalling
+
+To cleanly uninstall the control plane, stop the services, and optionally remove deployed apps and project files without affecting your system dependencies (Go, Node, Docker, etc.):
+
+```bash
+bash uninstall.sh
+```
+
+On Linux, the uninstaller must be run with root privileges:
+```bash
+sudo bash uninstall.sh
+```
+
+---
+
+### Manual Build
+
+If you prefer to build the components manually:
 
 #### Backend
 ```bash
