@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   GitBranch,
   Globe,
@@ -12,14 +12,9 @@ import {
   Check,
 } from 'lucide-react';
 import { StatusDot, StatusBadge, RepoPill } from './primitives';
-
-/* ──────────────────────────────────────────────────────────────────────────
- * FeatureShowcase — Linear-style interactive feature section.
- *
- * A vertical tab list swaps a live mini-demo built from the same primitives as
- * the dashboard, so moving through the features feels like clicking around the
- * real product.
- * ────────────────────────────────────────────────────────────────────────── */
+import { BorderBeam } from '@/components/tailark/border-beam';
+import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '@/lib/cn';
 
 type TabId = 'deploy' | 'https' | 'rollback' | 'databases' | 'cron' | 'logs';
 
@@ -63,7 +58,7 @@ const TABS: { id: TabId; icon: typeof GitBranch; title: string; desc: string }[]
 ];
 
 function Frame({ children }: { children: React.ReactNode }) {
-  return <div className="bp-card flex h-full min-h-88 flex-col rounded-2xl p-5">{children}</div>;
+  return <div className="bp-card flex flex-1 flex-col rounded-2xl p-5 bg-fd-card select-none">{children}</div>;
 }
 
 function DeployDemo() {
@@ -83,7 +78,7 @@ function DeployDemo() {
         </span>
         <StatusBadge status="building" />
       </div>
-      <div className="mt-5 space-y-3 font-mono text-xs">
+      <div className="mt-5 flex-1 flex flex-col justify-center space-y-3.5 font-mono text-xs my-4">
         {rows.map(([label, state]) => (
           <div key={label} className="flex items-center gap-2.5">
             {state === 'done' ? (
@@ -118,7 +113,7 @@ function HttpsDemo() {
   return (
     <Frame>
       <span className="text-sm font-semibold text-fd-foreground">Custom domains</span>
-      <div className="mt-5 space-y-2.5">
+      <div className="mt-5 flex-1 flex flex-col justify-center space-y-3 my-4">
         {rows.map(([domain, secured]) => (
           <div
             key={domain}
@@ -157,7 +152,7 @@ function RollbackDemo() {
   return (
     <Frame>
       <span className="text-sm font-semibold text-fd-foreground">Deploy history</span>
-      <div className="mt-5 space-y-2">
+      <div className="mt-5 flex-1 flex flex-col justify-center space-y-2.5 my-4">
         {rows.map(([id, state, msg, time]) => (
           <div
             key={id}
@@ -193,23 +188,25 @@ function DatabasesDemo() {
   return (
     <Frame>
       <span className="text-sm font-semibold text-fd-foreground">Add-ons</span>
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        {rows.map(([name, ver, status], i) => (
-          <div key={i} className="bp-card rounded-xl p-3">
-            <div className="flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-md bg-fd-primary/10 text-fd-primary">
-                <Database className="size-3.5" />
-              </span>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-fd-foreground">{name}</div>
-                <div className="font-mono text-[10px] text-fd-muted-foreground">v{ver}</div>
+      <div className="mt-5 flex-1 flex flex-col justify-center my-4">
+        <div className="grid grid-cols-2 gap-3">
+          {rows.map(([name, ver, status], i) => (
+            <div key={i} className="bp-card rounded-xl p-3">
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-md bg-fd-primary/10 text-fd-primary">
+                  <Database className="size-3.5" />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-fd-foreground">{name}</div>
+                  <div className="font-mono text-[10px] text-fd-muted-foreground">v{ver}</div>
+                </div>
+              </div>
+              <div className="mt-2.5">
+                <StatusBadge status={status} />
               </div>
             </div>
-            <div className="mt-2.5">
-              <StatusBadge status={status} />
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
       <div className="mt-auto flex items-center gap-1.5 rounded-lg bg-fd-muted/30 px-3 py-2 font-mono text-[11px] text-fd-muted-foreground">
         <span className="text-(--bp-success)">DATABASE_URL</span> injected into storefront-web
@@ -227,7 +224,7 @@ function CronDemo() {
   return (
     <Frame>
       <span className="text-sm font-semibold text-fd-foreground">Scheduled jobs</span>
-      <div className="mt-5 space-y-2">
+      <div className="mt-5 flex-1 flex flex-col justify-center space-y-2.5 my-4">
         {rows.map(([name, schedule, cmd, status]) => (
           <div
             key={name}
@@ -262,6 +259,9 @@ function LogsDemo() {
     ['GET /assets/app.js 200 · 1ms', 'info'],
     ['✖ upstream timeout · retrying', 'err'],
     ['› reconnected to redis', 'ok'],
+    ['GET /api/users/me 200 · 12ms', 'info'],
+    ['POST /api/webhooks/stripe 200 · 45ms', 'ok'],
+    ['✔ volume backup completed', 'ok'],
   ];
   return (
     <Frame>
@@ -275,19 +275,21 @@ function LogsDemo() {
           streaming
         </span>
       </div>
-      <div className="mt-4 flex-1 overflow-hidden rounded-xl bg-transparent p-3.5 font-mono text-[11px] leading-relaxed">
-        {lines.map((l, i) => (
-          <div key={i} className="flex gap-2.5">
-            <span className="shrink-0 text-slate-600">[{`12:0${i}:11`}]</span>
-            <span
-              className={
-                l[1] === 'err' ? 'text-rose-400' : l[1] === 'ok' ? 'text-[#93e0c0]' : 'text-slate-300'
-              }
-            >
-              {l[0]}
-            </span>
-          </div>
-        ))}
+      <div className="mt-4 flex-1 flex flex-col justify-between overflow-hidden rounded-xl bg-transparent p-3.5 font-mono text-[11px] leading-relaxed border border-fd-border/30 my-2">
+        <div className="space-y-1.5 flex-1 flex flex-col justify-center">
+          {lines.map((l, i) => (
+            <div key={i} className="flex gap-2.5">
+              <span className="shrink-0 text-slate-500">[{`12:0${i}:11`}]</span>
+              <span
+                className={
+                  l[1] === 'err' ? 'text-rose-450' : l[1] === 'ok' ? 'text-[#3c9f7a] dark:text-[#93e0c0]' : 'text-slate-650 dark:text-slate-300'
+                }
+              >
+                {l[0]}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </Frame>
   );
@@ -302,130 +304,124 @@ const DEMOS: Record<TabId, () => React.ReactElement> = {
   logs: LogsDemo,
 };
 
-// How long each feature stays active before auto-advancing to the next.
-const AUTOPLAY_MS = 6500;
-
 export function FeatureShowcase() {
   const [active, setActive] = useState<TabId>('deploy');
   const [paused, setPaused] = useState(false);
-  // Bump on every selection/advance so the progress rail remounts and restarts
-  // its fill animation from 0 (otherwise re-selecting a tab does nothing).
-  const [cycle, setCycle] = useState(0);
 
-  const activeIndex = TABS.findIndex((t) => t.id === active);
   const ActiveDemo = DEMOS[active];
 
-  const goTo = useCallback((id: TabId) => {
-    setActive(id);
-    setCycle((c) => c + 1);
-  }, []);
-
-  // The progress rail on the active tab fires this when its fill completes.
-  const advance = useCallback(() => {
-    setActive((current) => {
-      const i = TABS.findIndex((t) => t.id === current);
-      return TABS[(i + 1) % TABS.length].id;
-    });
-    setCycle((c) => c + 1);
-  }, []);
+  // Auto-advance logic
+  useEffect(() => {
+    if (paused) return;
+    const timer = setInterval(() => {
+      setActive((current) => {
+        const i = TABS.findIndex((t) => t.id === current);
+        return TABS[(i + 1) % TABS.length].id;
+      });
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [paused]);
 
   return (
-    <div
-      className="grid items-start gap-6 lg:grid-cols-[1fr_1.15fr] lg:gap-14"
+    <div 
+      className="grid gap-12 md:grid-cols-[1fr_1.15fr] lg:gap-20 items-stretch"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      {/* Tab list */}
-      <ul className="flex flex-col">
+      {/* Left side list of custom animated accordion items */}
+      <div className="w-full flex flex-col gap-1.5 justify-center">
         {TABS.map((tab) => {
           const isActive = tab.id === active;
           return (
-            <li key={tab.id} className="relative">
-              {/* Track + animated progress rail on the left edge */}
-              <span className="absolute inset-y-0 left-0 w-0.5 rounded-full bg-fd-border" />
-              {isActive && (
-                <span
-                  key={cycle}
-                  data-paused={paused}
-                  onAnimationEnd={advance}
-                  style={{ ['--bp-progress-duration' as string]: `${AUTOPLAY_MS}ms` }}
-                  className="bp-progress-fill absolute inset-y-0 left-0 w-0.5 rounded-full bg-fd-primary"
-                />
+            <div
+              key={tab.id}
+              className={cn(
+                "border-b border-fd-border/30 transition-all duration-350 ease-in-out pl-3 pr-2.5 rounded-r-xl rounded-l-none border-l-2",
+                isActive 
+                  ? "bg-fd-primary/[0.03] border-l-fd-primary shadow-xs" 
+                  : "border-l-transparent hover:bg-fd-muted/15"
               )}
-
+            >
               <button
                 type="button"
-                onClick={() => goTo(tab.id)}
-                aria-pressed={isActive}
-                className={`group flex w-full items-start gap-3.5 rounded-r-xl py-4 pl-5 pr-4 text-left transition-opacity duration-300 ${
-                  isActive ? '' : 'opacity-60 hover:opacity-100'
-                }`}
+                onClick={() => setActive(tab.id)}
+                className="w-full flex items-center justify-between py-4 text-left font-semibold text-fd-foreground focus:outline-none cursor-pointer group"
               >
-                <span
-                  className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-all duration-300 ${
-                    isActive
-                      ? 'bp-primary'
-                      : 'bg-fd-primary/10 text-fd-primary group-hover:bg-fd-primary/15'
-                  }`}
-                >
-                  <tab.icon className="size-4.5" />
-                </span>
-                <span className="min-w-0 pt-1">
+                <div className="flex items-center gap-3.5 text-base w-full">
                   <span
-                    className={`block font-semibold transition-colors ${
-                      isActive ? 'text-fd-foreground' : 'text-fd-foreground/80'
-                    }`}
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-lg transition-all duration-350",
+                      isActive
+                        ? "bg-fd-primary text-fd-primary-foreground scale-105 shadow-md shadow-fd-primary/20"
+                        : "bg-fd-primary/10 text-fd-primary group-hover:bg-fd-primary/15"
+                    )}
                   >
+                    <tab.icon className="size-4.5" />
+                  </span>
+                  <span className={cn("transition-colors duration-250", isActive ? "text-fd-primary" : "text-fd-foreground/90")}>
                     {tab.title}
                   </span>
-                  {/* Description expands for the active tab; stays open on
-                      desktop so the list reads as a stable column. */}
-                  <span
-                    className={`grid transition-all duration-300 ${
-                      isActive
-                        ? 'mt-1.5 grid-rows-[1fr] opacity-100'
-                        : 'grid-rows-[0fr] opacity-0 lg:mt-1.5 lg:grid-rows-[1fr] lg:opacity-100'
-                    }`}
-                  >
-                    <span className="overflow-hidden">
-                      <span className="block text-sm leading-relaxed text-fd-muted-foreground">
-                        {tab.desc}
-                      </span>
-                    </span>
-                  </span>
-                </span>
+                </div>
+                <svg
+                  className={cn(
+                    "size-4 text-fd-muted-foreground transition-transform duration-350 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                    isActive ? "rotate-180 text-fd-primary" : "group-hover:text-fd-foreground"
+                  )}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
-            </li>
+
+              <AnimatePresence initial={false}>
+                {isActive && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{
+                      height: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+                      opacity: { duration: 0.25, ease: "linear" },
+                    }}
+                  >
+                    <p className="text-fd-muted-foreground pl-12.5 pb-4 leading-relaxed text-[14px]">
+                      {tab.desc}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           );
         })}
-      </ul>
+      </div>
 
-      {/* Active demo */}
-      <div className="lg:sticky lg:top-24">
-        <div key={active} className="bp-demo-in">
-          <ActiveDemo />
+      {/* Right side visual container */}
+      <div className="bg-fd-card relative flex overflow-hidden rounded-3xl border border-fd-border p-2 min-h-96 md:min-h-[440px] flex-col flex-1">
+        <div className="w-15 absolute inset-0 right-0 ml-auto border-l border-fd-border/50 bg-[repeating-linear-gradient(-45deg,var(--color-fd-border),var(--color-fd-border)_1px,transparent_1px,transparent_8px)] opacity-30"></div>
+        <div className="relative w-full rounded-2xl bg-fd-card flex flex-col flex-1">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={active}
+              initial={{ opacity: 0, y: 6, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 6, scale: 0.985 }}
+              transition={{ duration: 0.25 }}
+              className="w-full h-full flex flex-col flex-1 overflow-hidden rounded-2xl bg-fd-card"
+            >
+              <ActiveDemo />
+            </motion.div>
+          </AnimatePresence>
         </div>
-
-        {/* Pager dots — current position + quick jump, like Linear's hero. */}
-        <div className="mt-5 flex items-center justify-center gap-2">
-          {TABS.map((tab, i) => {
-            const isActive = i === activeIndex;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => goTo(tab.id)}
-                aria-label={`Show ${tab.title}`}
-                aria-pressed={isActive}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  isActive
-                    ? 'w-6 bg-fd-primary'
-                    : 'w-1.5 bg-fd-border hover:bg-fd-muted-foreground/40'
-                }`}
-              />
-            );
-          })}
-        </div>
+        <BorderBeam
+          duration={6}
+          size={200}
+          colorFrom="var(--color-fd-primary)"
+          colorTo="var(--color-fd-ring)"
+          className="opacity-70"
+        />
       </div>
     </div>
   );
