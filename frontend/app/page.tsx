@@ -70,6 +70,7 @@ const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 const ExternalLinkIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
 const LinkIcon = (props: IconProps) => <NucleoIcon {...props} name="link" />
+const NoUrlIcon = (props: IconProps) => <NucleoIcon {...props} name="link-2-off" />
 const EyeIcon = (props: IconProps) => <NucleoIcon {...props} name="eye" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const MoreIcon = (props: IconProps) => <NucleoIcon {...props} name="more-horizontal" />
@@ -369,6 +370,15 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
         <div className="flex items-center gap-2.5 min-w-0">
           <StatusDot status={app.status} />
           <span className="font-semibold text-base text-foreground truncate">{app.name}</span>
+          {app.composeService && (
+            <span
+              title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
+              className="inline-flex shrink-0 items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
+            >
+              <Docker className="h-3 w-3" />
+              {app.composeService}
+            </span>
+          )}
         </div>
         <div onClick={(e) => e.stopPropagation()}>
           <AppActionsMenu
@@ -389,7 +399,14 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
       </div>
 
       <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3" onClick={(e) => e.stopPropagation()}>
-        <UrlLink url={app.url} />
+        {app.url ? (
+          <UrlLink url={app.url} />
+        ) : (
+          <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
+            <NoUrlIcon className="h-3 w-3 shrink-0 opacity-60" />
+            No URL assigned
+          </span>
+        )}
         <RepoLink gitRepo={app.gitRepo} image={app.image} />
       </div>
     </div>
@@ -414,6 +431,15 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
           <span className="truncate font-semibold text-base text-foreground group-hover:text-primary transition-colors">
             {app.name}
           </span>
+          {app.composeService && (
+            <span
+              title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
+              className="inline-flex shrink-0 items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
+            >
+              <Docker className="h-3 w-3" />
+              {app.composeService}
+            </span>
+          )}
         </div>
         <div onClick={(e) => e.stopPropagation()}>
           <AppActionsMenu
@@ -436,13 +462,27 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
         className="mt-3 space-y-1.5 border-t border-border/50 pt-3"
         onClick={(e) => e.stopPropagation()}
       >
-        <UrlLink url={app.url} />
+        {app.url ? (
+          <UrlLink url={app.url} />
+        ) : (
+          <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
+            <NoUrlIcon className="h-3 w-3 shrink-0 opacity-60" />
+            No URL assigned
+          </span>
+        )}
         <RepoLink gitRepo={app.gitRepo} image={app.image} />
       </div>
 
-      {/* Latest deployed commit (git apps) or source note (image apps) — keeps
-          card heights aligned regardless of deploy source. */}
-      {app.activeCommitMsg ? (
+      {/* Latest deployed commit (git apps) or source note (image/compose apps)
+          — keeps card heights aligned regardless of deploy source. */}
+      {app.composeService ? (
+        <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
+          <Docker className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+          <span className="line-clamp-2 min-w-0">
+            Compose service{app.composeWeb ? "" : " · internal"}
+          </span>
+        </div>
+      ) : app.activeCommitMsg ? (
         <div
           className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground"
           title={app.activeCommitMsg}

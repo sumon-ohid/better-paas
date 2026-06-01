@@ -754,8 +754,23 @@ function AppDetailPage() {
               {/* Vercel-style hero: live site preview and deployment summary in one card */}
               <Card className="border-border bg-card/72 backdrop-blur-xl p-5">
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                  {/* Live site preview */}
-                  <SitePreview url={app.url} status={app.status} />
+                  {/* Live site preview (web-facing rows only). Non-web compose
+                      services (workers, databases) have no URL to preview. */}
+                  {app.url ? (
+                    <SitePreview url={app.url} status={app.status} />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card/72 p-6 text-center backdrop-blur-xl">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
+                        <NucleoIcon name="server" className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">
+                        {app.composeService ? `Internal service: ${app.composeService}` : "Internal service"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        This service has no public URL. Use the terminal and logs to inspect it.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Deployment summary — snapshot of the live release */}
                   <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
@@ -805,41 +820,52 @@ function AppDetailPage() {
                   <div className="space-y-1.5">
                     <span className="text-xs font-medium text-muted-foreground block">Domains</span>
                     <div className="space-y-1">
-                      <div className="flex items-center gap-1.5">
-                        <a
-                          href={app.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors"
-                        >
-                          <NucleoIcon name="web" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="truncate">{overviewDomains[0].replace(/^https?:\/\//, "")}</span>
-                          {overviewDomains.length > 1 && (
-                            <Badge variant="secondary" size="sm" className="shrink-0">
-                              +{overviewDomains.length - 1}
-                            </Badge>
-                          )}
-                        </a>
-                        <button
-                          onClick={handleCopyUrl}
-                          title="Copy URL"
-                          className="shrink-0 flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors border-0"
-                        >
-                          {copied ? <CheckIcon className="h-3 w-3 text-success" /> : <CopyIcon className="h-3 w-3" />}
-                        </button>
-                      </div>
-                      {overviewDomains.slice(1, 3).map((d) => (
-                        <a
-                          key={d}
-                          href={d.startsWith("http") ? d : `https://${d}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <NucleoIcon name="link" className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{d.replace(/^https?:\/\//, "")}</span>
-                        </a>
-                      ))}
+                      {overviewDomains.length === 0 ? (
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <NucleoIcon name="web" className="h-3.5 w-3.5 shrink-0" />
+                          <span>
+                            {app.composeService ? "Internal service — no public URL" : "No public URL"}
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <a
+                              href={app.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors"
+                            >
+                              <NucleoIcon name="web" className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span className="truncate">{overviewDomains[0].replace(/^https?:\/\//, "")}</span>
+                              {overviewDomains.length > 1 && (
+                                <Badge variant="secondary" size="sm" className="shrink-0">
+                                  +{overviewDomains.length - 1}
+                                </Badge>
+                              )}
+                            </a>
+                            <button
+                              onClick={handleCopyUrl}
+                              title="Copy URL"
+                              className="shrink-0 flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors border-0"
+                            >
+                              {copied ? <CheckIcon className="h-3 w-3 text-success" /> : <CopyIcon className="h-3 w-3" />}
+                            </button>
+                          </div>
+                          {overviewDomains.slice(1, 3).map((d) => (
+                            <a
+                              key={d}
+                              href={d.startsWith("http") ? d : `https://${d}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              <NucleoIcon name="link" className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{d.replace(/^https?:\/\//, "")}</span>
+                            </a>
+                          ))}
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -1663,7 +1689,7 @@ function AppDetailPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-3 border-t border-border/40 px-6 pb-6">
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-border/40 px-6 pb-6">
             <Button
               type="button"
               variant="ghost"
@@ -1674,7 +1700,7 @@ function AppDetailPage() {
                 if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
                 redetectForRootDir("")
               }}
-              className="text-xs text-muted-foreground hover:text-foreground"
+              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
             >
               Clear selection
             </Button>
@@ -1682,9 +1708,11 @@ function AppDetailPage() {
               type="button"
               size="sm"
               onClick={() => selectFolder(folderBrowserPath)}
-              className="text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+              title={`Select ${folderBrowserPath || "Root (./)"}`}
+              className="flex min-w-0 shrink items-center gap-1 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              Select {folderBrowserPath || "Root (./)"}
+              <span className="shrink-0">Select</span>
+              <span className="truncate font-mono">{folderBrowserPath || "Root (./)"}</span>
             </Button>
           </div>
         </DialogContent>

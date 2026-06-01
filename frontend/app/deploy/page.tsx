@@ -1386,7 +1386,7 @@ export default function DeployPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-3 border-t border-border/40 px-6 pb-6">
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-border/40 px-6 pb-6">
             <Button
               type="button"
               variant="ghost"
@@ -1397,7 +1397,7 @@ export default function DeployPage() {
                 if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
                 redetectForRootDir("")
               }}
-              className="text-xs text-muted-foreground hover:text-foreground"
+              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
             >
               Clear selection
             </Button>
@@ -1405,9 +1405,11 @@ export default function DeployPage() {
               type="button"
               size="sm"
               onClick={() => selectFolder(folderBrowserPath)}
-              className="text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+              title={`Select ${folderBrowserPath || "Root (./)"}`}
+              className="flex min-w-0 shrink items-center gap-1 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              Select {folderBrowserPath || "Root (./)"}
+              <span className="shrink-0">Select</span>
+              <span className="truncate font-mono">{folderBrowserPath || "Root (./)"}</span>
             </Button>
           </div>
         </DialogContent>
