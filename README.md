@@ -4,27 +4,28 @@ A self-hosted, lightweight PaaS: a Go control plane that builds Git repositories
 
 [![Discord](https://img.shields.io/discord/1510984110980730940?color=7289da&label=discord&logo=discord)](https://discord.gg/9TP4xEs2)
 [![License](https://img.shields.io/badge/License-GNU%20AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/sumon-ohid/better-paas)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D%201.25-blue.svg)](https://golang.org)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D%2018-green.svg)](https://nodejs.org)
 
 ---
 
-## ✨ Features
+## Features
 
 Beyond Git-based deploys, the control plane comes packed with features designed for simple self-hosting:
 
-*   **🔄 Zero-Downtime Deploys & Rollbacks**: New containers start on a fresh port and are health-checked before Caddy switches traffic and retires the old container. Roll back to any prior successful deploy with a single click.
-*   **🌐 Automatic HTTPS & Custom Domains**: Add domains to an app and Caddy issues Let's Encrypt certificates automatically.
-*   **🐙 Auto-Deploy on Git Push**: Set up webhook-based auto-deployment with secure per-app HMAC validation.
-*   **🔒 Hardened Security**: SQLite database encryption (AES-256-GCM) at rest for git tokens, and escalating brute-force IP lockout protection.
-*   **🗄️ Managed Databases**: One-click Postgres, Redis, and MySQL containers running on a shared internal network with automated connection environment injection.
-*   **📈 Per-App Metrics**: Live container CPU and memory usage statistics right in your dashboard.
-*   **⏱️ Scheduled Jobs (Cron)**: Run tasks (e.g. migrations or cleanups) inside an app's container on a cron schedule.
-*   **📁 Persistent Volumes**: Mount volumes (`name:/container/path`) to persist state across redeploys.
-*   **💬 Deploy Notifications**: Slack and generic webhook alerts on deployment success or failure.
-*   **📜 Runtime Log Streaming**: Captured container logs persist on disk and stream in real-time over WebSockets.
-*   **💾 On-Demand & Scheduled Backups**: Snapshot your SQLite database, logs, and configurations to download directly from the UI.
-*   **🙈 Redacted Secrets**: Mark sensitive environment variables so they are redacted in API responses.
+*   **Zero-Downtime Deploys & Rollbacks**: New containers start on a fresh port and are health-checked before Caddy switches traffic and retires the old container. Roll back to any prior successful deploy with a single click.
+*   **One-Click Preset App Deployments**: Deploy popular applications and templates instantly with pre-configured settings.
+*   **Automatic HTTPS & Custom Domains**: Add domains to an app and Caddy issues Let's Encrypt certificates automatically.
+*   **Auto-Deploy on Git Push**: Set up webhook-based auto-deployment with secure per-app HMAC validation.
+*   **Hardened Security**: SQLite database encryption (AES-256-GCM) at rest for git tokens, and escalating brute-force IP lockout protection.
+*   **Managed Databases & Explorer**: Spin up Postgres, Redis, and MySQL containers on a shared network with auto-injected connection variables, and manage tables with an interactive, inline-editable Database Explorer.
+*   **Per-App Metrics**: Live container CPU and memory usage statistics right in your dashboard.
+*   **Scheduled Jobs (Cron)**: Run tasks (e.g. migrations or cleanups) inside an app's container on a cron schedule.
+*   **Persistent Volumes**: Mount volumes (`name:/container/path`) to persist state across redeploys.
+*   **Deploy Notifications**: Slack and generic webhook alerts on deployment success or failure.
+*   **Runtime Log Streaming**: Captured container logs persist on disk and stream in real-time over WebSockets.
+*   **On-Demand & Scheduled Backups**: Snapshot your SQLite database, logs, and configurations to download directly from the UI.
+*   **Redacted Secrets**: Mark sensitive environment variables so they are redacted in API responses.
 
 ---
 
