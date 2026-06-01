@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -55,7 +56,77 @@ func (l *LocalExecutor) DeleteFile(path string) error {
 
 // SSHExecutor runs commands on a remote server via an SSH connection.
 type SSHExecutor struct {
-	client *ssh.Client
+	serverID string
+	client   *ssh.Client
+	unpooled bool
+}
+
+var (
+	sshClientsMu sync.Mutex
+	sshClients   = make(map[string]*ssh.Client)
+)
+
+// getSSHClient retrieves an active SSH client from the cache or dials a new one.
+func getSSHClient(server *Server) (*ssh.Client, error) {
+	sshClientsMu.Lock()
+	client, exists := sshClients[server.ID]
+	sshClientsMu.Unlock()
+
+	if exists {
+		// Quick verify of connection health by opening a dummy session.
+		session, err := client.NewSession()
+		if err == nil {
+			session.Close()
+			return client, nil
+		}
+		// Connection is dead; close and evict it.
+		client.Close()
+		sshClientsMu.Lock()
+		if sshClients[server.ID] == client {
+			delete(sshClients, server.ID)
+		}
+		sshClientsMu.Unlock()
+	}
+
+	signer, err := ssh.ParsePrivateKey([]byte(server.SSHKey))
+	if err != nil {
+		return nil, fmt.Errorf("parse SSH private key: %w", err)
+	}
+
+	cfg := &ssh.ClientConfig{
+		User: server.SSHUser,
+		Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		//nolint:gosec
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
+	}
+
+	addr := fmt.Sprintf("%s:%d", server.IP, server.Port)
+	client, err = ssh.Dial("tcp", addr, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("SSH dial %s: %w", addr, err)
+	}
+
+	sshClientsMu.Lock()
+	sshClients[server.ID] = client
+	sshClientsMu.Unlock()
+
+	return client, nil
+}
+
+// evictSSHClient closes and removes the cached SSH client for a server.
+func evictSSHClient(serverID string) {
+	sshClientsMu.Lock()
+	if client, exists := sshClients[serverID]; exists {
+		client.Close()
+		delete(sshClients, serverID)
+	}
+	sshClientsMu.Unlock()
+}
+
+// CloseCachedSSHClient closes and removes the cached SSH client when a server is deleted.
+func CloseCachedSSHClient(serverID string) {
+	evictSSHClient(serverID)
 }
 
 // NewSSHExecutor dials the remote server and returns a ready SSHExecutor.
@@ -83,17 +154,23 @@ func NewSSHExecutor(ip string, port int, user, privateKeyPEM string) (*SSHExecut
 	if err != nil {
 		return nil, fmt.Errorf("SSH dial %s: %w", addr, err)
 	}
-	return &SSHExecutor{client: client}, nil
+	return &SSHExecutor{client: client, unpooled: true}, nil
 }
 
 // Close releases the underlying SSH connection.
 func (s *SSHExecutor) Close() error {
-	return s.client.Close()
+	if s.unpooled && s.client != nil {
+		return s.client.Close()
+	}
+	return nil
 }
 
 func (s *SSHExecutor) RunCommand(cmd string, args ...string) (string, error) {
 	session, err := s.client.NewSession()
 	if err != nil {
+		if !s.unpooled {
+			evictSSHClient(s.serverID)
+		}
 		return "", fmt.Errorf("new SSH session: %w", err)
 	}
 	defer session.Close()
@@ -112,12 +189,18 @@ func (s *SSHExecutor) RunCommand(cmd string, args ...string) (string, error) {
 	session.Stdout = &buf
 	session.Stderr = &buf
 	err = session.Run(full)
+	if err != nil && !s.unpooled && (strings.Contains(err.Error(), "closed") || strings.Contains(err.Error(), "EOF")) {
+		evictSSHClient(s.serverID)
+	}
 	return buf.String(), err
 }
 
 func (s *SSHExecutor) WriteFile(path string, content []byte, mode os.FileMode) error {
 	session, err := s.client.NewSession()
 	if err != nil {
+		if !s.unpooled {
+			evictSSHClient(s.serverID)
+		}
 		return fmt.Errorf("new SSH session: %w", err)
 	}
 	defer session.Close()
@@ -126,6 +209,9 @@ func (s *SSHExecutor) WriteFile(path string, content []byte, mode os.FileMode) e
 	session.Stdin = bytes.NewReader(content)
 	cmd := fmt.Sprintf("install -m %04o /dev/stdin %s", mode, shellQuote(path))
 	if out, err := session.CombinedOutput(cmd); err != nil {
+		if !s.unpooled && (strings.Contains(err.Error(), "closed") || strings.Contains(err.Error(), "EOF")) {
+			evictSSHClient(s.serverID)
+		}
 		return fmt.Errorf("write file %s: %w — %s", path, err, out)
 	}
 	return nil
@@ -166,7 +252,11 @@ func GetExecutorForServer(serverID string) (Executor, error) {
 	if server.IsLocal {
 		return &LocalExecutor{}, nil
 	}
-	return NewSSHExecutor(server.IP, server.Port, server.SSHUser, server.SSHKey)
+	client, err := getSSHClient(server)
+	if err != nil {
+		return nil, err
+	}
+	return &SSHExecutor{serverID: server.ID, client: client}, nil
 }
 
 // ---------------------------------------------------------------------------

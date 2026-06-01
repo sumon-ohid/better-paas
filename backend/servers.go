@@ -194,6 +194,8 @@ func handleServerDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	CloseCachedSSHClient(req.ID)
+
 	jsonOK(w, map[string]string{"status": "deleted"})
 }
 

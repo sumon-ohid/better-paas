@@ -36,9 +36,23 @@ type hostMetrics struct {
 	disk   float64
 }
 
+type cpuTicks struct {
+	total float64
+	idle  float64
+}
+
 var (
 	hostMetricsLock sync.RWMutex
 	allHostMetrics  = make(map[string]hostMetrics)
+
+	lastRemoteSampleMu sync.Mutex
+	lastRemoteSample   = make(map[string]time.Time)
+
+	remoteSamplingMu sync.Mutex
+	remoteSampling   = make(map[string]bool)
+
+	remoteCpuTicksLock sync.Mutex
+	lastRemoteCpuTicks = make(map[string]cpuTicks)
 )
 
 const metricsSampleInterval = 2 * time.Second
@@ -106,6 +120,34 @@ func sampleOnce() {
 				}
 			} else {
 				// Remote sampling
+				// 1. Throttling check
+				lastRemoteSampleMu.Lock()
+				lastTime := lastRemoteSample[s.ID]
+				lastRemoteSampleMu.Unlock()
+
+				if time.Since(lastTime) < 10*time.Second {
+					return
+				}
+
+				// 2. Prevent concurrent checks
+				remoteSamplingMu.Lock()
+				if remoteSampling[s.ID] {
+					remoteSamplingMu.Unlock()
+					return
+				}
+				remoteSampling[s.ID] = true
+				remoteSamplingMu.Unlock()
+
+				defer func() {
+					remoteSamplingMu.Lock()
+					remoteSampling[s.ID] = false
+					remoteSamplingMu.Unlock()
+				}()
+
+				lastRemoteSampleMu.Lock()
+				lastRemoteSample[s.ID] = time.Now()
+				lastRemoteSampleMu.Unlock()
+
 				exec, err := GetExecutorForServer(s.ID)
 				if err != nil {
 					sampleErr = err
@@ -113,7 +155,7 @@ func sampleOnce() {
 					if sshExec, ok := exec.(*SSHExecutor); ok {
 						defer sshExec.Close()
 					}
-					c, m, d, sampleErr = sampleRemoteHost(exec)
+					c, m, d, sampleErr = sampleRemoteHost(s.ID, exec)
 				}
 			}
 
@@ -143,7 +185,7 @@ func readMetrics(serverID string) (cpuPct, memPct, diskPct float64) {
 	return m.cpu, m.memory, m.disk
 }
 
-func sampleRemoteHost(exec Executor) (cpu, mem, disk float64, err error) {
+func sampleRemoteHost(serverID string, exec Executor) (cpu, mem, disk float64, err error) {
 	// 1. Disk
 	diskOut, err := exec.RunCommand("df", "-h", "/")
 	if err == nil {
@@ -178,15 +220,21 @@ func sampleRemoteHost(exec Executor) (cpu, mem, disk float64, err error) {
 		}
 	}
 
-	// 3. CPU
-	cpuOut1, err1 := exec.RunCommand("cat", "/proc/stat")
-	time.Sleep(500 * time.Millisecond)
-	cpuOut2, err2 := exec.RunCommand("cat", "/proc/stat")
-	if err1 == nil && err2 == nil {
-		t1, id1 := parseProcStat(cpuOut1)
-		t2, id2 := parseProcStat(cpuOut2)
-		if t2-t1 > 0 {
-			cpu = (1.0 - (id2-id1)/(t2-t1)) * 100
+	// 3. CPU (read /proc/stat once, delta check against previous cached ticks)
+	cpuOut, err := exec.RunCommand("cat", "/proc/stat")
+	if err == nil {
+		t2, id2 := parseProcStat(cpuOut)
+		remoteCpuTicksLock.Lock()
+		prev, ok := lastRemoteCpuTicks[serverID]
+		lastRemoteCpuTicks[serverID] = cpuTicks{total: t2, idle: id2}
+		remoteCpuTicksLock.Unlock()
+
+		if ok {
+			t1 := prev.total
+			id1 := prev.idle
+			if t2-t1 > 0 {
+				cpu = (1.0 - (id2-id1)/(t2-t1)) * 100
+			}
 		}
 	}
 
