@@ -1,0 +1,30 @@
+import { MetadataRoute } from 'next';
+import { siteUrl } from '@/lib/shared';
+
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: [
+      {
+        userAgent: '*',
+        allow: ['/', '/docs'],
+        disallow: ['/api/'],
+      },
+      {
+        // Custom rules for AI and LLM agents to ensure they crawl optimized routes
+        userAgent: [
+          'GPTBot',
+          'ChatGPT-User',
+          'ClaudeBot',
+          'Claude-Web',
+          'Google-Extended',
+          'Anthropic-AI',
+          'PerplexityBot',
+          'cohere-ai',
+        ],
+        allow: ['/', '/docs', '/llms.txt', '/llms-full.txt', '/llms.mdx/docs'],
+        disallow: ['/api/'],
+      },
+    ],
+    sitemap: `${siteUrl}/sitemap.xml`,
+  };
+}

@@ -3,6 +3,7 @@
   "icon": "BookOpen",
   "pages": [
     "deploying-an-app",
+    "ai-agents",
     "app-catalog",
     "auto-deploy",
     "custom-domains",

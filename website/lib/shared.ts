@@ -15,3 +15,6 @@ export const gitConfig = {
 };
 
 export const githubUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
+
+export const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://better-paas.com';
+
