@@ -2,14 +2,17 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/ssh"
 )
 
 // ---------------------------------------------------------------------------
@@ -62,12 +65,13 @@ func handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Resolve the target app + its currently running container.
-	var containerName, status string
+	var containerName, status, serverID string
 	appsLock.Lock()
 	for _, a := range apps {
 		if a.ID == appID {
 			containerName = a.containerName()
 			status = a.Status
+			serverID = a.ServerID
 			break
 		}
 	}
@@ -83,74 +87,198 @@ func handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Pick a shell that exists in the image.
-	shell := pickContainerShell(containerName)
+	shell := pickContainerShell(serverID, containerName)
 	if shell == "" {
 		wsSendTerminal(conn, "No shell (/bin/bash or /bin/sh) found in the container image.\r\n")
 		return
 	}
 
-	// `docker exec -it` allocates a TTY inside the container; creack/pty gives
-	// us the host-side PTY master that the docker client attaches to.
-	cmd := exec.Command("docker", "exec", "-it", containerName, shell)
-	ptmx, err := pty.Start(cmd)
-	if err != nil {
-		wsSendTerminal(conn, "Failed to start terminal session: "+err.Error()+"\r\n")
-		return
-	}
+	isLocal := serverID == "" || serverID == "localhost"
 
-	var once sync.Once
-	cleanup := func() {
-		once.Do(func() {
-			ptmx.Close()
-			if cmd.Process != nil {
-				cmd.Process.Kill()
-			}
-			cmd.Wait()
-		})
-	}
-	defer cleanup()
+	if isLocal {
+		// `docker exec -it` allocates a TTY inside the container; creack/pty gives
+		// us the host-side PTY master that the docker client attaches to.
+		cmd := exec.Command("docker", "exec", "-it", containerName, shell)
+		ptmx, err := pty.Start(cmd)
+		if err != nil {
+			wsSendTerminal(conn, "Failed to start terminal session: "+err.Error()+"\r\n")
+			return
+		}
 
-	// Pump PTY output → WebSocket (binary frames preserve escape sequences).
-	go func() {
-		buf := make([]byte, 8192)
-		for {
-			n, readErr := ptmx.Read(buf)
-			if n > 0 {
-				if err := conn.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
+		var once sync.Once
+		cleanup := func() {
+			once.Do(func() {
+				ptmx.Close()
+				if cmd.Process != nil {
+					cmd.Process.Kill()
+				}
+				cmd.Wait()
+			})
+		}
+		defer cleanup()
+
+		// Pump PTY output → WebSocket (binary frames preserve escape sequences).
+		go func() {
+			buf := make([]byte, 8192)
+			for {
+				n, readErr := ptmx.Read(buf)
+				if n > 0 {
+					if err := conn.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
+						break
+					}
+				}
+				if readErr != nil {
 					break
 				}
 			}
+			conn.Close()
+		}()
+
+		// Pump WebSocket control frames → PTY.
+		for {
+			mt, data, readErr := conn.ReadMessage()
 			if readErr != nil {
 				break
 			}
-		}
-		// Shell exited (e.g. the user typed `exit`): close the socket so the
-		// client reflects the ended session.
-		conn.Close()
-	}()
-
-	// Pump WebSocket control frames → PTY.
-	for {
-		mt, data, readErr := conn.ReadMessage()
-		if readErr != nil {
-			break
-		}
-		if mt != websocket.TextMessage {
-			continue
-		}
-		var msg terminalClientMsg
-		if err := json.Unmarshal(data, &msg); err != nil {
-			continue
-		}
-		switch msg.Type {
-		case "input":
-			if _, err := ptmx.Write([]byte(msg.Data)); err != nil {
-				cleanup()
-				return
+			if mt != websocket.TextMessage {
+				continue
 			}
-		case "resize":
-			if msg.Cols > 0 && msg.Rows > 0 {
-				pty.Setsize(ptmx, &pty.Winsize{Cols: msg.Cols, Rows: msg.Rows})
+			var msg terminalClientMsg
+			if err := json.Unmarshal(data, &msg); err != nil {
+				continue
+			}
+			switch msg.Type {
+			case "input":
+				if _, err := ptmx.Write([]byte(msg.Data)); err != nil {
+					cleanup()
+					return
+				}
+			case "resize":
+				if msg.Cols > 0 && msg.Rows > 0 {
+					pty.Setsize(ptmx, &pty.Winsize{Cols: msg.Cols, Rows: msg.Rows})
+				}
+			}
+		}
+	} else {
+		// Remote SSH Terminal
+		server, err := dbGetServer(serverID)
+		if err != nil || server == nil {
+			wsSendTerminal(conn, "Failed to load server config.\r\n")
+			return
+		}
+		signer, err := ssh.ParsePrivateKey([]byte(server.SSHKey))
+		if err != nil {
+			wsSendTerminal(conn, "Failed to parse SSH private key: "+err.Error()+"\r\n")
+			return
+		}
+		cfg := &ssh.ClientConfig{
+			User:            server.SSHUser,
+			Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Timeout:         15 * time.Second,
+		}
+		addr := fmt.Sprintf("%s:%d", server.IP, server.Port)
+		client, err := ssh.Dial("tcp", addr, cfg)
+		if err != nil {
+			wsSendTerminal(conn, "Failed to connect to remote server: "+err.Error()+"\r\n")
+			return
+		}
+		defer client.Close()
+
+		session, err := client.NewSession()
+		if err != nil {
+			wsSendTerminal(conn, "Failed to create SSH session: "+err.Error()+"\r\n")
+			return
+		}
+		defer session.Close()
+
+		modes := ssh.TerminalModes{
+			ssh.ECHO:          1,
+			ssh.TTY_OP_ISPEED: 14400,
+			ssh.TTY_OP_OSPEED: 14400,
+		}
+		if err := session.RequestPty("xterm-256color", 40, 80, modes); err != nil {
+			wsSendTerminal(conn, "Failed to request PTY: "+err.Error()+"\r\n")
+			return
+		}
+
+		stdin, err := session.StdinPipe()
+		if err != nil {
+			wsSendTerminal(conn, "Failed to setup stdin pipe: "+err.Error()+"\r\n")
+			return
+		}
+		stdout, err := session.StdoutPipe()
+		if err != nil {
+			wsSendTerminal(conn, "Failed to setup stdout pipe: "+err.Error()+"\r\n")
+			return
+		}
+		stderr, err := session.StderrPipe()
+		if err != nil {
+			wsSendTerminal(conn, "Failed to setup stderr pipe: "+err.Error()+"\r\n")
+			return
+		}
+
+		// Forward stdout and stderr to the WebSocket.
+		go func() {
+			buf := make([]byte, 8192)
+			for {
+				n, err := stdout.Read(buf)
+				if n > 0 {
+					if conn.WriteMessage(websocket.BinaryMessage, buf[:n]) != nil {
+						break
+					}
+				}
+				if err != nil {
+					break
+				}
+			}
+			conn.Close()
+		}()
+
+		go func() {
+			buf := make([]byte, 8192)
+			for {
+				n, err := stderr.Read(buf)
+				if n > 0 {
+					if conn.WriteMessage(websocket.BinaryMessage, buf[:n]) != nil {
+						break
+					}
+				}
+				if err != nil {
+					break
+				}
+			}
+			conn.Close()
+		}()
+
+		cmdStr := fmt.Sprintf("docker exec -it %s %s", shellQuote(containerName), shellQuote(shell))
+		if err := session.Start(cmdStr); err != nil {
+			wsSendTerminal(conn, "Failed to start terminal: "+err.Error()+"\r\n")
+			return
+		}
+
+		// Pump WebSocket control frames → PTY.
+		for {
+			mt, data, readErr := conn.ReadMessage()
+			if readErr != nil {
+				break
+			}
+			if mt != websocket.TextMessage {
+				continue
+			}
+			var msg terminalClientMsg
+			if err := json.Unmarshal(data, &msg); err != nil {
+				continue
+			}
+			switch msg.Type {
+			case "input":
+				if _, err := stdin.Write([]byte(msg.Data)); err != nil {
+					return
+				}
+			case "resize":
+				if msg.Cols > 0 && msg.Rows > 0 {
+					_ = session.WindowChange(int(msg.Rows), int(msg.Cols))
+				}
 			}
 		}
 	}
@@ -287,10 +415,17 @@ func wsSendTerminal(conn *websocket.Conn, message string) {
 // pickContainerShell returns the first shell from terminalShellCandidates that
 // can actually run inside the container, or "" if none can. Running the shell
 // with `-c true` both proves it exists and that it's executable.
-func pickContainerShell(containerName string) string {
+func pickContainerShell(serverID string, containerName string) string {
+	exec, err := GetExecutorForServer(serverID)
+	if err != nil {
+		return ""
+	}
+	if sshExec, ok := exec.(*SSHExecutor); ok {
+		defer sshExec.Close()
+	}
 	for _, sh := range terminalShellCandidates {
-		check := exec.Command("docker", "exec", containerName, sh, "-c", "true")
-		if err := check.Run(); err == nil {
+		_, err := exec.RunCommand("docker", "exec", containerName, sh, "-c", "true")
+		if err == nil {
 			return sh
 		}
 	}

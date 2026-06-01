@@ -53,6 +53,12 @@ func rebuildCaddyfile() {
 		}
 
 		upstream := fmt.Sprintf("localhost:%d", app.Port)
+		if app.ServerID != "" && app.ServerID != "localhost" {
+			srv, err := dbGetServer(app.ServerID)
+			if err == nil && srv != nil && !srv.IsLocal {
+				upstream = fmt.Sprintf("%s:%d", srv.IP, app.Port)
+			}
+		}
 
 		// Default sslip.io host over plain HTTP.
 		sb.WriteString(fmt.Sprintf("http://%s.%s.sslip.io {\n", app.ID, ip))

@@ -80,6 +80,14 @@ func main() {
 
 	// Custom domains + Cloudflare DNS
 	mux.HandleFunc("/api/server/info", handleServerInfo)
+
+	// Server management (multi-server support)
+	mux.HandleFunc("/api/servers", handleServersList)
+	mux.HandleFunc("/api/servers/create", handleServerCreate)
+	mux.HandleFunc("/api/servers/delete", handleServerDelete)
+	mux.HandleFunc("/api/servers/test", handleServerTest)
+	mux.HandleFunc("/api/servers/keys/public", handleServerPublicKey)
+
 	mux.HandleFunc("/api/cloudflare/status", handleCloudflareStatus)
 	mux.HandleFunc("/api/cloudflare/token/save", handleCloudflareTokenSet)
 	mux.HandleFunc("/api/cloudflare/token/delete", handleCloudflareTokenDelete)

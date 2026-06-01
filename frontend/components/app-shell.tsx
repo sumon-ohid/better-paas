@@ -63,6 +63,7 @@ const StoreIcon = (props: IconProps) => <NucleoIcon {...props} name="layers" />
 const MoonIcon = (props: IconProps) => <NucleoIcon {...props} name="moon" />
 const SunIcon = (props: IconProps) => <NucleoIcon {...props} name="sun" />
 const SignOutIcon = (props: IconProps) => <NucleoIcon {...props} name="logout" />
+const ServerStackIcon = (props: IconProps) => <NucleoIcon {...props} name="cloud" />
 
 interface NavItem {
   id: string
@@ -161,6 +162,12 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
       icon: <GlobeIcon className="h-3.5 w-3.5 text-chart-1" />,
       href: "/",
       badge: appCount,
+    },
+    {
+      id: "servers",
+      label: "Servers",
+      icon: <ServerStackIcon className="h-3.5 w-3.5 text-chart-3" />,
+      href: "/servers",
     },
     {
       id: "catalog",

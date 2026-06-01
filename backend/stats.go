@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,22 +31,22 @@ import (
 // rather than reporting a misleading zero.
 
 type hostMetrics struct {
-	mu     sync.RWMutex
 	cpu    float64
 	memory float64
 	disk   float64
-	ready  bool // true once at least one successful sample has landed
 }
 
-var metrics hostMetrics
+var (
+	hostMetricsLock sync.RWMutex
+	allHostMetrics  = make(map[string]hostMetrics)
+)
 
 const metricsSampleInterval = 2 * time.Second
 
 // startMetricsSampler launches the background sampler. Safe to call once at
 // startup. The first CPU reading primes gopsutil's internal counters.
 func startMetricsSampler() {
-	// Prime the CPU delta counters; the first real reading follows one interval
-	// later and will be meaningful rather than 0.
+	// Prime local CPU counters
 	_, _ = cpu.Percent(0, false)
 
 	go func() {
@@ -58,38 +58,161 @@ func startMetricsSampler() {
 	}()
 }
 
-// sampleOnce reads CPU, memory, and disk, updating the cache for any value it
-// can obtain. Failures leave the previous value intact.
+// sampleOnce reads CPU, memory, and disk for all servers.
 func sampleOnce() {
-	metrics.mu.Lock()
-	defer metrics.mu.Unlock()
-
-	if pcts, err := cpu.Percent(0, false); err == nil && len(pcts) > 0 {
-		metrics.cpu = pcts[0]
-		metrics.ready = true
-	} else if err != nil {
-		log.Printf("[stats] cpu sample failed: %v", err)
+	servers, err := dbLoadServers()
+	if err != nil {
+		log.Printf("[stats] failed to list servers: %v", err)
+		return
 	}
 
-	if vm, err := mem.VirtualMemory(); err == nil && vm != nil {
-		metrics.memory = vm.UsedPercent
-		metrics.ready = true
-	} else if err != nil {
-		log.Printf("[stats] memory sample failed: %v", err)
+	hasLocal := false
+	for _, s := range servers {
+		if s.IsLocal || s.ID == "localhost" {
+			hasLocal = true
+			break
+		}
+	}
+	if !hasLocal {
+		servers = append(servers, Server{ID: "localhost", IsLocal: true})
 	}
 
-	if du, err := disk.Usage("/"); err == nil && du != nil {
-		metrics.disk = du.UsedPercent
-	} else if err != nil {
-		log.Printf("[stats] disk sample failed: %v", err)
+	var wg sync.WaitGroup
+	for _, srv := range servers {
+		wg.Add(1)
+		go func(s Server) {
+			defer wg.Done()
+			var c, m, d float64
+			var sampleErr error
+
+			if s.IsLocal || s.ID == "localhost" {
+				// Local sampling
+				if pcts, err := cpu.Percent(0, false); err == nil && len(pcts) > 0 {
+					c = pcts[0]
+				} else if err != nil {
+					sampleErr = fmt.Errorf("cpu: %w", err)
+				}
+
+				if vm, err := mem.VirtualMemory(); err == nil && vm != nil {
+					m = vm.UsedPercent
+				} else if err != nil {
+					sampleErr = fmt.Errorf("mem: %w", err)
+				}
+
+				if du, err := disk.Usage("/"); err == nil && du != nil {
+					d = du.UsedPercent
+				} else if err != nil {
+					sampleErr = fmt.Errorf("disk: %w", err)
+				}
+			} else {
+				// Remote sampling
+				exec, err := GetExecutorForServer(s.ID)
+				if err != nil {
+					sampleErr = err
+				} else {
+					if sshExec, ok := exec.(*SSHExecutor); ok {
+						defer sshExec.Close()
+					}
+					c, m, d, sampleErr = sampleRemoteHost(exec)
+				}
+			}
+
+			hostMetricsLock.Lock()
+			if sampleErr == nil {
+				allHostMetrics[s.ID] = hostMetrics{cpu: c, memory: m, disk: d}
+			} else {
+				log.Printf("[stats] server %s sample failed: %v", s.ID, sampleErr)
+			}
+			hostMetricsLock.Unlock()
+		}(srv)
 	}
+	wg.Wait()
 }
 
 // readMetrics returns the most recent cached CPU/memory/disk percentages.
-func readMetrics() (cpuPct, memPct, diskPct float64) {
-	metrics.mu.RLock()
-	defer metrics.mu.RUnlock()
-	return metrics.cpu, metrics.memory, metrics.disk
+func readMetrics(serverID string) (cpuPct, memPct, diskPct float64) {
+	if serverID == "" {
+		serverID = "localhost"
+	}
+	hostMetricsLock.RLock()
+	defer hostMetricsLock.RUnlock()
+	m, ok := allHostMetrics[serverID]
+	if !ok {
+		return 0, 0, 0
+	}
+	return m.cpu, m.memory, m.disk
+}
+
+func sampleRemoteHost(exec Executor) (cpu, mem, disk float64, err error) {
+	// 1. Disk
+	diskOut, err := exec.RunCommand("df", "-h", "/")
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(diskOut), "\n")
+		if len(lines) >= 2 {
+			fields := strings.Fields(lines[len(lines)-1])
+			if len(fields) >= 5 {
+				pctStr := strings.TrimSuffix(fields[4], "%")
+				if d, err := strconv.ParseFloat(pctStr, 64); err == nil {
+					disk = d
+				}
+			}
+		}
+	}
+
+	// 2. Memory
+	memOut, err := exec.RunCommand("cat", "/proc/meminfo")
+	if err == nil {
+		var total, available float64
+		for _, line := range strings.Split(memOut, "\n") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				if parts[0] == "MemTotal:" {
+					total, _ = strconv.ParseFloat(parts[1], 64)
+				} else if parts[0] == "MemAvailable:" {
+					available, _ = strconv.ParseFloat(parts[1], 64)
+				}
+			}
+		}
+		if total > 0 {
+			mem = (total - available) / total * 100
+		}
+	}
+
+	// 3. CPU
+	cpuOut1, err1 := exec.RunCommand("cat", "/proc/stat")
+	time.Sleep(500 * time.Millisecond)
+	cpuOut2, err2 := exec.RunCommand("cat", "/proc/stat")
+	if err1 == nil && err2 == nil {
+		t1, id1 := parseProcStat(cpuOut1)
+		t2, id2 := parseProcStat(cpuOut2)
+		if t2-t1 > 0 {
+			cpu = (1.0 - (id2-id1)/(t2-t1)) * 100
+		}
+	}
+
+	return cpu, mem, disk, nil
+}
+
+func parseProcStat(out string) (total, idle float64) {
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) > 0 && fields[0] == "cpu" {
+			var sum float64
+			for i := 1; i < len(fields); i++ {
+				val, _ := strconv.ParseFloat(fields[i], 64)
+				sum += val
+				if i == 4 { // idle
+					idle = val
+				}
+				if i == 5 { // iowait
+					idle += val
+				}
+			}
+			total = sum
+			return
+		}
+	}
+	return
 }
 
 // ---------------------------------------------------------------------------
@@ -102,15 +225,73 @@ func readMetrics() (cpuPct, memPct, diskPct float64) {
 // ~1s) rather than sampled continuously.
 
 func collectPerAppMetrics() []PerAppMetrics {
-	// Map containerID/name → appID via labels.
-	out, err := exec.Command("docker", "ps",
-		"--filter", "label=better-paas-app",
-		"--format", "{{.Names}}\t{{.Label \"better-paas-app\"}}").Output()
+	servers, err := dbLoadServers()
 	if err != nil {
+		log.Printf("[stats] failed to list servers: %v", err)
 		return []PerAppMetrics{}
 	}
+
+	hasLocal := false
+	for _, s := range servers {
+		if s.IsLocal || s.ID == "localhost" {
+			hasLocal = true
+			break
+		}
+	}
+	if !hasLocal {
+		servers = append(servers, Server{ID: "localhost", IsLocal: true})
+	}
+
+	appsLock.Lock()
+	idToName := map[string]string{}
+	for _, a := range apps {
+		idToName[a.ID] = a.Name
+	}
+	appsLock.Unlock()
+
+	var wg sync.WaitGroup
+	var resultsLock sync.Mutex
+	var results []PerAppMetrics
+
+	for _, srv := range servers {
+		wg.Add(1)
+		go func(s Server) {
+			defer wg.Done()
+			srvMetrics := collectServerPerAppMetrics(s, idToName)
+			if len(srvMetrics) > 0 {
+				resultsLock.Lock()
+				results = append(results, srvMetrics...)
+				resultsLock.Unlock()
+			}
+		}(srv)
+	}
+	wg.Wait()
+
+	if results == nil {
+		results = []PerAppMetrics{}
+	}
+	return results
+}
+
+func collectServerPerAppMetrics(s Server, idToName map[string]string) []PerAppMetrics {
+	exec, err := GetExecutorForServer(s.ID)
+	if err != nil {
+		log.Printf("[stats] failed to get executor for server %s: %v", s.ID, err)
+		return nil
+	}
+	if sshExec, ok := exec.(*SSHExecutor); ok {
+		defer sshExec.Close()
+	}
+
+	// Map containerID/name → appID via labels.
+	out, err := exec.RunCommand("docker", "ps",
+		"--filter", "label=better-paas-app",
+		"--format", "{{.Names}}\t{{.Label \"better-paas-app\"}}")
+	if err != nil {
+		return nil
+	}
 	nameToApp := map[string]string{}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		if line == "" {
 			continue
 		}
@@ -120,36 +301,32 @@ func collectPerAppMetrics() []PerAppMetrics {
 		}
 	}
 
-	// Compose-service rows don't carry the better-paas-app label (compose owns
-	// the container), so map their resolved container name → appID directly.
+	// Compose-service rows don't carry the better-paas-app label, so map their
+	// resolved container name → appID directly.
 	appsLock.Lock()
 	for _, a := range apps {
-		if a.ComposeProject != "" && a.ActiveContainer != "" {
+		sID := a.ServerID
+		if sID == "" {
+			sID = "localhost"
+		}
+		if sID == s.ID && a.ComposeProject != "" && a.ActiveContainer != "" {
 			nameToApp[a.ActiveContainer] = a.ID
 		}
 	}
 	appsLock.Unlock()
 
 	if len(nameToApp) == 0 {
-		return []PerAppMetrics{}
+		return nil
 	}
 
-	statsOut, err := exec.Command("docker", "stats", "--no-stream",
-		"--format", "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}").Output()
+	statsOut, err := exec.RunCommand("docker", "stats", "--no-stream",
+		"--format", "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}")
 	if err != nil {
-		return []PerAppMetrics{}
+		return nil
 	}
-
-	// Resolve app names for display.
-	appsLock.Lock()
-	idToName := map[string]string{}
-	for _, a := range apps {
-		idToName[a.ID] = a.Name
-	}
-	appsLock.Unlock()
 
 	var result []PerAppMetrics
-	for _, line := range strings.Split(strings.TrimSpace(string(statsOut)), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(statsOut), "\n") {
 		if line == "" {
 			continue
 		}
@@ -173,9 +350,6 @@ func collectPerAppMetrics() []PerAppMetrics {
 			NetRxMB:    rx,
 			NetTxMB:    tx,
 		})
-	}
-	if result == nil {
-		result = []PerAppMetrics{}
 	}
 	return result
 }

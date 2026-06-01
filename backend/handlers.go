@@ -124,6 +124,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		BuildMethod    string            `json:"buildMethod"`
 		DockerfilePath string            `json:"dockerfilePath"`
 		ComposePath    string            `json:"composePath"`
+		ServerID       string            `json:"serverId"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -171,13 +172,17 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 
 	appsLock.Lock()
 	appID := generateRandomID()
+	serverID := req.ServerID
+	if serverID == "" {
+		serverID = "localhost"
+	}
 	newApp := App{
 		ID:             appID,
 		Name:           req.Name,
 		Status:         "building",
 		GitRepo:        req.GitRepo,
 		Branch:         req.Branch,
-		Port:           allocatePort(),
+		Port:           allocatePort(serverID),
 		CreatedAt:      time.Now(),
 		GitToken:       req.GitToken,
 		RootDir:        req.RootDir,
@@ -197,6 +202,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		DockerfilePath: dockerfilePath,
 		ComposePath:    composePath,
 		WebhookSecret:  generateRandomID() + generateRandomID(), // 20-char webhook secret
+		ServerID:       serverID,
 	}
 	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
 	apps = append(apps, newApp)
@@ -267,7 +273,12 @@ func handleStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exec.Command("docker", "stop", app.containerName()).Run()
+	if ex, err := GetExecutorForServer(app.ServerID); err == nil {
+		if sshEx, ok := ex.(*SSHExecutor); ok {
+			defer sshEx.Close()
+		}
+		_, _ = ex.RunCommand("docker", "stop", app.containerName())
+	}
 	stopRuntimeLogCapture(req.ID)
 
 	appsLock.Lock()
@@ -320,7 +331,15 @@ func handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if out, err := exec.Command("docker", "start", app.containerName()).CombinedOutput(); err != nil {
+	ex, err := GetExecutorForServer(app.ServerID)
+	if err != nil {
+		jsonError(w, fmt.Sprintf("Failed to get server connection: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	if out, err := ex.RunCommand("docker", "start", app.containerName()); err != nil {
 		jsonError(w, fmt.Sprintf("Failed to start container: %v — %s", err, out), http.StatusInternalServerError)
 		return
 	}
@@ -380,10 +399,15 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	// Remove the active container, the legacy-named container (if any), and all
 	// images tagged for this app (every per-deploy tag).
 	stopRuntimeLogCapture(app.ID)
-	exec.Command("docker", "rm", "-f", app.containerName()).Run()
-	exec.Command("docker", "rm", "-f", app.Name).Run()
-	removeAppContainers(app.ID)
-	removeAppImages(app.Name)
+	if ex, err := GetExecutorForServer(app.ServerID); err == nil {
+		if sshEx, ok := ex.(*SSHExecutor); ok {
+			defer sshEx.Close()
+		}
+		_, _ = ex.RunCommand("docker", "rm", "-f", app.containerName())
+		_, _ = ex.RunCommand("docker", "rm", "-f", app.Name)
+	}
+	removeAppContainers(app.ServerID, app.ID)
+	removeAppImages(app.ServerID, app.Name)
 
 	// ── Remove build directory ───────────────────────────────────────────────
 	buildDir := filepath.Join("builds", app.Name)

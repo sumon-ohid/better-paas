@@ -2,6 +2,7 @@
 
 import type {
   App,
+  Server,
   DeployRequest,
   DeploymentRecord,
   UpdateRequest,
@@ -132,6 +133,36 @@ export const api = {
   // ── Custom domains: server info + Cloudflare DNS ────────────────────────────
   server: {
     info: () => req<{ publicIp: string; localIp: string }>("/api/server/info"),
+  },
+
+  // ── Multi-server management ───────────────────────────────────────────────────
+  servers: {
+    list: () => req<Server[]>("/api/servers"),
+    create: (data: {
+      name: string
+      description?: string
+      ip: string
+      port?: number
+      sshUser?: string
+    }) =>
+      req<Server>("/api/servers/create", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      req<{ status: string }>("/api/servers/delete", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
+    test: (id: string) =>
+      req<{ status: string; dockerVersion?: string; error?: string }>(
+        "/api/servers/test",
+        { method: "POST", body: JSON.stringify({ id }) },
+      ),
+    publicKey: (id: string) =>
+      req<{ publicKey: string }>(
+        `/api/servers/keys/public?id=${encodeURIComponent(id)}`,
+      ),
   },
   cloudflare: {
     status: () => req<{ connected: boolean }>("/api/cloudflare/status"),

@@ -412,7 +412,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 	webHostPorts := map[string]int{}
 	for _, s := range services {
 		if s.Web {
-			p := allocatePortAvoiding(reserved)
+			p := allocatePortAvoiding(app.ServerID, reserved)
 			reserved[p] = true
 			webHostPorts[s.Name] = p
 		}
@@ -589,7 +589,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 
 	// ── 7. Health-check web services (best-effort) ───────────────────────────
 	for name, port := range webHostPorts {
-		if err := waitHealthy(port, "", 30*time.Second, func(string) {}); err != nil {
+		if err := waitHealthy(app.ServerID, port, "", 30*time.Second, func(string) {}); err != nil {
 			localLog(fmt.Sprintf("⚠ Service %q did not pass a TCP health check on :%d (continuing).", name, port))
 		} else {
 			localLog(fmt.Sprintf("✔ Service %q is reachable on :%d.", name, port))

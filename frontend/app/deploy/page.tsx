@@ -24,7 +24,7 @@ import {
   DialogPanel,
   DialogFooter,
 } from "@/components/ui/dialog"
-import type { GitHubRepo, GitHubContent } from "@/lib/types"
+import type { GitHubRepo, GitHubContent, Server } from "@/lib/types"
 import { GitHubConnectModal } from "@/components/github-connect-modal"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
@@ -130,6 +130,26 @@ export default function DeployPage() {
   // ── UI state ───────────────────────────────────────────────────────────────
   const [isDeploying, setIsDeploying] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
+
+  // ── Servers ────────────────────────────────────────────────────────────────
+  const [servers, setServers] = useState<Server[]>([])
+  const [selectedServerId, setSelectedServerId] = useState("localhost")
+
+  // Load servers on mount
+  useEffect(() => {
+    api.servers
+      .list()
+      .then((data) => {
+        setServers(data)
+        if (data.length > 0) {
+          const hasLocalhost = data.some((s) => s.id === "localhost")
+          setSelectedServerId(hasLocalhost ? "localhost" : data[0].id)
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load servers:", err)
+      })
+  }, [])
 
   // Debounce timer for re-detecting the framework when the Root Directory input
   // is edited by hand.
@@ -524,6 +544,7 @@ export default function DeployPage() {
         buildMethod: deployBuildMethod,
         dockerfilePath: deployBuildMethod === "dockerfile" ? deployDockerfilePath.trim() || "Dockerfile" : undefined,
         composePath: deployBuildMethod === "compose" ? deployComposePath.trim() || "docker-compose.yml" : undefined,
+        serverId: selectedServerId,
       })
       router.push(`/logs?appId=${newApp.id}&mode=build`)
     } catch (err) {
@@ -799,6 +820,29 @@ export default function DeployPage() {
                         placeholder="e.g. my-app"
                         className="h-9 text-sm"
                       />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Target Server
+                      </Label>
+                      <Select value={selectedServerId} onValueChange={(v) => setSelectedServerId(v ?? "localhost")}>
+                        <SelectTrigger className="h-9 text-sm w-full">
+                          <SelectValue placeholder="Select target server..." />
+                        </SelectTrigger>
+                        <SelectPopup>
+                          {servers.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.isLocal ? "🖥️ Localhost" : `🌐 ${s.name} (${s.ip})`}
+                            </SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                      {servers.find((s) => s.id === selectedServerId)?.status !== "connected" && (
+                        <p className="text-[10px] text-destructive">
+                          ⚠️ Selected server status is not connected.
+                        </p>
+                      )}
                     </div>
 
                     {isDetectingFramework ? (

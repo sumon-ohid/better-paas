@@ -392,6 +392,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		Domains    []string          `json:"domains"`
 		Memory     string            `json:"memory"`
 		CPUs       string            `json:"cpus"`
+		ServerID   string            `json:"serverId"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		jsonError(w, "Bad request: "+err.Error(), http.StatusBadRequest)
@@ -460,11 +461,16 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	ip := getLocalIP()
 	appsLock.Lock()
 	appID := generateRandomID()
+	serverId := req.ServerID
+	if serverId == "" {
+		serverId = "localhost"
+	}
 	newApp := App{
 		ID:            appID,
 		Name:          name,
 		Status:        "building",
-		Port:          allocatePort(),
+		Port:          allocatePort(serverId),
+		ServerID:      serverId,
 		CreatedAt:     time.Now(),
 		EnvVars:       envVars,
 		SecretKeys:    secretKeys,
@@ -531,6 +537,7 @@ type customDeployCommon struct {
 	Volumes    []string          `json:"volumes"`
 	Port       int               `json:"port"`
 	HealthPath string            `json:"healthPath"`
+	ServerID   string            `json:"serverId"`
 }
 
 // validateCustomDeploy validates the common fields and returns a resolved app
@@ -661,11 +668,16 @@ func handleCatalogDeployImage(w http.ResponseWriter, r *http.Request) {
 
 	envVars, secretKeys := cleanEnvVars(req.EnvVars, req.SecretKeys)
 
+	serverId := req.ServerID
+	if serverId == "" {
+		serverId = "localhost"
+	}
 	newApp := App{
 		ID:            generateRandomID(),
 		Name:          name,
 		Status:        "building",
-		Port:          allocatePortLocked(),
+		Port:          allocatePortLocked(serverId),
+		ServerID:      serverId,
 		CreatedAt:     time.Now(),
 		EnvVars:       envVars,
 		SecretKeys:    secretKeys,
@@ -722,11 +734,16 @@ func handleCatalogDeployDockerfile(w http.ResponseWriter, r *http.Request) {
 
 	envVars, secretKeys := cleanEnvVars(req.EnvVars, req.SecretKeys)
 
+	serverId := req.ServerID
+	if serverId == "" {
+		serverId = "localhost"
+	}
 	newApp := App{
 		ID:                generateRandomID(),
 		Name:              name,
 		Status:            "building",
-		Port:              allocatePortLocked(),
+		Port:              allocatePortLocked(serverId),
+		ServerID:          serverId,
 		CreatedAt:         time.Now(),
 		EnvVars:           envVars,
 		SecretKeys:        secretKeys,
@@ -778,8 +795,8 @@ func imageBaseName(image string) string {
 
 // allocatePortLocked acquires appsLock and allocates a free host port. The
 // underlying allocatePort requires the caller to hold appsLock.
-func allocatePortLocked() int {
+func allocatePortLocked(serverID string) int {
 	appsLock.Lock()
 	defer appsLock.Unlock()
-	return allocatePort()
+	return allocatePort(serverID)
 }
