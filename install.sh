@@ -11,7 +11,28 @@
 
 set -euo pipefail
 
-REPO_DIR="$HOME/better-paas"
+# Determine the user's real home directory (even if running under sudo)
+get_user_home() {
+  if [ -n "${SUDO_USER:-}" ]; then
+    if command -v getent &>/dev/null; then
+      getent passwd "$SUDO_USER" | cut -d: -f6
+    else
+      eval echo "~$SUDO_USER"
+    fi
+  else
+    echo "$HOME"
+  fi
+}
+
+REAL_HOME=$(get_user_home)
+REPO_DIR="$REAL_HOME/better-paas"
+
+# Determine if running from a local repository copy
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null || pwd)"
+if [ -f "$SCRIPT_DIR/backend/main.go" ]; then
+  REPO_DIR="$SCRIPT_DIR"
+fi
+
 BACKEND_DIR="$REPO_DIR/backend"
 FRONTEND_DIR="$REPO_DIR/frontend"
 DATA_DIR="$BACKEND_DIR/data"
@@ -27,6 +48,37 @@ info()    { echo -e "${CYAN}[INFO]${NC} $*"; }
 success() { echo -e "${GREEN}[OK]${NC}   $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error()   { echo -e "${RED}[ERR]${NC}  $*"; exit 1; }
+
+# Returns 0 if version $1 >= $2, 1 otherwise
+version_ge() {
+  awk -v v1="$1" -v v2="$2" '
+    function clean(v) { gsub(/[^0-9.]/, "", v); return v }
+    BEGIN {
+      split(clean(v1), a, ".")
+      split(clean(v2), b, ".")
+      for (i=1; i<=3; i++) {
+        if ((a[i]+0) > (b[i]+0)) exit 0
+        if ((a[i]+0) < (b[i]+0)) exit 1
+      }
+      exit 0
+    }'
+}
+
+# Warn if standard ports are already bound
+check_ports() {
+  local ports=(3000 8080)
+  for port in "${ports[@]}"; do
+    if command -v lsof &>/dev/null; then
+      if lsof -Pi :$port -sTCP:LISTEN -t &>/dev/null; then
+        warn "Port $port is already in use. This might cause startup issues."
+      fi
+    elif command -v netstat &>/dev/null; then
+      if netstat -tuln | grep -q ":$port "; then
+        warn "Port $port is already in use. This might cause startup issues."
+      fi
+    fi
+  done
+}
 
 # ── Detect OS ────────────────────────────────────────────────────────────────
 
@@ -60,12 +112,19 @@ install_dependencies() {
       apt-get install -y -qq curl git build-essential ca-certificates gnupg lsb-release
       ;;
     centos|rhel|fedora|almalinux|rocky)
+      yum makecache || true
       yum install -y curl git gcc ca-certificates
       ;;
     darwin)
       if ! command -v brew &>/dev/null; then
         info "Installing Homebrew..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        # Load Homebrew into PATH for the current shell session
+        if [ -f /opt/homebrew/bin/brew ]; then
+          eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [ -f /usr/local/bin/brew ]; then
+          eval "$(/usr/local/bin/brew shellenv)"
+        fi
       fi
       brew install git curl || true
       ;;
@@ -81,11 +140,21 @@ install_dependencies() {
 install_go() {
   if command -v go &>/dev/null; then
     GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-    info "Go already installed: ${GO_VERSION}"
-    return
+    if version_ge "$GO_VERSION" "1.25.0"; then
+      info "Go already installed: ${GO_VERSION} (meets requirement >= 1.25.0)"
+      return
+    else
+      warn "Installed Go version ${GO_VERSION} is older than required 1.25.0."
+    fi
   fi
 
   info "Installing Go 1.25.0..."
+  if [ "$OS" = "darwin" ]; then
+    brew install go
+    success "Go installed via Homebrew."
+    return
+  fi
+
   GO_VERSION="1.25.0"
   ARCH=$(uname -m)
   case "$ARCH" in
@@ -95,12 +164,7 @@ install_go() {
     *)       error "Unsupported architecture: $ARCH" ;;
   esac
 
-  if [ "$OS" = "darwin" ]; then
-    GOOS="darwin"
-  else
-    GOOS="linux"
-  fi
-
+  GOOS="linux"
   TARBALL="go${GO_VERSION}.${GOOS}-${GO_ARCH}.tar.gz"
   curl -fsSL "https://go.dev/dl/${TARBALL}" -o /tmp/go.tar.gz
   rm -rf /usr/local/go
@@ -108,7 +172,8 @@ install_go() {
   rm /tmp/go.tar.gz
 
   export PATH="/usr/local/go/bin:$PATH"
-  echo 'export PATH="/usr/local/go/bin:$PATH"' >> "$HOME/.profile"
+  echo 'export PATH="/usr/local/go/bin:$PATH"' > /etc/profile.d/go.sh
+  chmod +x /etc/profile.d/go.sh
   success "Go ${GO_VERSION} installed."
 }
 
@@ -125,7 +190,7 @@ install_docker() {
   case "$OS" in
     ubuntu|debian)
       install -m 0755 -d /etc/apt/keyrings
-      curl -fsSL https://download.docker.com/linux/${OS}/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      curl -fsSL https://download.docker.com/linux/${OS}/gpg | gpg --yes --dearmor -o /etc/apt/keyrings/docker.gpg
       chmod a+r /etc/apt/keyrings/docker.gpg
       echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
         https://download.docker.com/linux/${OS} $(lsb_release -cs) stable" \
@@ -167,7 +232,11 @@ install_nixpacks() {
   fi
 
   info "Installing Nixpacks..."
-  curl -fsSL https://nixpacks.com/install.sh | bash
+  if [ "$OS" = "darwin" ]; then
+    brew install nixpacks
+  else
+    curl -fsSL https://nixpacks.com/install.sh | bash
+  fi
   success "Nixpacks installed."
 }
 
@@ -184,7 +253,7 @@ install_caddy() {
   case "$OS" in
     ubuntu|debian)
       apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https curl
-      curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+      curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
       curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
       apt-get update -qq
       apt-get install -y -qq caddy
@@ -220,33 +289,46 @@ install_caddy() {
 
 # ── Install Node.js + pnpm ────────────────────────────────────────────────────
 
+do_install_node() {
+  info "Installing Node.js 22..."
+  case "$OS" in
+    ubuntu|debian)
+      curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+      apt-get install -y -qq nodejs
+      ;;
+    centos|rhel|almalinux|rocky|fedora)
+      curl -fsSL https://rpm.nodesource.com/setup_22.x | bash -
+      yum install -y nodejs
+      ;;
+    darwin)
+      brew install node@22 || brew upgrade node || true
+      ;;
+    *)
+      warn "Please install Node.js 22 manually."
+      ;;
+  esac
+}
+
 install_node() {
   if command -v node &>/dev/null; then
-    NODE_VER=$(node --version)
-    info "Node.js already installed: ${NODE_VER}"
+    NODE_VER=$(node --version | sed 's/v//')
+    if version_ge "$NODE_VER" "18.17.0"; then
+      info "Node.js already installed: v${NODE_VER} (meets requirement >= 18.17.0)"
+    else
+      warn "Installed Node.js version v${NODE_VER} is older than required 18.17.0."
+      do_install_node
+    fi
   else
-    info "Installing Node.js 22 via NodeSource..."
-    case "$OS" in
-      ubuntu|debian)
-        curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-        apt-get install -y -qq nodejs
-        ;;
-      centos|rhel|almalinux|rocky|fedora)
-        curl -fsSL https://rpm.nodesource.com/setup_22.x | bash -
-        yum install -y nodejs
-        ;;
-      darwin)
-        brew install node@22 || brew upgrade node || true
-        ;;
-      *)
-        warn "Please install Node.js 22 manually."
-        ;;
-    esac
+    do_install_node
   fi
 
   if ! command -v pnpm &>/dev/null; then
     info "Installing pnpm..."
-    npm install -g pnpm@latest
+    if [ "$OS" = "darwin" ]; then
+      brew install pnpm || npm install -g pnpm@latest
+    else
+      npm install -g pnpm@latest
+    fi
   fi
   success "Node.js and pnpm ready."
 }
@@ -448,6 +530,7 @@ main() {
 
   detect_os
   info "Detected OS: ${OS}"
+  check_ports
 
   if [ "$OS" != "darwin" ]; then
     require_root
@@ -461,16 +544,19 @@ main() {
   install_node
 
   # If running from the repo directly, skip clone
-  if [ -d "$BACKEND_DIR" ] && [ -f "$BACKEND_DIR/main.go" ]; then
+  if [ -f "$REPO_DIR/backend/main.go" ]; then
     info "Running from existing repo directory."
-    BACKEND_DIR="$(cd "$(dirname "$0")/backend" && pwd)"
-    FRONTEND_DIR="$(cd "$(dirname "$0")/frontend" && pwd)"
   else
     setup_repo
   fi
 
   build_backend
   build_frontend
+
+  if [ -n "${SUDO_USER:-}" ]; then
+    chown -R "$SUDO_USER" "$REPO_DIR"
+  fi
+
   create_services
   print_summary
 }
