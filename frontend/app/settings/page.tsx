@@ -320,16 +320,11 @@ export default function SettingsPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <SettingsIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <h2>Node Settings</h2>
-            <p className="text-sm text-muted-foreground">
-              Configure the worker node environment and maintenance tools.
-            </p>
-          </div>
+        <div className="space-y-1">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Node Settings</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Configure the worker node environment and maintenance tools.
+          </p>
         </div>
 
         {/* Two-column layout: category nav on the left, section content on the right. */}

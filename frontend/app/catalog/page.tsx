@@ -186,17 +186,12 @@ export default function CatalogPage() {
       <div className="mx-auto max-w-6xl space-y-6 p-3 md:p-6">
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <StoreIcon className="h-6 w-6" />
-            </div>
-            <div>
-              <h2>App Catalog</h2>
-              <p className="text-sm text-muted-foreground">
-                Deploy popular open-source apps in a few clicks. Each runs as a single container with its
-                own storage.
-              </p>
-            </div>
+          <div className="space-y-1">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">App Catalog</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Deploy popular open-source apps in a few clicks. Each runs as a single container with its
+              own storage.
+            </p>
           </div>
 
           {/* Custom deploy dropdown */}

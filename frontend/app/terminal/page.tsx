@@ -47,16 +47,11 @@ export default function TerminalPage() {
     <AppShell appCount={appCount}>
       <div className="flex h-full min-h-0 flex-col p-4 md:p-6">
         {/* Page header */}
-        <div className="flex shrink-0 items-center gap-2.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <TerminalIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <h2>Server Terminal</h2>
-            <p className="text-sm text-muted-foreground">
-              An interactive shell on the host machine running Better-PaaS.
-            </p>
-          </div>
+        <div className="space-y-1 shrink-0">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Server Terminal</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            An interactive shell on the host machine running Better-PaaS.
+          </p>
         </div>
 
         {/* Terminal toolbar */}

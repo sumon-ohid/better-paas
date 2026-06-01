@@ -25,7 +25,6 @@ import { NucleoIcon } from "@/components/nucleo-icons"
 import { Eye, EyeOff } from "lucide-react"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
-const ArchiveIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 const TrashIcon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const DownloadIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
@@ -184,16 +183,11 @@ export default function BackupsPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <ArchiveIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <h2>Backups</h2>
-            <p className="text-sm text-muted-foreground">
-              Snapshot the control-plane data directory (database, tokens, logs).
-            </p>
-          </div>
+        <div className="space-y-1">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Backups</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Snapshot the control-plane data directory (database, tokens, logs).
+          </p>
         </div>
 
         <Alert variant="warning">

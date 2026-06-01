@@ -16,7 +16,6 @@ type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const CpuIcon = (props: IconProps) => <NucleoIcon {...props} name="cpu" />
 const ServerIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
-const ActivityIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
 
 // Maps a 0–100 utilization value to a semantic badge variant so the color
 // reflects reality instead of a hard-coded "OPTIMAL".
@@ -148,22 +147,17 @@ export default function HealthPage() {
     <AppShell appCount={apps.length}>
       <div className="p-4 md:p-6 space-y-6">
         {/* Page header */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <ActivityIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <h2>Node Health</h2>
-            <p className="text-sm text-muted-foreground">
-              Real-time system metrics for the active worker node.
-              <span className="ml-2 font-medium text-foreground">{selectedServerName}</span>
-              {health && (
-                <span className="ml-2 font-mono text-xs text-muted-foreground/70">
-                  Uptime: {health.uptime}
-                </span>
-              )}
-            </p>
-          </div>
+        <div className="space-y-1">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Node Health</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Real-time system metrics for the active worker node.
+            <span className="ml-2 font-medium text-foreground">{selectedServerName}</span>
+            {health && (
+              <span className="ml-2 font-mono text-xs text-muted-foreground/70">
+                Uptime: {health.uptime}
+              </span>
+            )}
+          </p>
         </div>
 
         {/* Stat Cards */}

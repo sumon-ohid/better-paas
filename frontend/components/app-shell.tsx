@@ -89,11 +89,11 @@ function ServerSelector() {
     <Select value={activeServerId} onValueChange={(v) => v && setActiveServerId(v)}>
       <SelectTrigger
         aria-label="Filter by server"
-        className="h-9 w-60 border bg-muted/10 px-2.5 text-xs hover:bg-muted/20"
+        className="h-9 w-32 sm:w-60 border bg-muted/10 px-2 sm:px-2.5 text-xs hover:bg-muted/20"
       >
-        <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
           <ServerStackIcon className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-          <span className="shrink-0 font-medium text-muted-foreground">Server</span>
+          <span className="hidden sm:inline shrink-0 font-medium text-muted-foreground">Server</span>
           <span className="truncate text-foreground">{activeServerLabel}</span>
         </span>
       </SelectTrigger>
@@ -627,9 +627,9 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                 onClick={() => router.push("/deploy")}
                 className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-primary/30 bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
               >
-                <PlusIcon className="h-3.5 w-3.5" />
-                <span>Deploy service</span>
-                <Kbd className="ml-1 h-4 py-2.5 rounded-sm border-0 bg-background/20 px-1 font-mono text-[11px] text-primary-foreground">
+                <PlusIcon className="h-3.5 w-3.5 shrink-0" />
+                <span>Deploy<span className="hidden sm:inline"> service</span></span>
+                <Kbd className="ml-1 h-4 py-2.5 rounded-sm border-0 bg-background/20 px-1 font-mono text-[11px] text-primary-foreground hidden md:inline-flex">
                   N
                 </Kbd>
               </Button>

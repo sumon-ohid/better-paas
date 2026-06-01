@@ -300,16 +300,11 @@ export default function AddonsPage() {
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-6 p-3 md:p-6">
         {/* Header */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <DatabaseIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <h2>Managed Databases</h2>
-            <p className="text-sm text-muted-foreground">
-              One-click Postgres, Redis, and MySQL for your apps — no connection setup required.
-            </p>
-          </div>
+        <div className="space-y-1">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Managed Databases</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            One-click Postgres, Redis, and MySQL for your apps — no connection setup required.
+          </p>
         </div>
 
         {/* Two-column layout: actions on the left, reference rail on the right. */}
