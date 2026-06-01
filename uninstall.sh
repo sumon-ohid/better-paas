@@ -58,7 +58,22 @@ remove_services() {
   info "Stopping Better-PaaS background services..."
 
   if [ "$OS" = "darwin" ]; then
-    # macOS background processes
+    # Stop backend and frontend processes running from better-paas directories
+    pgrep -f "server" | while read -r pid; do
+      if lsof -p "$pid" 2>/dev/null | grep -q "better-paas/backend/server"; then
+        kill -9 "$pid" 2>/dev/null || true
+      fi
+    done
+    pgrep -f "next-server" | while read -r pid; do
+      if lsof -p "$pid" 2>/dev/null | grep -q "better-paas/frontend"; then
+        kill -9 "$pid" 2>/dev/null || true
+      fi
+    done
+    pgrep -f "caddy" | while read -r pid; do
+      if lsof -p "$pid" 2>/dev/null | grep -q "better-paas/backend"; then
+        kill -9 "$pid" 2>/dev/null || true
+      fi
+    done
     pkill -f "better-paas/backend/server" 2>/dev/null || true
     pkill -f "better-paas/frontend" 2>/dev/null || true
     success "Stopped macOS background processes."
