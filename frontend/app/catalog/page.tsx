@@ -29,6 +29,7 @@ import { api } from "@/lib/api"
 import type { CatalogTemplate, CatalogEnv, App } from "@/lib/types"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { Docker } from "@/components/ui/svgs/docker"
+import { useActiveServer } from "@/components/server-context"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
@@ -79,6 +80,8 @@ function AppLogo({ template, className }: { template: CatalogTemplate; className
 export default function CatalogPage() {
   const router = useRouter()
   const { showToast } = useToast()
+  const { activeServerId } = useActiveServer()
+  const targetServerId = activeServerId === "all" ? "localhost" : activeServerId
 
   const [templates, setTemplates] = useState<CatalogTemplate[]>([])
   const [loading, setLoading] = useState(true)
@@ -168,6 +171,7 @@ export default function CatalogPage() {
         templateId: selected.id,
         name,
         envVars: envValues,
+        serverId: targetServerId,
       })
       showToast("Deploying", `${selected.name} is starting up.`, "success")
       router.push(`/logs?appId=${app.id}&mode=build`)
@@ -182,17 +186,12 @@ export default function CatalogPage() {
       <div className="mx-auto max-w-6xl space-y-6 p-3 md:p-6">
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <StoreIcon className="h-6 w-6" />
-            </div>
-            <div>
-              <h2>App Catalog</h2>
-              <p className="text-sm text-muted-foreground">
-                Deploy popular open-source apps in a few clicks. Each runs as a single container with its
-                own storage.
-              </p>
-            </div>
+          <div className="space-y-1">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">App Catalog</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Deploy popular open-source apps in a few clicks. Each runs as a single container with its
+              own storage.
+            </p>
           </div>
 
           {/* Custom deploy dropdown */}
@@ -425,6 +424,7 @@ export default function CatalogPage() {
       <CustomDeployModal
         key={customMode ?? "closed"}
         mode={customMode}
+        serverId={targetServerId}
         onClose={() => setCustomMode(null)}
         onDeployed={(app) => router.push(`/logs?appId=${app.id}&mode=build`)}
       />
@@ -514,10 +514,12 @@ function EnvVarEditor({
 // resource limits); only the primary input and the deploy call differ.
 function CustomDeployModal({
   mode,
+  serverId,
   onClose,
   onDeployed,
 }: {
   mode: "image" | "dockerfile" | null
+  serverId: string
   onClose: () => void
   onDeployed: (app: App) => void
 }) {
@@ -561,6 +563,7 @@ function CustomDeployModal({
       cpus: cpus.trim(),
       port: port ? parseInt(port, 10) : 0,
       healthPath: healthPath.trim(),
+      serverId,
     }
   }
 

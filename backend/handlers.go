@@ -124,6 +124,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		BuildMethod    string            `json:"buildMethod"`
 		DockerfilePath string            `json:"dockerfilePath"`
 		ComposePath    string            `json:"composePath"`
+		ServerID       string            `json:"serverId"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -139,6 +140,11 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	if !validAppName(req.Name) {
 		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
 		return
+	}
+
+	serverID := req.ServerID
+	if serverID == "" {
+		serverID = "localhost"
 	}
 
 	if err := validateResourceLimits(req.Memory, req.CPUs); err != nil {
@@ -167,17 +173,21 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gitURL := normalizeGitURL(req.GitRepo)
-	ip := getLocalIP()
 
 	appsLock.Lock()
 	appID := generateRandomID()
+	taken := make(map[string]bool, len(apps))
+	for _, a := range apps {
+		taken[a.Name] = true
+	}
+	name := uniqueAppName(req.Name, taken)
 	newApp := App{
 		ID:             appID,
-		Name:           req.Name,
+		Name:           name,
 		Status:         "building",
 		GitRepo:        req.GitRepo,
 		Branch:         req.Branch,
-		Port:           allocatePort(),
+		Port:           allocatePort(serverID),
 		CreatedAt:      time.Now(),
 		GitToken:       req.GitToken,
 		RootDir:        req.RootDir,
@@ -197,8 +207,9 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		DockerfilePath: dockerfilePath,
 		ComposePath:    composePath,
 		WebhookSecret:  generateRandomID() + generateRandomID(), // 20-char webhook secret
+		ServerID:       serverID,
 	}
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
+	newApp.URL = defaultAppURL(newApp.ID, serverID)
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 
@@ -267,7 +278,12 @@ func handleStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exec.Command("docker", "stop", app.containerName()).Run()
+	if ex, err := GetExecutorForServer(app.ServerID); err == nil {
+		if sshEx, ok := ex.(*SSHExecutor); ok {
+			defer sshEx.Close()
+		}
+		_, _ = ex.RunCommand("docker", "stop", app.containerName())
+	}
 	stopRuntimeLogCapture(req.ID)
 
 	appsLock.Lock()
@@ -320,7 +336,15 @@ func handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if out, err := exec.Command("docker", "start", app.containerName()).CombinedOutput(); err != nil {
+	ex, err := GetExecutorForServer(app.ServerID)
+	if err != nil {
+		jsonError(w, fmt.Sprintf("Failed to get server connection: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	if out, err := ex.RunCommand("docker", "start", app.containerName()); err != nil {
 		jsonError(w, fmt.Sprintf("Failed to start container: %v — %s", err, out), http.StatusInternalServerError)
 		return
 	}
@@ -380,13 +404,18 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	// Remove the active container, the legacy-named container (if any), and all
 	// images tagged for this app (every per-deploy tag).
 	stopRuntimeLogCapture(app.ID)
-	exec.Command("docker", "rm", "-f", app.containerName()).Run()
-	exec.Command("docker", "rm", "-f", app.Name).Run()
-	removeAppContainers(app.ID)
-	removeAppImages(app.Name)
+	if ex, err := GetExecutorForServer(app.ServerID); err == nil {
+		if sshEx, ok := ex.(*SSHExecutor); ok {
+			defer sshEx.Close()
+		}
+		_, _ = ex.RunCommand("docker", "rm", "-f", app.containerName())
+		_, _ = ex.RunCommand("docker", "rm", "-f", app.Name)
+	}
+	removeAppContainers(app.ServerID, app.ID)
+	removeAppImages(app.ServerID, app.Name)
 
 	// ── Remove build directory ───────────────────────────────────────────────
-	buildDir := filepath.Join("builds", app.Name)
+	buildDir := filepath.Join("builds", app.ID)
 	if err := os.RemoveAll(buildDir); err != nil {
 		log.Printf("[delete] warning: failed to remove build dir %s: %v", buildDir, err)
 	}
@@ -499,8 +528,6 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		normMethod, normDockerfile = m, p
 	}
 
-	ip := getLocalIP()
-
 	appsLock.Lock()
 	var updated *App
 	for i := range apps {
@@ -528,7 +555,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 				apps[i].BuildMethod = normMethod
 				apps[i].DockerfilePath = normDockerfile
 			}
-			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
+			apps[i].URL = defaultAppURL(apps[i].ID, apps[i].ServerID)
 			full := apps[i] // full copy WITH secrets for DB persistence
 			clone := apps[i].Public()
 			updated = &clone
@@ -554,6 +581,65 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// POST /api/apps/rename
+// ---------------------------------------------------------------------------
+
+func handleRenameApp(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Bad request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if !validAppName(name) {
+		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
+		return
+	}
+
+	appsLock.Lock()
+	var updated *App
+	taken := make(map[string]bool, len(apps))
+	for _, a := range apps {
+		if a.ID != req.ID {
+			taken[a.Name] = true
+		}
+	}
+	resolvedName := uniqueAppName(name, taken)
+	for i := range apps {
+		if apps[i].ID == req.ID {
+			apps[i].Name = resolvedName
+			clone := apps[i].Public()
+			updated = &clone
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	if updated == nil {
+		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+	if full := findApp(req.ID); full != nil {
+		if err := dbSaveApp(*full); err != nil {
+			log.Printf("[db] failed to rename app: %v", err)
+			jsonError(w, "failed to save app name", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	jsonOK(w, updated)
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/apps/redeploy
 // ---------------------------------------------------------------------------
 
@@ -571,8 +657,6 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := getLocalIP()
-
 	// For compose rows, always redeploy from the group's primary row so the
 	// whole project is rebuilt and all rows reconcile together.
 	redeployID := req.ID
@@ -587,7 +671,7 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 	for i := range apps {
 		if apps[i].ID == redeployID {
 			apps[i].Status = "building"
-			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
+			apps[i].URL = defaultAppURL(apps[i].ID, apps[i].ServerID)
 			clone := apps[i]
 			targetApp = &clone
 			break
@@ -794,6 +878,18 @@ func handleOnboardingComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, map[string]bool{"completed": true})
+}
+
+func handleOnboardingReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := dbSetMeta(onboardingMetaKey, "false"); err != nil {
+		jsonError(w, "Failed to save", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]bool{"completed": false})
 }
 
 // ---------------------------------------------------------------------------
@@ -1316,6 +1412,27 @@ func findAppByName(name string) *App {
 	defer appsLock.Unlock()
 	for i := range apps {
 		if apps[i].Name == name {
+			clone := apps[i]
+			return &clone
+		}
+	}
+	return nil
+}
+
+// findAppByNameAndServer returns a copy of the app with the given name and server,
+// or nil if no match is found.
+func findAppByNameAndServer(name, serverID string) *App {
+	if serverID == "" {
+		serverID = "localhost"
+	}
+	appsLock.Lock()
+	defer appsLock.Unlock()
+	for i := range apps {
+		appServer := apps[i].ServerID
+		if appServer == "" {
+			appServer = "localhost"
+		}
+		if apps[i].Name == name && appServer == serverID {
 			clone := apps[i]
 			return &clone
 		}

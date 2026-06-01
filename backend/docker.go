@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 // defaultNodeVersion is the Node.js major used when a repo declares no
@@ -131,11 +134,11 @@ func updateAppStatus(appID, status string) {
 }
 
 // allocatePort picks a free host port in [9000, 9999], avoiding ports already
-// assigned to other apps and ports currently bound on the host.
+// assigned to other apps on the same server, and ports currently bound on the host (if local).
 //
 // IMPORTANT: callers must hold appsLock, since this reads the apps slice.
-func allocatePort() int {
-	return allocatePortAvoiding(nil)
+func allocatePort(serverID string) int {
+	return allocatePortAvoiding(serverID, nil)
 }
 
 // allocatePortAvoiding is allocatePort with an additional set of ports to treat
@@ -144,27 +147,42 @@ func allocatePort() int {
 // registered on an app row.
 //
 // IMPORTANT: callers must hold appsLock, since this reads the apps slice.
-func allocatePortAvoiding(extra map[int]bool) int {
+func allocatePortAvoiding(serverID string, extra map[int]bool) int {
+	if serverID == "" {
+		serverID = "localhost"
+	}
 	inUse := make(map[int]bool, len(apps))
 	for _, a := range apps {
-		inUse[a.Port] = true
+		sID := a.ServerID
+		if sID == "" {
+			sID = "localhost"
+		}
+		if sID == serverID {
+			inUse[a.Port] = true
+		}
 	}
 	for p := range extra {
 		inUse[p] = true
 	}
 
 	const lo, hi = 9000, 9999
+	isLocal := serverID == "localhost"
+
 	// Try random ports first to reduce clustering.
 	for attempt := 0; attempt < 200; attempt++ {
 		p := lo + secureIntn(hi-lo+1)
-		if !inUse[p] && portFree(p) {
-			return p
+		if !inUse[p] {
+			if !isLocal || portFree(p) {
+				return p
+			}
 		}
 	}
 	// Deterministic fallback: first free port in range.
 	for p := lo; p <= hi; p++ {
-		if !inUse[p] && portFree(p) {
-			return p
+		if !inUse[p] {
+			if !isLocal || portFree(p) {
+				return p
+			}
 		}
 	}
 	// Last resort: a port not tracked in memory (host check may have raced).
@@ -255,7 +273,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 	if rollbackImage != "" {
 		// ── Rollback path: reuse an existing image, no clone/build ───────────
 		localLog(fmt.Sprintf("⏪ Rolling back %s to image %s", app.Name, rollbackImage))
-		if !dockerImageExists(rollbackImage) {
+		if !dockerImageExists(app.ServerID, rollbackImage) {
 			localLog(fmt.Sprintf("✖ Image %s no longer exists; cannot roll back.", rollbackImage))
 			finish("failed", "")
 			return
@@ -283,7 +301,13 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			return
 		}
 		localLog(fmt.Sprintf("🐳 Pulling image %s ...", image))
-		if err := streamBuildCommand(exec.Command("docker", "pull", image), localLog); err != nil {
+		platform := getTargetPlatform(app.ServerID)
+		pullArgs := []string{"pull"}
+		if platform != "" {
+			pullArgs = append(pullArgs, "--platform", platform)
+		}
+		pullArgs = append(pullArgs, image)
+		if err := streamBuildCommand(exec.Command("docker", pullArgs...), localLog); err != nil {
 			localLog(fmt.Sprintf("✖ Failed to pull image: %v", err))
 			finish("failed", "")
 			return
@@ -300,7 +324,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			return
 		}
 		localLog(fmt.Sprintf("✨ Preparing inline Dockerfile build for app: %s", app.Name))
-		buildDir := filepath.Join("builds", app.Name)
+		buildDir := filepath.Join("builds", app.ID)
 		os.RemoveAll(buildDir)
 		if err := os.MkdirAll(buildDir, 0755); err != nil {
 			localLog(fmt.Sprintf("✖ Failed to create build directory: %v", err))
@@ -324,7 +348,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 	} else {
 		// ── 1. Clone repository ──────────────────────────────────────────────
 		localLog(fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
-		buildDir := filepath.Join("builds", app.Name)
+		buildDir := filepath.Join("builds", app.ID)
 		os.RemoveAll(buildDir)
 
 		localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, app.Branch))
@@ -372,6 +396,15 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		localLog("✔ Docker image built successfully!")
 	}
 
+	// ── 5. Transfer image to remote target server if needed ──────────────────
+	if rollbackImage == "" && app.ServerID != "" && app.ServerID != "localhost" {
+		if err := transferImageToRemote(app.ServerID, image, localLog); err != nil {
+			localLog(fmt.Sprintf("✖ Failed to transfer image to remote: %v", err))
+			finish("failed", "")
+			return
+		}
+	}
+
 	// ── 6. Start the NEW container on a fresh port (zero-downtime) ───────────
 	containerPort := app.Port
 	if app.PortOverride > 0 {
@@ -379,7 +412,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 	}
 
 	appsLock.Lock()
-	newHostPort := allocatePort()
+	newHostPort := allocatePort(app.ServerID)
 	appsLock.Unlock()
 
 	newContainer := fmt.Sprintf("%s-%s", app.Name, deployID)
@@ -389,17 +422,29 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 	localLog(fmt.Sprintf("🚀 Starting new container %q (host :%d → container :%d)...", newContainer, newHostPort, containerPort))
 	if err := startContainer(app, image, newContainer, newHostPort, containerPort); err != nil {
 		localLog(fmt.Sprintf("✖ Container startup failed: %v", err))
-		exec.Command("docker", "rm", "-f", newContainer).Run()
+		ex, _ := GetExecutorForServer(app.ServerID)
+		if ex != nil {
+			_, _ = ex.RunCommand("docker", "rm", "-f", newContainer)
+			if sshEx, ok := ex.(*SSHExecutor); ok {
+				sshEx.Close()
+			}
+		}
 		finish("failed", "")
 		return
 	}
 
 	// ── 7. Health check before cutover ───────────────────────────────────────
 	localLog("🩺 Waiting for the new container to become healthy...")
-	if err := waitHealthy(newHostPort, app.HealthPath, 30*time.Second, localLog); err != nil {
+	if err := waitHealthy(app.ServerID, newHostPort, app.HealthPath, 30*time.Second, localLog); err != nil {
 		localLog(fmt.Sprintf("✖ Health check failed: %v", err))
 		localLog("↩ Keeping the previous version live; discarding the failed container.")
-		exec.Command("docker", "rm", "-f", newContainer).Run()
+		ex, _ := GetExecutorForServer(app.ServerID)
+		if ex != nil {
+			_, _ = ex.RunCommand("docker", "rm", "-f", newContainer)
+			if sshEx, ok := ex.(*SSHExecutor); ok {
+				sshEx.Close()
+			}
+		}
 		finish("failed", "")
 		return
 	}
@@ -430,12 +475,18 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 
 	// Retire the previous container (best-effort).
 	if oldContainer != "" && oldContainer != newContainer {
-		exec.Command("docker", "rm", "-f", oldContainer).Run()
+		ex, _ := GetExecutorForServer(app.ServerID)
+		if ex != nil {
+			_, _ = ex.RunCommand("docker", "rm", "-f", oldContainer)
+			if sshEx, ok := ex.(*SSHExecutor); ok {
+				sshEx.Close()
+			}
+		}
 		localLog(fmt.Sprintf("🧹 Removed previous container %q (was on port %d).", oldContainer, oldPort))
 	}
 
 	// Keep only the most recent images for rollback; prune older ones.
-	pruneOldImages(app.Name, 5, localLog)
+	pruneOldImages(app.ServerID, app.Name, 5, localLog)
 
 	localLog(fmt.Sprintf("✅ Deployment complete! App live at: %s", app.URL))
 	finish("success", image)
@@ -484,7 +535,11 @@ func buildWithNixpacks(app App, buildDir, buildSubDir, image string, localLog fu
 	localLog("🔍 Analyzing workspace with Nixpacks...")
 	localLog(fmt.Sprintf("🟢 Using Node.js %s", nodeVersion))
 
+	platform := getTargetPlatform(app.ServerID)
 	args := []string{"build", buildSubDir, "--name", image, "--env", "NIXPACKS_NODE_VERSION=" + nodeVersion}
+	if platform != "" {
+		args = append(args, "--platform", platform)
+	}
 	for k, v := range app.EnvVars {
 		args = append(args, "--env", fmt.Sprintf("%s=%s", k, v))
 	}
@@ -515,7 +570,11 @@ func buildWithDockerfile(app App, buildSubDir, image string, localLog func(strin
 	}
 	localLog(fmt.Sprintf("🐳 Building from Dockerfile: %s", dockerfile))
 
+	platform := getTargetPlatform(app.ServerID)
 	args := []string{"build", "-f", dfPath, "-t", image}
+	if platform != "" {
+		args = append(args, "--platform", platform)
+	}
 	// Surface env vars as build args so Dockerfiles can ARG them if needed.
 	// (They are also injected at runtime by startContainer.)
 	for k, v := range app.EnvVars {
@@ -579,27 +638,44 @@ func startContainer(app App, image, containerName string, hostPort, containerPor
 	}
 	runArgs = append(runArgs, "--name", containerName, image)
 
-	if output, err := exec.Command("docker", runArgs...).CombinedOutput(); err != nil {
-		return fmt.Errorf("%v — %s", err, string(output))
+	ex, err := GetExecutorForServer(app.ServerID)
+	if err != nil {
+		return err
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+
+	if output, err := ex.RunCommand("docker", runArgs...); err != nil {
+		return fmt.Errorf("%v — %s", err, output)
 	}
 
 	// Attach to the shared add-on network (best-effort) so the container can
 	// reach managed databases/caches by their container name. Published ports
 	// remain on the default bridge, so this is purely additive.
-	exec.Command("docker", "network", "connect", addonNetwork, containerName).Run()
+	_, _ = ex.RunCommand("docker", "network", "create", addonNetwork)
+	_, _ = ex.RunCommand("docker", "network", "connect", addonNetwork, containerName)
 	return nil
 }
 
 // waitHealthy polls a container until it answers, or the timeout elapses. When
 // healthPath is set it expects an HTTP 2xx/3xx/4xx (any HTTP response means the
 // server is up); otherwise a successful TCP connect is sufficient.
-func waitHealthy(hostPort int, healthPath string, timeout time.Duration, logf func(string)) error {
+func waitHealthy(serverID string, hostPort int, healthPath string, timeout time.Duration, logf func(string)) error {
+	targetIP := "127.0.0.1"
+	if serverID != "" && serverID != "localhost" {
+		srv, err := dbGetServer(serverID)
+		if err == nil && srv != nil {
+			targetIP = srv.IP
+		}
+	}
+
 	deadline := time.Now().Add(timeout)
 	attempt := 0
 	for time.Now().Before(deadline) {
 		attempt++
 		if healthPath != "" {
-			url := fmt.Sprintf("http://127.0.0.1:%d%s", hostPort, ensureLeadingSlash(healthPath))
+			url := fmt.Sprintf("http://%s:%d%s", targetIP, hostPort, ensureLeadingSlash(healthPath))
 			client := &http.Client{Timeout: 3 * time.Second}
 			resp, err := client.Get(url)
 			if err == nil {
@@ -609,7 +685,7 @@ func waitHealthy(hostPort int, healthPath string, timeout time.Duration, logf fu
 				}
 			}
 		} else {
-			conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", hostPort), 2*time.Second)
+			conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", targetIP, hostPort), 2*time.Second)
 			if err == nil {
 				conn.Close()
 				return nil
@@ -627,23 +703,37 @@ func ensureLeadingSlash(p string) string {
 	return p
 }
 
-// dockerImageExists reports whether an image tag is present locally.
-func dockerImageExists(image string) bool {
-	err := exec.Command("docker", "image", "inspect", image).Run()
+// dockerImageExists reports whether an image tag is present on the target server.
+func dockerImageExists(serverID, image string) bool {
+	ex, err := GetExecutorForServer(serverID)
+	if err != nil {
+		return false
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	_, err = ex.RunCommand("docker", "image", "inspect", image)
 	return err == nil
 }
 
 // containerRunning reports whether a container with the given name exists and is
-// currently in the "running" state.
-func containerRunning(name string) bool {
+// currently in the "running" state on the target server.
+func containerRunning(serverID, name string) bool {
 	if name == "" {
 		return false
 	}
-	out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", name).Output()
+	ex, err := GetExecutorForServer(serverID)
 	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(string(out)) == "true"
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	out, err := ex.RunCommand("docker", "inspect", "-f", "{{.State.Running}}", name)
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(out) == "true"
 }
 
 // reconcileStuckBuilds fixes apps left in the "building" state by a server
@@ -682,7 +772,7 @@ func reconcileStuckBuilds() {
 			continue
 		}
 		final := "failed"
-		if containerRunning(apps[idx].containerName()) {
+		if containerRunning(apps[idx].ServerID, apps[idx].containerName()) {
 			final = "running"
 		}
 		apps[idx].Status = final
@@ -703,40 +793,61 @@ func reconcileStuckBuilds() {
 }
 
 // removeAppContainers force-removes every container labeled for the given app.
-func removeAppContainers(appID string) {
-	out, err := exec.Command("docker", "ps", "-aq", "--filter", "label=better-paas-app="+appID).Output()
+func removeAppContainers(serverID, appID string) {
+	ex, err := GetExecutorForServer(serverID)
 	if err != nil {
 		return
 	}
-	for _, id := range strings.Fields(string(out)) {
-		exec.Command("docker", "rm", "-f", id).Run()
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	out, err := ex.RunCommand("docker", "ps", "-aq", "--filter", "label=better-paas-app="+appID)
+	if err != nil {
+		return
+	}
+	for _, id := range strings.Fields(out) {
+		_, _ = ex.RunCommand("docker", "rm", "-f", id)
 	}
 }
 
 // removeAppImages removes every image tagged under the app's repository name.
-func removeAppImages(appName string) {
-	out, err := exec.Command("docker", "images", "-q", appName).Output()
+func removeAppImages(serverID, appName string) {
+	ex, err := GetExecutorForServer(serverID)
+	if err != nil {
+		return
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	out, err := ex.RunCommand("docker", "images", "-q", appName)
 	if err != nil {
 		return
 	}
 	seen := make(map[string]bool)
-	for _, id := range strings.Fields(string(out)) {
+	for _, id := range strings.Fields(out) {
 		if seen[id] {
 			continue
 		}
 		seen[id] = true
-		exec.Command("docker", "rmi", "-f", id).Run()
+		_, _ = ex.RunCommand("docker", "rmi", "-f", id)
 	}
 }
 
 // pruneOldImages keeps the newest `keep` images for an app (by tag) and removes
 // older ones so the disk doesn't fill with stale build artifacts.
-func pruneOldImages(appName string, keep int, logf func(string)) {
-	out, err := exec.Command("docker", "images", "--format", "{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}", appName).Output()
+func pruneOldImages(serverID, appName string, keep int, logf func(string)) {
+	ex, err := GetExecutorForServer(serverID)
 	if err != nil {
 		return
 	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	out, err := ex.RunCommand("docker", "images", "--format", "{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}", appName)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
 	if len(lines) <= keep {
 		return
 	}
@@ -750,7 +861,7 @@ func pruneOldImages(appName string, keep int, logf func(string)) {
 		if strings.HasSuffix(tag, ":<none>") {
 			continue
 		}
-		exec.Command("docker", "rmi", "-f", tag).Run()
+		_, _ = ex.RunCommand("docker", "rmi", "-f", tag)
 	}
 }
 
@@ -1298,4 +1409,104 @@ func reconcilePkgManagerCmd(cmd, target string) string {
 	// install verb ("<pm> install" / "<pm> i") maps across managers as-is.
 	fields[0] = target
 	return strings.Join(fields, " ")
+}
+
+// transferImageToRemote exports a local Docker image via `docker save` and pipes it
+// directly to `docker load` on the remote server over SSH.
+func transferImageToRemote(serverID, image string, localLog func(string)) error {
+	server, err := dbGetServer(serverID)
+	if err != nil {
+		return err
+	}
+	if server == nil || server.IsLocal {
+		return nil
+	}
+
+	localLog(fmt.Sprintf("📦 Exporting local image %s...", image))
+
+	saveCmd := exec.Command("docker", "save", image)
+	stdout, err := saveCmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("docker save pipe: %w", err)
+	}
+	if err := saveCmd.Start(); err != nil {
+		return fmt.Errorf("docker save start: %w", err)
+	}
+
+	localLog(fmt.Sprintf("🚚 Streaming image to remote host %s (%s)...", server.Name, server.IP))
+
+	signer, err := ssh.ParsePrivateKey([]byte(server.SSHKey))
+	if err != nil {
+		return fmt.Errorf("parse remote SSH key: %w", err)
+	}
+	cfg := &ssh.ClientConfig{
+		User:            server.SSHUser,
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         20 * time.Second,
+	}
+
+	addr := fmt.Sprintf("%s:%d", server.IP, server.Port)
+	client, err := ssh.Dial("tcp", addr, cfg)
+	if err != nil {
+		return fmt.Errorf("remote SSH dial: %w", err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("new SSH session: %w", err)
+	}
+	defer session.Close()
+
+	session.Stdin = stdout
+	var errBuf bytes.Buffer
+	session.Stderr = &errBuf
+
+	if err := session.Run("docker load"); err != nil {
+		return fmt.Errorf("docker load on remote: %w — %s", err, errBuf.String())
+	}
+
+	if err := saveCmd.Wait(); err != nil {
+		return fmt.Errorf("docker save command: %w", err)
+	}
+
+	// Clean up local image to save disk space
+	_ = exec.Command("docker", "rmi", image).Run()
+	localLog("✔ Image transferred and loaded on remote.")
+	return nil
+}
+
+// getTargetPlatform resolves the CPU architecture of the target server and returns
+// the corresponding Docker platform string (e.g. "linux/amd64", "linux/arm64"),
+// or "" if it is the local host.
+func getTargetPlatform(serverID string) string {
+	if serverID == "" || serverID == "localhost" {
+		return ""
+	}
+
+	exec, err := GetExecutorForServer(serverID)
+	if err != nil {
+		return ""
+	}
+	if sshExec, ok := exec.(*SSHExecutor); ok {
+		defer sshExec.Close()
+	}
+
+	out, err := exec.RunCommand("uname", "-m")
+	if err != nil {
+		return "linux/amd64" // fallback
+	}
+
+	arch := strings.TrimSpace(out)
+	switch arch {
+	case "x86_64", "amd64":
+		return "linux/amd64"
+	case "aarch64", "arm64":
+		return "linux/arm64"
+	case "armv7l", "armhf":
+		return "linux/arm/v7"
+	default:
+		return "linux/amd64" // standard default
+	}
 }

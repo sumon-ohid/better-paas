@@ -368,16 +368,11 @@ export default function AnalyticsPage() {
       <div className="space-y-6 p-4 md:p-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <ActivityIcon className="h-6 w-6" />
-            </div>
-            <div>
-              <h2>Web Analytics</h2>
-              <p className="text-sm text-muted-foreground">
-                Privacy-friendly visitor stats for your deployed sites.
-              </p>
-            </div>
+          <div className="space-y-1">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Web Analytics</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Privacy-friendly visitor stats for your deployed sites.
+            </p>
           </div>
 
           {apps.length > 0 && (

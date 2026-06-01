@@ -26,6 +26,7 @@ export interface App {
   buildMethod?: string
   dockerfilePath?: string
   composePath?: string
+  serverId?: string
   // Docker Compose grouping: a compose deploy is one project surfaced as one
   // App row per service. These tie the rows together for grouped display.
   composeProject?: string
@@ -99,6 +100,7 @@ export interface DeployRequest {
   buildMethod?: string
   dockerfilePath?: string
   composePath?: string
+  serverId?: string
 }
 
 export interface UpdateRequest {
@@ -133,6 +135,7 @@ export interface Addon {
   connEnv?: Record<string, string>
   attachedApps?: string[]
   createdAt: string
+  serverId?: string
 }
 
 // ── App catalog (one-click deploys) ───────────────────────────────────────────
@@ -168,6 +171,7 @@ export interface CatalogDeployRequest {
   domains?: string[]
   memory?: string
   cpus?: string
+  serverId?: string
 }
 
 // Shared fields for custom (non-template) deploys.
@@ -181,6 +185,7 @@ export interface CustomDeployBase {
   volumes?: string[]
   port?: number
   healthPath?: string
+  serverId?: string
 }
 
 export interface ImageDeployRequest extends CustomDeployBase {
@@ -336,6 +341,23 @@ export interface AnalyticsSummary {
   browsers: AnalyticsBreakdown[]
   os: AnalyticsBreakdown[]
   devices: AnalyticsBreakdown[]
+}
+
+// ── Multi-server support ─────────────────────────────────────────────────────
+
+export interface Server {
+  id: string
+  name: string
+  description: string
+  ip: string
+  port: number
+  sshUser: string
+  isLocal: boolean
+  status: "connected" | "error" | "unknown"
+  lastChecked: string
+  createdAt: string
+  /** Only populated in create and public-key API responses. */
+  publicKey?: string
 }
 
 export interface AnalyticsOverviewRow {

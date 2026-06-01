@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/ssh"
 )
 
 var upgrader = websocket.Upgrader{
@@ -157,12 +158,13 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Find the target app
-	var containerName, currentStatus string
+	var containerName, currentStatus, serverID string
 	appsLock.Lock()
 	for _, a := range apps {
 		if a.ID == appID {
 			containerName = a.containerName()
 			currentStatus = a.Status
+			serverID = a.ServerID
 			break
 		}
 	}
@@ -202,46 +204,116 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Tail docker logs
-	cmd := exec.Command("docker", "logs", "--tail", "200", "-f", containerName)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		wsSend(conn, fmt.Sprintf("Failed to open log stream: %v", err))
-		return
-	}
-	cmd.Stderr = cmd.Stdout
+	isLocal := serverID == "" || serverID == "localhost"
 
-	if err := cmd.Start(); err != nil {
-		wsSend(conn, fmt.Sprintf("Failed to start docker logs: %v", err))
-		return
-	}
-	defer func() {
-		if cmd.Process != nil {
-			cmd.Process.Kill()
+	if isLocal {
+		// Tail docker logs
+		cmd := exec.Command("docker", "logs", "--tail", "200", "-f", containerName)
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			wsSend(conn, fmt.Sprintf("Failed to open log stream: %v", err))
+			return
 		}
-		cmd.Wait()
-	}()
+		cmd.Stderr = cmd.Stdout
 
-	// Kill docker process on client disconnect
-	go func() {
-		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
-				if cmd.Process != nil {
-					cmd.Process.Kill()
+		if err := cmd.Start(); err != nil {
+			wsSend(conn, fmt.Sprintf("Failed to start docker logs: %v", err))
+			return
+		}
+		defer func() {
+			if cmd.Process != nil {
+				cmd.Process.Kill()
+			}
+			cmd.Wait()
+		}()
+
+		// Kill docker process on client disconnect
+		go func() {
+			for {
+				if _, _, err := conn.ReadMessage(); err != nil {
+					if cmd.Process != nil {
+						cmd.Process.Kill()
+					}
+					return
 				}
-				return
+			}
+		}()
+
+		reader := bufio.NewReader(stdout)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			if sendErr := wsSend(conn, strings.TrimSuffix(line, "\n")); sendErr != nil {
+				break
 			}
 		}
-	}()
-
-	reader := bufio.NewReader(stdout)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			break
+	} else {
+		// Remote logs over SSH
+		server, err := dbGetServer(serverID)
+		if err != nil || server == nil {
+			wsSend(conn, "Failed to load server config.")
+			return
 		}
-		if sendErr := wsSend(conn, strings.TrimSuffix(line, "\n")); sendErr != nil {
-			break
+		signer, err := ssh.ParsePrivateKey([]byte(server.SSHKey))
+		if err != nil {
+			wsSend(conn, "Failed to parse SSH private key: "+err.Error())
+			return
+		}
+		cfg := &ssh.ClientConfig{
+			User:            server.SSHUser,
+			Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Timeout:         15 * time.Second,
+		}
+		addr := fmt.Sprintf("%s:%d", server.IP, server.Port)
+		client, err := ssh.Dial("tcp", addr, cfg)
+		if err != nil {
+			wsSend(conn, "Failed to connect to remote server: "+err.Error())
+			return
+		}
+		defer client.Close()
+
+		session, err := client.NewSession()
+		if err != nil {
+			wsSend(conn, "Failed to create SSH session: "+err.Error())
+			return
+		}
+		defer session.Close()
+
+		stdout, err := session.StdoutPipe()
+		if err != nil {
+			wsSend(conn, "Failed to setup stdout pipe: "+err.Error())
+			return
+		}
+		session.Stderr = session.Stdout
+
+		cmdStr := fmt.Sprintf("docker logs --tail 200 -f %s", shellQuote(containerName))
+		if err := session.Start(cmdStr); err != nil {
+			wsSend(conn, "Failed to start docker logs: "+err.Error())
+			return
+		}
+
+		// Kill SSH session on client disconnect
+		go func() {
+			for {
+				if _, _, err := conn.ReadMessage(); err != nil {
+					session.Close()
+					return
+				}
+			}
+		}()
+
+		reader := bufio.NewReader(stdout)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			if sendErr := wsSend(conn, strings.TrimSuffix(line, "\n")); sendErr != nil {
+				break
+			}
 		}
 	}
 }
@@ -253,6 +325,10 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 func handleStatsWS(w http.ResponseWriter, r *http.Request) {
 	if !wsAuthOK(w, r) {
 		return
+	}
+	serverID := r.URL.Query().Get("serverId")
+	if serverID == "" {
+		serverID = "localhost"
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -277,13 +353,17 @@ func handleStatsWS(w http.ResponseWriter, r *http.Request) {
 		appsLock.Lock()
 		activeCount := 0
 		for _, a := range apps {
-			if a.Status == "running" {
+			sID := a.ServerID
+			if sID == "" {
+				sID = "localhost"
+			}
+			if sID == serverID && a.Status == "running" {
 				activeCount++
 			}
 		}
 		appsLock.Unlock()
 
-		cpuPct, memPct, diskPct := readMetrics()
+		cpuPct, memPct, diskPct := readMetrics(serverID)
 		stats := ServerStats{
 			CPUUsage:    cpuPct,
 			MemoryUsage: memPct,

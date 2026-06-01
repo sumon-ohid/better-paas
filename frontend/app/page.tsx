@@ -7,6 +7,7 @@ import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { AppShell, useToast } from "@/components/app-shell"
 import { StatusBadge, StatusDot } from "@/components/status-badge"
 import { compareByStatusPriority } from "@/lib/status"
+import { useActiveServer } from "@/components/server-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -531,6 +532,7 @@ function LoadingRows() {
 function ApplicationsDashboard() {
   const router = useRouter()
   const { showToast } = useToast()
+  const { activeServerId } = useActiveServer()
 
   const [apps, setApps] = useState<App[]>([])
   const [loading, setLoading] = useState(true)
@@ -607,7 +609,12 @@ function ApplicationsDashboard() {
         app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         app.gitRepo.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesStatus = statusFilter === "all" || app.status === statusFilter
-      return matchesSearch && matchesStatus
+      
+      const appServerId = app.serverId || "localhost"
+      const targetServerId = activeServerId === "all" ? "all" : (activeServerId === "localhost" ? "localhost" : activeServerId)
+      const matchesServer = targetServerId === "all" || appServerId === targetServerId
+
+      return matchesSearch && matchesStatus && matchesServer
     })
     .sort((a, b) => {
       // Keep compose-group rows adjacent (grouped by project, primary first),

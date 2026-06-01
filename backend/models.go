@@ -96,6 +96,11 @@ type App struct {
 	// ── Auto-deploy ──────────────────────────────────────────────────────────
 	WebhookSecret  string `json:"webhookSecret,omitempty"` // HMAC secret for GitHub push webhooks (redacted)
 	AutoDeploy     bool   `json:"autoDeploy"`              // deploy automatically on matching push
+
+	// ── Server assignment ─────────────────────────────────────────────────────
+	// ServerID is the ID of the Server where this app is deployed.
+	// Defaults to "localhost" (the local machine).
+	ServerID string `json:"serverId"`
 }
 
 // containerName returns the name of the container currently serving the app,
@@ -228,6 +233,31 @@ type DeploymentRecord struct {
 	Trigger   string    `json:"trigger,omitempty"`   // "manual","webhook","rollback"
 	Commit    string    `json:"commit,omitempty"`    // git commit SHA, when known
 	CommitMsg string    `json:"commitMsg,omitempty"` // git commit subject line, when known
+}
+
+// Server represents a target server where apps can be deployed.
+// The local server (is_local=true) represents the machine running the control plane.
+type Server struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	IP          string    `json:"ip"`
+	Port        int       `json:"port"`
+	SSHUser     string    `json:"sshUser"`
+	SSHKey      string    `json:"-"` // never exposed; encrypted at rest
+	IsLocal     bool      `json:"isLocal"`
+	Status      string    `json:"status"` // "connected", "error", "unknown"
+	LastChecked time.Time `json:"lastChecked"`
+	CreatedAt   time.Time `json:"createdAt"`
+	// PublicKey is only populated in the API response for create/get-key calls.
+	PublicKey string `json:"publicKey,omitempty"`
+}
+
+// Public returns a safe view of Server — the SSH private key is always stripped.
+func (s Server) Public() Server {
+	clone := s
+	clone.SSHKey = ""
+	return clone
 }
 
 // ---------------------------------------------------------------------------

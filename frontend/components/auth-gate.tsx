@@ -165,14 +165,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               On your server, get it with any of these:
             </p>
             <ul className="mt-2 space-y-1 text-xs leading-relaxed text-muted-foreground/70">
+              <li>backend startup logs (journalctl / docker logs)</li> or{" "}
               <li>
-                <code className="rounded bg-muted px-1 py-0.5">./server token</code> <br /> (or{" "}
-                <code className="rounded bg-muted px-1 py-0.5">docker exec &lt;container&gt; ./server token</code>)
+                run <code className="rounded bg-muted px-1 py-0.5">./server token</code> from ~/better-paas/backend dir <br />
               </li>
-              <li>
-                <code className="rounded bg-muted px-1 py-0.5">cat data/admin_token.txt</code>
-              </li>
-              <li>backend startup logs (journalctl / docker logs)</li>
             </ul>
           </div>
         </div>

@@ -26,3 +26,5 @@ admin_token.txt
 secret.key
 .env
 .env.*
+
+.gocache

@@ -71,6 +71,7 @@ func main() {
 	mux.HandleFunc("/api/apps/start", handleStart)
 	mux.HandleFunc("/api/apps/delete", handleDelete)
 	mux.HandleFunc("/api/apps/update", handleUpdate)
+	mux.HandleFunc("/api/apps/rename", handleRenameApp)
 	mux.HandleFunc("/api/apps/redeploy", handleRedeploy)
 	mux.HandleFunc("/api/apps/rollback", handleRollback)
 	mux.HandleFunc("/api/apps/webhook", handleWebhookInfo)
@@ -80,6 +81,14 @@ func main() {
 
 	// Custom domains + Cloudflare DNS
 	mux.HandleFunc("/api/server/info", handleServerInfo)
+
+	// Server management (multi-server support)
+	mux.HandleFunc("/api/servers", handleServersList)
+	mux.HandleFunc("/api/servers/create", handleServerCreate)
+	mux.HandleFunc("/api/servers/delete", handleServerDelete)
+	mux.HandleFunc("/api/servers/test", handleServerTest)
+	mux.HandleFunc("/api/servers/keys/public", handleServerPublicKey)
+
 	mux.HandleFunc("/api/cloudflare/status", handleCloudflareStatus)
 	mux.HandleFunc("/api/cloudflare/token/save", handleCloudflareTokenSet)
 	mux.HandleFunc("/api/cloudflare/token/delete", handleCloudflareTokenDelete)
@@ -148,6 +157,7 @@ func main() {
 	mux.HandleFunc("/api/auth/verify", handleAuthVerify)
 	mux.HandleFunc("/api/system/onboarding", handleOnboardingGet)
 	mux.HandleFunc("/api/system/onboarding/complete", handleOnboardingComplete)
+	mux.HandleFunc("/api/system/onboarding/reset", handleOnboardingReset)
 	mux.HandleFunc("/api/docker/prune", handleDockerPrune)
 	mux.HandleFunc("/api/deployments/history", handleDeploymentHistory)
 	mux.HandleFunc("/api/metrics/apps", handlePerAppMetrics)

@@ -46,6 +46,14 @@ import {
 } from "@/components/ui/command"
 
 
+import { useActiveServer } from "@/components/server-context"
+import {
+  Select,
+  SelectTrigger,
+  SelectPopup,
+  SelectItem,
+} from "@/components/ui/select"
+
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
@@ -55,14 +63,72 @@ const SettingsIcon = (props: IconProps) => <NucleoIcon {...props} name="settings
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 const KeyboardIcon = (props: IconProps) => <NucleoIcon {...props} name="keyboard" />
 const SpinIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
-const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
-const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
-const ArchiveIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
-const ChartIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
+const ListIcon = (props: IconProps) => <NucleoIcon {...props} name="list" />
+const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="database" />
+const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="clock" />
+const ArchiveIcon = (props: IconProps) => <NucleoIcon {...props} name="archive" />
+const ChartIcon = (props: IconProps) => <NucleoIcon {...props} name="bar-chart" />
 const StoreIcon = (props: IconProps) => <NucleoIcon {...props} name="layers" />
 const MoonIcon = (props: IconProps) => <NucleoIcon {...props} name="moon" />
 const SunIcon = (props: IconProps) => <NucleoIcon {...props} name="sun" />
 const SignOutIcon = (props: IconProps) => <NucleoIcon {...props} name="logout" />
+const ServerStackIcon = (props: IconProps) => <NucleoIcon {...props} name="cloud" />
+
+// ── Server Selector ───────────────────────────────────────────────────────────
+
+function ServerSelector() {
+  const { activeServerId, setActiveServerId, servers } = useActiveServer()
+  const activeServerLabel =
+    activeServerId === "all"
+      ? "All servers"
+      : activeServerId === "localhost"
+        ? "Localhost"
+        : servers.find((server) => server.id === activeServerId)?.name ?? "Unknown server"
+
+  return (
+    <Select value={activeServerId} onValueChange={(v) => v && setActiveServerId(v)}>
+      <SelectTrigger
+        aria-label="Filter by server"
+        className="h-9 w-32 sm:w-60 border bg-muted/10 px-2 sm:px-2.5 text-xs hover:bg-muted/20"
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+          <ServerStackIcon className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+          <span className="hidden sm:inline shrink-0 font-medium text-muted-foreground">Server</span>
+          <span className="truncate text-foreground">{activeServerLabel}</span>
+        </span>
+      </SelectTrigger>
+      <SelectPopup alignItemWithTrigger={false}>
+        <SelectItem value="all">
+          <span className="flex items-center gap-2 text-xs">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary/60" />
+            <span>All Servers</span>
+          </span>
+        </SelectItem>
+        <SelectItem value="localhost">
+          <span className="flex items-center gap-2 text-xs">
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+            <span>Localhost</span>
+            <span className="rounded-sm bg-primary/10 px-1 py-0.2 text-[9px] font-mono text-primary leading-none">local</span>
+          </span>
+        </SelectItem>
+        {servers.filter((server) => server.id !== "localhost").map((server) => {
+          const isConnected = server.status === "connected"
+          const isError = server.status === "error"
+          const dotColor = isConnected ? "bg-success" : isError ? "bg-destructive" : "bg-muted-foreground/45"
+          return (
+            <SelectItem key={server.id} value={server.id}>
+              <span className="flex items-center gap-2 text-xs">
+                <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+                <span className="truncate">{server.name}</span>
+              </span>
+            </SelectItem>
+          )
+        })}
+      </SelectPopup>
+    </Select>
+  )
+}
+
 
 interface NavItem {
   id: string
@@ -70,6 +136,11 @@ interface NavItem {
   icon: React.ReactNode
   href: string
   badge?: string | number
+}
+
+interface NavSection {
+  label: string
+  items: NavItem[]
 }
 
 // Static reference for the keyboard-shortcuts cheat sheet. Mirrors the bindings
@@ -154,68 +225,99 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
 
-  const navItems: NavItem[] = [
+  const navSections: NavSection[] = [
     {
-      id: "apps",
-      label: "Applications",
-      icon: <GlobeIcon className="h-3.5 w-3.5 text-chart-1" />,
-      href: "/",
-      badge: appCount,
+      label: "Deploy",
+      items: [
+        {
+          id: "apps",
+          label: "Applications",
+          icon: <GlobeIcon className="h-3.5 w-3.5 text-chart-1" />,
+          href: "/",
+          badge: appCount,
+        },
+        {
+          id: "catalog",
+          label: "App Catalog",
+          icon: <StoreIcon className="h-3.5 w-3.5 text-chart-2" />,
+          href: "/catalog",
+        },
+      ],
     },
     {
-      id: "catalog",
-      label: "App Catalog",
-      icon: <StoreIcon className="h-3.5 w-3.5 text-chart-2" />,
-      href: "/catalog",
+      label: "Operate",
+      items: [
+        {
+          id: "servers",
+          label: "Servers",
+          icon: <ServerStackIcon className="h-3.5 w-3.5 text-chart-3" />,
+          href: "/servers",
+        },
+        {
+          id: "health",
+          label: "Node Health",
+          icon: <ActivityIcon className="h-3.5 w-3.5 text-chart-3" />,
+          href: "/health",
+        },
+        {
+          id: "logs",
+          label: "Live Logs",
+          icon: <ListIcon className="h-3.5 w-3.5 text-chart-2" />,
+          href: "/logs",
+          badge: hasActiveLogs ? "●" : undefined,
+        },
+        {
+          id: "terminal",
+          label: "Server Terminal",
+          icon: <TerminalIcon className="h-3.5 w-3.5 text-chart-5" />,
+          href: "/terminal",
+        },
+        {
+          id: "cron",
+          label: "Scheduled Jobs",
+          icon: <ClockIcon className="h-3.5 w-3.5 text-chart-4" />,
+          href: "/cron",
+        },
+      ],
     },
     {
-      id: "health",
-      label: "Node Health",
-      icon: <ActivityIcon className="h-3.5 w-3.5 text-chart-3" />,
-      href: "/health",
+      label: "Data",
+      items: [
+        {
+          id: "addons",
+          label: "Databases",
+          icon: <DatabaseIcon className="h-3.5 w-3.5 text-chart-4" />,
+          href: "/addons",
+        },
+        {
+          id: "backups",
+          label: "Backups",
+          icon: <ArchiveIcon className="h-3.5 w-3.5 text-chart-2" />,
+          href: "/backups",
+        },
+      ],
     },
     {
-      id: "logs",
-      label: "Live Logs",
-      icon: <TerminalIcon className="h-3.5 w-3.5 text-chart-2" />,
-      href: "/logs",
-      badge: hasActiveLogs ? "●" : undefined,
+      label: "Insights",
+      items: [
+        {
+          id: "analytics",
+          label: "Web Analytics",
+          icon: <ChartIcon className="h-3.5 w-3.5 text-chart-1" />,
+          href: "/analytics",
+        },
+      ],
     },
     {
-      id: "terminal",
-      label: "Server Terminal",
-      icon: <TerminalIcon className="h-3.5 w-3.5 text-chart-3" />,
-      href: "/terminal",
-    },
-    {
-      id: "addons",
-      label: "Databases",
-      icon: <DatabaseIcon className="h-3.5 w-3.5 text-chart-4" />,
-      href: "/addons",
-    },
-    {
-      id: "cron",
-      label: "Scheduled Jobs",
-      icon: <ClockIcon className="h-3.5 w-3.5 text-chart-5" />,
-      href: "/cron",
-    },
-    {
-      id: "backups",
-      label: "Backups",
-      icon: <ArchiveIcon className="h-3.5 w-3.5 text-chart-2" />,
-      href: "/backups",
-    },
-    {
-      id: "analytics",
-      label: "Web Analytics",
-      icon: <ChartIcon className="h-3.5 w-3.5 text-chart-1" />,
-      href: "/analytics",
-    },
-    {
-      id: "settings",
-      label: "Settings",
-      icon: <SettingsIcon className="h-3.5 w-3.5 text-muted-foreground" />,
-      href: "/settings",
+      label: "Admin",
+      items: [
+        {
+          id: "settings",
+          label: "Settings",
+          icon: <SettingsIcon className="h-3.5 w-3.5 text-muted-foreground" />,
+          href: "/settings",
+        },
+      ],
     },
   ]
 
@@ -453,31 +555,40 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
               </button>
             </div>
 
-            <SidebarMenu className="space-y-0.5">
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton
-                    isActive={isActive(item.href)}
-                    onClick={() => router.push(item.href)}
-                    className={`flex items-center justify-between px-3 py-1.5 w-full rounded text-sm transition-all cursor-pointer ${
-                      isActive(item.href)
-                        ? "bg-accent text-foreground font-medium"
-                        : "text-foreground/75 hover:bg-muted/20 hover:text-foreground"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {item.icon}
-                      <span>{item.label}</span>
-                    </div>
-                    {item.badge !== undefined && (
-                      <span className="text-xs font-mono bg-muted/40 px-1 rounded-sm text-muted-foreground/80">
-                        {item.badge}
-                      </span>
-                    )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+            <div className="space-y-4">
+              {navSections.map((section) => (
+                <div key={section.label} className="space-y-1.5">
+                  <div className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
+                    {section.label}
+                  </div>
+                  <SidebarMenu className="space-y-0.5">
+                    {section.items.map((item) => (
+                      <SidebarMenuItem key={item.id}>
+                        <SidebarMenuButton
+                          isActive={isActive(item.href)}
+                          onClick={() => router.push(item.href)}
+                          className={`flex items-center justify-between px-3 py-1.5 w-full rounded text-sm transition-all cursor-pointer ${
+                            isActive(item.href)
+                              ? "bg-accent text-foreground font-medium"
+                              : "text-foreground/75 hover:bg-muted/20 hover:text-foreground"
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            {item.icon}
+                            <span className="truncate">{item.label}</span>
+                          </div>
+                          {item.badge !== undefined && (
+                            <span className="text-xs font-mono bg-muted/40 px-1 rounded-sm text-muted-foreground/80">
+                              {item.badge}
+                            </span>
+                          )}
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </div>
               ))}
-            </SidebarMenu>
+            </div>
           </SidebarContent>
 
           {/* Sidebar Footer */}
@@ -506,22 +617,19 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         <SidebarInset className="du-card relative z-10 m-0 md:m-2 md:ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs/5">
           {/* Header Bar — pinned, never scrolls */}
           <header className="shrink-0 flex h-14 items-center justify-between border-b border-border bg-transparent px-4 select-none">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer" />
-              {/* <div className="h-3.5 w-px bg-border" />
-              <span className="text-sm font-mono text-muted-foreground flex items-center gap-1.5 font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-                Active Node: vps-us-east-1
-              </span> */}
+              <div className="h-4 w-px bg-border" />
+              <ServerSelector />
             </div>
             <div className="flex items-center gap-2">
               <Button
                 onClick={() => router.push("/deploy")}
                 className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-primary/30 bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
               >
-                <PlusIcon className="h-3.5 w-3.5" />
-                <span>Deploy service</span>
-                <Kbd className="ml-1 h-4 py-2.5 rounded-sm border-0 bg-background/20 px-1 font-mono text-[11px] text-primary-foreground">
+                <PlusIcon className="h-3.5 w-3.5 shrink-0" />
+                <span>Deploy<span className="hidden sm:inline"> service</span></span>
+                <Kbd className="ml-1 h-4 py-2.5 rounded-sm border-0 bg-background/20 px-1 font-mono text-[11px] text-primary-foreground hidden md:inline-flex">
                   N
                 </Kbd>
               </Button>
@@ -726,7 +834,11 @@ export function Sparkline({
     .join(" ")
 
   return (
-    <svg className="overflow-visible" width={width} height={height}>
+    <svg
+      className="overflow-visible w-full h-10 max-w-[120px]"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+    >
       <polyline
         fill="none"
         stroke={`url(#${id})`}

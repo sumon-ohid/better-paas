@@ -10,7 +10,11 @@ import OnboardCard from "@/components/ui/onboard-card"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { api } from "@/lib/api"
+import type { Server } from "@/lib/types"
 import { ArrowLeft, Check, RotateCcw } from "lucide-react"
+import { AddServerWizard } from "@/app/servers/page"
+import { Badge } from "@/components/ui/badge"
+import { IconMonitor, IconServer2 } from "nucleo-isometric"
 
 // OnboardingGate shows a one-time welcome flow on first sign-in. It sits inside
 // AuthGate, so it only renders for an authenticated admin. The "completed" flag
@@ -22,11 +26,12 @@ import { ArrowLeft, Check, RotateCcw } from "lucide-react"
 // from reaching the dashboard.
 
 type Phase = "loading" | "active" | "done"
-type Step = "welcome" | "github" | "deploy" | "complete"
+type Step = "welcome" | "server" | "github" | "deploy" | "complete"
 
-const STEP_ORDER: Step[] = ["github", "deploy", "complete"]
+const STEP_ORDER: Step[] = ["server", "github", "deploy", "complete"]
 const STEP_LABELS: Record<Step, string> = {
   welcome: "Welcome",
+  server: "Server",
   github: "Connect GitHub",
   deploy: "Deploy",
   complete: "Complete",
@@ -39,6 +44,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const [ghConnected, setGhConnected] = useState(false)
   const [ghModalOpen, setGhModalOpen] = useState(false)
   const [finishing, setFinishing] = useState(false)
+  const [servers, setServers] = useState<Server[]>([])
 
   // Decide whether to show onboarding. If the call fails (e.g. older backend
   // without the endpoint), fail open: skip onboarding rather than block.
@@ -54,6 +60,11 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
       api.git
         .tokenStatus()
         .then((s) => setGhConnected(s.connected))
+        .catch(() => {})
+      // Pre-load servers list for the server step.
+      api.servers
+        .list()
+        .then((list) => setServers(list))
         .catch(() => {})
       setPhase("active")
     } catch {
@@ -127,11 +138,18 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-y-auto bg-background p-4">
       <div className="w-full max-w-xl py-8">
         {step === "welcome" ? (
-          <WelcomeScreen onStart={() => setStep("github")} onSkip={persistComplete} skipping={finishing} />
+          <WelcomeScreen onStart={() => setStep("server")} onSkip={persistComplete} skipping={finishing} />
         ) : (
           <>
             <StepProgress current={step} />
             <div className="mt-8">
+              {step === "server" && (
+                <ChooseServerStep
+                  servers={servers}
+                  onContinue={() => setStep("github")}
+                  onSkip={() => setStep("github")}
+                />
+              )}
               {step === "github" && (
                 <ConnectGitHubStep
                   connected={ghConnected}
@@ -191,6 +209,7 @@ function WelcomeScreen({
   skipping: boolean
 }) {
   const items = [
+    { title: "Setup server", desc: "Choose localhost or connect a remote VPS." },
     { title: "Connect GitHub", desc: "Link a token to browse and deploy your repositories." },
     { title: "Deploy your first app", desc: "Pick a repo and branch — we build and run it for you." },
     { title: "Manage everything", desc: "Logs, metrics, domains, databases, and backups in one place." },
@@ -200,7 +219,7 @@ function WelcomeScreen({
       <Image src="/logo.svg" alt="Better-PaaS" width={8340} height={840} className="size-11" />
       <h1 className="mt-5 text-2xl font-bold tracking-tight text-foreground">Welcome to Better-PaaS</h1>
       <p className="mt-1.5 text-sm text-muted-foreground">
-        Connect GitHub and deploy your first app in minutes.
+        Set up servers, connect GitHub, and deploy your first app in minutes.
       </p>
 
       <div className="mt-7 w-full rounded-xl border border-border bg-card/40 p-5 text-left">
@@ -414,6 +433,119 @@ function CompleteStep({ onFinish, busy }: { onFinish: () => void; busy: boolean 
           Go to dashboard
         </Button>
       </div>
+    </StepCard>
+  )
+}
+
+function ChooseServerStep({
+  servers,
+  onContinue,
+  onSkip,
+}: {
+  servers: Server[]
+  onContinue: () => void
+  onSkip: () => void
+}) {
+  const [selectedOption, setSelectedOption] = useState<"localhost" | "remote">("localhost")
+  const [showWizard, setShowWizard] = useState(false)
+  const [vpsConnected, setVpsConnected] = useState(false)
+  const [connectedVpsName, setConnectedVpsName] = useState("")
+
+  const handleAdded = (server: Server) => {
+    if (server.status === "connected") {
+      setVpsConnected(true)
+      setConnectedVpsName(server.name)
+      setSelectedOption("remote")
+    }
+  }
+
+  const handleNext = () => {
+    onContinue()
+  }
+
+  return (
+    <StepCard
+      icon={<NucleoIcon name="cloud" className="h-6 w-6" />}
+      title="Choose your deployment target"
+      description="Your apps will run on a server. Use this server (Localhost) for personal projects, or connect a remote VPS for production."
+    >
+      <div className="flex flex-col gap-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* Localhost Option Card */}
+          <button
+            type="button"
+            onClick={() => setSelectedOption("localhost")}
+            className={`flex flex-col text-left p-4 rounded-xl border transition-all cursor-pointer ${
+              selectedOption === "localhost"
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                : "border-border bg-card/40 hover:bg-accent/20"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <IconMonitor className="h-7 w-7 text-foreground" />
+              <span className="text-sm font-semibold text-foreground">Use This Server (Localhost)</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+              Default. Deploys apps directly onto this server. Fast, zero configuration, perfect for development.
+            </p>
+          </button>
+
+          {/* Remote Option Card */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedOption("remote")
+              if (!vpsConnected) {
+                setShowWizard(true)
+              }
+            }}
+            className={`flex flex-col text-left p-4 rounded-xl border transition-all cursor-pointer ${
+              selectedOption === "remote"
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                : "border-border bg-card/40 hover:bg-accent/20"
+            }`}
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-2">
+                <IconServer2 className="h-7 w-7 text-foreground" />
+                <span className="text-sm font-semibold text-foreground">Remote Server</span>
+                <Badge variant="info" size="sm" className="font-semibold">Recommended</Badge>
+              </div>
+              {vpsConnected && <span className="h-2 w-2 rounded-full bg-success animate-pulse" />}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+              {vpsConnected
+                ? `Successfully connected remote server: "${connectedVpsName}". Ready for deployment.`
+                : "Connect a remote VPS or VM over SSH. Run apps in production environments securely."}
+            </p>
+            {!vpsConnected && (
+              <span className="text-xs text-primary font-medium mt-3 inline-flex items-center gap-1">
+                <NucleoIcon name="plus" className="h-3.5 w-3.5" />
+                Add remote VPS
+              </span>
+            )}
+          </button>
+        </div>
+
+        <div className="flex flex-col items-center gap-3 mt-4">
+          <Button onClick={handleNext} className="h-10 w-full max-w-xs text-sm font-semibold">
+            Continue
+          </Button>
+          <button
+            type="button"
+            onClick={onSkip}
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            I&apos;ll configure this later
+          </button>
+        </div>
+      </div>
+
+      <AddServerWizard
+        open={showWizard}
+        onClose={() => setShowWizard(false)}
+        onAdded={handleAdded}
+      />
     </StepCard>
   )
 }

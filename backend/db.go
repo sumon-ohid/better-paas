@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -40,6 +41,10 @@ func initDB() {
 		log.Fatalf("[db] failed to run analytics migrations: %v", err)
 	}
 
+	if err := runServersMigrations(); err != nil {
+		log.Fatalf("[db] failed to run servers migrations: %v", err)
+	}
+
 	migrateFromJSON()
 	loadStateFromDB()
 }
@@ -48,7 +53,7 @@ func runMigrations() error {
 	schema := `
 CREATE TABLE IF NOT EXISTS apps (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     status TEXT NOT NULL,
     git_repo TEXT,
     branch TEXT,
@@ -61,7 +66,9 @@ CREATE TABLE IF NOT EXISTS apps (
     build_command TEXT,
     start_command TEXT,
     install_command TEXT,
-    port_override INTEGER DEFAULT 0
+    port_override INTEGER DEFAULT 0,
+    server_id TEXT DEFAULT 'localhost',
+    UNIQUE(name)
 );
 
 CREATE TABLE IF NOT EXISTS deployments (
@@ -140,11 +147,166 @@ CREATE TABLE IF NOT EXISTS meta (
 		{"deployments", "commit_sha", "TEXT"},
 		{"deployments", "commit_msg", "TEXT"},
 		{"addons", "attached_apps", "TEXT"},
+		{"apps", "server_id", "TEXT DEFAULT 'localhost'"},
+		{"addons", "server_id", "TEXT DEFAULT 'localhost'"},
 	}
 	for _, c := range addColumns {
 		// SQLite has no "ADD COLUMN IF NOT EXISTS"; ignore the duplicate error.
 		_, _ = sqliteDB.Exec("ALTER TABLE " + c.table + " ADD COLUMN " + c.col + " " + c.def)
 	}
+
+	if err := migrateAppsUniqueConstraint(); err != nil {
+		log.Printf("[db] failed to migrate apps unique constraint: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func migrateAppsUniqueConstraint() error {
+	var tableSQL string
+	err := sqliteDB.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='apps'").Scan(&tableSQL)
+	if err != nil {
+		return nil // Table doesn't exist yet
+	}
+
+	hasGlobalUnique := strings.Contains(tableSQL, "UNIQUE(name)") || strings.Contains(tableSQL, "name TEXT NOT NULL UNIQUE")
+	hasServerScopedUnique := strings.Contains(tableSQL, "UNIQUE(name, server_id)")
+	if hasGlobalUnique && !hasServerScopedUnique {
+		return nil
+	}
+
+	log.Println("[db] Migrating apps table unique constraint to global name uniqueness...")
+
+	tx, err := sqliteDB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("PRAGMA foreign_keys=OFF"); err != nil {
+		return err
+	}
+
+	newTableSchema := `
+	CREATE TABLE apps_new (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		status TEXT NOT NULL,
+		git_repo TEXT,
+		branch TEXT,
+		port INTEGER NOT NULL,
+		url TEXT,
+		created_at DATETIME NOT NULL,
+		git_token TEXT,
+		root_dir TEXT,
+		env_vars TEXT,
+		build_command TEXT,
+		start_command TEXT,
+		install_command TEXT,
+		port_override INTEGER DEFAULT 0,
+		domains TEXT,
+		memory TEXT,
+		cpus TEXT,
+		volumes TEXT,
+		health_path TEXT,
+		active_container TEXT,
+		active_image TEXT,
+		active_deploy_id TEXT,
+		secret_keys TEXT,
+		webhook_secret TEXT,
+		auto_deploy INTEGER DEFAULT 0,
+		build_method TEXT,
+		dockerfile_path TEXT,
+		compose_path TEXT,
+		compose_project TEXT,
+		compose_service TEXT,
+		compose_web INTEGER DEFAULT 0,
+		compose_primary INTEGER DEFAULT 0,
+		image TEXT,
+		catalog_id TEXT,
+		dockerfile_content TEXT,
+		server_id TEXT DEFAULT 'localhost',
+		UNIQUE(name)
+	);`
+
+	if _, err := tx.Exec(newTableSchema); err != nil {
+		return err
+	}
+
+	copyDataSQL := `
+	SELECT 
+		id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override,
+		domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, COALESCE(server_id, 'localhost')
+	FROM apps;`
+
+	rows, err := tx.Query(copyDataSQL)
+	if err != nil {
+		return err
+	}
+	cols, err := rows.Columns()
+	if err != nil {
+		rows.Close()
+		return err
+	}
+	insertSQL := `
+	INSERT INTO apps_new (
+		id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override,
+		domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, server_id
+	)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+	taken := map[string]bool{}
+	var appRows [][]interface{}
+	for rows.Next() {
+		values := make([]interface{}, len(cols))
+		ptrs := make([]interface{}, len(cols))
+		for i := range values {
+			ptrs[i] = &values[i]
+		}
+		if err := rows.Scan(ptrs...); err != nil {
+			rows.Close()
+			return err
+		}
+		if len(values) > 1 {
+			switch name := values[1].(type) {
+			case string:
+				values[1] = uniqueAppName(name, taken)
+			case []byte:
+				values[1] = uniqueAppName(string(name), taken)
+			default:
+				values[1] = uniqueAppName("app", taken)
+			}
+		}
+		appRows = append(appRows, values)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, values := range appRows {
+		if _, err := tx.Exec(insertSQL, values...); err != nil {
+			return err
+		}
+	}
+
+	if _, err := tx.Exec("DROP TABLE apps"); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec("ALTER TABLE apps_new RENAME TO apps"); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec("PRAGMA foreign_keys=ON"); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	log.Println("[db] Migrated apps table unique constraint successfully.")
 	return nil
 }
 
@@ -232,7 +394,7 @@ func loadStateFromDB() {
 	apps = []App{}
 	buildLogs = make(map[string][]string)
 
-	rows, err := sqliteDB.Query(`SELECT id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override, domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content FROM apps`)
+	rows, err := sqliteDB.Query(`SELECT id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override, domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, server_id FROM apps`)
 	if err != nil {
 		log.Printf("[db] failed to load apps: %v", err)
 		return
@@ -249,8 +411,9 @@ func loadStateFromDB() {
 		var composeWeb, composePrimary sql.NullBool
 		var image, catalogID, dockerfileContent sql.NullString
 		var autoDeploy sql.NullBool
+		var serverID sql.NullString
 		err := rows.Scan(&a.ID, &a.Name, &a.Status, &a.GitRepo, &a.Branch, &a.Port, &a.URL, &a.CreatedAt, &a.GitToken, &a.RootDir, &envJSON, &a.BuildCommand, &a.StartCommand, &a.InstallCommand, &a.PortOverride,
-			&domainsJSON, &memory, &cpus, &volumesJSON, &healthPath, &activeContainer, &activeImage, &activeDeployID, &secretKeysJSON, &webhookSecret, &autoDeploy, &buildMethod, &dockerfilePath, &composePath, &composeProject, &composeService, &composeWeb, &composePrimary, &image, &catalogID, &dockerfileContent)
+			&domainsJSON, &memory, &cpus, &volumesJSON, &healthPath, &activeContainer, &activeImage, &activeDeployID, &secretKeysJSON, &webhookSecret, &autoDeploy, &buildMethod, &dockerfilePath, &composePath, &composeProject, &composeService, &composeWeb, &composePrimary, &image, &catalogID, &dockerfileContent, &serverID)
 		if err != nil {
 			log.Printf("[db] failed to scan app: %v", err)
 			continue
@@ -286,6 +449,13 @@ func loadStateFromDB() {
 		a.CatalogID = catalogID.String
 		a.DockerfileContent = dockerfileContent.String
 		a.GitToken = decryptSecret(a.GitToken)
+		a.ServerID = serverID.String
+		if a.ServerID == "" {
+			a.ServerID = "localhost"
+		}
+		if strings.Contains(a.URL, ".sslip.io") {
+			a.URL = defaultAppURL(a.ID, a.ServerID)
+		}
 		apps = append(apps, a)
 		buildLogs[a.ID] = []string{}
 	}
@@ -322,8 +492,8 @@ func dbSaveAppTx(tx *sql.Tx, app App) error {
 	encWebhook := encryptSecret(app.WebhookSecret)
 	_, err := tx.Exec(`
 		INSERT INTO apps (id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override,
-			domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, server_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name,
 			status=excluded.status,
@@ -358,9 +528,10 @@ func dbSaveAppTx(tx *sql.Tx, app App) error {
 			compose_primary=excluded.compose_primary,
 			image=excluded.image,
 			catalog_id=excluded.catalog_id,
-			dockerfile_content=excluded.dockerfile_content
+			dockerfile_content=excluded.dockerfile_content,
+			server_id=excluded.server_id
 	`, app.ID, app.Name, app.Status, app.GitRepo, app.Branch, app.Port, app.URL, app.CreatedAt, encToken, app.RootDir, string(envJSON), app.BuildCommand, app.StartCommand, app.InstallCommand, app.PortOverride,
-		string(domainsJSON), app.Memory, app.CPUs, string(volumesJSON), app.HealthPath, app.ActiveContainer, app.ActiveImage, app.ActiveDeployID, string(secretKeysJSON), encWebhook, app.AutoDeploy, app.BuildMethod, app.DockerfilePath, app.ComposePath, app.ComposeProject, app.ComposeService, app.ComposeWeb, app.ComposePrimary, app.Image, app.CatalogID, app.DockerfileContent)
+		string(domainsJSON), app.Memory, app.CPUs, string(volumesJSON), app.HealthPath, app.ActiveContainer, app.ActiveImage, app.ActiveDeployID, string(secretKeysJSON), encWebhook, app.AutoDeploy, app.BuildMethod, app.DockerfilePath, app.ComposePath, app.ComposeProject, app.ComposeService, app.ComposeWeb, app.ComposePrimary, app.Image, app.CatalogID, app.DockerfileContent, app.ServerID)
 	return err
 }
 
@@ -699,4 +870,128 @@ type dbState struct {
 	Apps        []App              `json:"apps"`
 	Deployments []DeploymentRecord `json:"deployments"`
 	GitHubToken string             `json:"gitHubToken,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// Servers migration
+// ---------------------------------------------------------------------------
+
+func runServersMigrations() error {
+	schema := `
+CREATE TABLE IF NOT EXISTS servers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    ip TEXT NOT NULL,
+    port INTEGER NOT NULL DEFAULT 22,
+    ssh_user TEXT NOT NULL DEFAULT 'root',
+    ssh_key TEXT NOT NULL DEFAULT '',
+    is_local INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'unknown',
+    last_checked DATETIME,
+    created_at DATETIME NOT NULL
+);
+`
+	if _, err := sqliteDB.Exec(schema); err != nil {
+		return err
+	}
+
+	// Seed the default localhost row on first boot.
+	_, err := sqliteDB.Exec(`
+		INSERT INTO servers (id, name, description, ip, port, ssh_user, ssh_key, is_local, status, created_at)
+		VALUES ('localhost', 'Localhost', 'The server running this control plane', '127.0.0.1', 22, 'root', '', 1, 'connected', CURRENT_TIMESTAMP)
+		ON CONFLICT(id) DO NOTHING
+	`)
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// Server CRUD
+// ---------------------------------------------------------------------------
+
+func dbSaveServer(s Server) error {
+	_, err := sqliteDB.Exec(`
+		INSERT INTO servers (id, name, description, ip, port, ssh_user, ssh_key, is_local, status, last_checked, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			name=excluded.name,
+			description=excluded.description,
+			ip=excluded.ip,
+			port=excluded.port,
+			ssh_user=excluded.ssh_user,
+			ssh_key=excluded.ssh_key,
+			status=excluded.status,
+			last_checked=excluded.last_checked
+	`,
+		s.ID, s.Name, s.Description, s.IP, s.Port, s.SSHUser,
+		encryptSecret(s.SSHKey), s.IsLocal, s.Status, s.LastChecked, s.CreatedAt,
+	)
+	return err
+}
+
+func dbGetServer(id string) (*Server, error) {
+	var s Server
+	var sshKeyEnc, description sql.NullString
+	var lastChecked sql.NullTime
+	err := sqliteDB.QueryRow(
+		`SELECT id, name, description, ip, port, ssh_user, ssh_key, is_local, status, last_checked, created_at FROM servers WHERE id = ?`, id,
+	).Scan(&s.ID, &s.Name, &description, &s.IP, &s.Port, &s.SSHUser, &sshKeyEnc, &s.IsLocal, &s.Status, &lastChecked, &s.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	s.Description = description.String
+	s.LastChecked = lastChecked.Time
+	if sshKeyEnc.Valid && sshKeyEnc.String != "" {
+		s.SSHKey = decryptSecret(sshKeyEnc.String)
+	}
+	return &s, nil
+}
+
+func dbLoadServers() ([]Server, error) {
+	rows, err := sqliteDB.Query(
+		`SELECT id, name, description, ip, port, ssh_user, ssh_key, is_local, status, last_checked, created_at FROM servers ORDER BY is_local DESC, created_at ASC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []Server
+	for rows.Next() {
+		var s Server
+		var sshKeyEnc, description sql.NullString
+		var lastChecked sql.NullTime
+		if err := rows.Scan(&s.ID, &s.Name, &description, &s.IP, &s.Port, &s.SSHUser, &sshKeyEnc, &s.IsLocal, &s.Status, &lastChecked, &s.CreatedAt); err != nil {
+			continue
+		}
+		s.Description = description.String
+		s.LastChecked = lastChecked.Time
+		if sshKeyEnc.Valid && sshKeyEnc.String != "" {
+			s.SSHKey = decryptSecret(sshKeyEnc.String)
+		}
+		result = append(result, s)
+	}
+	return result, nil
+}
+
+func dbDeleteServer(id string) error {
+	_, err := sqliteDB.Exec(`DELETE FROM servers WHERE id = ?`, id)
+	return err
+}
+
+func dbUpdateServerStatus(id, status string) error {
+	_, err := sqliteDB.Exec(
+		`UPDATE servers SET status = ?, last_checked = ? WHERE id = ?`,
+		status, time.Now(), id,
+	)
+	return err
+}
+
+func dbCountAppsOnServer(serverID string) (int, error) {
+	var count int
+	err := sqliteDB.QueryRow(`SELECT COUNT(*) FROM apps WHERE server_id = ?`, serverID).Scan(&count)
+	return count, err
 }

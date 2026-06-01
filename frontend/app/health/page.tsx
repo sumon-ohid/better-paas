@@ -10,12 +10,12 @@ import { compareByStatusPriority } from "@/lib/status"
 import { api, createStatsWs } from "@/lib/api"
 import { Progress, ProgressIndicator } from "@/components/ui/progress"
 import type { ServerStats, App } from "@/lib/types"
+import { useActiveServer } from "@/components/server-context"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const CpuIcon = (props: IconProps) => <NucleoIcon {...props} name="cpu" />
 const ServerIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
-const ActivityIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
 
 // Maps a 0–100 utilization value to a semantic badge variant so the color
 // reflects reality instead of a hard-coded "OPTIMAL".
@@ -32,6 +32,7 @@ function usageLabel(value: number): string {
 }
 
 export default function HealthPage() {
+  const { activeServerId, servers } = useActiveServer()
   const [stats, setStats] = useState<ServerStats>({
     cpuUsage: 0,
     memoryUsage: 0,
@@ -58,7 +59,17 @@ export default function HealthPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
 
-    const ws = createStatsWs()
+    const serverId = activeServerId === "all" ? "localhost" : activeServerId
+    setStats({
+      cpuUsage: 0,
+      memoryUsage: 0,
+      diskUsage: 0,
+      activeApps: 0,
+      timestamp: new Date().toISOString(),
+    })
+    setCpuHistory(Array(20).fill(0))
+    setMemHistory(Array(20).fill(0))
+    const ws = createStatsWs(serverId)
     ws.onmessage = (event) => {
       const data: ServerStats = JSON.parse(event.data)
       setStats(data)
@@ -70,9 +81,17 @@ export default function HealthPage() {
       ws.onclose = null
       ws.close()
     }
-  }, [fetchData])
+  }, [activeServerId, fetchData])
 
-  const runtimePct = (stats.activeApps / Math.max(apps.length, 1)) * 100
+  const selectedServerName =
+    activeServerId === "all"
+      ? "Localhost"
+      : activeServerId === "localhost"
+        ? "Localhost"
+        : servers.find((server) => server.id === activeServerId)?.name ?? "Selected server"
+  const selectedServerId = activeServerId === "all" ? "localhost" : activeServerId
+  const visibleApps = apps.filter((app) => (app.serverId || "localhost") === selectedServerId)
+  const runtimePct = (stats.activeApps / Math.max(visibleApps.length, 1)) * 100
   const nodeOnline = health?.status?.toLowerCase() === "ok" || health?.status?.toLowerCase() === "healthy"
 
   const statCards = [
@@ -106,7 +125,7 @@ export default function HealthPage() {
     },
     {
       label: "Active Runtimes",
-      value: `${stats.activeApps} / ${apps.length}`,
+      value: `${stats.activeApps} / ${visibleApps.length}`,
       icon: <GlobeIcon className="h-4 w-4 text-muted-foreground" />,
       progress: runtimePct,
       aside: (
@@ -122,31 +141,27 @@ export default function HealthPage() {
   const indicatorColor = (v: "success" | "warning" | "error") =>
     v === "error" ? "bg-destructive" : v === "warning" ? "bg-warning" : "bg-primary"
 
-  const sortedApps = [...apps].sort((a, b) => compareByStatusPriority(a.status, b.status))
+  const sortedApps = [...visibleApps].sort((a, b) => compareByStatusPriority(a.status, b.status))
 
   return (
     <AppShell appCount={apps.length}>
       <div className="p-4 md:p-6 space-y-6">
         {/* Page header */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <ActivityIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <h2>Node Health</h2>
-            <p className="text-sm text-muted-foreground">
-              Real-time system metrics for the active worker node.
-              {health && (
-                <span className="ml-2 font-mono text-xs text-muted-foreground/70">
-                  Uptime: {health.uptime}
-                </span>
-              )}
-            </p>
-          </div>
+        <div className="space-y-1">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Node Health</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Real-time system metrics for the active worker node.
+            <span className="ml-2 font-medium text-foreground">{selectedServerName}</span>
+            {health && (
+              <span className="ml-2 font-mono text-xs text-muted-foreground/70">
+                Uptime: {health.uptime}
+              </span>
+            )}
+          </p>
         </div>
 
         {/* Stat Cards */}
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {statCards.map((card) => (
             <Card key={card.label} className="space-y-3 p-4">
               <div className="flex items-center justify-between">
@@ -155,9 +170,11 @@ export default function HealthPage() {
                 </span>
                 {card.icon}
               </div>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-3xl font-bold tabular-nums">{card.value}</span>
-                {card.aside}
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <span className="font-mono text-2xl sm:text-3xl font-bold tabular-nums shrink-0">{card.value}</span>
+                <div className="flex-1 min-w-0 max-w-[120px] flex justify-end">
+                  {card.aside}
+                </div>
               </div>
               <Progress value={card.progress} className="h-1.5 bg-muted">
                 <ProgressIndicator className={indicatorColor(card.variant)} />
@@ -168,29 +185,29 @@ export default function HealthPage() {
 
         {/* Health Detail Grid */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card className="max-h-100">
+          <Card className="max-h-[400px]">
             <CardHeader className="border-b border-border/40 pb-3">
               <CardTitle className="text-base">Service Health Summary</CardTitle>
               <CardDescription>
-                Per-container status overview for all deployed services.
+                Per-container status overview for {selectedServerName}.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 pt-4 overflow-y-auto">
-              {apps.length === 0 ? (
+              {visibleApps.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  No deployed services yet.
+                  No deployed services on this node yet.
                 </div>
               ) : (
                 sortedApps.map((app) => (
                   <div
                     key={app.id}
-                    className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5"
+                    className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5 gap-3 min-w-0"
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <StatusDot status={app.status} />
-                      <span className="text-sm font-medium text-foreground">{app.name}</span>
+                      <span className="text-sm font-medium text-foreground truncate">{app.name}</span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
                       <span className="font-mono text-xs text-muted-foreground">:{app.port}</span>
                       <StatusBadge status={app.status} />
                     </div>

@@ -115,7 +115,7 @@ func TestAllocatePort(t *testing.T) {
 	})
 
 	appsLock.Lock()
-	p := allocatePort()
+	p := allocatePort("localhost")
 	appsLock.Unlock()
 
 	if p < 9000 || p > 9999 {

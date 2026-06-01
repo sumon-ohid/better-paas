@@ -65,8 +65,8 @@ type composeConfig struct {
 }
 
 type composeServiceConfig struct {
-	Image string         `json:"image"`
-	Ports []composePort  `json:"ports"`
+	Image string        `json:"image"`
+	Ports []composePort `json:"ports"`
 }
 
 type composePort struct {
@@ -346,7 +346,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 
 	// ── 1. Clone ─────────────────────────────────────────────────────────────
 	localLog(fmt.Sprintf("✨ Initializing Compose deployment for: %s", app.Name))
-	buildDir := filepath.Join("builds", app.Name)
+	buildDir := filepath.Join("builds", app.ID)
 	os.RemoveAll(buildDir)
 
 	localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, app.Branch))
@@ -412,7 +412,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 	webHostPorts := map[string]int{}
 	for _, s := range services {
 		if s.Web {
-			p := allocatePortAvoiding(reserved)
+			p := allocatePortAvoiding(app.ServerID, reserved)
 			reserved[p] = true
 			webHostPorts[s.Name] = p
 		}
@@ -441,8 +441,6 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 	localLog("✔ Compose project is up.")
 
 	// ── 6. Register one row per service ──────────────────────────────────────
-	ip := getLocalIP()
-
 	// Names already taken across all apps (to keep child names unique).
 	appsLock.Lock()
 	taken := make(map[string]bool, len(apps))
@@ -490,7 +488,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 					apps[i].Status = "running"
 					if s.Web {
 						apps[i].Port = hostPort
-						apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
+						apps[i].URL = defaultAppURL(apps[i].ID, apps[i].ServerID)
 					} else {
 						apps[i].URL = ""
 					}
@@ -517,7 +515,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 					apps[i].Status = "running"
 					if s.Web {
 						apps[i].Port = hostPort
-						apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
+						apps[i].URL = defaultAppURL(apps[i].ID, apps[i].ServerID)
 					} else {
 						apps[i].Port = 0
 						apps[i].URL = ""
@@ -543,6 +541,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 			GitRepo:         app.GitRepo,
 			Branch:          app.Branch,
 			CreatedAt:       app.CreatedAt,
+			ServerID:        app.ServerID,
 			BuildMethod:     "compose",
 			ComposePath:     composeFile,
 			ComposeProject:  project,
@@ -555,7 +554,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 		}
 		if s.Web {
 			child.Port = hostPort
-			child.URL = fmt.Sprintf("http://%s.%s.sslip.io", childID, ip)
+			child.URL = defaultAppURL(childID, child.ServerID)
 		}
 		appsLock.Lock()
 		apps = append(apps, child)
@@ -589,7 +588,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 
 	// ── 7. Health-check web services (best-effort) ───────────────────────────
 	for name, port := range webHostPorts {
-		if err := waitHealthy(port, "", 30*time.Second, func(string) {}); err != nil {
+		if err := waitHealthy(app.ServerID, port, "", 30*time.Second, func(string) {}); err != nil {
 			localLog(fmt.Sprintf("⚠ Service %q did not pass a TCP health check on :%d (continuing).", name, port))
 		} else {
 			localLog(fmt.Sprintf("✔ Service %q is reachable on :%d.", name, port))
@@ -647,9 +646,9 @@ func composeGroupRows(project string) []App {
 
 // composeDirForApp returns the on-disk compose working directory for a group,
 // honoring the primary row's RootDir. The build dir is keyed by the primary
-// row's name (that's where the repo was cloned).
+// row's ID (that's where the repo was cloned).
 func composeDirForApp(primary App) string {
-	dir := filepath.Join("builds", primary.Name)
+	dir := filepath.Join("builds", primary.ID)
 	if primary.RootDir != "" && primary.RootDir != "." && primary.RootDir != "./" {
 		dir = filepath.Join(dir, primary.RootDir)
 	}
@@ -732,9 +731,9 @@ func deleteComposeGroup(any App) {
 		os.RemoveAll(filepath.Join("data", "logs", r.ID))
 	}
 
-	// Remove the shared build directory (cloned once under the primary name).
+	// Remove the shared build directory (cloned once under the primary ID).
 	if primary != nil {
-		os.RemoveAll(filepath.Join("builds", primary.Name))
+		os.RemoveAll(filepath.Join("builds", primary.ID))
 	}
 
 	rebuildCaddyfile()

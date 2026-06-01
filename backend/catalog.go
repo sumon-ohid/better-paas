@@ -33,10 +33,10 @@ import (
 type CatalogEnv struct {
 	Key         string `json:"key"`
 	Value       string `json:"value"`       // default value (may be empty)
-	Description string `json:"description"`  // shown next to the field
-	Required    bool   `json:"required"`     // must be non-empty to deploy
-	Secret      bool   `json:"secret"`       // mark as a secret env var (redacted)
-	Generate    bool   `json:"generate"`     // auto-fill with a random secret when empty
+	Description string `json:"description"` // shown next to the field
+	Required    bool   `json:"required"`    // must be non-empty to deploy
+	Secret      bool   `json:"secret"`      // mark as a secret env var (redacted)
+	Generate    bool   `json:"generate"`    // auto-fill with a random secret when empty
 }
 
 // CatalogTemplate is a single one-click deployable app.
@@ -45,14 +45,14 @@ type CatalogTemplate struct {
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
 	Category    string       `json:"category"`
-	Image       string       `json:"image"`       // pinned registry image
-	Port        int          `json:"port"`        // internal container port the app listens on
-	VolumePath  string       `json:"volumePath"`  // container path to persist (empty = stateless)
+	Image       string       `json:"image"`      // pinned registry image
+	Port        int          `json:"port"`       // internal container port the app listens on
+	VolumePath  string       `json:"volumePath"` // container path to persist (empty = stateless)
 	Env         []CatalogEnv `json:"env"`
-	HealthPath  string       `json:"healthPath"`  // HTTP path probed before cutover (empty = TCP check)
+	HealthPath  string       `json:"healthPath"` // HTTP path probed before cutover (empty = TCP check)
 	Website     string       `json:"website"`
-	Icon        string       `json:"icon"`        // dashboard-icons slug
-	Notes       string       `json:"notes"`       // caveats (e.g. needs docker socket)
+	Icon        string       `json:"icon"`  // dashboard-icons slug
+	Notes       string       `json:"notes"` // caveats (e.g. needs docker socket)
 }
 
 // catalogTemplates is the curated, single-container catalog. Image tags are
@@ -392,6 +392,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		Domains    []string          `json:"domains"`
 		Memory     string            `json:"memory"`
 		CPUs       string            `json:"cpus"`
+		ServerID   string            `json:"serverId"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		jsonError(w, "Bad request: "+err.Error(), http.StatusBadRequest)
@@ -412,9 +413,9 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
 		return
 	}
-	if findAppByName(name) != nil {
-		jsonError(w, fmt.Sprintf("an app named %q already exists", name), http.StatusConflict)
-		return
+	serverID := req.ServerID
+	if serverID == "" {
+		serverID = "localhost"
 	}
 	if err := validateResourceLimits(req.Memory, req.CPUs); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
@@ -451,20 +452,24 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 
 	// ── Persistent volume: generate a uniquely-named volume so redeploys keep
 	// data. Stateless templates (no VolumePath) get none.
+	appsLock.Lock()
+	appID := generateRandomID()
+	taken := make(map[string]bool, len(apps))
+	for _, a := range apps {
+		taken[a.Name] = true
+	}
+	name = uniqueAppName(name, taken)
 	var volumes []string
 	if tpl.VolumePath != "" {
 		volName := fmt.Sprintf("paas-%s-%s-data", name, generateRandomID()[:6])
 		volumes = append(volumes, fmt.Sprintf("%s:%s", volName, tpl.VolumePath))
 	}
-
-	ip := getLocalIP()
-	appsLock.Lock()
-	appID := generateRandomID()
 	newApp := App{
 		ID:            appID,
 		Name:          name,
 		Status:        "building",
-		Port:          allocatePort(),
+		Port:          allocatePort(serverID),
+		ServerID:      serverID,
 		CreatedAt:     time.Now(),
 		EnvVars:       envVars,
 		SecretKeys:    secretKeys,
@@ -479,7 +484,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		CatalogID:     tpl.ID,
 		WebhookSecret: generateRandomID() + generateRandomID(),
 	}
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
+	newApp.URL = defaultAppURL(newApp.ID, serverID)
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 
@@ -531,6 +536,7 @@ type customDeployCommon struct {
 	Volumes    []string          `json:"volumes"`
 	Port       int               `json:"port"`
 	HealthPath string            `json:"healthPath"`
+	ServerID   string            `json:"serverId"`
 }
 
 // validateCustomDeploy validates the common fields and returns a resolved app
@@ -544,9 +550,9 @@ func validateCustomDeploy(w http.ResponseWriter, c customDeployCommon, fallbackN
 		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
 		return "", false
 	}
-	if findAppByName(name) != nil {
-		jsonError(w, fmt.Sprintf("an app named %q already exists", name), http.StatusConflict)
-		return "", false
+	serverID := c.ServerID
+	if serverID == "" {
+		serverID = "localhost"
 	}
 	if err := validateResourceLimits(c.Memory, c.CPUs); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
@@ -590,10 +596,13 @@ func cleanEnvVars(in map[string]string, secretKeys []string) (map[string]string,
 // startCustomDeploy persists a new app and kicks off the deploy pipeline. It
 // assumes the caller has already validated name, limits, domains, and volumes.
 func startCustomDeploy(w http.ResponseWriter, newApp App, trigger string) {
-	ip := getLocalIP()
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
-
 	appsLock.Lock()
+	taken := make(map[string]bool, len(apps))
+	for _, a := range apps {
+		taken[a.Name] = true
+	}
+	newApp.Name = uniqueAppName(newApp.Name, taken)
+	newApp.URL = defaultAppURL(newApp.ID, newApp.ServerID)
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 
@@ -661,11 +670,16 @@ func handleCatalogDeployImage(w http.ResponseWriter, r *http.Request) {
 
 	envVars, secretKeys := cleanEnvVars(req.EnvVars, req.SecretKeys)
 
+	serverId := req.ServerID
+	if serverId == "" {
+		serverId = "localhost"
+	}
 	newApp := App{
 		ID:            generateRandomID(),
 		Name:          name,
 		Status:        "building",
-		Port:          allocatePortLocked(),
+		Port:          allocatePortLocked(serverId),
+		ServerID:      serverId,
 		CreatedAt:     time.Now(),
 		EnvVars:       envVars,
 		SecretKeys:    secretKeys,
@@ -722,11 +736,16 @@ func handleCatalogDeployDockerfile(w http.ResponseWriter, r *http.Request) {
 
 	envVars, secretKeys := cleanEnvVars(req.EnvVars, req.SecretKeys)
 
+	serverId := req.ServerID
+	if serverId == "" {
+		serverId = "localhost"
+	}
 	newApp := App{
 		ID:                generateRandomID(),
 		Name:              name,
 		Status:            "building",
-		Port:              allocatePortLocked(),
+		Port:              allocatePortLocked(serverId),
+		ServerID:          serverId,
 		CreatedAt:         time.Now(),
 		EnvVars:           envVars,
 		SecretKeys:        secretKeys,
@@ -778,8 +797,8 @@ func imageBaseName(image string) string {
 
 // allocatePortLocked acquires appsLock and allocates a free host port. The
 // underlying allocatePort requires the caller to hold appsLock.
-func allocatePortLocked() int {
+func allocatePortLocked(serverID string) int {
 	appsLock.Lock()
 	defer appsLock.Unlock()
-	return allocatePort()
+	return allocatePort(serverID)
 }

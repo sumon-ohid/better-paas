@@ -2,6 +2,10 @@ import type { SVGProps } from "react"
 import React from "react"
 import {
   Activity,
+  Archive,
+  BarChart3,
+  Clock3,
+  Database,
   GitBranch,
   GitCommitHorizontal,
   Check,
@@ -33,6 +37,7 @@ import {
   Eye,
   EyeOff,
   Moon,
+  Pencil,
   Sun,
   Play,
   Plus,
@@ -53,7 +58,11 @@ import {
 
 type NucleoIconName =
   | "activity"
+  | "archive"
+  | "bar-chart"
   | "branch"
+  | "clock"
+  | "database"
   | "git-commit"
   | "check"
   | "check-circle"
@@ -81,6 +90,7 @@ type NucleoIconName =
   | "eye"
   | "eye-off"
   | "moon"
+  | "edit"
   | "sun"
   | "more-horizontal"
   | "plus"
@@ -107,7 +117,11 @@ type NucleoIconProps = SVGProps<SVGSVGElement> & {
 
 const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   activity: Activity,
+  archive: Archive,
+  "bar-chart": BarChart3,
   branch: GitBranch,
+  clock: Clock3,
+  database: Database,
   "git-commit": GitCommitHorizontal,
   check: Check,
   "check-circle": CircleCheck,
@@ -137,6 +151,7 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   eye: Eye,
   "eye-off": EyeOff,
   moon: Moon,
+  edit: Pencil,
   sun: Sun,
   "more-horizontal": Ellipsis,
   play: Play,
@@ -156,7 +171,12 @@ const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   x: X,
 }
 
-export function NucleoIcon({ name, className, style, ...props }: NucleoIconProps) {
+export function NucleoIcon({
+  name,
+  className,
+  style,
+  ...props
+}: NucleoIconProps) {
   const IconComponent = iconMap[name]
   if (!IconComponent) return null
   return (

@@ -3,12 +3,15 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 // ---------------------------------------------------------------------------
@@ -27,8 +30,10 @@ const (
 )
 
 type logCapturer struct {
-	cmd  *exec.Cmd
-	done chan struct{}
+	cmd       *exec.Cmd
+	sshClient *ssh.Client
+	session   *ssh.Session
+	done      chan struct{}
 }
 
 var (
@@ -70,18 +75,83 @@ func (c *logCapturer) run(appID, containerName string) {
 		capturersLock.Unlock()
 	}()
 
-	// --since 1s avoids re-ingesting the whole history we may already have.
-	cmd := exec.Command("docker", "logs", "-f", "--tail", "0", containerName)
-	c.cmd = cmd
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Printf("[runtimelog] %s: pipe error: %v", appID, err)
-		return
+	var serverID string
+	appsLock.Lock()
+	for _, a := range apps {
+		if a.ID == appID {
+			serverID = a.ServerID
+			break
+		}
 	}
-	cmd.Stderr = cmd.Stdout
-	if err := cmd.Start(); err != nil {
-		log.Printf("[runtimelog] %s: start error: %v", appID, err)
-		return
+	appsLock.Unlock()
+
+	var stdout io.Reader
+	var err error
+
+	isLocal := serverID == "" || serverID == "localhost"
+
+	if isLocal {
+		cmd := exec.Command("docker", "logs", "-f", "--tail", "0", containerName)
+		c.cmd = cmd
+		stdout, err = cmd.StdoutPipe()
+		if err != nil {
+			log.Printf("[runtimelog] %s: pipe error: %v", appID, err)
+			return
+		}
+		cmd.Stderr = cmd.Stdout
+		if err := cmd.Start(); err != nil {
+			log.Printf("[runtimelog] %s: start error: %v", appID, err)
+			return
+		}
+	} else {
+		server, err := dbGetServer(serverID)
+		if err != nil || server == nil {
+			log.Printf("[runtimelog] %s: failed to load server %s: %v", appID, serverID, err)
+			return
+		}
+		signer, err := ssh.ParsePrivateKey([]byte(server.SSHKey))
+		if err != nil {
+			log.Printf("[runtimelog] %s: parse private key failed: %v", appID, err)
+			return
+		}
+		cfg := &ssh.ClientConfig{
+			User:            server.SSHUser,
+			Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Timeout:         15 * time.Second,
+		}
+		addr := fmt.Sprintf("%s:%d", server.IP, server.Port)
+		client, err := ssh.Dial("tcp", addr, cfg)
+		if err != nil {
+			log.Printf("[runtimelog] %s: ssh dial failed: %v", appID, err)
+			return
+		}
+		c.sshClient = client
+
+		session, err := client.NewSession()
+		if err != nil {
+			log.Printf("[runtimelog] %s: ssh session failed: %v", appID, err)
+			client.Close()
+			return
+		}
+		c.session = session
+
+		stdout, err = session.StdoutPipe()
+		if err != nil {
+			log.Printf("[runtimelog] %s: ssh stdout pipe failed: %v", appID, err)
+			session.Close()
+			client.Close()
+			return
+		}
+		session.Stderr = session.Stdout
+
+		cmdStr := fmt.Sprintf("docker logs -f --tail 0 %s", shellQuote(containerName))
+		if err := session.Start(cmdStr); err != nil {
+			log.Printf("[runtimelog] %s: ssh start command failed: %v", appID, err)
+			session.Close()
+			client.Close()
+			return
+		}
 	}
 
 	path := runtimeLogPath(appID)
@@ -90,15 +160,31 @@ func (c *logCapturer) run(appID, containerName string) {
 	for scanner.Scan() {
 		select {
 		case <-c.done:
-			cmd.Process.Kill()
-			cmd.Wait()
+			if isLocal && c.cmd != nil {
+				_ = c.cmd.Process.Kill()
+				_ = c.cmd.Wait()
+			} else {
+				if c.session != nil {
+					_ = c.session.Close()
+				}
+				if c.sshClient != nil {
+					_ = c.sshClient.Close()
+				}
+			}
 			return
 		default:
 		}
 		line := fmt.Sprintf("[%s] %s", time.Now().Format(time.RFC3339), scanner.Text())
 		appendRuntimeLine(path, line)
 	}
-	cmd.Wait()
+
+	if isLocal && c.cmd != nil {
+		_ = c.cmd.Wait()
+	} else {
+		if c.session != nil {
+			_ = c.session.Wait()
+		}
+	}
 }
 
 func (c *logCapturer) stop() {
@@ -108,7 +194,13 @@ func (c *logCapturer) stop() {
 		close(c.done)
 	}
 	if c.cmd != nil && c.cmd.Process != nil {
-		c.cmd.Process.Kill()
+		_ = c.cmd.Process.Kill()
+	}
+	if c.session != nil {
+		_ = c.session.Close()
+	}
+	if c.sshClient != nil {
+		_ = c.sshClient.Close()
 	}
 }
 
