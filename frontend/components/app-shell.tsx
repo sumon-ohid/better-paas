@@ -27,6 +27,7 @@ import {
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { useAuth } from "@/components/auth-gate"
 import { api } from "@/lib/api"
+import { cleanVersion } from "@/lib/utils"
 import { toastManager } from "@/components/ui/toast"
 import {
   CommandDialog,
@@ -43,7 +44,7 @@ import {
   CommandShortcut,
   CommandFooter,
 } from "@/components/ui/command"
-import Image from "next/image"
+
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
@@ -103,6 +104,12 @@ interface AppShellProps {
   hasActiveLogs?: boolean
 }
 
+// Global cache to persist version across route changes without page unmount/remount flickering
+let cachedVersion: string | null = null
+let cachedUpdateAvailable = false
+let lastFetchTime = 0
+const CACHE_TTL = 300000 // 5 minutes
+
 export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -111,14 +118,21 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
 
   // Build version shown in the sidebar header. We also surface whether a newer
   // release exists so the operator notices updates without visiting Settings.
-  const [version, setVersion] = useState<string | null>(null)
-  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [version, setVersion] = useState<string | null>(cachedVersion)
+  const [updateAvailable, setUpdateAvailable] = useState(cachedUpdateAvailable)
 
   useEffect(() => {
+    const now = Date.now()
+    if (cachedVersion && (now - lastFetchTime < CACHE_TTL)) {
+      return
+    }
+
     let cancelled = false
     api.system
       .version()
       .then((v) => {
+        cachedVersion = v.version
+        lastFetchTime = Date.now()
         if (!cancelled) setVersion(v.version)
       })
       .catch(() => {})
@@ -126,7 +140,9 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
     api.system
       .updateCheck()
       .then((s) => {
-        if (!cancelled) setUpdateAvailable(s.configured && s.hasUpdate)
+        const hasUpdate = s.configured && s.hasUpdate
+        cachedUpdateAvailable = hasUpdate
+        if (!cancelled) setUpdateAvailable(hasUpdate)
       })
       .catch(() => {})
     return () => {
@@ -388,9 +404,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
           <SidebarHeader className="relative flex flex-row items-center justify-between overflow-hidden px-4 py-3">
             <div className="pointer-events-none absolute inset-0 bg-pixel-grid opacity-60 mask-fade-b" />
             <div className="relative flex items-center gap-2.5">
-              <Image 
-                  width={8340}
-                  height={840}
+              <img 
                   src="/logo.svg"
                   alt="Better-PaaS Logo"
                   className="size-6"
@@ -403,15 +417,18 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                   updateAvailable ? (
                     <button
                       onClick={() => router.push("/settings")}
-                      className="flex items-center gap-1 rounded-sm bg-warning/10 px-1.5 py-0.5 text-[10px] font-mono leading-none text-warning hover:bg-warning/20 cursor-pointer"
-                      title="An update is available — open Settings"
+                      className="flex items-center gap-1 rounded-sm bg-warning/10 px-1.5 py-0.5 text-[10px] font-mono leading-none text-warning hover:bg-warning/20 cursor-pointer whitespace-nowrap"
+                      title={`Version ${version} (Update available — open Settings)`}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
-                      {version}
+                      {cleanVersion(version)}
                     </button>
                   ) : (
-                    <span className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[10px] font-mono leading-none text-muted-foreground/80">
-                      {version}
+                    <span 
+                      className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[10px] font-mono leading-none text-muted-foreground/80 whitespace-nowrap"
+                      title={version}
+                    >
+                      {cleanVersion(version)}
                     </span>
                   )
                 )}

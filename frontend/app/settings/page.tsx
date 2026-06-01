@@ -20,6 +20,7 @@ import {
 import { AppShell, useToast } from "@/components/app-shell"
 import { useTheme } from "next-themes"
 import { api, ApiError } from "@/lib/api"
+import { cleanVersion } from "@/lib/utils"
 import { useAuth } from "@/components/auth-gate"
 import { GitHubConnectModal } from "@/components/github-connect-modal"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
@@ -373,8 +374,13 @@ export default function SettingsPage() {
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Current version</span>
-                <Badge variant="outline" size="sm" className="font-mono">
-                  {sysVersion?.version ?? "…"}
+                <Badge 
+                  variant="outline" 
+                  size="sm" 
+                  className="font-mono whitespace-nowrap"
+                  title={sysVersion?.version}
+                >
+                  {cleanVersion(sysVersion?.version) || "…"}
                 </Badge>
               </div>
               {updateStatus && updateStatus.configured && (
@@ -777,7 +783,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-2 pt-4">
             {[
-              ["Version", sysVersion?.version ?? "1.0.0"],
+              ["Version", cleanVersion(sysVersion?.version) || "1.0.0"],
               ["Engine", "Go 1.25 + gorilla/websocket"],
               ["Database", "SQLite (modernc.org/sqlite)"],
               ["Builder", "Nixpacks"],
@@ -790,7 +796,12 @@ export default function SettingsPage() {
                 className="flex items-center justify-between border-b border-border/30 pb-2 text-sm last:border-0"
               >
                 <span className="text-muted-foreground">{key}</span>
-                <span className="font-mono text-xs text-foreground">{val}</span>
+                <span 
+                  className="font-mono text-xs text-foreground"
+                  title={key === "Version" ? sysVersion?.version : undefined}
+                >
+                  {val}
+                </span>
               </div>
             ))}
           </CardContent>
