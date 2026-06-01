@@ -4,26 +4,46 @@ A self-hosted PaaS: a Go control plane that builds Git repos with Nixpacks,
 runs them as Docker containers, and routes them through Caddy. A Next.js
 dashboard drives it all.
 
-## Build
+## Installation
 
-Backend (multi-file package, build the whole directory — not just main.go):
+### Quick Install (Single Command)
 
+Deploy to your Linux VPS (Ubuntu/Debian, CentOS/RHEL/Fedora/Rocky/Alma) or macOS host with a single command. This script installs system dependencies (Go, Docker, Nixpacks, Caddy, Node.js, pnpm), clones/updates the repository, builds the binaries, and configures system services:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | BETTER_PAAS_REPO_URL=https://github.com/sumon-ohid/better-paas.git bash
+```
+
+> [!NOTE]
+> On Linux, the installer must be run with root privileges to configure Caddy/Docker and install packages:
+> `curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | sudo BETTER_PAAS_REPO_URL=https://github.com/sumon-ohid/better-paas.git bash`
+
+---
+
+### Manual Build
+
+If you already have a checked-out copy of the repository, you can run the installer locally:
+
+```bash
+bash install.sh
+```
+
+Or build the components manually:
+
+#### Backend
 ```bash
 cd backend
 go build -o server .
 ./server
 ```
 
-Frontend:
-
+#### Frontend
 ```bash
 cd frontend
 pnpm install
 pnpm build
 pnpm start
 ```
-
-Or run the one-shot installer: `bash install.sh`.
 
 ## Authentication
 

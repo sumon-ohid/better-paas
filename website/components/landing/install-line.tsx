@@ -6,7 +6,7 @@ import { Check, Copy } from 'lucide-react';
 /* The hero's one-line installer. Shows the full command (no truncation) and
  * copies it to the clipboard on click, with a brief "Copied" confirmation. */
 
-const INSTALL_COMMAND = 'curl -fsSL better-paas.com/install.sh | bash';
+const INSTALL_COMMAND = 'curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | bash';
 
 export function InstallLine() {
   const [copied, setCopied] = useState(false);
