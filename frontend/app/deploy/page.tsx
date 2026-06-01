@@ -41,6 +41,7 @@ import {
 import { api } from "@/lib/api"
 import { GitCompareArrows } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
+import { useActiveServer } from "@/components/server-context"
 
 // Styled fallback for frameworks without svgl assets (Elixir/Phoenix only)
 function FallbackIcon({ label }: { label: string; color: string }) {
@@ -63,6 +64,7 @@ const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 
 export default function DeployPage() {
   const router = useRouter()
+  const { activeServerId } = useActiveServer()
 
   // ── Wizard step ────────────────────────────────────────────────────────────
   const [step, setStep] = useState(1)
@@ -141,15 +143,15 @@ export default function DeployPage() {
       .list()
       .then((data) => {
         setServers(data)
-        if (data.length > 0) {
-          const hasLocalhost = data.some((s) => s.id === "localhost")
-          setSelectedServerId(hasLocalhost ? "localhost" : data[0].id)
-        }
+        const activeTarget = activeServerId !== "all" ? activeServerId : ""
+        const activeExists = activeTarget && data.some((s) => s.id === activeTarget)
+        const hasLocalhost = data.some((s) => s.id === "localhost")
+        setSelectedServerId(activeExists ? activeTarget : hasLocalhost ? "localhost" : data[0]?.id ?? "localhost")
       })
       .catch((err) => {
         console.error("Failed to load servers:", err)
       })
-  }, [])
+  }, [activeServerId])
 
   // Debounce timer for re-detecting the framework when the Root Directory input
   // is edited by hand.

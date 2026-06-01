@@ -33,10 +33,10 @@ import (
 type CatalogEnv struct {
 	Key         string `json:"key"`
 	Value       string `json:"value"`       // default value (may be empty)
-	Description string `json:"description"`  // shown next to the field
-	Required    bool   `json:"required"`     // must be non-empty to deploy
-	Secret      bool   `json:"secret"`       // mark as a secret env var (redacted)
-	Generate    bool   `json:"generate"`     // auto-fill with a random secret when empty
+	Description string `json:"description"` // shown next to the field
+	Required    bool   `json:"required"`    // must be non-empty to deploy
+	Secret      bool   `json:"secret"`      // mark as a secret env var (redacted)
+	Generate    bool   `json:"generate"`    // auto-fill with a random secret when empty
 }
 
 // CatalogTemplate is a single one-click deployable app.
@@ -45,14 +45,14 @@ type CatalogTemplate struct {
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
 	Category    string       `json:"category"`
-	Image       string       `json:"image"`       // pinned registry image
-	Port        int          `json:"port"`        // internal container port the app listens on
-	VolumePath  string       `json:"volumePath"`  // container path to persist (empty = stateless)
+	Image       string       `json:"image"`      // pinned registry image
+	Port        int          `json:"port"`       // internal container port the app listens on
+	VolumePath  string       `json:"volumePath"` // container path to persist (empty = stateless)
 	Env         []CatalogEnv `json:"env"`
-	HealthPath  string       `json:"healthPath"`  // HTTP path probed before cutover (empty = TCP check)
+	HealthPath  string       `json:"healthPath"` // HTTP path probed before cutover (empty = TCP check)
 	Website     string       `json:"website"`
-	Icon        string       `json:"icon"`        // dashboard-icons slug
-	Notes       string       `json:"notes"`       // caveats (e.g. needs docker socket)
+	Icon        string       `json:"icon"`  // dashboard-icons slug
+	Notes       string       `json:"notes"` // caveats (e.g. needs docker socket)
 }
 
 // catalogTemplates is the curated, single-container catalog. Image tags are
@@ -413,8 +413,12 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
 		return
 	}
-	if findAppByName(name) != nil {
-		jsonError(w, fmt.Sprintf("an app named %q already exists", name), http.StatusConflict)
+	serverID := req.ServerID
+	if serverID == "" {
+		serverID = "localhost"
+	}
+	if findAppByNameAndServer(name, serverID) != nil {
+		jsonError(w, fmt.Sprintf("an app named %q already exists on this server", name), http.StatusConflict)
 		return
 	}
 	if err := validateResourceLimits(req.Memory, req.CPUs); err != nil {
@@ -458,7 +462,6 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		volumes = append(volumes, fmt.Sprintf("%s:%s", volName, tpl.VolumePath))
 	}
 
-	ip := getLocalIP()
 	appsLock.Lock()
 	appID := generateRandomID()
 	serverId := req.ServerID
@@ -485,7 +488,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		CatalogID:     tpl.ID,
 		WebhookSecret: generateRandomID() + generateRandomID(),
 	}
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
+	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, appHostIP(serverId))
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 
@@ -551,8 +554,12 @@ func validateCustomDeploy(w http.ResponseWriter, c customDeployCommon, fallbackN
 		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
 		return "", false
 	}
-	if findAppByName(name) != nil {
-		jsonError(w, fmt.Sprintf("an app named %q already exists", name), http.StatusConflict)
+	serverID := c.ServerID
+	if serverID == "" {
+		serverID = "localhost"
+	}
+	if findAppByNameAndServer(name, serverID) != nil {
+		jsonError(w, fmt.Sprintf("an app named %q already exists on this server", name), http.StatusConflict)
 		return "", false
 	}
 	if err := validateResourceLimits(c.Memory, c.CPUs); err != nil {
@@ -597,8 +604,7 @@ func cleanEnvVars(in map[string]string, secretKeys []string) (map[string]string,
 // startCustomDeploy persists a new app and kicks off the deploy pipeline. It
 // assumes the caller has already validated name, limits, domains, and volumes.
 func startCustomDeploy(w http.ResponseWriter, newApp App, trigger string) {
-	ip := getLocalIP()
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
+	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, appHostIP(newApp.ServerID))
 
 	appsLock.Lock()
 	apps = append(apps, newApp)

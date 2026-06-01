@@ -171,6 +171,7 @@ export interface CatalogDeployRequest {
   domains?: string[]
   memory?: string
   cpus?: string
+  serverId?: string
 }
 
 // Shared fields for custom (non-template) deploys.
@@ -184,6 +185,7 @@ export interface CustomDeployBase {
   volumes?: string[]
   port?: number
   healthPath?: string
+  serverId?: string
 }
 
 export interface ImageDeployRequest extends CustomDeployBase {

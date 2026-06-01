@@ -29,6 +29,7 @@ import { api } from "@/lib/api"
 import type { CatalogTemplate, CatalogEnv, App } from "@/lib/types"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { Docker } from "@/components/ui/svgs/docker"
+import { useActiveServer } from "@/components/server-context"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
@@ -79,6 +80,8 @@ function AppLogo({ template, className }: { template: CatalogTemplate; className
 export default function CatalogPage() {
   const router = useRouter()
   const { showToast } = useToast()
+  const { activeServerId } = useActiveServer()
+  const targetServerId = activeServerId === "all" ? "localhost" : activeServerId
 
   const [templates, setTemplates] = useState<CatalogTemplate[]>([])
   const [loading, setLoading] = useState(true)
@@ -168,6 +171,7 @@ export default function CatalogPage() {
         templateId: selected.id,
         name,
         envVars: envValues,
+        serverId: targetServerId,
       })
       showToast("Deploying", `${selected.name} is starting up.`, "success")
       router.push(`/logs?appId=${app.id}&mode=build`)
@@ -425,6 +429,7 @@ export default function CatalogPage() {
       <CustomDeployModal
         key={customMode ?? "closed"}
         mode={customMode}
+        serverId={targetServerId}
         onClose={() => setCustomMode(null)}
         onDeployed={(app) => router.push(`/logs?appId=${app.id}&mode=build`)}
       />
@@ -514,10 +519,12 @@ function EnvVarEditor({
 // resource limits); only the primary input and the deploy call differ.
 function CustomDeployModal({
   mode,
+  serverId,
   onClose,
   onDeployed,
 }: {
   mode: "image" | "dockerfile" | null
+  serverId: string
   onClose: () => void
   onDeployed: (app: App) => void
 }) {
@@ -561,6 +568,7 @@ function CustomDeployModal({
       cpus: cpus.trim(),
       port: port ? parseInt(port, 10) : 0,
       healthPath: healthPath.trim(),
+      serverId,
     }
   }
 

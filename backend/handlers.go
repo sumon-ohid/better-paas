@@ -142,6 +142,15 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	serverID := req.ServerID
+	if serverID == "" {
+		serverID = "localhost"
+	}
+	if findAppByNameAndServer(req.Name, serverID) != nil {
+		jsonError(w, fmt.Sprintf("an app named %q already exists on this server", req.Name), http.StatusConflict)
+		return
+	}
+
 	if err := validateResourceLimits(req.Memory, req.CPUs); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
@@ -168,14 +177,9 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gitURL := normalizeGitURL(req.GitRepo)
-	ip := getLocalIP()
 
 	appsLock.Lock()
 	appID := generateRandomID()
-	serverID := req.ServerID
-	if serverID == "" {
-		serverID = "localhost"
-	}
 	newApp := App{
 		ID:             appID,
 		Name:           req.Name,
@@ -204,7 +208,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		WebhookSecret:  generateRandomID() + generateRandomID(), // 20-char webhook secret
 		ServerID:       serverID,
 	}
-	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, ip)
+	newApp.URL = fmt.Sprintf("http://%s.%s.sslip.io", newApp.ID, appHostIP(serverID))
 	apps = append(apps, newApp)
 	appsLock.Unlock()
 
@@ -410,7 +414,7 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	removeAppImages(app.ServerID, app.Name)
 
 	// ── Remove build directory ───────────────────────────────────────────────
-	buildDir := filepath.Join("builds", app.Name)
+	buildDir := filepath.Join("builds", app.ID)
 	if err := os.RemoveAll(buildDir); err != nil {
 		log.Printf("[delete] warning: failed to remove build dir %s: %v", buildDir, err)
 	}
@@ -523,8 +527,6 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		normMethod, normDockerfile = m, p
 	}
 
-	ip := getLocalIP()
-
 	appsLock.Lock()
 	var updated *App
 	for i := range apps {
@@ -552,7 +554,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 				apps[i].BuildMethod = normMethod
 				apps[i].DockerfilePath = normDockerfile
 			}
-			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
+			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, appHostIP(apps[i].ServerID))
 			full := apps[i] // full copy WITH secrets for DB persistence
 			clone := apps[i].Public()
 			updated = &clone
@@ -595,8 +597,6 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := getLocalIP()
-
 	// For compose rows, always redeploy from the group's primary row so the
 	// whole project is rebuilt and all rows reconcile together.
 	redeployID := req.ID
@@ -611,7 +611,7 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 	for i := range apps {
 		if apps[i].ID == redeployID {
 			apps[i].Status = "building"
-			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, ip)
+			apps[i].URL = fmt.Sprintf("http://%s.%s.sslip.io", apps[i].ID, appHostIP(apps[i].ServerID))
 			clone := apps[i]
 			targetApp = &clone
 			break
@@ -1340,6 +1340,27 @@ func findAppByName(name string) *App {
 	defer appsLock.Unlock()
 	for i := range apps {
 		if apps[i].Name == name {
+			clone := apps[i]
+			return &clone
+		}
+	}
+	return nil
+}
+
+// findAppByNameAndServer returns a copy of the app with the given name and server,
+// or nil if no match is found.
+func findAppByNameAndServer(name, serverID string) *App {
+	if serverID == "" {
+		serverID = "localhost"
+	}
+	appsLock.Lock()
+	defer appsLock.Unlock()
+	for i := range apps {
+		appServer := apps[i].ServerID
+		if appServer == "" {
+			appServer = "localhost"
+		}
+		if apps[i].Name == name && appServer == serverID {
 			clone := apps[i]
 			return &clone
 		}

@@ -2,6 +2,10 @@ import type { SVGProps } from "react"
 import React from "react"
 import {
   Activity,
+  Archive,
+  BarChart3,
+  Clock3,
+  Database,
   GitBranch,
   GitCommitHorizontal,
   Check,
@@ -53,7 +57,11 @@ import {
 
 type NucleoIconName =
   | "activity"
+  | "archive"
+  | "bar-chart"
   | "branch"
+  | "clock"
+  | "database"
   | "git-commit"
   | "check"
   | "check-circle"
@@ -107,7 +115,11 @@ type NucleoIconProps = SVGProps<SVGSVGElement> & {
 
 const iconMap: Record<NucleoIconName, React.FC<SVGProps<SVGSVGElement>>> = {
   activity: Activity,
+  archive: Archive,
+  "bar-chart": BarChart3,
   branch: GitBranch,
+  clock: Clock3,
+  database: Database,
   "git-commit": GitCommitHorizontal,
   check: Check,
   "check-circle": CircleCheck,

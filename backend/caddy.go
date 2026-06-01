@@ -26,6 +26,19 @@ func getLocalIP() string {
 	return "127.0.0.1"
 }
 
+// appHostIP returns the public-ish host IP used for the default sslip.io URL.
+// Remote apps are routed through the remote target server, while local apps use
+// the control plane host.
+func appHostIP(serverID string) string {
+	if serverID != "" && serverID != "localhost" {
+		srv, err := dbGetServer(serverID)
+		if err == nil && srv != nil && !srv.IsLocal && strings.TrimSpace(srv.IP) != "" {
+			return srv.IP
+		}
+	}
+	return getLocalIP()
+}
+
 // rebuildCaddyfile regenerates the Caddyfile from the current app list.
 // It must be called whenever apps are added, removed, or change status.
 //
@@ -45,8 +58,6 @@ func rebuildCaddyfile() {
 	}
 	sb.WriteString("}\n\n")
 
-	ip := getLocalIP()
-
 	for _, app := range apps {
 		if app.Status != "running" && app.Status != "building" {
 			continue
@@ -61,7 +72,7 @@ func rebuildCaddyfile() {
 		}
 
 		// Default sslip.io host over plain HTTP.
-		sb.WriteString(fmt.Sprintf("http://%s.%s.sslip.io {\n", app.ID, ip))
+		sb.WriteString(fmt.Sprintf("http://%s.%s.sslip.io {\n", app.ID, appHostIP(app.ServerID)))
 		sb.WriteString(fmt.Sprintf("\treverse_proxy %s\n", upstream))
 		sb.WriteString("}\n\n")
 

@@ -16,17 +16,12 @@ interface ServerContextType {
 const ServerContext = createContext<ServerContextType | undefined>(undefined)
 
 export function ServerProvider({ children }: { children: React.ReactNode }) {
-  const [activeServerId, setActiveServerIdState] = useState<string>("all")
+  const [activeServerId, setActiveServerIdState] = useState<string>(() => {
+    if (typeof window === "undefined") return "all"
+    return localStorage.getItem("active-server-id") || "all"
+  })
   const [servers, setServers] = useState<Server[]>([])
   const [isLoading, setIsLoading] = useState(true)
-
-  // Load selected server from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("active-server-id")
-    if (saved) {
-      setActiveServerIdState(saved)
-    }
-  }, [])
 
   const setActiveServerId = useCallback((id: string) => {
     setActiveServerIdState(id)
@@ -46,10 +41,20 @@ export function ServerProvider({ children }: { children: React.ReactNode }) {
 
   // Initial load and periodic polling (every 5 seconds) to catch status transitions
   useEffect(() => {
-    refreshServers()
+    const initial = setTimeout(refreshServers, 0)
     const interval = setInterval(refreshServers, 5000)
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(initial)
+      clearInterval(interval)
+    }
   }, [refreshServers])
+
+  useEffect(() => {
+    if (isLoading || activeServerId === "all" || activeServerId === "localhost") return
+    if (servers.some((s) => s.id === activeServerId)) return
+    const timeout = setTimeout(() => setActiveServerId("all"), 0)
+    return () => clearTimeout(timeout)
+  }, [activeServerId, isLoading, servers, setActiveServerId])
 
   const activeServer = useMemo(() => {
     if (activeServerId === "all" || activeServerId === "localhost") return null
