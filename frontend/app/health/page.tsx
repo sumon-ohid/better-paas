@@ -168,14 +168,14 @@ export default function HealthPage() {
 
         {/* Health Detail Grid */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card>
+          <Card className="max-h-100">
             <CardHeader className="border-b border-border/40 pb-3">
               <CardTitle className="text-base">Service Health Summary</CardTitle>
               <CardDescription>
                 Per-container status overview for all deployed services.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2 pt-4">
+            <CardContent className="space-y-2 pt-4 overflow-y-auto">
               {apps.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
                   No deployed services yet.
