@@ -1,6 +1,6 @@
 # better-paas
 
-[![Discord](https://img.shields.io/discord/1510984110980730940?color=7289da&label=discord&logo=discord)](https://discord.com/widget?id=1510984110980730940&theme=dark)
+[![Discord](https://img.shields.io/discord/1510984110980730940?color=7289da&label=discord&logo=discord)](https://discord.gg/9TP4xEs2)
 
 A self-hosted PaaS: a Go control plane that builds Git repos with Nixpacks,
 runs them as Docker containers, and routes them through Caddy. A Next.js
