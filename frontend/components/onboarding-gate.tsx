@@ -13,6 +13,8 @@ import { api } from "@/lib/api"
 import type { Server } from "@/lib/types"
 import { ArrowLeft, Check, RotateCcw } from "lucide-react"
 import { AddServerWizard } from "@/app/servers/page"
+import { Badge } from "@/components/ui/badge"
+import { IconMonitor, IconServer2 } from "nucleo-isometric"
 
 // OnboardingGate shows a one-time welcome flow on first sign-in. It sits inside
 // AuthGate, so it only renders for an authenticated admin. The "completed" flag
@@ -480,7 +482,7 @@ function ChooseServerStep({
             }`}
           >
             <div className="flex items-center gap-2">
-              <span className="text-xl">🖥️</span>
+              <IconMonitor className="h-7 w-7 text-foreground" />
               <span className="text-sm font-semibold text-foreground">Use This Server (Localhost)</span>
             </div>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
@@ -505,8 +507,9 @@ function ChooseServerStep({
           >
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🌐</span>
-                <span className="text-sm font-semibold text-foreground">Connect a Remote Server</span>
+                <IconServer2 className="h-7 w-7 text-foreground" />
+                <span className="text-sm font-semibold text-foreground">Remote Server</span>
+                <Badge variant="info" size="sm" className="font-semibold">Recommended</Badge>
               </div>
               {vpsConnected && <span className="h-2 w-2 rounded-full bg-success animate-pulse" />}
             </div>
