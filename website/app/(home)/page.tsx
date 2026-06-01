@@ -25,11 +25,13 @@ import { DockerLogo, NixLogo, CaddyLogo, NextjsLogo } from '@/components/landing
 import { TextEffect } from '@/components/tailark/text-effect';
 import { AnimatedGroup } from '@/components/tailark/animated-group';
 import { BorderBeam } from '@/components/tailark/border-beam';
+import { Spotlight } from '@/components/landing/spotlight';
 import { cn } from '@/lib/cn';
 
 export default function HomePage() {
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="flex flex-1 flex-col relative">
+      <Spotlight />
       <Hero />
       <TechStrip />
       <Showcase />
@@ -47,7 +49,7 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden pt-12">
+    <section className="relative overflow-hidden pt-4">
       {/* Background radial/gradient lines like Tailark Hero */}
       <div
         aria-hidden
@@ -57,7 +59,7 @@ function Hero() {
         <div className="h-320 absolute left-0 top-0 w-60 -rotate-45 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(255,255,255,0.01)_0,transparent_80%)] [translate:5%_-50%]" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-6 pt-24 pb-16 sm:pt-32">
+      <div className="relative mx-auto max-w-7xl px-6 pt-10 pb-16 sm:pt-16">
         <div className="mx-auto flex max-w-3xl flex-col items-center text-center relative z-10">
           <AnimatedGroup preset="blur-slide">
             <Link
