@@ -248,13 +248,13 @@ export function HostTerminal({ reconnectToken }: HostTerminalProps) {
 
   if (activeServerId === "all") {
     return (
-      <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-lg border border-border bg-[#090a0f] text-sm text-slate-400 p-8 text-center space-y-4 font-mono select-none">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mx-auto">
+      <div className="flex h-full min-h-75 select-none flex-col items-center justify-center space-y-4 rounded-lg border border-border p-8 text-center font-mono text-sm text-muted-foreground bg-transparent dark:text-slate-400">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <TerminalIcon className="h-6 w-6" />
         </div>
         <div className="space-y-1.5 max-w-sm">
-          <p className="font-semibold text-slate-200">Terminal Context Required</p>
-          <p className="text-xs text-slate-400 leading-relaxed">
+          <p className="font-semibold text-foreground dark:text-slate-200">Terminal Context Required</p>
+          <p className="text-xs leading-relaxed text-muted-foreground dark:text-slate-400">
             Please select a specific server context (e.g. Localhost or a remote VPS) from the top header selector to access its host terminal.
           </p>
         </div>
