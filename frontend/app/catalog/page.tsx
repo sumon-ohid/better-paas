@@ -81,6 +81,8 @@ const iconUrlOverrides: Record<string, string> = {
     "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/pairdrop.png",
   woodpecker:
     "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/woodpecker-ci.png",
+  prestashop: "https://cdn.jsdelivr.net/npm/simple-icons/icons/prestashop.svg",
+  matomo: "https://cdn.jsdelivr.net/npm/simple-icons/icons/matomo.svg",
 }
 
 function iconUrl(slug: string): string {

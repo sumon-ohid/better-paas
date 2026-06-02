@@ -961,6 +961,50 @@ func catalogTemplates() []CatalogTemplate {
 			Website:     "https://www.docuseal.com",
 			Icon:        "docuseal",
 		},
+		{
+			ID:          "matomo",
+			Name:        "Matomo Analytics",
+			Description: "The leading open-source web analytics platform, providing full privacy compliance and native e-commerce tracking.",
+			Category:    "Analytics",
+			Image:       "matomo:latest",
+			Port:        80,
+			VolumePath:  "/var/www/html",
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "mysql"},
+			},
+			Env: []CatalogEnv{
+				{Key: "MATOMO_DATABASE_HOST", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "MATOMO_DATABASE_DBNAME", Value: "appdb", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "MATOMO_DATABASE_USERNAME", Value: "appuser", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "MATOMO_DATABASE_PASSWORD", Description: "Auto-filled from a managed MySQL add-on.", Secret: true},
+			},
+			HealthPath: "/",
+			Website:    "https://matomo.org",
+			Icon:       "matomo",
+		},
+		{
+			ID:          "prestashop",
+			Name:        "PrestaShop",
+			Description: "Popular open-source e-commerce solution to create and manage your online store.",
+			Category:    "E-commerce",
+			Image:       "prestashop/prestashop:latest",
+			Port:        80,
+			VolumePath:  "/var/www/html",
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "mysql"},
+			},
+			Env: []CatalogEnv{
+				{Key: "DB_SERVER", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "DB_NAME", Value: "appdb", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "DB_USER", Value: "appuser", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "DB_PASSWD", Description: "Auto-filled from a managed MySQL add-on.", Secret: true},
+				{Key: "PS_INSTALL_AUTO", Value: "true", Description: "Enables automatic installer on startup."},
+				{Key: "PS_DEV_MODE", Value: "0", Description: "Enable PrestaShop development debug mode (1 = enabled, 0 = disabled)."},
+			},
+			HealthPath: "/",
+			Website:    "https://www.prestashop-project.org",
+			Icon:       "prestashop",
+		},
 	}
 }
 
@@ -1249,6 +1293,20 @@ func catalogTemplateAddonEnv(templateID string, addon Addon, password string) ma
 			out["REDIS_HOST"] = base["REDIS_HOST"]
 			out["REDIS_PORT"] = "6379"
 			out["REDIS_PASSWORD"] = base["REDIS_PASSWORD"]
+		}
+	case "matomo":
+		if addon.Type == "mysql" {
+			out["MATOMO_DATABASE_HOST"] = base["MYSQL_HOST"]
+			out["MATOMO_DATABASE_DBNAME"] = base["MYSQL_DATABASE"]
+			out["MATOMO_DATABASE_USERNAME"] = base["MYSQL_USER"]
+			out["MATOMO_DATABASE_PASSWORD"] = base["MYSQL_PASSWORD"]
+		}
+	case "prestashop":
+		if addon.Type == "mysql" {
+			out["DB_SERVER"] = base["MYSQL_HOST"]
+			out["DB_NAME"] = base["MYSQL_DATABASE"]
+			out["DB_USER"] = base["MYSQL_USER"]
+			out["DB_PASSWD"] = base["MYSQL_PASSWORD"]
 		}
 	default:
 		for k, v := range base {
