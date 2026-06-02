@@ -9,6 +9,7 @@
 /.next/
 /out/
 /build
+/dist/
 *.tsbuildinfo
 
 # misc

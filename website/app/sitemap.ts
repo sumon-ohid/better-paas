@@ -2,6 +2,8 @@ import { MetadataRoute } from 'next';
 import { source } from '@/lib/source';
 import { siteUrl } from '@/lib/shared';
 
+export const dynamic = 'force-static';
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const pages = source.getPages();
   const docsUrls = pages.map((page) => ({
