@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { AppShell, useToast } from "@/components/app-shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -71,6 +72,9 @@ const MoreIcon = (props: IconProps) => (
 )
 const ExternalIcon = (props: IconProps) => (
   <NucleoIcon {...props} name="external" />
+)
+const TerminalIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="terminal" />
 )
 
 // ── Status helpers ────────────────────────────────────────────────────────────
@@ -911,6 +915,7 @@ interface ServerCardProps {
   onTest: () => void
   onDelete: () => void
   onViewKey: () => void
+  onTerminal: () => void
   testing: boolean
 }
 
@@ -919,6 +924,7 @@ function ServerCard({
   onTest,
   onDelete,
   onViewKey,
+  onTerminal,
   testing,
 }: ServerCardProps) {
   return (
@@ -1002,6 +1008,11 @@ function ServerCard({
                     className={`h-4 w-4 text-muted-foreground/75 ${testing ? "animate-spin" : ""}`}
                   />
                   {testing ? "Testing…" : "Test Connection"}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem onClick={onTerminal}>
+                  <TerminalIcon className="h-4 w-4 text-muted-foreground/75" />
+                  Terminal
                 </DropdownMenuItem>
 
                 {!server.isLocal && (
@@ -1214,6 +1225,7 @@ function CopyableCodeBlock({
 
 export default function ServersPage() {
   const { showToast } = useToast()
+  const router = useRouter()
   const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -1306,6 +1318,11 @@ export default function ServersPage() {
     }
   }
 
+  const handleTerminal = (server: Server) => {
+    const id = server.isLocal ? "localhost" : server.id
+    router.push(`/terminal?server=${id}`)
+  }
+
   return (
     <AppShell>
       <div className="space-y-6 p-4 md:p-6">
@@ -1360,6 +1377,7 @@ export default function ServersPage() {
                 onTest={() => handleTest(server)}
                 onDelete={() => setDeleteTarget(server)}
                 onViewKey={() => setKeyServer(server)}
+                onTerminal={() => handleTerminal(server)}
               />
             ))}
           </div>
