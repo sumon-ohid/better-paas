@@ -771,10 +771,15 @@ func startContainer(app App, image, containerName string, hostPort, containerPor
 // healthPath is set it expects an HTTP 2xx/3xx/4xx (any HTTP response means the
 // server is up); otherwise a successful TCP connect is sufficient.
 func waitHealthy(serverID, containerName string, hostPort int, healthPath string, timeout time.Duration, logf func(string)) error {
+	printedLines := 0
+	var lastError string
+
 	// For local deployments, we can query localhost directly from Go.
 	if serverID == "" || serverID == "localhost" {
 		deadline := time.Now().Add(timeout)
 		for time.Now().Before(deadline) {
+			streamContainerLogs(serverID, containerName, &printedLines, logf)
+
 			if containerName != "" {
 				running, err := isContainerRunning(serverID, containerName)
 				if err == nil && !running {
@@ -789,22 +794,37 @@ func waitHealthy(serverID, containerName string, hostPort int, healthPath string
 				if err == nil {
 					resp.Body.Close()
 					if resp.StatusCode < 500 {
+						streamContainerLogs(serverID, containerName, &printedLines, logf)
 						return nil
 					}
-					logf(fmt.Sprintf("🩺 Health check HTTP status: %d (expected < 500)", resp.StatusCode))
+					msg := fmt.Sprintf("🩺 Health check HTTP status: %d (expected < 500)", resp.StatusCode)
+					if msg != lastError {
+						logf(msg)
+						lastError = msg
+					}
 				} else {
-					logf(fmt.Sprintf("🩺 Health check connection error: %v", err))
+					msg := fmt.Sprintf("🩺 Health check connection error: %v", err)
+					if msg != lastError {
+						logf(msg)
+						lastError = msg
+					}
 				}
 			} else {
 				conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", hostPort), 2*time.Second)
 				if err == nil {
 					conn.Close()
+					streamContainerLogs(serverID, containerName, &printedLines, logf)
 					return nil
 				}
-				logf(fmt.Sprintf("🩺 Health check TCP connection error: %v", err))
+				msg := fmt.Sprintf("🩺 Health check TCP connection error: %v", err)
+				if msg != lastError {
+					logf(msg)
+					lastError = msg
+				}
 			}
 			time.Sleep(1 * time.Second)
 		}
+		streamContainerLogs(serverID, containerName, &printedLines, logf)
 		return fmt.Errorf("container did not become healthy within %s", timeout)
 	}
 
@@ -820,6 +840,8 @@ func waitHealthy(serverID, containerName string, hostPort int, healthPath string
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
+		streamContainerLogs(serverID, containerName, &printedLines, logf)
+
 		if containerName != "" {
 			running, err := isContainerRunning(serverID, containerName)
 			if err == nil && !running {
@@ -837,36 +859,84 @@ func waitHealthy(serverID, containerName string, hostPort int, healthPath string
 				var statusCode int
 				if _, scanErr := fmt.Sscanf(code, "%d", &statusCode); scanErr == nil {
 					if statusCode > 0 && statusCode < 500 {
+						streamContainerLogs(serverID, containerName, &printedLines, logf)
 						return nil
 					}
-					logf(fmt.Sprintf("🩺 Remote health check HTTP status (curl): %d (expected < 500)", statusCode))
+					msg := fmt.Sprintf("🩺 Remote health check HTTP status (curl): %d (expected < 500)", statusCode)
+					if msg != lastError {
+						logf(msg)
+						lastError = msg
+					}
 				}
 			} else {
-				logf(fmt.Sprintf("🩺 Remote health check command error (curl): %v — %s", err, out))
+				msg := fmt.Sprintf("🩺 Remote health check command error (curl): %v — %s", err, out)
+				if msg != lastError {
+					logf(msg)
+					lastError = msg
+				}
 			}
 			// Fallback: if curl is not installed or fails, try wget
 			out, err = ex.RunCommand("wget", "-q", "--spider", "--server-response", url)
 			if err == nil {
+				streamContainerLogs(serverID, containerName, &printedLines, logf)
 				return nil
 			} else {
-				logf(fmt.Sprintf("🩺 Remote health check command error (wget): %v — %s", err, out))
+				msg := fmt.Sprintf("🩺 Remote health check command error (wget): %v — %s", err, out)
+				if msg != lastError {
+					logf(msg)
+					lastError = msg
+				}
 			}
 		} else {
 			// TCP check: try to connect using bash's built-in /dev/tcp or nc
 			_, err1 := ex.RunCommand("bash", "-c", fmt.Sprintf("cat < /dev/null > /dev/tcp/127.0.0.1/%d", hostPort))
 			if err1 == nil {
+				streamContainerLogs(serverID, containerName, &printedLines, logf)
 				return nil
 			}
 			_, err2 := ex.RunCommand("nc", "-z", "-w", "1", "127.0.0.1", fmt.Sprintf("%d", hostPort))
 			if err2 == nil {
+				streamContainerLogs(serverID, containerName, &printedLines, logf)
 				return nil
 			}
-			logf(fmt.Sprintf("🩺 Remote health check TCP error: bash=%v, nc=%v", err1, err2))
+			msg := fmt.Sprintf("🩺 Remote health check TCP error: bash=%v, nc=%v", err1, err2)
+			if msg != lastError {
+				logf(msg)
+				lastError = msg
+			}
 		}
 		time.Sleep(1 * time.Second)
 	}
 
+	streamContainerLogs(serverID, containerName, &printedLines, logf)
 	return fmt.Errorf("container did not become healthy within %s", timeout)
+}
+
+func streamContainerLogs(serverID, containerName string, printedLines *int, logf func(string)) {
+	if containerName == "" {
+		return
+	}
+	ex, err := GetExecutorForServer(serverID)
+	if err != nil {
+		return
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	out, err := ex.RunCommand("docker", "logs", containerName)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(out, "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	if len(lines) > *printedLines {
+		for i := *printedLines; i < len(lines); i++ {
+			logf(fmt.Sprintf("📦 [%s] %s", containerName, lines[i]))
+		}
+		*printedLines = len(lines)
+	}
 }
 
 func isContainerRunning(serverID, containerName string) (bool, error) {
