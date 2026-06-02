@@ -234,7 +234,7 @@ func writeComposeOverride(path string, services []composeService, webHostPorts m
 // composeDown tears the whole project down. Volumes are deliberately preserved
 // (no -v), matching the platform's data-retention stance for managed state.
 func composeDown(project, composeDir string) error {
-	cmd := exec.Command("docker", "compose", "-p", project, "down", "--remove-orphans")
+	cmd := exec.Command("docker", "compose", "-p", project, "down", "--remove-orphans", "--rmi", "local")
 	if composeDir != "" {
 		cmd.Dir = composeDir
 	}
