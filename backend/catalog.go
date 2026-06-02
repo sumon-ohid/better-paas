@@ -903,7 +903,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		if auto, ok := autoEnv[e.Key]; ok {
 			val = auto
 		}
-		if ov, ok := req.EnvVars[e.Key]; ok {
+		if ov, ok := req.EnvVars[e.Key]; ok && strings.TrimSpace(ov) != "" {
 			val = strings.TrimSpace(ov)
 		}
 		if val == "" && e.Generate {

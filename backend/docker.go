@@ -219,13 +219,29 @@ func secureIntn(n int) int {
 
 // portFree reports whether a TCP port can currently be bound on the host.
 func portFree(port int) bool {
-	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-	if err != nil {
-		return false
+	// Check IPv4 wildcard
+	ln4, err4 := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	if err4 != nil {
+		if strings.Contains(err4.Error(), "already in use") {
+			return false
+		}
+	} else {
+		_ = ln4.Close()
 	}
-	_ = ln.Close()
+
+	// Check IPv6 wildcard
+	ln6, err6 := net.Listen("tcp", fmt.Sprintf("[::]:%d", port))
+	if err6 != nil {
+		if strings.Contains(err6.Error(), "already in use") {
+			return false
+		}
+	} else {
+		_ = ln6.Close()
+	}
+
 	return true
 }
+
 
 // remotePortFree probes whether a TCP port is free on a remote server over SSH.
 // It tries ss(8) first (most common on modern Linux), then falls back to
@@ -746,6 +762,9 @@ func waitHealthy(serverID string, hostPort int, healthPath string, timeout time.
 					if resp.StatusCode < 500 {
 						return nil
 					}
+					logf(fmt.Sprintf("🩺 Health check HTTP status: %d (expected < 500)", resp.StatusCode))
+				} else {
+					logf(fmt.Sprintf("🩺 Health check connection error: %v", err))
 				}
 			} else {
 				conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", hostPort), 2*time.Second)
@@ -753,6 +772,7 @@ func waitHealthy(serverID string, hostPort int, healthPath string, timeout time.
 					conn.Close()
 					return nil
 				}
+				logf(fmt.Sprintf("🩺 Health check TCP connection error: %v", err))
 			}
 			time.Sleep(1 * time.Second)
 		}
@@ -783,12 +803,17 @@ func waitHealthy(serverID string, hostPort int, healthPath string, timeout time.
 					if statusCode > 0 && statusCode < 500 {
 						return nil
 					}
+					logf(fmt.Sprintf("🩺 Remote health check HTTP status (curl): %d (expected < 500)", statusCode))
 				}
+			} else {
+				logf(fmt.Sprintf("🩺 Remote health check command error (curl): %v — %s", err, out))
 			}
 			// Fallback: if curl is not installed or fails, try wget
 			out, err = ex.RunCommand("wget", "-q", "--spider", "--server-response", url)
 			if err == nil {
 				return nil
+			} else {
+				logf(fmt.Sprintf("🩺 Remote health check command error (wget): %v — %s", err, out))
 			}
 		} else {
 			// TCP check: try to connect using bash's built-in /dev/tcp or nc
@@ -800,6 +825,7 @@ func waitHealthy(serverID string, hostPort int, healthPath string, timeout time.
 			if err2 == nil {
 				return nil
 			}
+			logf(fmt.Sprintf("🩺 Remote health check TCP error: bash=%v, nc=%v", err1, err2))
 		}
 		time.Sleep(1 * time.Second)
 	}
