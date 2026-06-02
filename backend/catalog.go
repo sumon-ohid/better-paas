@@ -840,7 +840,7 @@ func catalogTemplates() []CatalogTemplate {
 				{Type: "postgres"},
 			},
 			Env: []CatalogEnv{
-				{Key: "DATABASE_URL", Description: "Auto-filled Postgres connection string.", Secret: true},
+				{Key: "DATABASE_URL", Description: "Auto-filled from a managed Postgres add-on.", Secret: true},
 				{Key: "NEXTAUTH_SECRET", Description: "Random NextAuth secret.", Required: true, Secret: true, Generate: true},
 				{Key: "WEBAPP_URL", Description: "Public app URL, e.g. https://forms.example.com", Required: false},
 			},
