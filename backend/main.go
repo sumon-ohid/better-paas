@@ -152,6 +152,7 @@ func main() {
 
 	// System version & self-update
 	mux.HandleFunc("/api/system/version", handleSystemVersion)
+	mux.HandleFunc("/api/system/domain", handleSystemDomain)
 	mux.HandleFunc("/api/system/update/check", handleUpdateCheck)
 	mux.HandleFunc("/api/system/update/status", handleUpdateStatus)
 	mux.HandleFunc("/api/system/update/apply", handleUpdateApply)

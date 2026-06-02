@@ -37,6 +37,31 @@ func defaultAppURL(appID, serverID string) string {
 	return fmt.Sprintf("http://%s.%s.sslip.io", appID, appHostIP(serverID))
 }
 
+func getBackendPort() string {
+	addr := listenAddr()
+	if idx := strings.LastIndex(addr, ":"); idx != -1 {
+		return addr[idx+1:]
+	}
+	return "8080"
+}
+
+func getFrontendPort() string {
+	if p := strings.TrimSpace(os.Getenv("FRONTEND_PORT")); p != "" {
+		return p
+	}
+	if p := strings.TrimSpace(os.Getenv("PORT")); p != "" {
+		return p
+	}
+	return "3000"
+}
+
+func getPaasDomain() string {
+	if domain := strings.TrimSpace(os.Getenv("PAAS_DOMAIN")); domain != "" {
+		return domain
+	}
+	return strings.TrimSpace(dbGetMeta("paas_domain"))
+}
+
 // rebuildCaddyfile regenerates the Caddyfile from the current app list.
 // It must be called whenever apps are added, removed, or change status.
 //
@@ -56,7 +81,25 @@ func rebuildCaddyfile() {
 	}
 	sb.WriteString("}\n\n")
 
+	// Custom PAAS_DOMAIN routing
+	if paasDomain := getPaasDomain(); paasDomain != "" {
+		backendPort := getBackendPort()
+		frontendPort := getFrontendPort()
+		sb.WriteString(fmt.Sprintf("%s {\n", paasDomain))
+		sb.WriteString("\thandle /api/* {\n")
+		sb.WriteString(fmt.Sprintf("\t\treverse_proxy localhost:%s\n", backendPort))
+		sb.WriteString("\t}\n")
+		sb.WriteString("\thandle /ws/* {\n")
+		sb.WriteString(fmt.Sprintf("\t\treverse_proxy localhost:%s\n", backendPort))
+		sb.WriteString("\t}\n")
+		sb.WriteString("\thandle {\n")
+		sb.WriteString(fmt.Sprintf("\t\treverse_proxy localhost:%s\n", frontendPort))
+		sb.WriteString("\t}\n")
+		sb.WriteString("}\n\n")
+	}
+
 	for _, app := range apps {
+
 		if app.Status != "running" && app.Status != "building" {
 			continue
 		}

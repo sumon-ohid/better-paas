@@ -41,7 +41,7 @@ export default function HealthPage() {
     timestamp: new Date().toISOString(),
   })
   const [apps, setApps] = useState<App[]>([])
-  const [health, setHealth] = useState<{ status: string; uptime: string } | null>(null)
+  const [health, setHealth] = useState<{ status: string; uptime: string; version?: string } | null>(null)
   const [cpuHistory, setCpuHistory] = useState<number[]>(Array(20).fill(0))
   const [memHistory, setMemHistory] = useState<number[]>(Array(20).fill(0))
 
@@ -224,7 +224,7 @@ export default function HealthPage() {
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
               {[
-                ["Engine", "Better-PaaS v1.0"],
+                ["Engine", health?.version ? `Better-PaaS ${health.version}` : "Better-PaaS"],
                 ["Node Status", health?.status ?? "Checking..."],
                 ["Uptime", health?.uptime ?? "—"],
                 ["Proxy", "Caddy (sslip.io)"],

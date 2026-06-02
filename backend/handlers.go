@@ -823,7 +823,8 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]interface{}{
 		"status":    "healthy",
 		"timestamp": time.Now().Format(time.RFC3339),
-		"uptime":    time.Since(startTime).String(),
+		"uptime":    time.Since(startTime).Round(time.Second).String(),
+		"version":   version,
 	})
 }
 

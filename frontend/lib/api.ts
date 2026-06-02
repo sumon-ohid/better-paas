@@ -40,6 +40,15 @@ export function getApiBase(): string {
   const explicit = process.env.NEXT_PUBLIC_API_URL
   if (explicit) return explicit.replace(/\/$/, "")
   if (typeof window !== "undefined") {
+    // Drop the port 8080 suffix when accessed via a custom domain through Caddy
+    if (
+      window.location.port !== "3000" &&
+      window.location.port !== "3001" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1"
+    ) {
+      return `${window.location.protocol}//${window.location.host}`
+    }
     return `${window.location.protocol}//${window.location.hostname}:8080`
   }
   return "http://localhost:8080"
@@ -428,13 +437,25 @@ export const api = {
 
   system: {
     health: () =>
-      req<{ status: string; timestamp: string; uptime: string }>("/api/health"),
+      req<{
+        status: string
+        timestamp: string
+        uptime: string
+        version: string
+      }>("/api/health"),
     prune: () =>
       req<{ status: string; output: string }>("/api/docker/prune", {
         method: "POST",
       }),
     appMetrics: () => req<PerAppMetrics[]>("/api/metrics/apps"),
     version: () => req<SystemVersion>("/api/system/version"),
+    domain: () =>
+      req<{ domain: string; envOverridden: boolean }>("/api/system/domain"),
+    saveDomain: (domain: string) =>
+      req<{ status: string; domain: string }>("/api/system/domain", {
+        method: "POST",
+        body: JSON.stringify({ domain }),
+      }),
     updateCheck: (force = false) =>
       req<UpdateStatus>(`/api/system/update/check${force ? "?force=1" : ""}`),
     updateStatus: () => req<UpdateProgress>("/api/system/update/status"),

@@ -168,6 +168,11 @@ export default function SettingsPage() {
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [applyingUpdate, setApplyingUpdate] = useState(false)
 
+  // Custom Domain
+  const [paasDomain, setPaasDomain] = useState("")
+  const [paasDomainEnvOverridden, setPaasDomainEnvOverridden] = useState(false)
+  const [savingDomain, setSavingDomain] = useState(false)
+
   React.useEffect(() => {
     api.notifications
       .get()
@@ -184,6 +189,13 @@ export default function SettingsPage() {
     api.system
       .version()
       .then(setSysVersion)
+      .catch(() => {})
+    api.system
+      .domain()
+      .then((d) => {
+        setPaasDomain(d.domain)
+        setPaasDomainEnvOverridden(d.envOverridden)
+      })
       .catch(() => {})
   }, [])
 
@@ -314,6 +326,22 @@ export default function SettingsPage() {
       showToast("Reset failed", err instanceof ApiError ? err.message : "Could not reset onboarding.", "destructive")
     } finally {
       setResettingOnboarding(false)
+    }
+  }
+
+  const handleSaveDomain = async () => {
+    setSavingDomain(true)
+    try {
+      await api.system.saveDomain(paasDomain.trim())
+      showToast("Domain saved", "Custom domain configuration updated successfully. Caddy reverse proxy has been reloaded.", "success")
+    } catch (err) {
+      showToast(
+        "Save failed",
+        err instanceof ApiError ? err.message : "Could not save custom domain.",
+        "destructive"
+      )
+    } finally {
+      setSavingDomain(false)
     }
   }
 
@@ -784,6 +812,59 @@ export default function SettingsPage() {
             <Button variant="outline" onClick={signOut}>
               Sign out
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Custom Domain */}
+        <Card>
+          <CardHeader className="border-b border-border/40">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <GlobeIcon className="h-4 w-4 text-muted-foreground" />
+              Custom Domain
+              {paasDomainEnvOverridden && (
+                <Badge variant="warning" size="sm" className="ml-1">
+                  Enforced via env
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Set up a custom domain (e.g. <code className="rounded bg-muted px-1 py-0.5 text-[11px]">paas.example.com</code>) to access this Better-PaaS dashboard. Caddy will dynamically route traffic on ports 80/443 and provision TLS certificates automatically.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            {paasDomainEnvOverridden && (
+              <Alert variant="info">
+                <InfoIcon className="h-4 w-4" />
+                <AlertTitle>Environment Override Active</AlertTitle>
+                <AlertDescription>
+                  The domain is currently set via the <code className="rounded bg-muted px-1 py-0.5 text-[11px]">PAAS_DOMAIN</code> environment variable on your server and cannot be edited from the web interface.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="text-xs mr-2 font-semibold text-muted-foreground">Domain name</Label>
+              <Input
+                type="text"
+                value={paasDomain}
+                onChange={(e) => setPaasDomain(e.target.value)}
+                disabled={paasDomainEnvOverridden}
+                placeholder="paas.example.com"
+                className="max-w-md font-mono text-sm"
+                autoComplete="off"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Ensure your domain DNS points a CNAME or A record to this server IP address before saving.
+              </p>
+            </div>
+
+            {!paasDomainEnvOverridden && (
+              <div className="flex gap-2 pt-1">
+                <Button onClick={handleSaveDomain} loading={savingDomain}>
+                  Save Domain
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

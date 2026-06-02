@@ -75,6 +75,66 @@ func handleSystemVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// GET/POST /api/system/domain — configure the custom domain for the PAAS control plane itself
+// ---------------------------------------------------------------------------
+
+func handleSystemDomain(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		envVal := strings.TrimSpace(os.Getenv("PAAS_DOMAIN"))
+		dbVal := strings.TrimSpace(dbGetMeta("paas_domain"))
+		domain := dbVal
+		if envVal != "" {
+			domain = envVal
+		}
+		jsonOK(w, map[string]any{
+			"domain":        domain,
+			"envOverridden": envVal != "",
+		})
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		envVal := strings.TrimSpace(os.Getenv("PAAS_DOMAIN"))
+		if envVal != "" {
+			jsonError(w, "Domain configuration is overridden by PAAS_DOMAIN environment variable", http.StatusForbidden)
+			return
+		}
+
+		var req struct {
+			Domain string `json:"domain"`
+		}
+		if err := decodeJSON(r, &req); err != nil {
+			jsonError(w, "Bad request: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		domain := strings.TrimSpace(req.Domain)
+		if domain != "" {
+			if len(domain) > 253 || !domainRe.MatchString(domain) {
+				jsonError(w, "Invalid domain name", http.StatusBadRequest)
+				return
+			}
+		}
+
+		if err := dbSetMeta("paas_domain", domain); err != nil {
+			jsonError(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Trigger Caddyfile rebuild and reload
+		rebuildCaddyfile()
+
+		jsonOK(w, map[string]any{
+			"status": "success",
+			"domain": domain,
+		})
+		return
+	}
+
+	jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/system/update/check — query latest release (cached)
 // ---------------------------------------------------------------------------
 
