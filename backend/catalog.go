@@ -912,7 +912,7 @@ func catalogTemplates() []CatalogTemplate {
 			Name:        "OneDev",
 			Description: "All-in-one DevOps platform featuring Git hosting, kanban project management, and CI/CD.",
 			Category:    "Developer Tools",
-			Image:       "1dev/onedev:latest",
+			Image:       "1dev/server:latest",
 			Port:        6610,
 			VolumePath:  "/opt/onedev",
 			HealthPath:  "/",
