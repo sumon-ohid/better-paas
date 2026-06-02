@@ -343,19 +343,45 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			finish("failed", "")
 			return
 		}
-		localLog(fmt.Sprintf("🐳 Pulling image %s ...", image))
 		platform := getTargetPlatform(app.ServerID)
 		pullArgs := []string{"pull"}
 		if platform != "" {
 			pullArgs = append(pullArgs, "--platform", platform)
 		}
 		pullArgs = append(pullArgs, image)
-		if err := streamBuildCommand(exec.Command("docker", pullArgs...), localLog); err != nil {
-			localLog(fmt.Sprintf("✖ Failed to pull image: %v", err))
-			finish("failed", "")
-			return
+
+		if app.ServerID != "" && app.ServerID != "localhost" {
+			// Remote server: pull the registry image directly on the remote
+			// host. This avoids the slow docker-save|SSH|docker-load pipe
+			// entirely — the remote Docker daemon fetches compressed layers
+			// straight from the registry.
+			localLog(fmt.Sprintf("🐳 Pulling image %s on remote server...", image))
+			ex, err := GetExecutorForServer(app.ServerID)
+			if err != nil {
+				localLog(fmt.Sprintf("✖ Failed to reach remote server: %v", err))
+				finish("failed", "")
+				return
+			}
+			if sshEx, ok := ex.(*SSHExecutor); ok {
+				defer sshEx.Close()
+			}
+			out, err := ex.RunCommand("docker", pullArgs...)
+			if err != nil {
+				localLog(fmt.Sprintf("✖ Failed to pull image on remote: %v — %s", err, out))
+				finish("failed", "")
+				return
+			}
+			localLog("✔ Image pulled on remote server.")
+		} else {
+			// Local server: pull normally.
+			localLog(fmt.Sprintf("🐳 Pulling image %s ...", image))
+			if err := streamBuildCommand(exec.Command("docker", pullArgs...), localLog); err != nil {
+				localLog(fmt.Sprintf("✖ Failed to pull image: %v", err))
+				finish("failed", "")
+				return
+			}
+			localLog("✔ Image pulled successfully.")
 		}
-		localLog("✔ Image pulled successfully.")
 	} else if app.BuildMethod == "dockerfile-inline" {
 		// ── Inline-Dockerfile path: build from pasted Dockerfile, no repo ────
 		// There is no build context (no clone), so the Dockerfile must be
@@ -440,7 +466,9 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 	}
 
 	// ── 5. Transfer image to remote target server if needed ──────────────────
-	if rollbackImage == "" && app.ServerID != "" && app.ServerID != "localhost" {
+	// Image-based deploys already pulled directly on the remote, so skip the
+	// expensive docker-save/load transfer for them.
+	if rollbackImage == "" && app.ServerID != "" && app.ServerID != "localhost" && app.BuildMethod != "image" {
 		if err := transferImageToRemote(app.ServerID, image, localLog); err != nil {
 			localLog(fmt.Sprintf("✖ Failed to transfer image to remote: %v", err))
 			finish("failed", "")
@@ -1507,8 +1535,12 @@ func transferImageToRemote(serverID, image string, localLog func(string)) error 
 
 	localLog(fmt.Sprintf("📦 Exporting local image %s...", image))
 
+	// Pipe: docker save | gzip -1 | SSH → docker load
+	// gzip -1 (fastest compression) typically shrinks the tarball by 60-80%,
+	// dramatically reducing transfer time over SSH. docker load accepts
+	// gzip-compressed input natively, so no gunzip is needed on the remote.
 	saveCmd := exec.Command("docker", "save", image)
-	stdout, err := saveCmd.StdoutPipe()
+	saveOut, err := saveCmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("docker save pipe: %w", err)
 	}
@@ -1516,7 +1548,17 @@ func transferImageToRemote(serverID, image string, localLog func(string)) error 
 		return fmt.Errorf("docker save start: %w", err)
 	}
 
-	localLog(fmt.Sprintf("🚚 Streaming image to remote host %s (%s)...", server.Name, server.IP))
+	gzipCmd := exec.Command("gzip", "-1")
+	gzipCmd.Stdin = saveOut
+	gzipOut, err := gzipCmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("gzip pipe: %w", err)
+	}
+	if err := gzipCmd.Start(); err != nil {
+		return fmt.Errorf("gzip start: %w", err)
+	}
+
+	localLog(fmt.Sprintf("🚚 Streaming compressed image to remote host %s (%s)...", server.Name, server.IP))
 
 	signer, err := ssh.ParsePrivateKey([]byte(server.SSHKey))
 	if err != nil {
@@ -1542,7 +1584,7 @@ func transferImageToRemote(serverID, image string, localLog func(string)) error 
 	}
 	defer session.Close()
 
-	session.Stdin = stdout
+	session.Stdin = gzipOut
 	var errBuf bytes.Buffer
 	session.Stderr = &errBuf
 
@@ -1550,6 +1592,9 @@ func transferImageToRemote(serverID, image string, localLog func(string)) error 
 		return fmt.Errorf("docker load on remote: %w — %s", err, errBuf.String())
 	}
 
+	if err := gzipCmd.Wait(); err != nil {
+		return fmt.Errorf("gzip: %w", err)
+	}
 	if err := saveCmd.Wait(); err != nil {
 		return fmt.Errorf("docker save command: %w", err)
 	}
