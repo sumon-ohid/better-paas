@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
@@ -917,6 +919,36 @@ func catalogTemplates() []CatalogTemplate {
 			Website:     "https://github.com/theonedev/onedev",
 			Icon:        "onedev",
 		},
+		{
+			ID:          "mixpost",
+			Name:        "Mixpost",
+			Description: "Self-hosted social media management and scheduling platform.",
+			Category:    "Marketing",
+			Image:       "inovector/mixpost:latest",
+			Port:        80,
+			VolumePath:  "/var/www/html/storage/app",
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "mysql"},
+				{Type: "redis"},
+			},
+			Env: []CatalogEnv{
+				{Key: "APP_KEY", Description: "Laravel encryption key (32 characters).", Required: true, Secret: true, Generate: true},
+				{Key: "APP_URL", Description: "Public app URL, e.g. https://social.example.com", Required: false},
+				{Key: "APP_DEBUG", Value: "false", Description: "Enable/disable debug logs."},
+				{Key: "DB_CONNECTION", Value: "mysql", Description: "Database connection type."},
+				{Key: "DB_HOST", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "DB_PORT", Value: "3306", Description: "Database port."},
+				{Key: "DB_DATABASE", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "DB_USERNAME", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "DB_PASSWORD", Description: "Auto-filled from a managed MySQL add-on.", Secret: true},
+				{Key: "REDIS_HOST", Description: "Auto-filled from a managed Redis add-on."},
+				{Key: "REDIS_PORT", Value: "6379", Description: "Redis port."},
+				{Key: "REDIS_PASSWORD", Description: "Auto-filled from a managed Redis add-on.", Secret: true},
+			},
+			HealthPath: "/",
+			Website:    "https://mixpost.app",
+			Icon:       "mixpost",
+		},
 	}
 }
 
@@ -967,6 +999,8 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	appID := generateRandomID()
+
 	tpl := findCatalogTemplate(req.TemplateID)
 	if tpl == nil {
 		jsonError(w, "Unknown catalog template", http.StatusBadRequest)
@@ -1009,6 +1043,15 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 			autoEnv[k] = v
 		}
 	}
+
+	// Derive public URL for templates that need it
+	appURL := defaultAppURL(appID, serverID)
+	if len(req.Domains) > 0 {
+		appURL = "https://" + req.Domains[0]
+	}
+	if tpl.ID == "mixpost" {
+		autoEnv["APP_URL"] = appURL
+	}
 	for _, e := range tpl.Env {
 		val := e.Value
 		if auto, ok := autoEnv[e.Key]; ok {
@@ -1018,7 +1061,11 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 			val = strings.TrimSpace(ov)
 		}
 		if val == "" && e.Generate {
-			val = addonPassword() // 24-char hex secret
+			if tpl.ID == "mixpost" && e.Key == "APP_KEY" {
+				val = laravelAppKey()
+			} else {
+				val = addonPassword() // 24-char hex secret
+			}
 		}
 		if val == "" && e.Required {
 			jsonError(w, fmt.Sprintf("%s is required", e.Key), http.StatusBadRequest)
@@ -1035,7 +1082,6 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	// ── Persistent volumes: generate uniquely-named volumes so redeploys keep
 	// data. Stateless templates get none.
 	appsLock.Lock()
-	appID := generateRandomID()
 	taken := make(map[string]bool, len(apps))
 	for _, a := range apps {
 		taken[a.Name] = true
@@ -1178,6 +1224,19 @@ func catalogTemplateAddonEnv(templateID string, addon Addon, password string) ma
 			out["SEMAPHORE_DB_USER"] = base["POSTGRES_USER"]
 			out["SEMAPHORE_DB_PASS"] = base["POSTGRES_PASSWORD"]
 			out["SEMAPHORE_DB"] = base["POSTGRES_DB"]
+		}
+	case "mixpost":
+		if addon.Type == "mysql" {
+			out["DB_HOST"] = base["MYSQL_HOST"]
+			out["DB_PORT"] = "3306"
+			out["DB_DATABASE"] = base["MYSQL_DATABASE"]
+			out["DB_USERNAME"] = base["MYSQL_USER"]
+			out["DB_PASSWORD"] = base["MYSQL_PASSWORD"]
+			out["DB_CONNECTION"] = "mysql"
+		} else if addon.Type == "redis" {
+			out["REDIS_HOST"] = base["REDIS_HOST"]
+			out["REDIS_PORT"] = "6379"
+			out["REDIS_PASSWORD"] = base["REDIS_PASSWORD"]
 		}
 	default:
 		for k, v := range base {
@@ -1468,4 +1527,12 @@ func allocatePortLocked(serverID string) int {
 	appsLock.Lock()
 	defer appsLock.Unlock()
 	return allocatePort(serverID)
+}
+
+func laravelAppKey() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "base64:yS4U+ZJ3bYFqHl+3XmS7w9uXo4G6Z9d3Y5U+W8e7rNs="
+	}
+	return "base64:" + base64.StdEncoding.EncodeToString(b)
 }
