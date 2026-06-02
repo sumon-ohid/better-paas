@@ -746,6 +746,177 @@ func catalogTemplates() []CatalogTemplate {
 			Icon:       "open-webui",
 			Notes:      "Connect an external LLM provider or Ollama endpoint after deploy. GPU/Ollama containers are not included.",
 		},
+		{
+			ID:          "vikunja",
+			Name:        "Vikunja",
+			Description: "Polished, modern collaborative to-do list and task manager.",
+			Category:    "Productivity",
+			Image:       "vikunja/vikunja:latest",
+			Port:        3456,
+			VolumePath:  "/app/vikunja/files",
+			HealthPath:  "/",
+			Website:     "https://vikunja.io",
+			Icon:        "vikunja",
+		},
+		{
+			ID:          "listmonk",
+			Name:        "Listmonk",
+			Description: "High-performance self-hosted newsletter and mailing list manager.",
+			Category:    "Marketing",
+			Image:       "listmonk/listmonk:latest",
+			Port:        9000,
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "postgres"},
+			},
+			Env: []CatalogEnv{
+				{Key: "LISTMONK_db__host", Description: "Auto-filled from a managed Postgres add-on."},
+				{Key: "LISTMONK_db__user", Value: "appuser", Description: "Auto-filled from a managed Postgres add-on."},
+				{Key: "LISTMONK_db__password", Description: "Auto-filled from a managed Postgres add-on.", Secret: true},
+				{Key: "LISTMONK_db__database", Value: "appdb", Description: "Auto-filled from a managed Postgres add-on."},
+				{Key: "LISTMONK_db__port", Value: "5432", Description: "Database port."},
+				{Key: "LISTMONK_db__sslmode", Value: "disable", Description: "SSL mode for database connection."},
+				{Key: "LISTMONK_app__address", Value: "0.0.0.0:9000", Description: "App bind address."},
+			},
+			HealthPath: "/",
+			Website:    "https://listmonk.app",
+			Icon:       "listmonk",
+		},
+		{
+			ID:          "grafana",
+			Name:        "Grafana",
+			Description: "The open observability platform: visualize metrics, logs, and traces.",
+			Category:    "Monitoring",
+			Image:       "grafana/grafana:11",
+			Port:        3000,
+			VolumePath:  "/var/lib/grafana",
+			HealthPath:  "/api/health",
+			Website:     "https://grafana.com",
+			Icon:        "grafana",
+		},
+		{
+			ID:          "bookstack",
+			Name:        "BookStack",
+			Description: "A platform to create simple, self-hosted, and easy-to-use wikis.",
+			Category:    "Productivity",
+			Image:       "lscr.io/linuxserver/bookstack:latest",
+			Port:        80,
+			VolumePath:  "/config",
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "mysql"},
+			},
+			Env: []CatalogEnv{
+				{Key: "DB_HOST", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "DB_USER", Value: "appuser", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "DB_PASS", Description: "Auto-filled from a managed MySQL add-on.", Secret: true},
+				{Key: "DB_DATABASE", Value: "appdb", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "APP_URL", Description: "Public app URL, e.g. https://wiki.example.com", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://www.bookstackapp.com",
+			Icon:       "bookstack",
+		},
+		{
+			ID:          "planka",
+			Name:        "Planka",
+			Description: "Elegant real-time Kanban board for workgroups.",
+			Category:    "Productivity",
+			Image:       "ghcr.io/planka-art/planka:latest",
+			Port:        1337,
+			VolumePath:  "/app/public/user-files",
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "postgres"},
+			},
+			Env: []CatalogEnv{
+				{Key: "DATABASE_URL", Description: "Auto-filled Postgres connection string.", Secret: true},
+				{Key: "SECRET_KEY", Description: "Secret key for Planka token signing.", Required: true, Secret: true, Generate: true},
+				{Key: "BASE_URL", Description: "Public app URL, e.g. https://kanban.example.com", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://planka.app",
+			Icon:       "planka",
+		},
+		{
+			ID:          "nocodb",
+			Name:        "NocoDB",
+			Description: "Turns any database into a smart, collaborative spreadsheet.",
+			Category:    "Productivity",
+			Image:       "nocodb/nocodb:latest",
+			Port:        8080,
+			VolumePath:  "/usr/app/data",
+			HealthPath:  "/",
+			Website:     "https://nocodb.com",
+			Icon:        "nocodb",
+		},
+		{
+			ID:          "formbricks",
+			Name:        "Formbricks",
+			Description: "Privacy-first, open-source micro-surveys and user feedback widgets.",
+			Category:    "Utilities",
+			Image:       "formbricks/formbricks:latest",
+			Port:        3000,
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "postgres"},
+			},
+			Env: []CatalogEnv{
+				{Key: "DATABASE_URL", Description: "Auto-filled Postgres connection string.", Secret: true},
+				{Key: "NEXTAUTH_SECRET", Description: "Random NextAuth secret.", Required: true, Secret: true, Generate: true},
+				{Key: "WEBAPP_URL", Description: "Public app URL, e.g. https://forms.example.com", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://formbricks.com",
+			Icon:       "formbricks",
+		},
+		{
+			ID:          "jenkins",
+			Name:        "Jenkins",
+			Description: "The leading open-source automation server for building, deploying, and automating any project.",
+			Category:    "Developer Tools",
+			Image:       "jenkins/jenkins:lts",
+			Port:        8080,
+			VolumePath:  "/var/jenkins_home",
+			HealthPath:  "/login",
+			Website:     "https://www.jenkins.io",
+			Icon:        "jenkins",
+			Notes:       "Initial admin password is written to the container log or /var/jenkins_home/secrets/initialAdminPassword.",
+		},
+		{
+			ID:          "semaphore",
+			Name:        "Ansible Semaphore",
+			Description: "A beautiful web UI for running Ansible playbooks.",
+			Category:    "Developer Tools",
+			Image:       "semaphoreui/semaphore:latest",
+			Port:        3000,
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "postgres"},
+			},
+			Env: []CatalogEnv{
+				{Key: "SEMAPHORE_DB_DIALECT", Description: "Dialect for the database connection (postgres)."},
+				{Key: "SEMAPHORE_DB_HOST", Description: "Auto-filled from a managed Postgres add-on."},
+				{Key: "SEMAPHORE_DB_PORT", Description: "Auto-filled from a managed Postgres add-on."},
+				{Key: "SEMAPHORE_DB_USER", Description: "Auto-filled from a managed Postgres add-on."},
+				{Key: "SEMAPHORE_DB_PASS", Description: "Auto-filled from a managed Postgres add-on.", Secret: true},
+				{Key: "SEMAPHORE_DB", Description: "Auto-filled from a managed Postgres add-on."},
+				{Key: "SEMAPHORE_ADMIN", Value: "admin", Description: "Initial admin username.", Required: true},
+				{Key: "SEMAPHORE_ADMIN_PASSWORD", Description: "Initial admin password.", Required: true, Secret: true, Generate: true},
+				{Key: "SEMAPHORE_ADMIN_EMAIL", Value: "admin@example.com", Description: "Initial admin email.", Required: true},
+				{Key: "SEMAPHORE_ADMIN_NAME", Value: "Administrator", Description: "Initial admin display name.", Required: true},
+			},
+			HealthPath: "/",
+			Website:    "https://github.com/semaphoreui/semaphore",
+			Icon:       "semaphore",
+		},
+		{
+			ID:          "onedev",
+			Name:        "OneDev",
+			Description: "All-in-one DevOps platform featuring Git hosting, kanban project management, and CI/CD.",
+			Category:    "Developer Tools",
+			Image:       "1dev/onedev:latest",
+			Port:        6610,
+			VolumePath:  "/opt/onedev",
+			HealthPath:  "/",
+			Website:     "https://github.com/theonedev/onedev",
+			Icon:        "onedev",
+		},
 	}
 }
 
@@ -981,6 +1152,32 @@ func catalogTemplateAddonEnv(templateID string, addon Addon, password string) ma
 	case "paperless-ngx":
 		if addon.Type == "redis" {
 			out["PAPERLESS_REDIS"] = base["REDIS_URL"]
+		}
+	case "listmonk":
+		if addon.Type == "postgres" {
+			out["LISTMONK_db__host"] = base["POSTGRES_HOST"]
+			out["LISTMONK_db__user"] = base["POSTGRES_USER"]
+			out["LISTMONK_db__password"] = base["POSTGRES_PASSWORD"]
+			out["LISTMONK_db__database"] = base["POSTGRES_DB"]
+			out["LISTMONK_db__port"] = "5432"
+			out["LISTMONK_db__sslmode"] = "disable"
+			out["LISTMONK_app__address"] = "0.0.0.0:9000"
+		}
+	case "bookstack":
+		if addon.Type == "mysql" {
+			out["DB_HOST"] = base["MYSQL_HOST"]
+			out["DB_USER"] = base["MYSQL_USER"]
+			out["DB_PASS"] = base["MYSQL_PASSWORD"]
+			out["DB_DATABASE"] = base["MYSQL_DATABASE"]
+		}
+	case "semaphore":
+		if addon.Type == "postgres" {
+			out["SEMAPHORE_DB_DIALECT"] = "postgres"
+			out["SEMAPHORE_DB_HOST"] = base["POSTGRES_HOST"]
+			out["SEMAPHORE_DB_PORT"] = "5432"
+			out["SEMAPHORE_DB_USER"] = base["POSTGRES_USER"]
+			out["SEMAPHORE_DB_PASS"] = base["POSTGRES_PASSWORD"]
+			out["SEMAPHORE_DB"] = base["POSTGRES_DB"]
 		}
 	default:
 		for k, v := range base {
