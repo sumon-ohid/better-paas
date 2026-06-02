@@ -37,6 +37,14 @@ export const metadata: Metadata = {
     description: appDescription,
     url: siteUrl,
     siteName: appName,
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: `${appName} — ${appTagline}`,
+      },
+    ],
     type: 'website',
     locale: 'en_US',
   },
@@ -44,6 +52,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: `${appName} — ${appTagline}`,
     description: appDescription,
+    images: ['/og-image.png'],
   },
 };
 

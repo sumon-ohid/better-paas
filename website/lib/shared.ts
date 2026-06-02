@@ -1,6 +1,6 @@
 export const appName = 'Better-PaaS';
 export const appTagline =
-  'Your own Heroku. Self-hosted. Deploy from Git in one click.';
+  'Self-hosted platform for apps, databases, and agents';
 export const appDescription =
   'Better-PaaS is a self-hosted platform-as-a-service. Push your code to Git and it builds, runs, and serves your apps with automatic HTTPS, managed databases, zero-downtime deploys, and a clean dashboard.';
 
