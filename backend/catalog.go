@@ -949,6 +949,18 @@ func catalogTemplates() []CatalogTemplate {
 			Website:    "https://mixpost.app",
 			Icon:       "mixpost",
 		},
+		{
+			ID:          "docuseal",
+			Name:        "DocuSeal",
+			Description: "Open-source platform that provides secure and legally-binding digital document signing (DocuSign alternative).",
+			Category:    "Utilities",
+			Image:       "docuseal/docuseal:latest",
+			Port:        3000,
+			VolumePath:  "/data",
+			HealthPath:  "/",
+			Website:     "https://www.docuseal.com",
+			Icon:        "docuseal",
+		},
 	}
 }
 
