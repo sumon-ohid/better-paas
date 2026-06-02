@@ -412,7 +412,10 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 		_, _ = ex.RunCommand("docker", "rm", "-f", app.Name)
 	}
 	removeAppContainers(app.ServerID, app.ID)
-	removeAppImages(app.ServerID, app.Name)
+	removeAppImages(app.ServerID, *app)
+	if app.ServerID != "" && app.ServerID != "localhost" {
+		removeAppImages("localhost", *app)
+	}
 
 	// ── Remove build directory ───────────────────────────────────────────────
 	buildDir := filepath.Join("builds", app.ID)

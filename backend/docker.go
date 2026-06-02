@@ -1073,7 +1073,7 @@ func removeAppContainers(serverID, appID string) {
 }
 
 // removeAppImages removes every image tagged under the app's repository name.
-func removeAppImages(serverID, appName string) {
+func removeAppImages(serverID string, app App) {
 	ex, err := GetExecutorForServer(serverID)
 	if err != nil {
 		return
@@ -1081,17 +1081,29 @@ func removeAppImages(serverID, appName string) {
 	if sshEx, ok := ex.(*SSHExecutor); ok {
 		defer sshEx.Close()
 	}
-	// Query all tags for the app's repository
-	out, err := ex.RunCommand("docker", "images", "--format", "{{.Repository}}:{{.Tag}}", appName)
-	if err != nil {
-		return
-	}
-	for _, tag := range strings.Fields(out) {
-		tag = strings.TrimSpace(tag)
-		if tag == "" || strings.HasSuffix(tag, ":<none>") {
-			continue
+
+	// 1. For built/custom images, remove all tags under the repository name 'app.Name'
+	if app.Name != "" {
+		out, err := ex.RunCommand("docker", "images", "--format", "{{.Repository}}:{{.Tag}}", app.Name)
+		if err == nil {
+			for _, tag := range strings.Fields(out) {
+				tag = strings.TrimSpace(tag)
+				if tag == "" || strings.HasSuffix(tag, ":<none>") {
+					continue
+				}
+				_, _ = ex.RunCommand("docker", "rmi", "-f", tag)
+			}
 		}
-		_, _ = ex.RunCommand("docker", "rmi", "-f", tag)
+	}
+
+	// 2. Also remove the specific active image that was running
+	if app.ActiveImage != "" {
+		_, _ = ex.RunCommand("docker", "rmi", "-f", app.ActiveImage)
+	}
+
+	// 3. If it was deployed with a prebuilt registry image, we can also try to remove it
+	if app.BuildMethod == "image" && app.Image != "" {
+		_, _ = ex.RunCommand("docker", "rmi", "-f", app.Image)
 	}
 }
 
