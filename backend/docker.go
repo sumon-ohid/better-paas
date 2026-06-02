@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -383,18 +384,35 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			}
 			out, err := ex.RunCommand("docker", pullArgs...)
 			if err != nil {
-				localLog(fmt.Sprintf("✖ Failed to pull image on remote: %v — %s", err, out))
-				finish("failed", "")
-				return
+				if platform != "linux/amd64" {
+					localLog(fmt.Sprintf("⚠️ Pull failed on remote (%v). Retrying with --platform linux/amd64...", err))
+					amd64PullArgs := []string{"pull", "--platform", "linux/amd64", image}
+					out, err = ex.RunCommand("docker", amd64PullArgs...)
+				}
+				if err != nil {
+					localLog(fmt.Sprintf("✖ Failed to pull image on remote: %v — %s", err, out))
+					finish("failed", "")
+					return
+				}
 			}
 			localLog("✔ Image pulled on remote server.")
 		} else {
 			// Local server: pull normally.
 			localLog(fmt.Sprintf("🐳 Pulling image %s ...", image))
 			if err := streamBuildCommand(exec.Command("docker", pullArgs...), localLog); err != nil {
-				localLog(fmt.Sprintf("✖ Failed to pull image: %v", err))
-				finish("failed", "")
-				return
+				var fallbackErr error
+				if platform != "linux/amd64" {
+					localLog(fmt.Sprintf("⚠️ Pull failed (%v). Retrying with --platform linux/amd64...", err))
+					amd64PullArgs := []string{"pull", "--platform", "linux/amd64", image}
+					fallbackErr = streamBuildCommand(exec.Command("docker", amd64PullArgs...), localLog)
+				} else {
+					fallbackErr = err
+				}
+				if fallbackErr != nil {
+					localLog(fmt.Sprintf("✖ Failed to pull image: %v", fallbackErr))
+					finish("failed", "")
+					return
+				}
 			}
 			localLog("✔ Image pulled successfully.")
 		}
@@ -522,7 +540,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 
 	// ── 7. Health check before cutover ───────────────────────────────────────
 	localLog("🩺 Waiting for the new container to become healthy...")
-	if err := waitHealthy(app.ServerID, newHostPort, app.HealthPath, 30*time.Second, localLog); err != nil {
+	if err := waitHealthy(app.ServerID, newContainer, newHostPort, app.HealthPath, 300*time.Second, localLog); err != nil {
 		localLog(fmt.Sprintf("✖ Health check failed: %v", err))
 		localLog("↩ Keeping the previous version live; discarding the failed container.")
 		ex, _ := GetExecutorForServer(app.ServerID)
@@ -715,7 +733,11 @@ func startContainer(app App, image, containerName string, hostPort, containerPor
 	if app.CPUs != "" {
 		runArgs = append(runArgs, "--cpus", app.CPUs)
 	}
+	envs := make(map[string]string)
 	for k, v := range app.EnvVars {
+		envs[k] = v
+	}
+	for k, v := range envs {
 		runArgs = append(runArgs, "-e", fmt.Sprintf("%s=%s", k, v))
 	}
 	for _, vol := range app.Volumes {
@@ -748,11 +770,18 @@ func startContainer(app App, image, containerName string, hostPort, containerPor
 // waitHealthy polls a container until it answers, or the timeout elapses. When
 // healthPath is set it expects an HTTP 2xx/3xx/4xx (any HTTP response means the
 // server is up); otherwise a successful TCP connect is sufficient.
-func waitHealthy(serverID string, hostPort int, healthPath string, timeout time.Duration, logf func(string)) error {
+func waitHealthy(serverID, containerName string, hostPort int, healthPath string, timeout time.Duration, logf func(string)) error {
 	// For local deployments, we can query localhost directly from Go.
 	if serverID == "" || serverID == "localhost" {
 		deadline := time.Now().Add(timeout)
 		for time.Now().Before(deadline) {
+			if containerName != "" {
+				running, err := isContainerRunning(serverID, containerName)
+				if err == nil && !running {
+					return fmt.Errorf("container %s stopped running (crashed or exited)", containerName)
+				}
+			}
+
 			if healthPath != "" {
 				url := fmt.Sprintf("http://127.0.0.1:%d%s", hostPort, ensureLeadingSlash(healthPath))
 				client := &http.Client{Timeout: 2 * time.Second}
@@ -791,6 +820,13 @@ func waitHealthy(serverID string, hostPort int, healthPath string, timeout time.
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
+		if containerName != "" {
+			running, err := isContainerRunning(serverID, containerName)
+			if err == nil && !running {
+				return fmt.Errorf("container %s stopped running (crashed or exited)", containerName)
+			}
+		}
+
 		if healthPath != "" {
 			// Try curl first. If it succeeds and returns a status code < 500, we're healthy.
 			// -s: silent, -o /dev/null: discard body, -w "%{http_code}": print status code
@@ -831,6 +867,25 @@ func waitHealthy(serverID string, hostPort int, healthPath string, timeout time.
 	}
 
 	return fmt.Errorf("container did not become healthy within %s", timeout)
+}
+
+func isContainerRunning(serverID, containerName string) (bool, error) {
+	if containerName == "" {
+		return true, nil
+	}
+	ex, err := GetExecutorForServer(serverID)
+	if err != nil {
+		return false, err
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	out, err := ex.RunCommand("docker", "inspect", "-f", "{{.State.Status}}", containerName)
+	if err != nil {
+		return false, err
+	}
+	status := strings.TrimSpace(out)
+	return status == "running" || status == "restarting", nil
 }
 
 func ensureLeadingSlash(p string) string {
@@ -1633,10 +1688,19 @@ func transferImageToRemote(serverID, image string, localLog func(string)) error 
 
 // getTargetPlatform resolves the CPU architecture of the target server and returns
 // the corresponding Docker platform string (e.g. "linux/amd64", "linux/arm64"),
-// or "" if it is the local host.
+// or the local host's architecture if serverID is empty or "localhost".
 func getTargetPlatform(serverID string) string {
 	if serverID == "" || serverID == "localhost" {
-		return ""
+		switch runtime.GOARCH {
+		case "amd64":
+			return "linux/amd64"
+		case "arm64":
+			return "linux/arm64"
+		case "arm":
+			return "linux/arm/v7"
+		default:
+			return ""
+		}
 	}
 
 	exec, err := GetExecutorForServer(serverID)

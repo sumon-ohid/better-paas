@@ -391,29 +391,6 @@ func catalogTemplates() []CatalogTemplate {
 			Icon:        "drupal",
 			Notes:       "Complete Drupal's web installer after deploy. Use SQLite for a quick start or attach Postgres/MySQL for production.",
 		},
-		{
-			ID:          "strapi",
-			Name:        "Strapi",
-			Description: "Popular headless CMS for building APIs and content back offices.",
-			Category:    "CMS",
-			Image:       "vshadbolt/strapi:latest",
-			Port:        1337,
-			VolumePath:  "/opt/app",
-			Env: []CatalogEnv{
-				{Key: "NODE_ENV", Value: "development", Description: "Bootstraps a usable Strapi starter project."},
-				{Key: "DATABASE_CLIENT", Value: "sqlite", Description: "Use SQLite for the one-container starter."},
-				{Key: "DATABASE_FILENAME", Value: "/opt/app/data/data.db", Description: "SQLite database file path."},
-				{Key: "APP_KEYS", Description: "Comma-separated Strapi app keys.", Required: true, Secret: true, Generate: true},
-				{Key: "API_TOKEN_SALT", Description: "Salt for API tokens.", Required: true, Secret: true, Generate: true},
-				{Key: "ADMIN_JWT_SECRET", Description: "Admin JWT secret.", Required: true, Secret: true, Generate: true},
-				{Key: "TRANSFER_TOKEN_SALT", Description: "Salt for transfer tokens.", Required: true, Secret: true, Generate: true},
-				{Key: "JWT_SECRET", Description: "JWT secret.", Required: true, Secret: true, Generate: true},
-			},
-			HealthPath: "/admin",
-			Website:    "https://strapi.io",
-			Icon:       "strapi",
-			Notes:      "This uses a maintained community image because the old official Strapi Docker image is not maintained for current Strapi versions.",
-		},
 
 		// ── Developer tools ──────────────────────────────────────────────────
 		{
@@ -750,31 +727,6 @@ func catalogTemplates() []CatalogTemplate {
 			Icon:        "calibre-web",
 		},
 		{
-			ID:          "immich",
-			Name:        "Immich",
-			Description: "Self-hosted photo and video backup with a polished mobile-first experience.",
-			Category:    "Media",
-			Image:       "ghcr.io/immich-app/immich-server:release",
-			Port:        2283,
-			VolumePath:  "/usr/src/app/upload",
-			RequiredAddons: []CatalogRequiredAddon{
-				{Type: "postgres"},
-				{Type: "redis"},
-			},
-			Env: []CatalogEnv{
-				{Key: "DB_HOSTNAME", Description: "Auto-filled from a managed Postgres add-on."},
-				{Key: "DB_USERNAME", Value: "appuser", Description: "Auto-filled from a managed Postgres add-on."},
-				{Key: "DB_PASSWORD", Description: "Auto-filled from a managed Postgres add-on.", Secret: true},
-				{Key: "DB_DATABASE_NAME", Value: "appdb", Description: "Auto-filled from a managed Postgres add-on."},
-				{Key: "REDIS_HOSTNAME", Description: "Auto-filled from a managed Redis add-on."},
-				{Key: "IMMICH_MACHINE_LEARNING_URL", Description: "Optional ML service URL for smart search and face recognition.", Required: false},
-			},
-			HealthPath: "/",
-			Website:    "https://immich.app",
-			Icon:       "immich",
-			Notes:      "Better PaaS creates and connects Postgres and Redis add-ons automatically. Machine-learning features require an extra Immich ML service not included in this starter.",
-		},
-		{
 			ID:          "home-assistant",
 			Name:        "Home Assistant",
 			Description: "Home automation dashboard for devices, scenes, automations, and integrations.",
@@ -1041,16 +993,6 @@ func catalogTemplateAddonEnv(templateID string, addon Addon, password string) ma
 	case "paperless-ngx":
 		if addon.Type == "redis" {
 			out["PAPERLESS_REDIS"] = base["REDIS_URL"]
-		}
-	case "immich":
-		if addon.Type == "postgres" {
-			out["DB_HOSTNAME"] = base["DB_HOSTNAME"]
-			out["DB_USERNAME"] = base["DB_USERNAME"]
-			out["DB_PASSWORD"] = base["DB_PASSWORD"]
-			out["DB_DATABASE_NAME"] = base["DB_DATABASE_NAME"]
-		}
-		if addon.Type == "redis" {
-			out["REDIS_HOSTNAME"] = base["REDIS_HOSTNAME"]
 		}
 	default:
 		for k, v := range base {

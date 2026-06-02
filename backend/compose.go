@@ -588,7 +588,8 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 
 	// ── 7. Health-check web services (best-effort) ───────────────────────────
 	for name, port := range webHostPorts {
-		if err := waitHealthy(app.ServerID, port, "", 30*time.Second, func(string) {}); err != nil {
+		cName := composeServiceContainerName(project, name)
+		if err := waitHealthy(app.ServerID, cName, port, "", 30*time.Second, func(string) {}); err != nil {
 			localLog(fmt.Sprintf("⚠ Service %q did not pass a TCP health check on :%d (continuing).", name, port))
 		} else {
 			localLog(fmt.Sprintf("✔ Service %q is reachable on :%d.", name, port))
