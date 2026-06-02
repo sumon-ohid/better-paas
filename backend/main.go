@@ -58,6 +58,9 @@ func main() {
 	// Start the analytics retention pruner (bounds the events table).
 	startAnalyticsPruner()
 
+	// Fetch catalog image sizes from Docker Hub in the background.
+	go fetchImageSizes()
+
 	// Start Caddy reverse proxy subprocess
 	startCaddySubprocess()
 

@@ -164,6 +164,7 @@ export interface CatalogTemplate {
   website: string
   icon: string
   notes: string
+  imageSize?: string // e.g. "~85 MB" — compressed pull size from Docker Hub
 }
 
 export interface CatalogDeployRequest {

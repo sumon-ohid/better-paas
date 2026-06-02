@@ -3,12 +3,15 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -59,8 +62,98 @@ type CatalogTemplate struct {
 	Env            []CatalogEnv           `json:"env"`
 	HealthPath     string                 `json:"healthPath"` // HTTP path probed before cutover (empty = TCP check)
 	Website        string                 `json:"website"`
-	Icon           string                 `json:"icon"`  // dashboard-icons slug
-	Notes          string                 `json:"notes"` // caveats (e.g. needs docker socket)
+	Icon           string                 `json:"icon"`      // dashboard-icons slug
+	Notes          string                 `json:"notes"`     // caveats (e.g. needs docker socket)
+	ImageSize      string                 `json:"imageSize"` // human-readable compressed pull size, e.g. "~85 MB"
+}
+
+// ---------------------------------------------------------------------------
+// Image-size cache — fetches compressed sizes from Docker Hub in the background
+// ---------------------------------------------------------------------------
+
+var (
+	imageSizeCache     = map[string]string{}
+	imageSizeCacheMu   sync.RWMutex
+)
+
+// fetchImageSizes populates the in-memory cache with compressed sizes for every
+// catalog template. It runs once at startup in its own goroutine so it never
+// blocks the server from starting.
+func fetchImageSizes() {
+	templates := catalogTemplates()
+	for _, tpl := range templates {
+		size := fetchDockerHubSize(tpl.Image)
+		if size != "" {
+			imageSizeCacheMu.Lock()
+			imageSizeCache[tpl.Image] = size
+			imageSizeCacheMu.Unlock()
+		}
+		// Be polite to the Docker Hub API.
+		time.Sleep(200 * time.Millisecond)
+	}
+	log.Printf("[catalog] image sizes fetched for %d templates", len(templates))
+}
+
+// fetchDockerHubSize returns a human-readable compressed size string for a
+// Docker Hub image reference ("~85 MB"). Returns "" for non-Hub registries or
+// on any error.
+func fetchDockerHubSize(imageRef string) string {
+	// Only handle plain Docker Hub images (no registry prefix).
+	if strings.Contains(imageRef, "ghcr.io") ||
+		strings.Contains(imageRef, "lscr.io") ||
+		strings.Contains(imageRef, "quay.io") {
+		return ""
+	}
+
+	// Parse "[namespace/]name:tag" — defaults to library/ and latest.
+	ref := imageRef
+	tag := "latest"
+	if idx := strings.LastIndex(ref, ":"); idx != -1 {
+		tag = ref[idx+1:]
+		ref = ref[:idx]
+	}
+
+	var namespace, repo string
+	parts := strings.SplitN(ref, "/", 2)
+	if len(parts) == 1 {
+		namespace = "library"
+		repo = parts[0]
+	} else {
+		namespace = parts[0]
+		repo = parts[1]
+	}
+
+	url := fmt.Sprintf("https://hub.docker.com/v2/repositories/%s/%s/tags/%s", namespace, repo, tag)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var result struct {
+		FullSize int64 `json:"full_size"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil || result.FullSize == 0 {
+		return ""
+	}
+
+	return formatBytes(result.FullSize)
+}
+
+// formatBytes converts a byte count into a short human-readable string.
+func formatBytes(b int64) string {
+	const mb = 1024 * 1024
+	const gb = 1024 * mb
+	switch {
+	case b >= gb:
+		return fmt.Sprintf("~%.1f GB", float64(b)/float64(gb))
+	case b >= mb:
+		return fmt.Sprintf("~%d MB", b/mb)
+	default:
+		return fmt.Sprintf("~%d KB", b/1024)
+	}
 }
 
 // catalogTemplates is the curated, single-container catalog. Image tags are
@@ -1008,7 +1101,15 @@ func handleCatalog(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	jsonOK(w, catalogTemplates())
+	templates := catalogTemplates()
+	imageSizeCacheMu.RLock()
+	for i := range templates {
+		if sz, ok := imageSizeCache[templates[i].Image]; ok {
+			templates[i].ImageSize = sz
+		}
+	}
+	imageSizeCacheMu.RUnlock()
+	jsonOK(w, templates)
 }
 
 // ---------------------------------------------------------------------------

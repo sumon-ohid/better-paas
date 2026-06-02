@@ -340,8 +340,15 @@ export default function CatalogPage() {
             {filtered.map((tpl) => (
               <Card
                 key={tpl.id}
-                className="group flex flex-col transition-colors hover:border-primary/30"
+                className="group relative flex flex-col transition-colors hover:border-primary/30"
               >
+                {/* Image size badge — top-right corner */}
+                {tpl.imageSize && (
+                  <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full border border-border bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
+                    <Docker className="h-2.5 w-2.5 opacity-60" />
+                    {tpl.imageSize}
+                  </span>
+                )}
                 <CardContent className="flex flex-1 flex-col gap-3 p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-white p-1.5">
