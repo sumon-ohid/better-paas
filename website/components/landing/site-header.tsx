@@ -22,7 +22,12 @@ import { githubUrl } from '@/lib/shared';
  *   · collapses into an animated sheet menu on mobile.
  * ────────────────────────────────────────────────────────────────────────── */
 
-const NAV_LINKS: { label: string; href: string }[] = [];
+const NAV_LINKS: { label: string; href: string }[] = [
+  { label: 'Product', href: '#platform' },
+  { label: 'Resources', href: '/docs' },
+  { label: 'Security', href: '/docs/security' },
+  { label: 'Pricing', href: '/docs/quickstart' },
+];
 
 function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -81,11 +86,11 @@ export function SiteHeader() {
     <header
       className={`sticky top-0 z-40 transition-colors duration-300 ${
         scrolled
-          ? 'border-b border-fd-border bg-fd-background/80 backdrop-blur-xl'
-          : 'border-b border-transparent bg-transparent'
+          ? 'border-b border-fd-border bg-fd-background'
+          : 'border-b border-transparent bg-fd-background'
       }`}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-6">
+      <div className="mx-auto flex h-[4.5rem] max-w-6xl items-center gap-4 px-6">
         {/* Brand */}
         <Link
           href="/"
@@ -96,12 +101,12 @@ export function SiteHeader() {
         </Link>
 
         {/* Center nav — desktop */}
-        <nav className="hidden flex-1 items-center justify-center gap-1 md:flex">
+        <nav className="hidden flex-1 items-center justify-center gap-7 md:flex">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`relative rounded-lg px-3 py-2 text-sm transition-colors ${
+              className={`relative py-2 text-sm font-medium transition-colors ${
                 isActive(link.href)
                   ? 'text-fd-foreground'
                   : 'text-fd-muted-foreground hover:text-fd-foreground'
@@ -109,7 +114,7 @@ export function SiteHeader() {
             >
               {link.label}
               <span
-                className={`absolute inset-x-3 -bottom-px h-px bg-fd-primary transition-transform duration-300 ${
+                className={`absolute inset-x-0 -bottom-px h-px bg-fd-foreground transition-transform duration-300 ${
                   isActive(link.href) ? 'scale-x-100' : 'scale-x-0'
                 }`}
               />
@@ -124,13 +129,10 @@ export function SiteHeader() {
             <button
               type="button"
               onClick={() => search.setOpenSearch(true)}
-              className="hidden h-9 items-center gap-2 rounded-lg border border-fd-border bg-fd-card/60 pl-2.5 pr-2 text-sm text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-foreground sm:flex"
+              className="hidden size-9 items-center justify-center rounded-lg text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-foreground sm:flex"
+              aria-label="Search"
             >
               <Search className="size-4" />
-              <span>Search</span>
-              <kbd className="ml-2 flex items-center gap-0.5 rounded border border-fd-border bg-fd-muted/60 px-1.5 py-0.5 font-mono text-[10px] leading-none text-fd-muted-foreground">
-                ⌘K
-              </kbd>
             </button>
           )}
 
@@ -150,7 +152,7 @@ export function SiteHeader() {
 
           <Link
             href="/docs/quickstart"
-            className="bp-primary hidden h-9 items-center gap-1.5 rounded-lg px-4 text-sm font-medium sm:inline-flex"
+            className="hidden h-9 items-center gap-1.5 rounded-full bg-fd-foreground px-4 text-sm font-semibold text-fd-background transition-opacity hover:opacity-90 sm:inline-flex"
           >
             Get started
             <ArrowRight className="size-4" />
@@ -186,7 +188,7 @@ export function SiteHeader() {
             type="button"
             aria-label="Close menu"
             onClick={() => setMenuOpen(false)}
-            className="fixed inset-0 top-16 z-30 bg-fd-background/60 backdrop-blur-sm"
+            className="fixed inset-0 top-[4.5rem] z-30 bg-fd-background/60 backdrop-blur-sm"
           />
           <div className="bp-fade-up relative z-40 border-b border-fd-border bg-fd-background px-6 pb-6 pt-2">
             <nav className="flex flex-col">
@@ -209,7 +211,7 @@ export function SiteHeader() {
             <div className="mt-4 flex items-center gap-2 border-t border-fd-border pt-4">
               <Link
                 href="/docs/quickstart"
-                className="bp-primary inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-fd-foreground px-4 text-sm font-semibold text-fd-background transition-opacity hover:opacity-90"
               >
                 Get started
                 <ArrowRight className="size-4" />

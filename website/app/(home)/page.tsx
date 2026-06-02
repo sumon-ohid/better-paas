@@ -25,13 +25,11 @@ import { DockerLogo, NixLogo, CaddyLogo, NextjsLogo } from '@/components/landing
 import { TextEffect } from '@/components/tailark/text-effect';
 import { AnimatedGroup } from '@/components/tailark/animated-group';
 import { BorderBeam } from '@/components/tailark/border-beam';
-import { Spotlight } from '@/components/landing/spotlight';
 import { cn } from '@/lib/cn';
 
 export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col relative">
-      <Spotlight />
       <Hero />
       <TechStrip />
       <Showcase />
@@ -49,83 +47,38 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden pt-4">
-      {/* Background radial/gradient lines like Tailark Hero */}
-      <div
-        aria-hidden
-        className="z-0 absolute inset-0 isolate hidden opacity-40 contain-strict lg:block pointer-events-none"
-      >
-        <div className="w-140 h-320 -translate-y-87.5 absolute left-0 top-0 -rotate-45 rounded-full bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,rgba(255,255,255,0.02)_0,rgba(255,255,255,0.005)_50%,transparent_80%)]" />
-        <div className="h-320 absolute left-0 top-0 w-60 -rotate-45 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(255,255,255,0.01)_0,transparent_80%)] [translate:5%_-50%]" />
-      </div>
-
-      <div className="relative mx-auto max-w-7xl px-6 pt-10 pb-16 sm:pt-16">
-        <div className="mx-auto flex max-w-3xl flex-col items-center text-center relative z-10">
-          <AnimatedGroup preset="blur-slide">
-            <Link
-              href="/docs/updates"
-              className="group inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card px-3 py-1 text-sm text-fd-muted-foreground transition-colors hover:text-fd-foreground"
+    <section className="bp-hero-stage relative overflow-hidden">
+      <div className="relative mx-auto max-w-6xl px-6 pt-28 pb-8 sm:pt-36">
+        <div className="relative z-10 grid items-end gap-8 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="max-w-4xl text-left">
+            <TextEffect
+              preset="fade-in-blur"
+              speedSegment={0.5}
+              as="h1"
+              className="bp-display max-w-4xl text-[3rem] font-normal text-fd-foreground sm:text-[3.25rem] md:text-[4rem]"
             >
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-fd-primary/10 px-2 py-0.5 text-xs font-medium text-fd-primary">
-                New
-              </span>
-              One-click managed databases
-              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </AnimatedGroup>
+              The self-hosted platform for apps, databases, and agents
+            </TextEffect>
 
-          <TextEffect
-            preset="fade-in-blur"
-            speedSegment={0.5}
-            as="h1"
-            className="bp-display mt-7 text-[2.75rem] font-semibold text-fd-foreground sm:text-6xl md:text-7xl"
-          >
-            Your own Heroku,
-            on a server you control.
-          </TextEffect>
-
-          <TextEffect
-            per="line"
-            preset="fade-in-blur"
-            speedSegment={0.5}
-            delay={0.3}
-            as="p"
-            className="bp-balance mt-6 max-w-xl text-lg leading-relaxed text-fd-muted-foreground"
-          >
-            {`${appName} connects to any Git repo, builds your code, and serves it with automatic HTTPS. The platform experience of a managed cloud — running entirely on your VPS.`}
-          </TextEffect>
-
-          <AnimatedGroup
-            preset="slide"
-            variants={{
-              container: {
-                visible: {
-                  transition: {
-                    staggerChildren: 0.08,
-                    delayChildren: 0.5,
+            <AnimatedGroup
+              preset="fade"
+              variants={{
+                container: {
+                  visible: {
+                    transition: {
+                      delayChildren: 0.55,
+                    },
                   },
                 },
-              },
-            }}
-            className="mt-9 flex flex-col items-center gap-3 sm:flex-row"
-          >
-            <Link
-              href="/docs/quickstart"
-              className="bp-primary inline-flex h-11 items-center gap-2 rounded-lg px-6 text-sm font-medium"
+              }}
+              className="mt-7 max-w-2xl"
             >
-              Start deploying
-              <ArrowRight className="size-4" />
-            </Link>
-            <a
-              href={githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bp-surface inline-flex h-11 items-center gap-2 rounded-lg px-5 text-sm font-medium text-fd-foreground"
-            >
-              <GithubIcon className="size-4" />
-              Star on GitHub
-            </a>
-          </AnimatedGroup>
+              <p className="text-base leading-7 text-fd-muted-foreground sm:text-md">
+                Deploy from Git, manage services, and run production workloads on servers you
+                control.
+              </p>
+            </AnimatedGroup>
+          </div>
 
           <AnimatedGroup
             preset="fade"
@@ -138,22 +91,38 @@ function Hero() {
                 },
               },
             }}
-            className="mt-7 w-full max-w-md"
+            className="hidden pb-2 lg:block"
           >
-            <InstallLine />
+            <Link
+              href="/docs/updates"
+              className="group inline-flex items-center gap-3 text-sm font-medium text-fd-muted-foreground transition-colors hover:text-fd-foreground"
+            >
+              <span className="size-2 rounded-full bg-fd-primary/80 shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-fd-primary)_18%,transparent)]" />
+              Managed databases are live
+              <ArrowRight className="size-4 opacity-60 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </AnimatedGroup>
         </div>
 
+        <AnimatedGroup
+          preset="fade"
+          variants={{
+            container: {
+              visible: {
+                transition: {
+                  delayChildren: 0.78,
+                },
+              },
+            },
+          }}
+          className="mt-9 w-full max-w-md"
+        >
+          <InstallLine />
+        </AnimatedGroup>
+
         {/* Product demo */}
-        <div className="relative mx-auto mt-20 max-w-6xl z-10 rounded-2xl">
+        <div className="bp-hero-demo relative z-10 mx-auto mt-[4.5rem] max-w-6xl rounded-t-[1.5rem] sm:mt-20">
           <ProductDemo />
-          <BorderBeam
-            duration={10}
-            size={300}
-            colorFrom="var(--color-fd-primary)"
-            colorTo="var(--color-fd-ring)"
-            className="opacity-40"
-          />
         </div>
       </div>
     </section>
@@ -181,7 +150,7 @@ function TechStrip() {
 
 function Showcase() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+    <section id="platform" className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
       <div className="max-w-2xl mb-14">
         <Eyebrow>The platform</Eyebrow>
         <h2 className="bp-display mt-4 text-3xl font-semibold text-fd-foreground sm:text-[2.75rem]">
@@ -209,7 +178,7 @@ const stats = [
 
 function Stats() {
   return (
-    <section className="py-16 md:py-24 border-y border-fd-border bg-fd-card/10">
+    <section className="py-16 md:py-24 bg-fd-card/10">
       <div className="mx-auto max-w-6xl px-6">
         <div className="grid gap-8 divide-y divide-fd-border/50 *:pt-8 first:*:pt-0 md:grid-cols-4 md:gap-2 md:divide-x md:divide-y-0 md:divide-fd-border/50 *:md:pt-0 *:md:px-6">
           {stats.map((s, i) => (
@@ -374,7 +343,7 @@ const steps = [
 
 function HowItWorks() {
   return (
-    <section className="bg-fd-card/10 border-t border-fd-border/30">
+    <section className="bg-fd-card/10">
       <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
         <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
           <div className="lg:sticky lg:top-24 lg:self-start">
@@ -424,7 +393,7 @@ function HowItWorks() {
 
 function Integrations() {
   return (
-    <section className="border-t border-fd-border/30 bg-fd-card/10">
+    <section className="bg-fd-card/10">
       <div className="mx-auto max-w-6xl px-6 py-24 md:py-32">
         <div className="grid items-center gap-16 sm:grid-cols-2">
           <div className="relative mx-auto w-fit">
