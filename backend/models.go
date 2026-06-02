@@ -77,9 +77,9 @@ type App struct {
 	Volumes []string `json:"volumes"`
 
 	// ── Zero-downtime deploy bookkeeping ─────────────────────────────────────
-	HealthPath     string `json:"healthPath"`               // HTTP path probed before cutover (e.g. "/health"); empty = TCP check
-	ActiveContainer string `json:"-"`                       // name of the live container (may differ from Name during cutover)
-	ActiveImage     string `json:"activeImage,omitempty"`   // image tag currently serving traffic
+	HealthPath      string `json:"healthPath"`               // HTTP path probed before cutover (e.g. "/health"); empty = TCP check
+	ActiveContainer string `json:"-"`                        // name of the live container (may differ from Name during cutover)
+	ActiveImage     string `json:"activeImage,omitempty"`    // image tag currently serving traffic
 	ActiveDeployID  string `json:"activeDeployId,omitempty"` // deployment that produced ActiveImage
 
 	// ── Derived (not persisted on the apps row) ──────────────────────────────
@@ -94,8 +94,8 @@ type App struct {
 	SecretKeys []string `json:"secretKeys"`
 
 	// ── Auto-deploy ──────────────────────────────────────────────────────────
-	WebhookSecret  string `json:"webhookSecret,omitempty"` // HMAC secret for GitHub push webhooks (redacted)
-	AutoDeploy     bool   `json:"autoDeploy"`              // deploy automatically on matching push
+	WebhookSecret string `json:"webhookSecret,omitempty"` // HMAC secret for GitHub push webhooks (redacted)
+	AutoDeploy    bool   `json:"autoDeploy"`              // deploy automatically on matching push
 
 	// ── Server assignment ─────────────────────────────────────────────────────
 	// ServerID is the ID of the Server where this app is deployed.
@@ -153,6 +153,7 @@ type Addon struct {
 	ConnEnv       map[string]string `json:"connEnv,omitempty"` // connection env vars (redacted in public view)
 	AttachedApps  []string          `json:"attachedApps"`      // IDs of apps this add-on is attached to
 	CreatedAt     time.Time         `json:"createdAt"`
+	ServerID      string            `json:"serverId"`
 }
 
 // Public redacts credential-bearing connection env vars.
@@ -200,14 +201,14 @@ type NotificationConfig struct {
 
 // PerAppMetrics is a point-in-time resource snapshot for one container.
 type PerAppMetrics struct {
-	AppID       string  `json:"appId"`
-	Name        string  `json:"name"`
-	CPUPercent  float64 `json:"cpuPercent"`
-	MemUsageMB  float64 `json:"memUsageMb"`
-	MemLimitMB  float64 `json:"memLimitMb"`
-	MemPercent  float64 `json:"memPercent"`
-	NetRxMB     float64 `json:"netRxMb"`
-	NetTxMB     float64 `json:"netTxMb"`
+	AppID      string  `json:"appId"`
+	Name       string  `json:"name"`
+	CPUPercent float64 `json:"cpuPercent"`
+	MemUsageMB float64 `json:"memUsageMb"`
+	MemLimitMB float64 `json:"memLimitMb"`
+	MemPercent float64 `json:"memPercent"`
+	NetRxMB    float64 `json:"netRxMb"`
+	NetTxMB    float64 `json:"netTxMb"`
 }
 
 // ServerStats holds real-time server metrics.
@@ -226,7 +227,7 @@ type DeploymentRecord struct {
 	AppName   string    `json:"appName"`
 	Status    string    `json:"status"` // "success","failed"
 	Logs      []string  `json:"logs"`
-	LogFile   string    `json:"-"`      // internal path, never sent to client
+	LogFile   string    `json:"-"` // internal path, never sent to client
 	CreatedAt time.Time `json:"createdAt"`
 	Duration  string    `json:"duration"`
 	Image     string    `json:"image,omitempty"`     // docker image tag built by this deploy (enables rollback)

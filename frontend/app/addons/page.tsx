@@ -1,7 +1,13 @@
 "use client"
 
 import React, { useEffect, useState, useCallback } from "react"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,14 +51,20 @@ import { DbExplorer } from "@/components/db-explorer"
 import { useActiveServer } from "@/components/server-context"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
-const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
+const DatabaseIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="server" />
+)
 const TrashIcon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const LinkIcon = (props: IconProps) => <NucleoIcon {...props} name="link" />
-const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
+const RefreshIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="refresh" />
+)
 const CopyIcon = (props: IconProps) => <NucleoIcon {...props} name="copy" />
 const LockIcon = (props: IconProps) => <NucleoIcon {...props} name="lock" />
-const ChevronIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-down" />
+const ChevronIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="chevron-down" />
+)
 const InfoIcon = (props: IconProps) => <NucleoIcon {...props} name="info" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 const ExploreIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
@@ -82,14 +94,22 @@ const TYPE_META: Record<
   },
 }
 
-const ADDON_TYPES = Object.entries(TYPE_META).map(([id, m]) => ({ id, label: m.label }))
+const ADDON_TYPES = Object.entries(TYPE_META).map(([id, m]) => ({
+  id,
+  label: m.label,
+}))
 
 function typeMeta(type: string) {
-  return TYPE_META[type] ?? { label: type, short: type, primaryVar: "", blurb: "" }
+  return (
+    TYPE_META[type] ?? { label: type, short: type, primaryVar: "", blurb: "" }
+  )
 }
 
 // Friendly status presentation.
-function statusBadge(status: string): { variant: "success" | "warning" | "destructive"; label: string } {
+function statusBadge(status: string): {
+  variant: "success" | "warning" | "destructive"
+  label: string
+} {
   switch (status) {
     case "running":
       return { variant: "success", label: "Running" }
@@ -122,7 +142,11 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
       className="inline-flex items-center justify-center rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       aria-label={`Copy ${label ?? "value"}`}
     >
-      {copied ? <CheckIcon className="h-3 w-3 text-success" /> : <CopyIcon className="h-3 w-3" />}
+      {copied ? (
+        <CheckIcon className="h-3 w-3 text-success" />
+      ) : (
+        <CopyIcon className="h-3 w-3" />
+      )}
     </button>
   )
 }
@@ -140,7 +164,8 @@ export default function AddonsPage() {
   const targetServerLabel =
     targetServer === "localhost"
       ? "Localhost"
-      : servers.find((server) => server.id === targetServer)?.name ?? "Remote server"
+      : (servers.find((server) => server.id === targetServer)?.name ??
+        "Remote server")
 
   useEffect(() => {
     if (activeServerId === "all" || activeServerId === "localhost") {
@@ -162,7 +187,10 @@ export default function AddonsPage() {
   const [deleting, setDeleting] = useState(false)
 
   // Detach dialog state
-  const [detachTarget, setDetachTarget] = useState<{ addon: Addon; app: App } | null>(null)
+  const [detachTarget, setDetachTarget] = useState<{
+    addon: Addon
+    app: App
+  } | null>(null)
   const [detachRedeploy, setDetachRedeploy] = useState(true)
   const [detaching, setDetaching] = useState(false)
 
@@ -197,13 +225,18 @@ export default function AddonsPage() {
       const ids = new Set(addon.attachedApps || [])
       return apps.filter((app) => ids.has(app.id))
     },
-    [apps],
+    [apps]
   )
 
   const filteredAddons = React.useMemo(() => {
     return addons.filter((addon) => {
       const addonServerId = addon.serverId || "localhost"
-      const targetServerId = activeServerId === "all" ? "all" : (activeServerId === "localhost" ? "localhost" : activeServerId)
+      const targetServerId =
+        activeServerId === "all"
+          ? "all"
+          : activeServerId === "localhost"
+            ? "localhost"
+            : activeServerId
       return targetServerId === "all" || addonServerId === targetServerId
     })
   }, [addons, activeServerId])
@@ -215,12 +248,20 @@ export default function AddonsPage() {
     }
     setCreating(true)
     try {
-      await api.addons.create(type, name.trim())
-      showToast("Provisioning", `Your ${typeMeta(type).short} database is starting.`, "success")
+      await api.addons.create(type, name.trim(), targetServer)
+      showToast(
+        "Provisioning",
+        `Your ${typeMeta(type).short} database is starting on ${targetServerLabel}.`,
+        "success"
+      )
       setName("")
       await load()
     } catch (err) {
-      showToast("Create failed", err instanceof Error ? err.message : "Error", "destructive")
+      showToast(
+        "Create failed",
+        err instanceof Error ? err.message : "Error",
+        "destructive"
+      )
     } finally {
       setCreating(false)
     }
@@ -243,14 +284,26 @@ export default function AddonsPage() {
       await api.addons.attach(attachAddon.id, attachAppId)
       if (redeployAfter) {
         await api.apps.redeploy(attachAppId)
-        showToast("Attached & redeploying", "Connection variables added. The app is redeploying now.", "success")
+        showToast(
+          "Attached & redeploying",
+          "Connection variables added. The app is redeploying now.",
+          "success"
+        )
       } else {
-        showToast("Attached", "Connection variables added. Redeploy the app to apply them.", "success")
+        showToast(
+          "Attached",
+          "Connection variables added. Redeploy the app to apply them.",
+          "success"
+        )
       }
       setAttachAddon(null)
       await load()
     } catch (err) {
-      showToast("Attach failed", err instanceof Error ? err.message : "Could not attach.", "destructive")
+      showToast(
+        "Attach failed",
+        err instanceof Error ? err.message : "Could not attach.",
+        "destructive"
+      )
     } finally {
       setAttaching(false)
     }
@@ -283,14 +336,26 @@ export default function AddonsPage() {
       await api.addons.detach(detachTarget.addon.id, detachTarget.app.id)
       if (detachRedeploy) {
         await api.apps.redeploy(detachTarget.app.id)
-        showToast("Detached & redeploying", "Connection variables removed. The app is redeploying now.", "success")
+        showToast(
+          "Detached & redeploying",
+          "Connection variables removed. The app is redeploying now.",
+          "success"
+        )
       } else {
-        showToast("Detached", "Connection variables removed. Redeploy the app to apply.", "success")
+        showToast(
+          "Detached",
+          "Connection variables removed. Redeploy the app to apply.",
+          "success"
+        )
       }
       setDetachTarget(null)
       await load()
     } catch (err) {
-      showToast("Detach failed", err instanceof Error ? err.message : "Could not detach.", "destructive")
+      showToast(
+        "Detach failed",
+        err instanceof Error ? err.message : "Could not detach.",
+        "destructive"
+      )
     } finally {
       setDetaching(false)
     }
@@ -301,9 +366,12 @@ export default function AddonsPage() {
       <div className="mx-auto max-w-6xl space-y-6 p-3 md:p-6">
         {/* Header */}
         <div className="space-y-1">
-          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Managed Databases</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            One-click Postgres, Redis, and MySQL for your apps — no connection setup required.
+          <h2 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
+            Managed Databases
+          </h2>
+          <p className="text-xs text-muted-foreground sm:text-sm">
+            One-click Postgres, Redis, and MySQL for your apps — no connection
+            setup required.
           </p>
         </div>
 
@@ -319,7 +387,9 @@ export default function AddonsPage() {
               </CardHeader>
               <CardContent className="flex flex-wrap items-end gap-3 pt-4 max-sm:px-4 max-sm:pb-4">
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">Type</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Type
+                  </Label>
                   <Select value={type} onValueChange={(v) => v && setType(v)}>
                     <SelectTrigger className="w-44">
                       <SelectValue />
@@ -334,7 +404,9 @@ export default function AddonsPage() {
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">Target Server</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Target Server
+                  </Label>
                   <Select
                     value={targetServer}
                     onValueChange={(v) => v && setTargetServer(v)}
@@ -345,19 +417,27 @@ export default function AddonsPage() {
                     </SelectTrigger>
                     <SelectPopup alignItemWithTrigger={false}>
                       <SelectItem value="localhost">Localhost</SelectItem>
-                      {servers.filter((s) => s.id !== "localhost").map((s) => (
-                        <SelectItem key={s.id} value={s.id} disabled>
-                          {s.name} (Remote — Coming Soon)
-                        </SelectItem>
-                      ))}
+                      {servers
+                        .filter((s) => s.id !== "localhost")
+                        .map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
                     </SelectPopup>
                   </Select>
                 </div>
                 <div className="flex min-w-[180px] flex-1 flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">Name</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Name
+                  </Label>
                   <Input
                     value={name}
-                    onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    onChange={(e) =>
+                      setName(
+                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")
+                      )
+                    }
                     placeholder="my-database"
                     className="h-9 text-sm sm:h-8"
                   />
@@ -366,18 +446,16 @@ export default function AddonsPage() {
                   <Button
                     onClick={handleCreate}
                     loading={creating}
-                    disabled={activeServerId !== "all" && activeServerId !== "localhost"}
                     className="gap-1.5"
                   >
                     <PlusIcon className="h-3.5 w-3.5" />
                     Create
                   </Button>
                 </div>
-                {activeServerId !== "all" && activeServerId !== "localhost" && (
-                  <p className="text-xs text-destructive mt-1.5 w-full">
-                    Database creation is only supported on Localhost currently.
-                  </p>
-                )}
+                <p className="mt-1.5 w-full text-xs text-muted-foreground">
+                  Databases are created on the selected server and can attach to
+                  apps on the same server.
+                </p>
               </CardContent>
             </Card>
 
@@ -386,8 +464,14 @@ export default function AddonsPage() {
               <CardHeader className="border-b border-border/40 max-sm:p-4">
                 <CardTitle className="flex items-center gap-2 text-base">
                   Your databases
-                  <button onClick={load} className="text-muted-foreground hover:text-foreground" aria-label="Refresh">
-                    <RefreshIcon className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                  <button
+                    onClick={load}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Refresh"
+                  >
+                    <RefreshIcon
+                      className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+                    />
                   </button>
                 </CardTitle>
               </CardHeader>
@@ -397,7 +481,8 @@ export default function AddonsPage() {
                     <DatabaseIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
                     <p className="text-sm font-medium">No databases yet</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Create one above, then attach it to an app to start using it.
+                      Create one above, then attach it to an app to start using
+                      it.
                     </p>
                   </div>
                 ) : (
@@ -408,7 +493,10 @@ export default function AddonsPage() {
                       const attached = attachedAppsFor(addon)
                       const envEntries = Object.entries(addon.connEnv || {})
                       return (
-                        <div key={addon.id} className="space-y-3 rounded-lg border border-border bg-card/40 p-3.5 max-sm:p-3">
+                        <div
+                          key={addon.id}
+                          className="space-y-3 rounded-lg border border-border bg-card/40 p-3.5 max-sm:p-3"
+                        >
                           {/* Top row */}
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="flex min-w-0 items-center gap-2.5">
@@ -417,9 +505,15 @@ export default function AddonsPage() {
                               </div>
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className="truncate text-sm font-semibold text-foreground">{addon.name}</span>
-                                  <Badge variant="info" size="sm">{meta.short}</Badge>
-                                  <Badge variant={sb.variant} size="sm">{sb.label}</Badge>
+                                  <span className="truncate text-sm font-semibold text-foreground">
+                                    {addon.name}
+                                  </span>
+                                  <Badge variant="info" size="sm">
+                                    {meta.short}
+                                  </Badge>
+                                  <Badge variant={sb.variant} size="sm">
+                                    {sb.label}
+                                  </Badge>
                                 </div>
                                 <p className="truncate font-mono text-[11px] text-muted-foreground">
                                   host: {addon.containerName}
@@ -441,9 +535,15 @@ export default function AddonsPage() {
                                 <ExploreIcon className="h-3.5 w-3.5" />
                                 Explore
                               </Button>
-                              <Button variant="outline" onClick={() => openAttach(addon)} className="h-8 gap-1.5 max-sm:flex-1">
+                              <Button
+                                variant="outline"
+                                onClick={() => openAttach(addon)}
+                                className="h-8 gap-1.5 max-sm:flex-1"
+                              >
                                 <LinkIcon className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Attach to app</span>
+                                <span className="hidden sm:inline">
+                                  Attach to app
+                                </span>
                                 <span className="sm:hidden">Attach</span>
                               </Button>
                               <Button
@@ -461,7 +561,9 @@ export default function AddonsPage() {
                           <div className="flex flex-wrap items-center gap-1.5 text-xs">
                             {attached.length > 0 ? (
                               <>
-                                <span className="text-muted-foreground">Used by</span>
+                                <span className="text-muted-foreground">
+                                  Used by
+                                </span>
                                 {attached.map((app) => (
                                   <button
                                     key={app.id}
@@ -484,7 +586,8 @@ export default function AddonsPage() {
                             ) : (
                               <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                                 <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                                Not attached to any app yet — attach one to start using it.
+                                Not attached to any app yet — attach one to
+                                start using it.
                               </span>
                             )}
                           </div>
@@ -499,16 +602,25 @@ export default function AddonsPage() {
                               <CollapsibleContent>
                                 <div className="mt-2 space-y-1.5 rounded-md border border-border bg-muted/20 p-2.5">
                                   <p className="mb-1 text-[11px] text-muted-foreground">
-                                    These are injected into any app you attach. Secret values are hidden here and
-                                    stored securely.
+                                    These are injected into any app you attach.
+                                    Secret values are hidden here and stored
+                                    securely.
                                   </p>
                                   {envEntries.map(([k, v]) => {
                                     const isSecret = v === "***"
                                     return (
-                                      <div key={k} className="flex items-center justify-between gap-2 font-mono text-[11px]">
+                                      <div
+                                        key={k}
+                                        className="flex items-center justify-between gap-2 font-mono text-[11px]"
+                                      >
                                         <div className="flex items-center gap-1.5">
-                                          <span className="font-semibold text-foreground/90">{k}</span>
-                                          <CopyButton value={k} label="variable name" />
+                                          <span className="font-semibold text-foreground/90">
+                                            {k}
+                                          </span>
+                                          <CopyButton
+                                            value={k}
+                                            label="variable name"
+                                          />
                                         </div>
                                         {isSecret ? (
                                           <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -516,7 +628,9 @@ export default function AddonsPage() {
                                             hidden
                                           </span>
                                         ) : (
-                                          <span className="max-w-[260px] select-all truncate text-muted-foreground">{v}</span>
+                                          <span className="max-w-[260px] truncate text-muted-foreground select-all">
+                                            {v}
+                                          </span>
                                         )}
                                       </div>
                                     )
@@ -567,8 +681,12 @@ export default function AddonsPage() {
                         {step.n}
                       </div>
                       <div className="space-y-0.5">
-                        <p className="text-xs font-semibold leading-tight">{step.title}</p>
-                        <p className="text-[11px] leading-snug text-muted-foreground">{step.body}</p>
+                        <p className="text-xs leading-tight font-semibold">
+                          {step.title}
+                        </p>
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          {step.body}
+                        </p>
                       </div>
                     </li>
                   ))}
@@ -579,16 +697,20 @@ export default function AddonsPage() {
             {/* Good to know */}
             <Card>
               <CardContent className="space-y-2.5 p-4 text-[11px] leading-snug text-muted-foreground">
-                <p className="text-sm font-semibold text-foreground">Good to know</p>
-                <p>
-                  Databases live on a private network and aren&apos;t exposed to the internet — only your
-                  attached apps can reach them.
+                <p className="text-sm font-semibold text-foreground">
+                  Good to know
                 </p>
                 <p>
-                  Deleting a database keeps its stored data unless you opt in to erase the volume.
+                  Databases live on a private network and aren&apos;t exposed to
+                  the internet — only your attached apps can reach them.
                 </p>
                 <p>
-                  One database can be attached to multiple apps. They&apos;ll all share the same connection.
+                  Deleting a database keeps its stored data unless you opt in to
+                  erase the volume.
+                </p>
+                <p>
+                  One database can be attached to multiple apps. They&apos;ll
+                  all share the same connection.
                 </p>
               </CardContent>
             </Card>
@@ -597,10 +719,15 @@ export default function AddonsPage() {
       </div>
 
       {/* Attach dialog */}
-      <Dialog open={!!attachAddon} onOpenChange={(open) => !open && setAttachAddon(null)}>
+      <Dialog
+        open={!!attachAddon}
+        onOpenChange={(open) => !open && setAttachAddon(null)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base">Attach “{attachAddon?.name}” to an app</DialogTitle>
+            <DialogTitle className="text-base">
+              Attach “{attachAddon?.name}” to an app
+            </DialogTitle>
             <DialogDescription>
               This adds the database&apos;s connection variables (like{" "}
               <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground">
@@ -611,26 +738,41 @@ export default function AddonsPage() {
           </DialogHeader>
           <div className="space-y-4 px-6 pb-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">App</Label>
-              <Select value={attachAppId} onValueChange={(v) => setAttachAppId(v || "")}>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                App
+              </Label>
+              <Select
+                value={attachAppId}
+                onValueChange={(v) => setAttachAppId(v || "")}
+              >
                 <SelectTrigger className="w-full text-sm">
                   <SelectValue placeholder="Select an app…" />
                 </SelectTrigger>
                 <SelectPopup alignItemWithTrigger={false}>
                   {apps.length === 0 ? (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No apps deployed yet.</div>
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                      No apps deployed yet.
+                    </div>
                   ) : (
                     apps.map((app) => {
-                      const already = (attachAddon?.attachedApps || []).includes(app.id)
+                      const already = (
+                        attachAddon?.attachedApps || []
+                      ).includes(app.id)
                       const appServerId = app.serverId || "localhost"
                       const addonServerId = attachAddon?.serverId || "localhost"
                       if (appServerId !== addonServerId) return null
                       return (
-                        <SelectItem key={app.id} value={app.id} disabled={already}>
+                        <SelectItem
+                          key={app.id}
+                          value={app.id}
+                          disabled={already}
+                        >
                           <span className="flex w-full items-center justify-between gap-2">
                             {app.name}
                             {already && (
-                              <span className="text-[11px] text-muted-foreground">already attached</span>
+                              <span className="text-[11px] text-muted-foreground">
+                                already attached
+                              </span>
                             )}
                           </span>
                         </SelectItem>
@@ -648,17 +790,23 @@ export default function AddonsPage() {
                 className="mt-0.5"
               />
               <span className="space-y-0.5">
-                <span className="block text-sm font-medium">Redeploy the app now</span>
+                <span className="block text-sm font-medium">
+                  Redeploy the app now
+                </span>
                 <span className="block text-xs text-muted-foreground">
-                  Recommended. Variables only apply on the next deploy. Leave unchecked to redeploy later
-                  yourself.
+                  Recommended. Variables only apply on the next deploy. Leave
+                  unchecked to redeploy later yourself.
                 </span>
               </span>
             </label>
           </div>
           <DialogFooter>
             <DialogClose render={<Button variant="outline">Cancel</Button>} />
-            <Button onClick={handleAttachConfirm} loading={attaching} className="gap-1.5">
+            <Button
+              onClick={handleAttachConfirm}
+              loading={attaching}
+              className="gap-1.5"
+            >
               <LinkIcon className="h-3.5 w-3.5" />
               {redeployAfter ? "Attach & redeploy" : "Attach"}
             </Button>
@@ -667,7 +815,10 @@ export default function AddonsPage() {
       </Dialog>
 
       {/* Delete confirm */}
-      <AlertDialog open={!!deleteAddon} onOpenChange={(open) => !open && setDeleteAddon(null)}>
+      <AlertDialog
+        open={!!deleteAddon}
+        onOpenChange={(open) => !open && setDeleteAddon(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-destructive/10 text-destructive sm:mx-0">
@@ -675,8 +826,9 @@ export default function AddonsPage() {
             </div>
             <AlertDialogTitle>Delete “{deleteAddon?.name}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the database container. Apps already attached keep their connection variables but
-              will fail to connect until you attach a new database and redeploy.
+              This removes the database container. Apps already attached keep
+              their connection variables but will fail to connect until you
+              attach a new database and redeploy.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="px-6">
@@ -691,15 +843,22 @@ export default function AddonsPage() {
                   Also delete the stored data
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                  Permanently erases the data volume. This cannot be undone. Leave unchecked to keep the data
-                  for later.
+                  Permanently erases the data volume. This cannot be undone.
+                  Leave unchecked to keep the data for later.
                 </span>
               </span>
             </label>
           </div>
           <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="outline">Cancel</Button>} />
-            <Button variant="destructive" onClick={handleDeleteConfirm} loading={deleting} className="gap-1.5">
+            <AlertDialogClose
+              render={<Button variant="outline">Cancel</Button>}
+            />
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              loading={deleting}
+              className="gap-1.5"
+            >
               <TrashIcon className="h-3.5 w-3.5" />
               {deleteVolume ? "Delete database & data" : "Delete database"}
             </Button>
@@ -708,18 +867,22 @@ export default function AddonsPage() {
       </AlertDialog>
 
       {/* Detach confirm */}
-      <AlertDialog open={!!detachTarget} onOpenChange={(open) => !open && setDetachTarget(null)}>
+      <AlertDialog
+        open={!!detachTarget}
+        onOpenChange={(open) => !open && setDetachTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-warning/10 text-warning sm:mx-0">
               <LinkIcon className="h-5 w-5" />
             </div>
             <AlertDialogTitle>
-              Detach “{detachTarget?.addon.name}” from “{detachTarget?.app.name}”?
+              Detach {detachTarget?.addon.name} from {detachTarget?.app.name}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the database&apos;s connection variables from the app. The app will lose access to
-              this database once redeployed. The database itself and its data are not affected.
+              This removes the database&apos;s connection variables from the
+              app. The app will lose access to this database once redeployed.
+              The database itself and its data are not affected.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="px-6">
@@ -730,17 +893,25 @@ export default function AddonsPage() {
                 className="mt-0.5"
               />
               <span className="space-y-0.5">
-                <span className="block text-sm font-medium">Redeploy the app now</span>
+                <span className="block text-sm font-medium">
+                  Redeploy the app now
+                </span>
                 <span className="block text-xs text-muted-foreground">
-                  Recommended, so the change takes effect immediately. Leave unchecked to redeploy later
-                  yourself.
+                  Recommended, so the change takes effect immediately. Leave
+                  unchecked to redeploy later yourself.
                 </span>
               </span>
             </label>
           </div>
           <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="outline">Cancel</Button>} />
-            <Button onClick={handleDetachConfirm} loading={detaching} className="gap-1.5">
+            <AlertDialogClose
+              render={<Button variant="outline">Cancel</Button>}
+            />
+            <Button
+              onClick={handleDetachConfirm}
+              loading={detaching}
+              className="gap-1.5"
+            >
               {detachRedeploy ? "Detach & redeploy" : "Detach"}
             </Button>
           </AlertDialogFooter>
@@ -749,7 +920,10 @@ export default function AddonsPage() {
 
       {/* Database explorer (full-screen studio) */}
       {exploreAddon && (
-        <DbExplorer addon={exploreAddon} onClose={() => setExploreAddon(null)} />
+        <DbExplorer
+          addon={exploreAddon}
+          onClose={() => setExploreAddon(null)}
+        />
       )}
     </AppShell>
   )

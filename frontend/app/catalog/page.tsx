@@ -54,6 +54,23 @@ const TerminalIcon = (props: IconProps) => (
 // A simple key/value env var row used by the custom-deploy modals.
 type EnvRow = { key: string; value: string; secret: boolean }
 
+const isAutoFilledEnv = (env: CatalogEnv) =>
+  env.description?.toLowerCase().startsWith("auto-filled from a managed") ??
+  false
+
+const addonLabel = (type: string) => {
+  switch (type) {
+    case "postgres":
+      return "Postgres"
+    case "mysql":
+      return "MySQL"
+    case "redis":
+      return "Redis"
+    default:
+      return type
+  }
+}
+
 // Logos come from the community dashboard-icons CDN. Only the slug is stored
 // server-side; we build the URL here.
 const iconUrlOverrides: Record<string, string> = {
@@ -189,6 +206,7 @@ export default function CatalogPage() {
     }
     // Require non-empty for required env vars that aren't auto-generated.
     for (const e of selected.env || []) {
+      if (isAutoFilledEnv(e)) continue
       if (e.required && !e.generate && !(envValues[e.key] || "").trim()) {
         setErrorMsg(`${e.key} is required.`)
         return
@@ -421,51 +439,70 @@ export default function CatalogPage() {
               </p>
             </div>
 
-            {/* Configurable env vars */}
-            {selected && (selected.env?.length ?? 0) > 0 && (
-              <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-                <p className="text-xs font-semibold text-foreground">
-                  Configuration
-                </p>
-                {(selected.env || []).map((e: CatalogEnv) => (
-                  <div key={e.key} className="space-y-1.5">
-                    <Label className="flex items-center gap-1.5 font-mono text-[11px] text-foreground/90">
-                      {e.key}
-                      {e.required && (
-                        <span className="text-destructive-foreground">*</span>
-                      )}
-                      {e.secret && (
-                        <NucleoIcon
-                          name="lock"
-                          className="h-3 w-3 text-muted-foreground"
-                        />
-                      )}
-                    </Label>
-                    <Input
-                      type={e.secret ? "password" : "text"}
-                      value={envValues[e.key] ?? ""}
-                      onChange={(ev) =>
-                        setEnvValues((prev) => ({
-                          ...prev,
-                          [e.key]: ev.target.value,
-                        }))
-                      }
-                      placeholder={
-                        e.generate
-                          ? "Leave blank to auto-generate"
-                          : e.value || ""
-                      }
-                      className="h-8 font-mono text-xs"
-                    />
-                    {e.description && (
-                      <p className="text-[11px] leading-snug text-muted-foreground">
-                        {e.description}
-                      </p>
-                    )}
-                  </div>
-                ))}
+            {selected && selected.requiredAddons?.length ? (
+              <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-[11px] leading-snug text-muted-foreground">
+                <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                <span>
+                  Better PaaS will create{" "}
+                  {selected.requiredAddons
+                    .map((addon) => addonLabel(addon.type))
+                    .join(" + ")}{" "}
+                  on the selected server and inject the connection variables
+                  automatically.
+                </span>
               </div>
-            )}
+            ) : null}
+
+            {/* Configurable env vars */}
+            {selected &&
+              (selected.env || []).some((e) => !isAutoFilledEnv(e)) && (
+                <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+                  <p className="text-xs font-semibold text-foreground">
+                    Configuration
+                  </p>
+                  {(selected.env || [])
+                    .filter((e: CatalogEnv) => !isAutoFilledEnv(e))
+                    .map((e: CatalogEnv) => (
+                      <div key={e.key} className="space-y-1.5">
+                        <Label className="flex items-center gap-1.5 font-mono text-[11px] text-foreground/90">
+                          {e.key}
+                          {e.required && (
+                            <span className="text-destructive-foreground">
+                              *
+                            </span>
+                          )}
+                          {e.secret && (
+                            <NucleoIcon
+                              name="lock"
+                              className="h-3 w-3 text-muted-foreground"
+                            />
+                          )}
+                        </Label>
+                        <Input
+                          type={e.secret ? "password" : "text"}
+                          value={envValues[e.key] ?? ""}
+                          onChange={(ev) =>
+                            setEnvValues((prev) => ({
+                              ...prev,
+                              [e.key]: ev.target.value,
+                            }))
+                          }
+                          placeholder={
+                            e.generate
+                              ? "Leave blank to auto-generate"
+                              : e.value || ""
+                          }
+                          className="h-8 font-mono text-xs"
+                        />
+                        {e.description && (
+                          <p className="text-[11px] leading-snug text-muted-foreground">
+                            {e.description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
 
             {/* Notes / caveats */}
             {selected?.notes && (

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os/exec"
 	"strings"
 	"time"
 )
@@ -26,11 +25,11 @@ const addonNetwork = "better-paas-net"
 
 // addonSpec describes how to launch a given add-on type.
 type addonSpec struct {
-	Image         string
-	InternalPort  int
-	VolumePath    string // container path to persist
-	env           func(password string) []string
-	connEnv       func(a *Addon, password string) map[string]string
+	Image        string
+	InternalPort int
+	VolumePath   string // container path to persist
+	env          func(password string) []string
+	connEnv      func(a *Addon, password string) map[string]string
 }
 
 func addonSpecs() map[string]addonSpec {
@@ -64,9 +63,9 @@ func addonSpecs() map[string]addonSpec {
 			connEnv: func(a *Addon, pw string) map[string]string {
 				host := a.ContainerName
 				return map[string]string{
-					"REDIS_URL": fmt.Sprintf("redis://:%s@%s:6379", pw, host),
-					"REDIS_HOST": host,
-					"REDIS_PORT": "6379",
+					"REDIS_URL":      fmt.Sprintf("redis://:%s@%s:6379", pw, host),
+					"REDIS_HOST":     host,
+					"REDIS_PORT":     "6379",
 					"REDIS_PASSWORD": pw,
 				}
 			},
@@ -81,10 +80,10 @@ func addonSpecs() map[string]addonSpec {
 			connEnv: func(a *Addon, pw string) map[string]string {
 				host := a.ContainerName
 				return map[string]string{
-					"DATABASE_URL": fmt.Sprintf("mysql://appuser:%s@%s:3306/appdb", pw, host),
-					"MYSQL_HOST":   host,
-					"MYSQL_PORT":   "3306",
-					"MYSQL_USER":   "appuser",
+					"DATABASE_URL":   fmt.Sprintf("mysql://appuser:%s@%s:3306/appdb", pw, host),
+					"MYSQL_HOST":     host,
+					"MYSQL_PORT":     "3306",
+					"MYSQL_USER":     "appuser",
 					"MYSQL_PASSWORD": pw,
 					"MYSQL_DATABASE": "appdb",
 				}
@@ -93,10 +92,27 @@ func addonSpecs() map[string]addonSpec {
 	}
 }
 
+// normalizeServerID returns the canonical local server id for empty values.
+func normalizeServerID(serverID string) string {
+	serverID = strings.TrimSpace(serverID)
+	if serverID == "" {
+		return "localhost"
+	}
+	return serverID
+}
+
 // ensureAddonNetwork creates the shared docker network if it doesn't exist.
-func ensureAddonNetwork() {
-	// `docker network create` is a no-op-ish error if it already exists; ignore.
-	exec.Command("docker", "network", "create", addonNetwork).Run()
+func ensureAddonNetwork(serverID string) error {
+	ex, err := GetExecutorForServer(normalizeServerID(serverID))
+	if err != nil {
+		return err
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	// `docker network create` returns an error if it already exists; ignore it.
+	_, _ = ex.RunCommand("docker", "network", "create", addonNetwork)
+	return nil
 }
 
 // addonPassword returns a 24-char hex secret.
@@ -139,8 +155,9 @@ func handleAddonCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Type string `json:"type"`
-		Name string `json:"name"`
+		Type     string `json:"type"`
+		Name     string `json:"name"`
+		ServerID string `json:"serverId"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		jsonError(w, "Bad request", http.StatusBadRequest)
@@ -155,8 +172,20 @@ func handleAddonCreate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid name: 2-40 lowercase letters, digits, or hyphens", http.StatusBadRequest)
 		return
 	}
+	req.ServerID = normalizeServerID(req.ServerID)
+	ex, err := GetExecutorForServer(req.ServerID)
+	if err != nil {
+		jsonError(w, "target server unavailable: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		_ = sshEx.Close()
+	}
 
-	ensureAddonNetwork()
+	if err := ensureAddonNetwork(req.ServerID); err != nil {
+		jsonError(w, "failed to prepare database network: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	id := generateRandomID()
 	containerName := fmt.Sprintf("paas-addon-%s-%s", req.Type, id)
@@ -172,6 +201,7 @@ func handleAddonCreate(w http.ResponseWriter, r *http.Request) {
 		Volume:        volume,
 		Port:          spec.InternalPort,
 		CreatedAt:     time.Now(),
+		ServerID:      req.ServerID,
 	}
 	addon.ConnEnv = spec.connEnv(&addon, password)
 
@@ -203,14 +233,147 @@ func launchAddon(addon Addon, spec addonSpec, password string) {
 		args = append(args, spec.Image)
 	}
 
-	if out, err := exec.Command("docker", args...).CombinedOutput(); err != nil {
-		log.Printf("[addon] failed to launch %s: %v — %s", addon.ContainerName, err, string(out))
+	ex, err := GetExecutorForServer(addon.ServerID)
+	if err != nil {
+		log.Printf("[addon] failed to get executor for %s: %v", addon.ContainerName, err)
 		addon.Status = "failed"
 	} else {
-		addon.Status = "running"
+		if sshEx, ok := ex.(*SSHExecutor); ok {
+			defer sshEx.Close()
+		}
+		if out, err := ex.RunCommand("docker", args...); err != nil {
+			log.Printf("[addon] failed to launch %s: %v — %s", addon.ContainerName, err, out)
+			addon.Status = "failed"
+		} else {
+			addon.Status = "running"
+		}
 	}
 	if err := dbSaveAddon(addon); err != nil {
 		log.Printf("[addon] failed to update status: %v", err)
+	}
+}
+
+func removeAddonContainer(addon Addon, deleteData bool) {
+	ex, err := GetExecutorForServer(addon.ServerID)
+	if err != nil {
+		log.Printf("[addon] failed to get executor for delete %s: %v", addon.ContainerName, err)
+		return
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	_, _ = ex.RunCommand("docker", "rm", "-f", addon.ContainerName)
+	if deleteData && addon.Volume != "" {
+		_, _ = ex.RunCommand("docker", "volume", "rm", "-f", addon.Volume)
+	}
+}
+
+func startAddonContainer(addon Addon) {
+	ex, err := GetExecutorForServer(addon.ServerID)
+	if err != nil {
+		log.Printf("[addon] failed to get executor for reconcile %s: %v", addon.ContainerName, err)
+		return
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	_, _ = ex.RunCommand("docker", "start", addon.ContainerName)
+}
+
+func addonContainerExists(addon Addon) bool {
+	ex, err := GetExecutorForServer(addon.ServerID)
+	if err != nil {
+		return false
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+	out, err := ex.RunCommand("docker", "ps", "-aq", "--filter", "name=^/"+addon.ContainerName+"$")
+	return err == nil && strings.TrimSpace(out) != ""
+}
+
+func createManagedAddon(addonType, name, serverID string) (*Addon, string, error) {
+	spec, ok := addonSpecs()[addonType]
+	if !ok {
+		return nil, "", fmt.Errorf("unsupported add-on type %q", addonType)
+	}
+	name = strings.TrimSpace(name)
+	if name == "" || !validAppName(name) {
+		return nil, "", fmt.Errorf("invalid add-on name")
+	}
+	serverID = normalizeServerID(serverID)
+	if err := ensureAddonNetwork(serverID); err != nil {
+		return nil, "", err
+	}
+
+	id := generateRandomID()
+	containerName := fmt.Sprintf("paas-addon-%s-%s", addonType, id)
+	volume := containerName + "-data"
+	password := addonPassword()
+	addon := Addon{
+		ID:            id,
+		Type:          addonType,
+		Name:          name,
+		ContainerName: containerName,
+		Status:        "building",
+		Volume:        volume,
+		Port:          spec.InternalPort,
+		CreatedAt:     time.Now(),
+		ServerID:      serverID,
+	}
+	addon.ConnEnv = spec.connEnv(&addon, password)
+	if err := dbSaveAddon(addon); err != nil {
+		return nil, "", err
+	}
+	launchAddon(addon, spec, password)
+	if refreshed, err := dbGetAddon(id); err == nil && refreshed != nil {
+		addon = *refreshed
+	}
+	if addon.Status == "failed" {
+		return &addon, password, fmt.Errorf("failed to launch %s container", addonType)
+	}
+	return &addon, password, nil
+}
+
+func catalogAddonEnv(addon Addon, password string) map[string]string {
+	env := map[string]string{}
+	switch addon.Type {
+	case "postgres":
+		env["DATABASE_URL"] = fmt.Sprintf("postgres://appuser:%s@%s:5432/appdb", password, addon.ContainerName)
+		env["DB_HOSTNAME"] = addon.ContainerName
+		env["DB_USERNAME"] = "appuser"
+		env["DB_PASSWORD"] = password
+		env["DB_DATABASE_NAME"] = "appdb"
+		env["POSTGRES_HOST"] = addon.ContainerName
+		env["POSTGRES_USER"] = "appuser"
+		env["POSTGRES_PASSWORD"] = password
+		env["POSTGRES_DB"] = "appdb"
+	case "mysql":
+		env["DATABASE_URL"] = fmt.Sprintf("mysql://appuser:%s@%s:3306/appdb", password, addon.ContainerName)
+		env["MYSQL_HOST"] = addon.ContainerName
+		env["MYSQL_USER"] = "appuser"
+		env["MYSQL_PASSWORD"] = password
+		env["MYSQL_DATABASE"] = "appdb"
+	case "redis":
+		env["REDIS_URL"] = fmt.Sprintf("redis://:%s@%s:6379", password, addon.ContainerName)
+		env["REDIS_HOST"] = addon.ContainerName
+		env["REDIS_PASSWORD"] = password
+		env["REDIS_HOSTNAME"] = addon.ContainerName
+	}
+	return env
+}
+
+func markAddonAttached(addonID, appID string) {
+	addon, err := dbGetAddon(addonID)
+	if err != nil || addon == nil {
+		return
+	}
+	if containsString(addon.AttachedApps, appID) {
+		return
+	}
+	addon.AttachedApps = append(addon.AttachedApps, appID)
+	if err := dbSaveAddon(*addon); err != nil {
+		log.Printf("[addon] failed to record catalog attachment: %v", err)
 	}
 }
 
@@ -224,8 +387,8 @@ func handleAddonDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ID          string `json:"id"`
-		DeleteData  bool   `json:"deleteData"`
+		ID         string `json:"id"`
+		DeleteData bool   `json:"deleteData"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		jsonError(w, "Bad request", http.StatusBadRequest)
@@ -237,10 +400,7 @@ func handleAddonDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exec.Command("docker", "rm", "-f", addon.ContainerName).Run()
-	if req.DeleteData && addon.Volume != "" {
-		exec.Command("docker", "volume", "rm", "-f", addon.Volume).Run()
-	}
+	removeAddonContainer(*addon, req.DeleteData)
 	if err := dbDeleteAddon(req.ID); err != nil {
 		log.Printf("[addon] failed to delete: %v", err)
 	}
@@ -272,6 +432,10 @@ func handleAddonAttach(w http.ResponseWriter, r *http.Request) {
 	app := findApp(req.AppID)
 	if app == nil {
 		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+	if normalizeServerID(addon.ServerID) != normalizeServerID(app.ServerID) {
+		jsonError(w, "Add-on and app must be on the same server", http.StatusBadRequest)
 		return
 	}
 
@@ -384,23 +548,27 @@ func reconcileAddons() {
 		return
 	}
 	if len(list) > 0 {
-		ensureAddonNetwork()
+		serverIDs := map[string]bool{}
+		for _, a := range list {
+			serverIDs[normalizeServerID(a.ServerID)] = true
+		}
+		for serverID := range serverIDs {
+			if err := ensureAddonNetwork(serverID); err != nil {
+				log.Printf("[addon] failed to reconcile network on %s: %v", serverID, err)
+			}
+		}
 	}
 	for _, a := range list {
 		// If the container exists but is stopped, start it.
-		if containerExists(a.ContainerName) {
-			exec.Command("docker", "start", a.ContainerName).Run()
+		if addonContainerExists(a) {
+			startAddonContainer(a)
 		}
 	}
 }
 
 // containerExists reports whether a named container exists (any state).
 func containerExists(name string) bool {
-	out, err := exec.Command("docker", "ps", "-aq", "--filter", "name=^/"+name+"$").Output()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(out)) != ""
+	return addonContainerExists(Addon{ContainerName: name, ServerID: "localhost"})
 }
 
 // containsString reports whether s is present in list.

@@ -39,21 +39,26 @@ type CatalogEnv struct {
 	Generate    bool   `json:"generate"`    // auto-fill with a random secret when empty
 }
 
+type CatalogRequiredAddon struct {
+	Type string `json:"type"`
+}
+
 // CatalogTemplate is a single one-click deployable app.
 type CatalogTemplate struct {
-	ID          string       `json:"id"`
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Category    string       `json:"category"`
-	Image       string       `json:"image"`      // pinned registry image
-	Port        int          `json:"port"`       // internal container port the app listens on
-	VolumePath  string       `json:"volumePath"` // container path to persist (empty = stateless)
-	VolumePaths []string     `json:"volumePaths,omitempty"`
-	Env         []CatalogEnv `json:"env"`
-	HealthPath  string       `json:"healthPath"` // HTTP path probed before cutover (empty = TCP check)
-	Website     string       `json:"website"`
-	Icon        string       `json:"icon"`  // dashboard-icons slug
-	Notes       string       `json:"notes"` // caveats (e.g. needs docker socket)
+	ID             string                 `json:"id"`
+	Name           string                 `json:"name"`
+	Description    string                 `json:"description"`
+	Category       string                 `json:"category"`
+	Image          string                 `json:"image"`      // pinned registry image
+	Port           int                    `json:"port"`       // internal container port the app listens on
+	VolumePath     string                 `json:"volumePath"` // container path to persist (empty = stateless)
+	VolumePaths    []string               `json:"volumePaths,omitempty"`
+	RequiredAddons []CatalogRequiredAddon `json:"requiredAddons,omitempty"`
+	Env            []CatalogEnv           `json:"env"`
+	HealthPath     string                 `json:"healthPath"` // HTTP path probed before cutover (empty = TCP check)
+	Website        string                 `json:"website"`
+	Icon           string                 `json:"icon"`  // dashboard-icons slug
+	Notes          string                 `json:"notes"` // caveats (e.g. needs docker socket)
 }
 
 // catalogTemplates is the curated, single-container catalog. Image tags are
@@ -269,8 +274,11 @@ func catalogTemplates() []CatalogTemplate {
 			Image:       "ghcr.io/paperless-ngx/paperless-ngx:latest",
 			Port:        8000,
 			VolumePaths: []string{"/usr/src/paperless/data", "/usr/src/paperless/media", "/usr/src/paperless/consume", "/usr/src/paperless/export"},
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "redis"},
+			},
 			Env: []CatalogEnv{
-				{Key: "PAPERLESS_REDIS", Description: "Redis URL from a Better PaaS Redis add-on, e.g. redis://:password@host:6379.", Required: true, Secret: true},
+				{Key: "PAPERLESS_REDIS", Description: "Auto-filled from a managed Redis add-on.", Secret: true},
 				{Key: "PAPERLESS_SECRET_KEY", Description: "Django secret key.", Required: true, Secret: true, Generate: true},
 				{Key: "PAPERLESS_ADMIN_USER", Value: "admin", Description: "Initial admin username.", Required: true},
 				{Key: "PAPERLESS_ADMIN_PASSWORD", Description: "Initial admin password.", Required: true, Secret: true, Generate: true},
@@ -279,7 +287,7 @@ func catalogTemplates() []CatalogTemplate {
 			HealthPath: "/",
 			Website:    "https://docs.paperless-ngx.com",
 			Icon:       "paperless-ngx",
-			Notes:      "Create and attach a Redis add-on first. Tika/Gotenberg helpers are optional and not included in this single-container starter.",
+			Notes:      "Better PaaS creates and connects a Redis add-on automatically. Tika/Gotenberg helpers are optional and not included in this single-container starter.",
 		},
 
 		// ── CMS & publishing ─────────────────────────────────────────────────
@@ -356,16 +364,19 @@ func catalogTemplates() []CatalogTemplate {
 			Image:       "wordpress:6-php8.3-apache",
 			Port:        80,
 			VolumePath:  "/var/www/html",
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "mysql"},
+			},
 			Env: []CatalogEnv{
-				{Key: "WORDPRESS_DB_HOST", Description: "MySQL host, e.g. a Better PaaS MySQL add-on container name.", Required: true},
-				{Key: "WORDPRESS_DB_USER", Value: "appuser", Description: "MySQL username.", Required: true},
-				{Key: "WORDPRESS_DB_PASSWORD", Description: "MySQL password.", Required: true, Secret: true},
-				{Key: "WORDPRESS_DB_NAME", Value: "appdb", Description: "MySQL database name.", Required: true},
+				{Key: "WORDPRESS_DB_HOST", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "WORDPRESS_DB_USER", Value: "appuser", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "WORDPRESS_DB_PASSWORD", Description: "Auto-filled from a managed MySQL add-on.", Secret: true},
+				{Key: "WORDPRESS_DB_NAME", Value: "appdb", Description: "Auto-filled from a managed MySQL add-on."},
 			},
 			HealthPath: "/",
 			Website:    "https://wordpress.org",
 			Icon:       "wordpress",
-			Notes:      "Create a MySQL add-on first, then paste its MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, and MYSQL_DATABASE values here.",
+			Notes:      "Better PaaS creates and connects a MySQL add-on automatically for this template.",
 		},
 		{
 			ID:          "drupal",
@@ -613,11 +624,14 @@ func catalogTemplates() []CatalogTemplate {
 			Category:    "Utilities",
 			Image:       "yourls:1.10-apache",
 			Port:        80,
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "mysql"},
+			},
 			Env: []CatalogEnv{
-				{Key: "YOURLS_DB_HOST", Description: "MySQL host from a Better PaaS MySQL add-on.", Required: true},
-				{Key: "YOURLS_DB_USER", Value: "appuser", Description: "MySQL username.", Required: true},
-				{Key: "YOURLS_DB_PASS", Description: "MySQL password.", Required: true, Secret: true},
-				{Key: "YOURLS_DB_NAME", Value: "appdb", Description: "MySQL database name.", Required: true},
+				{Key: "YOURLS_DB_HOST", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "YOURLS_DB_USER", Value: "appuser", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "YOURLS_DB_PASS", Description: "Auto-filled from a managed MySQL add-on.", Secret: true},
+				{Key: "YOURLS_DB_NAME", Value: "appdb", Description: "Auto-filled from a managed MySQL add-on."},
 				{Key: "YOURLS_SITE", Description: "Public short URL base, e.g. https://go.example.com.", Required: true},
 				{Key: "YOURLS_USER", Value: "admin", Description: "Admin username.", Required: true},
 				{Key: "YOURLS_PASS", Description: "Admin password.", Required: true, Secret: true, Generate: true},
@@ -625,7 +639,7 @@ func catalogTemplates() []CatalogTemplate {
 			HealthPath: "/",
 			Website:    "https://yourls.org",
 			Icon:       "yourls",
-			Notes:      "Create a MySQL add-on first, then paste its MYSQL_* values here.",
+			Notes:      "Better PaaS creates and connects a MySQL add-on automatically for this template.",
 		},
 		{
 			ID:          "pairdrop",
@@ -683,14 +697,17 @@ func catalogTemplates() []CatalogTemplate {
 			Category:    "Analytics",
 			Image:       "ghcr.io/umami-software/umami:postgresql-latest",
 			Port:        3000,
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "postgres"},
+			},
 			Env: []CatalogEnv{
-				{Key: "DATABASE_URL", Description: "Postgres DATABASE_URL from a Better PaaS Postgres add-on.", Required: true, Secret: true},
+				{Key: "DATABASE_URL", Description: "Auto-filled from a managed Postgres add-on.", Secret: true},
 				{Key: "APP_SECRET", Description: "Secret used by Umami.", Required: true, Secret: true, Generate: true},
 			},
 			HealthPath: "/",
 			Website:    "https://umami.is",
 			Icon:       "umami",
-			Notes:      "Create a Postgres add-on first, then paste its DATABASE_URL here.",
+			Notes:      "Better PaaS creates and connects a Postgres add-on automatically for this template.",
 		},
 
 		// ── Media ─────────────────────────────────────────────────────────────
@@ -740,18 +757,22 @@ func catalogTemplates() []CatalogTemplate {
 			Image:       "ghcr.io/immich-app/immich-server:release",
 			Port:        2283,
 			VolumePath:  "/usr/src/app/upload",
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "postgres"},
+				{Type: "redis"},
+			},
 			Env: []CatalogEnv{
-				{Key: "DB_HOSTNAME", Description: "Postgres host from a Better PaaS Postgres add-on.", Required: true},
-				{Key: "DB_USERNAME", Value: "appuser", Description: "Postgres username.", Required: true},
-				{Key: "DB_PASSWORD", Description: "Postgres password.", Required: true, Secret: true},
-				{Key: "DB_DATABASE_NAME", Value: "appdb", Description: "Postgres database name.", Required: true},
-				{Key: "REDIS_HOSTNAME", Description: "Redis host from a Better PaaS Redis add-on.", Required: true},
+				{Key: "DB_HOSTNAME", Description: "Auto-filled from a managed Postgres add-on."},
+				{Key: "DB_USERNAME", Value: "appuser", Description: "Auto-filled from a managed Postgres add-on."},
+				{Key: "DB_PASSWORD", Description: "Auto-filled from a managed Postgres add-on.", Secret: true},
+				{Key: "DB_DATABASE_NAME", Value: "appdb", Description: "Auto-filled from a managed Postgres add-on."},
+				{Key: "REDIS_HOSTNAME", Description: "Auto-filled from a managed Redis add-on."},
 				{Key: "IMMICH_MACHINE_LEARNING_URL", Description: "Optional ML service URL for smart search and face recognition.", Required: false},
 			},
 			HealthPath: "/",
 			Website:    "https://immich.app",
 			Icon:       "immich",
-			Notes:      "Create Postgres and Redis add-ons first. Machine-learning features require an extra Immich ML service not included in this starter.",
+			Notes:      "Better PaaS creates and connects Postgres and Redis add-ons automatically. Machine-learning features require an extra Immich ML service not included in this starter.",
 		},
 		{
 			ID:          "home-assistant",
@@ -849,10 +870,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens (must start and end alphanumeric)", http.StatusBadRequest)
 		return
 	}
-	serverID := req.ServerID
-	if serverID == "" {
-		serverID = "localhost"
-	}
+	serverID := normalizeServerID(req.ServerID)
 	if err := validateResourceLimits(req.Memory, req.CPUs); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
@@ -866,8 +884,25 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	// auto-generate any "generate" secrets left empty, and enforce "required".
 	envVars := map[string]string{}
 	var secretKeys []string
+	var createdAddons []Addon
+	autoEnv := map[string]string{}
+	for _, required := range tpl.RequiredAddons {
+		addonName := uniqueCatalogAddonName(name, required.Type)
+		addon, password, err := createManagedAddon(required.Type, addonName, serverID)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("failed to create %s add-on: %v", required.Type, err), http.StatusBadRequest)
+			return
+		}
+		createdAddons = append(createdAddons, *addon)
+		for k, v := range catalogTemplateAddonEnv(tpl.ID, *addon, password) {
+			autoEnv[k] = v
+		}
+	}
 	for _, e := range tpl.Env {
 		val := e.Value
+		if auto, ok := autoEnv[e.Key]; ok {
+			val = auto
+		}
 		if ov, ok := req.EnvVars[e.Key]; ok {
 			val = strings.TrimSpace(ov)
 		}
@@ -935,6 +970,9 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	if err := dbSaveApp(newApp); err != nil {
 		log.Printf("[db] failed to save catalog app: %v", err)
 	}
+	for _, addon := range createdAddons {
+		markAddonAttached(addon.ID, appID)
+	}
 
 	buildLogsLock.Lock()
 	buildLogs[appID] = []string{}
@@ -962,6 +1000,61 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 
 	// Image-based deploy: gitURL is unused.
 	go runDeployment(newApp, "", deployID, logFile, "catalog", "")
+}
+
+func uniqueCatalogAddonName(appName, addonType string) string {
+	base := appName + "-" + addonType
+	if len(base) > 40 {
+		maxAppLen := 40 - len(addonType) - 1
+		if maxAppLen < 2 {
+			maxAppLen = 2
+		}
+		base = strings.TrimRight(appName[:min(len(appName), maxAppLen)], "-") + "-" + addonType
+	}
+	if validAppName(base) {
+		return base
+	}
+	return addonType + "-" + generateRandomID()[:6]
+}
+
+func catalogTemplateAddonEnv(templateID string, addon Addon, password string) map[string]string {
+	base := catalogAddonEnv(addon, password)
+	out := map[string]string{}
+	switch templateID {
+	case "wordpress":
+		if addon.Type == "mysql" {
+			out["WORDPRESS_DB_HOST"] = base["MYSQL_HOST"]
+			out["WORDPRESS_DB_USER"] = base["MYSQL_USER"]
+			out["WORDPRESS_DB_PASSWORD"] = base["MYSQL_PASSWORD"]
+			out["WORDPRESS_DB_NAME"] = base["MYSQL_DATABASE"]
+		}
+	case "yourls":
+		if addon.Type == "mysql" {
+			out["YOURLS_DB_HOST"] = base["MYSQL_HOST"]
+			out["YOURLS_DB_USER"] = base["MYSQL_USER"]
+			out["YOURLS_DB_PASS"] = base["MYSQL_PASSWORD"]
+			out["YOURLS_DB_NAME"] = base["MYSQL_DATABASE"]
+		}
+	case "paperless-ngx":
+		if addon.Type == "redis" {
+			out["PAPERLESS_REDIS"] = base["REDIS_URL"]
+		}
+	case "immich":
+		if addon.Type == "postgres" {
+			out["DB_HOSTNAME"] = base["DB_HOSTNAME"]
+			out["DB_USERNAME"] = base["DB_USERNAME"]
+			out["DB_PASSWORD"] = base["DB_PASSWORD"]
+			out["DB_DATABASE_NAME"] = base["DB_DATABASE_NAME"]
+		}
+		if addon.Type == "redis" {
+			out["REDIS_HOSTNAME"] = base["REDIS_HOSTNAME"]
+		}
+	default:
+		for k, v := range base {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // ---------------------------------------------------------------------------

@@ -246,10 +246,10 @@ export const api = {
   // ── Managed add-ons (databases / caches) ────────────────────────────────────
   addons: {
     list: () => req<Addon[]>("/api/addons"),
-    create: (type: string, name: string) =>
+    create: (type: string, name: string, serverId = "localhost") =>
       req<Addon>("/api/addons/create", {
         method: "POST",
-        body: JSON.stringify({ type, name }),
+        body: JSON.stringify({ type, name, serverId }),
       }),
     delete: (id: string, deleteData = false) =>
       req<{ status: string }>("/api/addons/delete", {

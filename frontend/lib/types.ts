@@ -158,6 +158,7 @@ export interface CatalogTemplate {
   port: number
   volumePath: string
   volumePaths?: string[]
+  requiredAddons?: Array<{ type: string }>
   env: CatalogEnv[] | null
   healthPath: string
   website: string

@@ -751,20 +751,21 @@ func dbSaveAddon(a Addon) error {
 	connJSON, _ := json.Marshal(a.ConnEnv)
 	attachedJSON, _ := json.Marshal(a.AttachedApps)
 	_, err := sqliteDB.Exec(`
-		INSERT INTO addons (id, type, name, container_name, status, volume, port, conn_env, attached_apps, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO addons (id, type, name, container_name, status, volume, port, conn_env, attached_apps, created_at, server_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			status=excluded.status,
 			conn_env=excluded.conn_env,
-			attached_apps=excluded.attached_apps
-	`, a.ID, a.Type, a.Name, a.ContainerName, a.Status, a.Volume, a.Port, encryptSecret(string(connJSON)), string(attachedJSON), a.CreatedAt)
+			attached_apps=excluded.attached_apps,
+			server_id=excluded.server_id
+	`, a.ID, a.Type, a.Name, a.ContainerName, a.Status, a.Volume, a.Port, encryptSecret(string(connJSON)), string(attachedJSON), a.CreatedAt, normalizeServerID(a.ServerID))
 	return err
 }
 
 func dbLoadAddons() ([]Addon, error) {
 	// LEFT-style scan: attached_apps may be NULL on rows created before the
 	// column existed.
-	rows, err := sqliteDB.Query(`SELECT id, type, name, container_name, status, volume, port, conn_env, attached_apps, created_at FROM addons ORDER BY created_at DESC`)
+	rows, err := sqliteDB.Query(`SELECT id, type, name, container_name, status, volume, port, conn_env, attached_apps, created_at, COALESCE(server_id, 'localhost') FROM addons ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -775,7 +776,7 @@ func dbLoadAddons() ([]Addon, error) {
 		var a Addon
 		var connEnc sql.NullString
 		var attached sql.NullString
-		if err := rows.Scan(&a.ID, &a.Type, &a.Name, &a.ContainerName, &a.Status, &a.Volume, &a.Port, &connEnc, &attached, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Type, &a.Name, &a.ContainerName, &a.Status, &a.Volume, &a.Port, &connEnc, &attached, &a.CreatedAt, &a.ServerID); err != nil {
 			continue
 		}
 		if connEnc.Valid && connEnc.String != "" {
@@ -793,8 +794,8 @@ func dbGetAddon(id string) (*Addon, error) {
 	var a Addon
 	var connEnc sql.NullString
 	var attached sql.NullString
-	err := sqliteDB.QueryRow(`SELECT id, type, name, container_name, status, volume, port, conn_env, attached_apps, created_at FROM addons WHERE id = ?`, id).
-		Scan(&a.ID, &a.Type, &a.Name, &a.ContainerName, &a.Status, &a.Volume, &a.Port, &connEnc, &attached, &a.CreatedAt)
+	err := sqliteDB.QueryRow(`SELECT id, type, name, container_name, status, volume, port, conn_env, attached_apps, created_at, COALESCE(server_id, 'localhost') FROM addons WHERE id = ?`, id).
+		Scan(&a.ID, &a.Type, &a.Name, &a.ContainerName, &a.Status, &a.Volume, &a.Port, &connEnc, &attached, &a.CreatedAt, &a.ServerID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
