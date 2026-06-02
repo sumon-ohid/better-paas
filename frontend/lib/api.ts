@@ -170,6 +170,20 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    createCloud: (data: {
+      provider: "hetzner" | "digitalocean" | "vultr"
+      token: string
+      name: string
+      description?: string
+      region?: string
+      size?: string
+      image?: string
+      sshUser?: string
+    }) =>
+      req<Server>("/api/servers/cloud/create", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     delete: (id: string) =>
       req<{ status: string }>("/api/servers/delete", {
         method: "POST",

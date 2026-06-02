@@ -85,6 +85,7 @@ func main() {
 	// Server management (multi-server support)
 	mux.HandleFunc("/api/servers", handleServersList)
 	mux.HandleFunc("/api/servers/create", handleServerCreate)
+	mux.HandleFunc("/api/servers/cloud/create", handleCloudServerCreate)
 	mux.HandleFunc("/api/servers/delete", handleServerDelete)
 	mux.HandleFunc("/api/servers/test", handleServerTest)
 	mux.HandleFunc("/api/servers/keys/public", handleServerPublicKey)
