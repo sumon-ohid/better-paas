@@ -157,6 +157,7 @@ export interface CatalogTemplate {
   image: string
   port: number
   volumePath: string
+  volumePaths?: string[]
   env: CatalogEnv[] | null
   healthPath: string
   website: string

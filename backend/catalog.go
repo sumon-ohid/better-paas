@@ -20,14 +20,14 @@ import (
 // apps get the same health-checked cutover, Caddy routing, logs, metrics, and
 // rollback as git-based apps.
 //
-// Multi-container stacks (Postgres-backed apps, Supabase, Immich, …) are
-// deliberately excluded until Docker Compose support lands; they would mislead
-// users by failing. Apps here are intentionally single-container with, at most,
-// a persistent volume and some environment variables.
+// Apps here are intentionally single-container with, at most, persistent
+// volumes and environment variables. Templates that need a database/cache expose
+// the required connection settings so users can pair them with Better PaaS
+// add-ons until first-class compose-style stacks land.
 //
 // Logos are served from the community "dashboard-icons" CDN (jsDelivr). The
-// frontend builds the URL from CatalogTemplate.Icon, so only the slug lives
-// here. Every slug below was verified to resolve.
+// frontend builds the URL from CatalogTemplate.Icon and falls back gracefully if
+// a community icon slug disappears or is renamed.
 
 // CatalogEnv describes one environment variable a template accepts.
 type CatalogEnv struct {
@@ -48,6 +48,7 @@ type CatalogTemplate struct {
 	Image       string       `json:"image"`      // pinned registry image
 	Port        int          `json:"port"`       // internal container port the app listens on
 	VolumePath  string       `json:"volumePath"` // container path to persist (empty = stateless)
+	VolumePaths []string     `json:"volumePaths,omitempty"`
 	Env         []CatalogEnv `json:"env"`
 	HealthPath  string       `json:"healthPath"` // HTTP path probed before cutover (empty = TCP check)
 	Website     string       `json:"website"`
@@ -110,6 +111,22 @@ func catalogTemplates() []CatalogTemplate {
 			Website:    "https://nicolargo.github.io/glances/",
 			Icon:       "glances",
 			Notes:      "For full host metrics it needs host PID and the Docker socket; the basic web view works without them.",
+		},
+		{
+			ID:          "changedetection",
+			Name:        "Changedetection.io",
+			Description: "Website change detection, price watch, and content monitoring with alerts.",
+			Category:    "Monitoring",
+			Image:       "dgtlmoon/changedetection.io:latest",
+			Port:        5000,
+			VolumePath:  "/datastore",
+			Env: []CatalogEnv{
+				{Key: "BASE_URL", Description: "Public URL, e.g. https://changes.example.com.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://changedetection.io",
+			Icon:       "changedetection",
+			Notes:      "Browser-based checks need a Playwright/browser helper container; basic HTTP checks work in this starter.",
 		},
 
 		// ── Productivity & notes ──────────────────────────────────────────────
@@ -176,6 +193,270 @@ func catalogTemplates() []CatalogTemplate {
 			HealthPath:  "/",
 			Website:     "https://freshrss.org",
 			Icon:        "freshrss",
+		},
+		{
+			ID:          "hedgedoc",
+			Name:        "HedgeDoc",
+			Description: "Collaborative markdown notes and docs for teams.",
+			Category:    "Productivity",
+			Image:       "lscr.io/linuxserver/hedgedoc:latest",
+			Port:        3000,
+			VolumePath:  "/config",
+			Env: []CatalogEnv{
+				{Key: "DB_TYPE", Value: "sqlite", Description: "Use SQLite for the one-container starter."},
+				{Key: "TZ", Value: "UTC", Description: "Container timezone."},
+				{Key: "CMD_DOMAIN", Description: "Public domain, e.g. docs.example.com.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://hedgedoc.org",
+			Icon:       "hedgedoc",
+		},
+		{
+			ID:          "mealie",
+			Name:        "Mealie",
+			Description: "Recipe manager and meal planner for households and small communities.",
+			Category:    "Productivity",
+			Image:       "ghcr.io/mealie-recipes/mealie:latest",
+			Port:        9000,
+			VolumePath:  "/app/data",
+			Env: []CatalogEnv{
+				{Key: "ALLOW_SIGNUP", Value: "true", Description: "Allow account creation from the web UI."},
+				{Key: "BASE_URL", Description: "Public URL, e.g. https://mealie.example.com.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://mealie.io",
+			Icon:       "mealie",
+		},
+		{
+			ID:          "wallabag",
+			Name:        "Wallabag",
+			Description: "Self-hosted read-it-later app for saving articles and pages.",
+			Category:    "Productivity",
+			Image:       "wallabag/wallabag:2.6.13",
+			Port:        80,
+			VolumePaths: []string{"/var/www/wallabag/data", "/var/www/wallabag/images"},
+			Env: []CatalogEnv{
+				{Key: "SYMFONY__ENV__DOMAIN_NAME", Description: "Public URL, e.g. https://read.example.com.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://wallabag.org",
+			Icon:       "wallabag",
+			Notes:      "Uses SQLite for a simple one-container starter. Use a database add-on for heavier usage.",
+		},
+		{
+			ID:          "nextcloud",
+			Name:        "Nextcloud",
+			Description: "File sync, sharing, calendars, contacts, and collaboration suite.",
+			Category:    "Productivity",
+			Image:       "nextcloud:31-apache",
+			Port:        80,
+			VolumePath:  "/var/www/html",
+			Env: []CatalogEnv{
+				{Key: "SQLITE_DATABASE", Value: "nextcloud", Description: "Use SQLite for the one-container starter."},
+				{Key: "NEXTCLOUD_ADMIN_USER", Value: "admin", Description: "Initial admin username.", Required: true},
+				{Key: "NEXTCLOUD_ADMIN_PASSWORD", Description: "Initial admin password.", Required: true, Secret: true, Generate: true},
+			},
+			HealthPath: "/",
+			Website:    "https://nextcloud.com",
+			Icon:       "nextcloud",
+			Notes:      "SQLite is fine for a quick start. For production, attach Postgres/MySQL and move file storage deliberately.",
+		},
+		{
+			ID:          "paperless-ngx",
+			Name:        "Paperless-ngx",
+			Description: "Document management with OCR, tagging, search, and archiving.",
+			Category:    "Productivity",
+			Image:       "ghcr.io/paperless-ngx/paperless-ngx:latest",
+			Port:        8000,
+			VolumePaths: []string{"/usr/src/paperless/data", "/usr/src/paperless/media", "/usr/src/paperless/consume", "/usr/src/paperless/export"},
+			Env: []CatalogEnv{
+				{Key: "PAPERLESS_REDIS", Description: "Redis URL from a Better PaaS Redis add-on, e.g. redis://:password@host:6379.", Required: true, Secret: true},
+				{Key: "PAPERLESS_SECRET_KEY", Description: "Django secret key.", Required: true, Secret: true, Generate: true},
+				{Key: "PAPERLESS_ADMIN_USER", Value: "admin", Description: "Initial admin username.", Required: true},
+				{Key: "PAPERLESS_ADMIN_PASSWORD", Description: "Initial admin password.", Required: true, Secret: true, Generate: true},
+				{Key: "PAPERLESS_URL", Description: "Public URL, e.g. https://paperless.example.com.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://docs.paperless-ngx.com",
+			Icon:       "paperless-ngx",
+			Notes:      "Create and attach a Redis add-on first. Tika/Gotenberg helpers are optional and not included in this single-container starter.",
+		},
+
+		// ── CMS & publishing ─────────────────────────────────────────────────
+		{
+			ID:          "pocketbase",
+			Name:        "PocketBase",
+			Description: "Lightweight backend with database, auth, file storage, and an admin UI.",
+			Category:    "CMS",
+			Image:       "ghcr.io/muchobien/pocketbase:latest",
+			Port:        8090,
+			VolumePath:  "/pb_data",
+			HealthPath:  "/",
+			Website:     "https://pocketbase.io",
+			Icon:        "pocketbase",
+		},
+		{
+			ID:          "ghost",
+			Name:        "Ghost",
+			Description: "Modern publishing platform for blogs, newsletters, and publications.",
+			Category:    "CMS",
+			Image:       "ghost:5-alpine",
+			Port:        2368,
+			VolumePath:  "/var/lib/ghost/content",
+			Env: []CatalogEnv{
+				{Key: "url", Description: "Public URL, e.g. https://blog.example.com. Can be set after deploy.", Required: false},
+			},
+			HealthPath: "/ghost",
+			Website:    "https://ghost.org",
+			Icon:       "ghost",
+			Notes:      "This single-container starter uses Ghost's built-in SQLite storage. For high-traffic production sites, Ghost recommends MySQL.",
+		},
+		{
+			ID:          "directus",
+			Name:        "Directus",
+			Description: "Headless CMS and data platform with instant APIs and a polished admin studio.",
+			Category:    "CMS",
+			Image:       "directus/directus:11",
+			Port:        8055,
+			VolumePaths: []string{"/directus/database", "/directus/uploads", "/directus/extensions"},
+			Env: []CatalogEnv{
+				{Key: "KEY", Description: "Directus project key.", Required: true, Secret: true, Generate: true},
+				{Key: "SECRET", Description: "Directus secret.", Required: true, Secret: true, Generate: true},
+				{Key: "ADMIN_EMAIL", Value: "admin@example.com", Description: "Initial admin email.", Required: true},
+				{Key: "ADMIN_PASSWORD", Description: "Initial admin password.", Required: true, Secret: true, Generate: true},
+				{Key: "DB_CLIENT", Value: "sqlite3", Description: "Database client for this single-container starter."},
+				{Key: "DB_FILENAME", Value: "/directus/database/data.db", Description: "SQLite database file path."},
+			},
+			HealthPath: "/",
+			Website:    "https://directus.io",
+			Icon:       "directus",
+		},
+		{
+			ID:          "wikijs",
+			Name:        "Wiki.js",
+			Description: "Modern wiki and documentation CMS with a clean editor experience.",
+			Category:    "Productivity",
+			Image:       "lscr.io/linuxserver/wikijs:latest",
+			Port:        3000,
+			VolumePath:  "/config",
+			Env: []CatalogEnv{
+				{Key: "DB_TYPE", Value: "sqlite", Description: "Use SQLite for the one-container starter."},
+				{Key: "TZ", Value: "UTC", Description: "Container timezone."},
+			},
+			HealthPath: "/",
+			Website:    "https://js.wiki",
+			Icon:       "wikijs",
+			Notes:      "SQLite is convenient for a small wiki. For larger teams, attach Postgres and switch DB_TYPE to postgres.",
+		},
+		{
+			ID:          "wordpress",
+			Name:        "WordPress",
+			Description: "The classic open-source CMS for websites, blogs, and content-heavy pages.",
+			Category:    "CMS",
+			Image:       "wordpress:6-php8.3-apache",
+			Port:        80,
+			VolumePath:  "/var/www/html",
+			Env: []CatalogEnv{
+				{Key: "WORDPRESS_DB_HOST", Description: "MySQL host, e.g. a Better PaaS MySQL add-on container name.", Required: true},
+				{Key: "WORDPRESS_DB_USER", Value: "appuser", Description: "MySQL username.", Required: true},
+				{Key: "WORDPRESS_DB_PASSWORD", Description: "MySQL password.", Required: true, Secret: true},
+				{Key: "WORDPRESS_DB_NAME", Value: "appdb", Description: "MySQL database name.", Required: true},
+			},
+			HealthPath: "/",
+			Website:    "https://wordpress.org",
+			Icon:       "wordpress",
+			Notes:      "Create a MySQL add-on first, then paste its MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, and MYSQL_DATABASE values here.",
+		},
+		{
+			ID:          "drupal",
+			Name:        "Drupal",
+			Description: "Flexible CMS for structured content, editorial workflows, and larger sites.",
+			Category:    "CMS",
+			Image:       "drupal:11-php8.3-apache",
+			Port:        80,
+			VolumePaths: []string{"/var/www/html/sites", "/opt/drupal/web/modules", "/opt/drupal/web/themes"},
+			HealthPath:  "/",
+			Website:     "https://www.drupal.org",
+			Icon:        "drupal",
+			Notes:       "Complete Drupal's web installer after deploy. Use SQLite for a quick start or attach Postgres/MySQL for production.",
+		},
+		{
+			ID:          "strapi",
+			Name:        "Strapi",
+			Description: "Popular headless CMS for building APIs and content back offices.",
+			Category:    "CMS",
+			Image:       "vshadbolt/strapi:latest",
+			Port:        1337,
+			VolumePath:  "/opt/app",
+			Env: []CatalogEnv{
+				{Key: "NODE_ENV", Value: "development", Description: "Bootstraps a usable Strapi starter project."},
+				{Key: "DATABASE_CLIENT", Value: "sqlite", Description: "Use SQLite for the one-container starter."},
+				{Key: "DATABASE_FILENAME", Value: "/opt/app/data/data.db", Description: "SQLite database file path."},
+				{Key: "APP_KEYS", Description: "Comma-separated Strapi app keys.", Required: true, Secret: true, Generate: true},
+				{Key: "API_TOKEN_SALT", Description: "Salt for API tokens.", Required: true, Secret: true, Generate: true},
+				{Key: "ADMIN_JWT_SECRET", Description: "Admin JWT secret.", Required: true, Secret: true, Generate: true},
+				{Key: "TRANSFER_TOKEN_SALT", Description: "Salt for transfer tokens.", Required: true, Secret: true, Generate: true},
+				{Key: "JWT_SECRET", Description: "JWT secret.", Required: true, Secret: true, Generate: true},
+			},
+			HealthPath: "/admin",
+			Website:    "https://strapi.io",
+			Icon:       "strapi",
+			Notes:      "This uses a maintained community image because the old official Strapi Docker image is not maintained for current Strapi versions.",
+		},
+
+		// ── Developer tools ──────────────────────────────────────────────────
+		{
+			ID:          "gitea",
+			Name:        "Gitea",
+			Description: "Lightweight Git hosting with issues, pull requests, packages, and actions.",
+			Category:    "Developer Tools",
+			Image:       "gitea/gitea:1.24",
+			Port:        3000,
+			VolumePath:  "/data",
+			Env: []CatalogEnv{
+				{Key: "USER_UID", Value: "1000", Description: "Container user UID."},
+				{Key: "USER_GID", Value: "1000", Description: "Container user GID."},
+				{Key: "GITEA__server__ROOT_URL", Description: "Public URL, e.g. https://git.example.com.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://about.gitea.com",
+			Icon:       "gitea",
+		},
+		{
+			ID:          "forgejo",
+			Name:        "Forgejo",
+			Description: "Community-driven Git forge for code hosting, collaboration, and packages.",
+			Category:    "Developer Tools",
+			Image:       "codeberg.org/forgejo/forgejo:12",
+			Port:        3000,
+			VolumePath:  "/data",
+			Env: []CatalogEnv{
+				{Key: "USER_UID", Value: "1000", Description: "Container user UID."},
+				{Key: "USER_GID", Value: "1000", Description: "Container user GID."},
+				{Key: "FORGEJO__server__ROOT_URL", Description: "Public URL, e.g. https://forge.example.com.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://forgejo.org",
+			Icon:       "forgejo",
+		},
+		{
+			ID:          "woodpecker",
+			Name:        "Woodpecker CI",
+			Description: "Lightweight CI/CD server that pairs well with Gitea and Forgejo.",
+			Category:    "Developer Tools",
+			Image:       "woodpeckerci/woodpecker-server:v3",
+			Port:        8000,
+			VolumePath:  "/var/lib/woodpecker",
+			Env: []CatalogEnv{
+				{Key: "WOODPECKER_HOST", Description: "Public URL, e.g. https://ci.example.com.", Required: true},
+				{Key: "WOODPECKER_ADMIN", Description: "Admin username from your Git provider.", Required: true},
+				{Key: "WOODPECKER_OPEN", Value: "true", Description: "Allow open registration/login through the configured forge."},
+				{Key: "WOODPECKER_AGENT_SECRET", Description: "Shared secret for Woodpecker agents.", Required: true, Secret: true, Generate: true},
+			},
+			HealthPath: "/",
+			Website:    "https://woodpecker-ci.org",
+			Icon:       "woodpecker",
+			Notes:      "This starts the Woodpecker server. Add forge OAuth settings and run an agent before jobs can execute.",
 		},
 
 		// ── Notifications ─────────────────────────────────────────────────────
@@ -309,6 +590,108 @@ func catalogTemplates() []CatalogTemplate {
 			Icon:        "libretranslate",
 			Notes:       "First start downloads language models and may take a few minutes to become healthy.",
 		},
+		{
+			ID:          "homepage",
+			Name:        "Homepage",
+			Description: "Highly customizable dashboard for your deployed apps and infrastructure.",
+			Category:    "Dashboard",
+			Image:       "ghcr.io/gethomepage/homepage:latest",
+			Port:        3000,
+			VolumePath:  "/app/config",
+			Env: []CatalogEnv{
+				{Key: "HOMEPAGE_ALLOWED_HOSTS", Value: "*", Description: "Allowed hostnames. Replace * with your public domain for production."},
+			},
+			HealthPath: "/",
+			Website:    "https://gethomepage.dev",
+			Icon:       "homepage",
+			Notes:      "Docker integrations need the Docker socket mounted manually after deploy.",
+		},
+		{
+			ID:          "yourls",
+			Name:        "YOURLS",
+			Description: "Simple self-hosted URL shortener with a small admin interface.",
+			Category:    "Utilities",
+			Image:       "yourls:1.10-apache",
+			Port:        80,
+			Env: []CatalogEnv{
+				{Key: "YOURLS_DB_HOST", Description: "MySQL host from a Better PaaS MySQL add-on.", Required: true},
+				{Key: "YOURLS_DB_USER", Value: "appuser", Description: "MySQL username.", Required: true},
+				{Key: "YOURLS_DB_PASS", Description: "MySQL password.", Required: true, Secret: true},
+				{Key: "YOURLS_DB_NAME", Value: "appdb", Description: "MySQL database name.", Required: true},
+				{Key: "YOURLS_SITE", Description: "Public short URL base, e.g. https://go.example.com.", Required: true},
+				{Key: "YOURLS_USER", Value: "admin", Description: "Admin username.", Required: true},
+				{Key: "YOURLS_PASS", Description: "Admin password.", Required: true, Secret: true, Generate: true},
+			},
+			HealthPath: "/",
+			Website:    "https://yourls.org",
+			Icon:       "yourls",
+			Notes:      "Create a MySQL add-on first, then paste its MYSQL_* values here.",
+		},
+		{
+			ID:          "pairdrop",
+			Name:        "PairDrop",
+			Description: "Local/private AirDrop-style file sharing through the browser.",
+			Category:    "Utilities",
+			Image:       "lscr.io/linuxserver/pairdrop:latest",
+			Port:        3000,
+			VolumePath:  "/config",
+			Env: []CatalogEnv{
+				{Key: "TZ", Value: "UTC", Description: "Container timezone."},
+			},
+			HealthPath: "/",
+			Website:    "https://github.com/schlagmichdoch/PairDrop",
+			Icon:       "pairdrop",
+		},
+		{
+			ID:          "searxng",
+			Name:        "SearXNG",
+			Description: "Privacy-respecting self-hosted metasearch engine.",
+			Category:    "Privacy",
+			Image:       "searxng/searxng:latest",
+			Port:        8080,
+			VolumePath:  "/etc/searxng",
+			Env: []CatalogEnv{
+				{Key: "BASE_URL", Description: "Public URL, e.g. https://search.example.com.", Required: false},
+				{Key: "INSTANCE_NAME", Value: "Better PaaS Search", Description: "Instance display name."},
+			},
+			HealthPath: "/",
+			Website:    "https://docs.searxng.org",
+			Icon:       "searxng",
+		},
+		{
+			ID:          "n8n",
+			Name:        "n8n",
+			Description: "Workflow automation for APIs, webhooks, AI workflows, and internal tools.",
+			Category:    "Automation",
+			Image:       "n8nio/n8n:latest",
+			Port:        5678,
+			VolumePath:  "/home/node/.n8n",
+			Env: []CatalogEnv{
+				{Key: "N8N_ENCRYPTION_KEY", Description: "Encryption key for credentials.", Required: true, Secret: true, Generate: true},
+				{Key: "N8N_SECURE_COOKIE", Value: "false", Description: "Set true when serving only over HTTPS."},
+				{Key: "WEBHOOK_URL", Description: "Public URL for webhooks, e.g. https://n8n.example.com.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://n8n.io",
+			Icon:       "n8n",
+			Notes:      "Uses SQLite by default. Attach Postgres for production or larger workflows.",
+		},
+		{
+			ID:          "umami",
+			Name:        "Umami",
+			Description: "Simple, privacy-friendly web analytics for your sites and apps.",
+			Category:    "Analytics",
+			Image:       "ghcr.io/umami-software/umami:postgresql-latest",
+			Port:        3000,
+			Env: []CatalogEnv{
+				{Key: "DATABASE_URL", Description: "Postgres DATABASE_URL from a Better PaaS Postgres add-on.", Required: true, Secret: true},
+				{Key: "APP_SECRET", Description: "Secret used by Umami.", Required: true, Secret: true, Generate: true},
+			},
+			HealthPath: "/",
+			Website:    "https://umami.is",
+			Icon:       "umami",
+			Notes:      "Create a Postgres add-on first, then paste its DATABASE_URL here.",
+		},
 
 		// ── Media ─────────────────────────────────────────────────────────────
 		{
@@ -348,6 +731,59 @@ func catalogTemplates() []CatalogTemplate {
 			HealthPath:  "/",
 			Website:     "https://github.com/janeczku/calibre-web",
 			Icon:        "calibre-web",
+		},
+		{
+			ID:          "immich",
+			Name:        "Immich",
+			Description: "Self-hosted photo and video backup with a polished mobile-first experience.",
+			Category:    "Media",
+			Image:       "ghcr.io/immich-app/immich-server:release",
+			Port:        2283,
+			VolumePath:  "/usr/src/app/upload",
+			Env: []CatalogEnv{
+				{Key: "DB_HOSTNAME", Description: "Postgres host from a Better PaaS Postgres add-on.", Required: true},
+				{Key: "DB_USERNAME", Value: "appuser", Description: "Postgres username.", Required: true},
+				{Key: "DB_PASSWORD", Description: "Postgres password.", Required: true, Secret: true},
+				{Key: "DB_DATABASE_NAME", Value: "appdb", Description: "Postgres database name.", Required: true},
+				{Key: "REDIS_HOSTNAME", Description: "Redis host from a Better PaaS Redis add-on.", Required: true},
+				{Key: "IMMICH_MACHINE_LEARNING_URL", Description: "Optional ML service URL for smart search and face recognition.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://immich.app",
+			Icon:       "immich",
+			Notes:      "Create Postgres and Redis add-ons first. Machine-learning features require an extra Immich ML service not included in this starter.",
+		},
+		{
+			ID:          "home-assistant",
+			Name:        "Home Assistant",
+			Description: "Home automation dashboard for devices, scenes, automations, and integrations.",
+			Category:    "Home",
+			Image:       "ghcr.io/home-assistant/home-assistant:stable",
+			Port:        8123,
+			VolumePath:  "/config",
+			Env: []CatalogEnv{
+				{Key: "TZ", Value: "UTC", Description: "Container timezone."},
+			},
+			HealthPath: "/",
+			Website:    "https://www.home-assistant.io",
+			Icon:       "home-assistant",
+			Notes:      "Many device integrations need host networking, USB, Bluetooth, or mDNS access that this single-container starter does not grant.",
+		},
+		{
+			ID:          "open-webui",
+			Name:        "Open WebUI",
+			Description: "Chat UI for local or remote LLM providers such as Ollama and OpenAI-compatible APIs.",
+			Category:    "AI",
+			Image:       "ghcr.io/open-webui/open-webui:main",
+			Port:        8080,
+			VolumePath:  "/app/backend/data",
+			Env: []CatalogEnv{
+				{Key: "OLLAMA_BASE_URL", Description: "Optional Ollama endpoint, e.g. http://host.docker.internal:11434.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://openwebui.com",
+			Icon:       "open-webui",
+			Notes:      "Connect an external LLM provider or Ollama endpoint after deploy. GPU/Ollama containers are not included.",
 		},
 	}
 }
@@ -450,8 +886,8 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ── Persistent volume: generate a uniquely-named volume so redeploys keep
-	// data. Stateless templates (no VolumePath) get none.
+	// ── Persistent volumes: generate uniquely-named volumes so redeploys keep
+	// data. Stateless templates get none.
 	appsLock.Lock()
 	appID := generateRandomID()
 	taken := make(map[string]bool, len(apps))
@@ -460,9 +896,17 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 	name = uniqueAppName(name, taken)
 	var volumes []string
+	volumePaths := append([]string{}, tpl.VolumePaths...)
 	if tpl.VolumePath != "" {
-		volName := fmt.Sprintf("paas-%s-%s-data", name, generateRandomID()[:6])
-		volumes = append(volumes, fmt.Sprintf("%s:%s", volName, tpl.VolumePath))
+		volumePaths = append([]string{tpl.VolumePath}, volumePaths...)
+	}
+	for i, path := range volumePaths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		volName := fmt.Sprintf("paas-%s-%s-%d-data", name, generateRandomID()[:6], i+1)
+		volumes = append(volumes, fmt.Sprintf("%s:%s", volName, path))
 	}
 	newApp := App{
 		ID:            appID,

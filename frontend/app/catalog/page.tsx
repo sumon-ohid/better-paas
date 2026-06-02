@@ -34,27 +34,52 @@ import { useActiveServer } from "@/components/server-context"
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
-const ExternalIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
+const ExternalIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="external" />
+)
 const InfoIcon = (props: IconProps) => <NucleoIcon {...props} name="info" />
 const StoreIcon = (props: IconProps) => <NucleoIcon {...props} name="layers" />
-const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
-const ChevronDownIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-down" />
+const RefreshIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="refresh" />
+)
+const ChevronDownIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="chevron-down" />
+)
 const DockerIcon = (props: IconProps) => <NucleoIcon {...props} name="server" />
 const TrashIcon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
-const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
+const TerminalIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="terminal" />
+)
 
 // A simple key/value env var row used by the custom-deploy modals.
 type EnvRow = { key: string; value: string; secret: boolean }
 
 // Logos come from the community dashboard-icons CDN. Only the slug is stored
 // server-side; we build the URL here.
+const iconUrlOverrides: Record<string, string> = {
+  ghost: "https://cdn.jsdelivr.net/npm/simple-icons/icons/ghost.svg",
+  homepage:
+    "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/homepage.png",
+  pairdrop:
+    "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/pairdrop.png",
+  woodpecker:
+    "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/woodpecker-ci.png",
+}
+
 function iconUrl(slug: string): string {
+  if (iconUrlOverrides[slug]) return iconUrlOverrides[slug]
   return `https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/${slug}.svg`
 }
 
 // AppLogo renders the template's logo, falling back to its initial if the image
 // fails to load (so a missing icon never leaves a broken-image box).
-function AppLogo({ template, className }: { template: CatalogTemplate; className?: string }) {
+function AppLogo({
+  template,
+  className,
+}: {
+  template: CatalogTemplate
+  className?: string
+}) {
   const [failed, setFailed] = useState(false)
   if (failed || !template.icon) {
     return (
@@ -96,14 +121,20 @@ export default function CatalogPage() {
   const [errorMsg, setErrorMsg] = useState("")
 
   // Custom-deploy modals ("image" | "dockerfile" | null)
-  const [customMode, setCustomMode] = useState<"image" | "dockerfile" | null>(null)
+  const [customMode, setCustomMode] = useState<"image" | "dockerfile" | null>(
+    null
+  )
 
   const load = useCallback(async () => {
     try {
       const data = await api.catalog.list()
       setTemplates(data || [])
     } catch {
-      showToast("Failed to load", "Could not fetch the app catalog.", "destructive")
+      showToast(
+        "Failed to load",
+        "Could not fetch the app catalog.",
+        "destructive"
+      )
     } finally {
       setLoading(false)
     }
@@ -187,10 +218,17 @@ export default function CatalogPage() {
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">App Catalog</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Deploy popular open-source apps in a few clicks. Each runs as a single container with its
-              own storage.
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
+                App Catalog
+              </h2>
+              <Badge variant="secondary" size="sm" className="shrink-0">
+                {templates.length} apps
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground sm:text-sm">
+              Deploy popular open-source apps in a few clicks. Each runs as a
+              single container with its own storage.
             </p>
           </div>
 
@@ -206,7 +244,10 @@ export default function CatalogPage() {
               }
             />
             <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuItem onClick={() => openCustom("image")} className="items-start gap-2.5 py-2">
+              <DropdownMenuItem
+                onClick={() => openCustom("image")}
+                className="items-start gap-2.5 py-2"
+              >
                 <DockerIcon className="mt-0.5 h-4 w-4 text-chart-2" />
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium">From Docker image</p>
@@ -215,12 +256,16 @@ export default function CatalogPage() {
                   </p>
                 </div>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openCustom("dockerfile")} className="items-start gap-2.5 py-2">
+              <DropdownMenuItem
+                onClick={() => openCustom("dockerfile")}
+                className="items-start gap-2.5 py-2"
+              >
                 <TerminalIcon className="mt-0.5 h-4 w-4 text-chart-4" />
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium">From a Dockerfile</p>
                   <p className="text-[11px] leading-snug text-muted-foreground">
-                    Paste a Dockerfile and we&apos;ll build and run it — no repo needed.
+                    Paste a Dockerfile and we&apos;ll build and run it — no repo
+                    needed.
                   </p>
                 </div>
               </DropdownMenuItem>
@@ -229,22 +274,22 @@ export default function CatalogPage() {
         </div>
 
         {/* Search + category filter */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,320px)_1fr] lg:items-start">
+          <div className="relative min-w-0">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search apps..."
-              className="h-9 pl-8 text-sm"
+              className="h-9 w-full pl-8 text-sm"
             />
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex min-w-0 flex-wrap gap-1.5">
             {categories.map((c) => (
               <button
                 key={c}
                 onClick={() => setCategory(c)}
-                className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                className={`cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                   category === c
                     ? "border-primary/50 bg-primary/10 text-primary"
                     : "border-border bg-card/40 text-muted-foreground hover:text-foreground"
@@ -266,7 +311,9 @@ export default function CatalogPage() {
           <div className="rounded-lg border border-dashed border-border py-16 text-center">
             <StoreIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
             <p className="text-sm font-medium">No apps match your search</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">Try a different term or category.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Try a different term or category.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -277,12 +324,17 @@ export default function CatalogPage() {
               >
                 <CardContent className="flex flex-1 flex-col gap-3 p-4">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-card p-1.5">
-                      <AppLogo template={tpl} className="h-full w-full object-contain" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-white p-1.5">
+                      <AppLogo
+                        template={tpl}
+                        className="h-full w-full object-contain"
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="truncate text-sm font-semibold text-foreground">{tpl.name}</h3>
+                        <h3 className="truncate text-sm font-semibold text-foreground">
+                          {tpl.name}
+                        </h3>
                       </div>
                       <Badge variant="info" size="sm" className="mt-0.5">
                         {tpl.category}
@@ -293,7 +345,11 @@ export default function CatalogPage() {
                     {tpl.description}
                   </p>
                   <div className="flex items-center gap-2">
-                    <Button variant={"secondary"} onClick={() => openDeploy(tpl)} className="h-8 flex-1 gap-1.5 text-xs">
+                    <Button
+                      variant={"secondary"}
+                      onClick={() => openDeploy(tpl)}
+                      className="h-8 flex-1 gap-1.5 text-xs"
+                    >
                       <PlusIcon className="h-3.5 w-3.5" />
                       Deploy
                     </Button>
@@ -317,13 +373,19 @@ export default function CatalogPage() {
       </div>
 
       {/* Deploy dialog */}
-      <Dialog open={!!selected} onOpenChange={(open) => !open && !deploying && setSelected(null)}>
+      <Dialog
+        open={!!selected}
+        onOpenChange={(open) => !open && !deploying && setSelected(null)}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2.5 text-base">
               {selected && (
-                <span className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card p-1">
-                  <AppLogo template={selected} className="h-full w-full object-contain" />
+                <span className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-white p-1">
+                  <AppLogo
+                    template={selected}
+                    className="h-full w-full object-contain"
+                  />
                 </span>
               )}
               Deploy {selected?.name}
@@ -341,11 +403,15 @@ export default function CatalogPage() {
 
             {/* App name */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">App name</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                App name
+              </Label>
               <Input
                 value={deployName}
                 onChange={(e) =>
-                  setDeployName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+                  setDeployName(
+                    e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")
+                  )
                 }
                 placeholder="my-app"
                 className="h-9 text-sm"
@@ -358,23 +424,43 @@ export default function CatalogPage() {
             {/* Configurable env vars */}
             {selected && (selected.env?.length ?? 0) > 0 && (
               <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-                <p className="text-xs font-semibold text-foreground">Configuration</p>
+                <p className="text-xs font-semibold text-foreground">
+                  Configuration
+                </p>
                 {(selected.env || []).map((e: CatalogEnv) => (
                   <div key={e.key} className="space-y-1.5">
                     <Label className="flex items-center gap-1.5 font-mono text-[11px] text-foreground/90">
                       {e.key}
-                      {e.required && <span className="text-destructive-foreground">*</span>}
-                      {e.secret && <NucleoIcon name="lock" className="h-3 w-3 text-muted-foreground" />}
+                      {e.required && (
+                        <span className="text-destructive-foreground">*</span>
+                      )}
+                      {e.secret && (
+                        <NucleoIcon
+                          name="lock"
+                          className="h-3 w-3 text-muted-foreground"
+                        />
+                      )}
                     </Label>
                     <Input
                       type={e.secret ? "password" : "text"}
                       value={envValues[e.key] ?? ""}
-                      onChange={(ev) => setEnvValues((prev) => ({ ...prev, [e.key]: ev.target.value }))}
-                      placeholder={e.generate ? "Leave blank to auto-generate" : e.value || ""}
+                      onChange={(ev) =>
+                        setEnvValues((prev) => ({
+                          ...prev,
+                          [e.key]: ev.target.value,
+                        }))
+                      }
+                      placeholder={
+                        e.generate
+                          ? "Leave blank to auto-generate"
+                          : e.value || ""
+                      }
                       className="h-8 font-mono text-xs"
                     />
                     {e.description && (
-                      <p className="text-[11px] leading-snug text-muted-foreground">{e.description}</p>
+                      <p className="text-[11px] leading-snug text-muted-foreground">
+                        {e.description}
+                      </p>
                     )}
                   </div>
                 ))}
@@ -394,11 +480,15 @@ export default function CatalogPage() {
               <div className="space-y-1 rounded-lg border border-border bg-card/40 p-3 text-[11px] text-muted-foreground">
                 <div className="flex items-center justify-between gap-2">
                   <span>Image</span>
-                  <span className="select-all truncate font-mono text-foreground/80">{selected.image}</span>
+                  <span className="truncate font-mono text-foreground/80 select-all">
+                    {selected.image}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span>Internal port</span>
-                  <span className="font-mono text-foreground/80">{selected.port}</span>
+                  <span className="font-mono text-foreground/80">
+                    {selected.port}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span>Storage</span>
@@ -411,8 +501,18 @@ export default function CatalogPage() {
           </div>
 
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" disabled={deploying}>Cancel</Button>} />
-            <Button onClick={handleDeploy} loading={deploying} className="gap-1.5">
+            <DialogClose
+              render={
+                <Button variant="outline" disabled={deploying}>
+                  Cancel
+                </Button>
+              }
+            />
+            <Button
+              onClick={handleDeploy}
+              loading={deploying}
+              className="gap-1.5"
+            >
               <PlusIcon className="h-3.5 w-3.5" />
               Deploy
             </Button>
@@ -449,10 +549,14 @@ function EnvVarEditor({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <Label className="text-xs font-semibold text-muted-foreground">Environment variables</Label>
+        <Label className="text-xs font-semibold text-muted-foreground">
+          Environment variables
+        </Label>
         <button
           type="button"
-          onClick={() => onChange([...rows, { key: "", value: "", secret: false }])}
+          onClick={() =>
+            onChange([...rows, { key: "", value: "", secret: false }])
+          }
           className="flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/85"
         >
           <PlusIcon className="h-3 w-3" />
@@ -469,7 +573,13 @@ function EnvVarEditor({
             <div key={i} className="flex items-center gap-2">
               <Input
                 value={row.key}
-                onChange={(e) => update(i, { key: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "") })}
+                onChange={(e) =>
+                  update(i, {
+                    key: e.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9_]/g, ""),
+                  })
+                }
                 placeholder="VARIABLE_NAME"
                 className="h-8 flex-1 font-mono text-xs"
               />
@@ -488,7 +598,11 @@ function EnvVarEditor({
                     ? "border-primary/40 bg-primary/10 text-primary"
                     : "border-border text-muted-foreground hover:text-foreground"
                 }`}
-                title={row.secret ? "Stored as a secret (value hidden)" : "Mark as secret"}
+                title={
+                  row.secret
+                    ? "Stored as a secret (value hidden)"
+                    : "Mark as secret"
+                }
               >
                 <NucleoIcon name="lock" className="h-3.5 w-3.5" />
               </button>
@@ -591,7 +705,10 @@ function CustomDeployModal({
     setErrorMsg("")
     try {
       const app = isImage
-        ? await api.catalog.deployImage({ ...buildCommon(), image: image.trim() })
+        ? await api.catalog.deployImage({
+            ...buildCommon(),
+            image: image.trim(),
+          })
         : await api.catalog.deployDockerfile({ ...buildCommon(), dockerfile })
       onDeployed(app)
     } catch (err) {
@@ -601,7 +718,10 @@ function CustomDeployModal({
   }
 
   return (
-    <Dialog open={!!mode} onOpenChange={(open) => !open && !deploying && onClose()}>
+    <Dialog
+      open={!!mode}
+      onOpenChange={(open) => !open && !deploying && onClose()}
+    >
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -630,7 +750,9 @@ function CustomDeployModal({
           {/* Primary input */}
           {isImage ? (
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">Docker image</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Docker image
+              </Label>
               <Input
                 value={image}
                 onChange={(e) => setImage(e.target.value)}
@@ -638,25 +760,32 @@ function CustomDeployModal({
                 className="h-9 font-mono text-sm"
               />
               <p className="text-[11px] text-muted-foreground">
-                Public registries only for now. Pin a tag (avoid <code className="font-mono">latest</code>)
-                so redeploys are repeatable.
+                Public registries only for now. Pin a tag (avoid{" "}
+                <code className="font-mono">latest</code>) so redeploys are
+                repeatable.
               </p>
             </div>
           ) : (
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">Dockerfile</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Dockerfile
+              </Label>
               <Textarea
                 value={dockerfile}
                 onChange={(e) => setDockerfile(e.target.value)}
-                placeholder={"FROM alpine:3.20\nRUN apk add --no-cache caddy\nEXPOSE 80\nCMD [\"caddy\", \"file-server\", \"--listen\", \":80\"]"}
+                placeholder={
+                  'FROM alpine:3.20\nRUN apk add --no-cache caddy\nEXPOSE 80\nCMD ["caddy", "file-server", "--listen", ":80"]'
+                }
                 className="min-h-[160px] font-mono text-xs"
               />
               <div className="flex gap-2 rounded-lg border border-warning/30 bg-warning/5 p-2.5 text-[11px] leading-snug text-muted-foreground">
                 <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
                 <span>
-                  There&apos;s no build context, so <code className="font-mono">COPY</code> /{" "}
-                  <code className="font-mono">ADD</code> of local files won&apos;t work. The Dockerfile
-                  must fetch everything it needs (packages, <code className="font-mono">ADD https://…</code>).
+                  There&apos;s no build context, so{" "}
+                  <code className="font-mono">COPY</code> /{" "}
+                  <code className="font-mono">ADD</code> of local files
+                  won&apos;t work. The Dockerfile must fetch everything it needs
+                  (packages, <code className="font-mono">ADD https://…</code>).
                   Need local files? Use a Git deploy instead.
                 </span>
               </div>
@@ -665,11 +794,17 @@ function CustomDeployModal({
 
           {/* Name */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-muted-foreground">App name (optional)</Label>
+            <Label className="text-xs font-semibold text-muted-foreground">
+              App name (optional)
+            </Label>
             <Input
               value={name}
-              onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-              placeholder={isImage ? "Derived from the image if left blank" : "my-app"}
+              onChange={(e) =>
+                setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+              }
+              placeholder={
+                isImage ? "Derived from the image if left blank" : "my-app"
+              }
               className="h-9 text-sm"
             />
           </div>
@@ -677,7 +812,9 @@ function CustomDeployModal({
           {/* Port + health path */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">Container port</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Container port
+              </Label>
               <Input
                 value={port}
                 onChange={(e) => setPort(e.target.value.replace(/[^0-9]/g, ""))}
@@ -686,7 +823,9 @@ function CustomDeployModal({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">Health path</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Health path
+              </Label>
               <Input
                 value={healthPath}
                 onChange={(e) => setHealthPath(e.target.value)}
@@ -701,9 +840,13 @@ function CustomDeployModal({
 
           {/* Advanced */}
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-            <p className="text-xs font-semibold text-foreground">Advanced (optional)</p>
+            <p className="text-xs font-semibold text-foreground">
+              Advanced (optional)
+            </p>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">Persistent volumes</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Persistent volumes
+              </Label>
               <Input
                 value={volumes}
                 onChange={(e) => setVolumes(e.target.value)}
@@ -715,7 +858,9 @@ function CustomDeployModal({
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">Custom domains</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Custom domains
+              </Label>
               <Input
                 value={domains}
                 onChange={(e) => setDomains(e.target.value)}
@@ -725,7 +870,9 @@ function CustomDeployModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground">Memory</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Memory
+                </Label>
                 <Input
                   value={memory}
                   onChange={(e) => setMemory(e.target.value)}
@@ -734,7 +881,9 @@ function CustomDeployModal({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground">CPUs</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  CPUs
+                </Label>
                 <Input
                   value={cpus}
                   onChange={(e) => setCpus(e.target.value)}
@@ -747,8 +896,18 @@ function CustomDeployModal({
         </div>
 
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" disabled={deploying}>Cancel</Button>} />
-          <Button onClick={handleDeploy} loading={deploying} className="gap-1.5">
+          <DialogClose
+            render={
+              <Button variant="outline" disabled={deploying}>
+                Cancel
+              </Button>
+            }
+          />
+          <Button
+            onClick={handleDeploy}
+            loading={deploying}
+            className="gap-1.5"
+          >
             <PlusIcon className="h-3.5 w-3.5" />
             {isImage ? "Pull & deploy" : "Build & deploy"}
           </Button>
