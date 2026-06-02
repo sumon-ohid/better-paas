@@ -382,7 +382,9 @@ export default function AnalyticsPage() {
                 onValueChange={(v) => setSelectedId(v as string)}
               >
                 <SelectTrigger size="sm" className="w-48">
-                  <SelectValue placeholder="Select a site" />
+                  <SelectValue placeholder="Select a site">
+                    {selectedApp ? selectedApp.name : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {apps.map((a) => (

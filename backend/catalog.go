@@ -943,6 +943,9 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		volName := fmt.Sprintf("paas-%s-%s-%d-data", name, generateRandomID()[:6], i+1)
 		volumes = append(volumes, fmt.Sprintf("%s:%s", volName, path))
 	}
+	if tpl.ID == "dozzle" {
+		volumes = append(volumes, "/var/run/docker.sock:/var/run/docker.sock:ro")
+	}
 	newApp := App{
 		ID:            appID,
 		Name:          name,

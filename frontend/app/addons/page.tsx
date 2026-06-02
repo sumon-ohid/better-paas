@@ -178,6 +178,7 @@ export default function AddonsPage() {
   // Attach dialog state
   const [attachAddon, setAttachAddon] = useState<Addon | null>(null)
   const [attachAppId, setAttachAppId] = useState("")
+  const selectedAttachApp = apps.find((app) => app.id === attachAppId)
   const [redeployAfter, setRedeployAfter] = useState(true)
   const [attaching, setAttaching] = useState(false)
 
@@ -746,7 +747,9 @@ export default function AddonsPage() {
                 onValueChange={(v) => setAttachAppId(v || "")}
               >
                 <SelectTrigger className="w-full text-sm">
-                  <SelectValue placeholder="Select an app…" />
+                  <SelectValue placeholder="Select an app…">
+                    {selectedAttachApp ? selectedAttachApp.name : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectPopup alignItemWithTrigger={false}>
                   {apps.length === 0 ? (

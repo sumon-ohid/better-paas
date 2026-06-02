@@ -245,12 +245,66 @@ func launchAddon(addon Addon, spec addonSpec, password string) {
 			log.Printf("[addon] failed to launch %s: %v — %s", addon.ContainerName, err, out)
 			addon.Status = "failed"
 		} else {
-			addon.Status = "running"
+			// Wait for the addon to become healthy/ready to accept connections
+			log.Printf("[addon] waiting for %s to become healthy...", addon.ContainerName)
+			if err := waitAddonHealthy(addon.ServerID, addon, password, 45*time.Second); err != nil {
+				log.Printf("[addon] health check failed for %s: %v", addon.ContainerName, err)
+				addon.Status = "failed"
+				// Clean up the failed container
+				_, _ = ex.RunCommand("docker", "rm", "-f", addon.ContainerName)
+			} else {
+				addon.Status = "running"
+			}
 		}
 	}
 	if err := dbSaveAddon(addon); err != nil {
 		log.Printf("[addon] failed to update status: %v", err)
 	}
+}
+
+// waitAddonHealthy checks if a database addon is ready to accept connections.
+func waitAddonHealthy(serverID string, addon Addon, password string, timeout time.Duration) error {
+	ex, err := GetExecutorForServer(serverID)
+	if err != nil {
+		return err
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+
+	var cmd []string
+	switch addon.Type {
+	case "postgres":
+		cmd = []string{"exec", addon.ContainerName, "pg_isready", "-U", "appuser"}
+	case "mysql":
+		cmd = []string{"exec", addon.ContainerName, "mysqladmin", "ping", "-uappuser", "-p" + password}
+	case "redis":
+		cmd = []string{"exec", addon.ContainerName, "redis-cli", "-a", password, "ping"}
+	default:
+		cmd = []string{"inspect", "-f", "{{.State.Running}}", addon.ContainerName}
+	}
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		out, err := ex.RunCommand("docker", cmd...)
+		if err == nil {
+			if addon.Type == "postgres" || addon.Type == "mysql" {
+				return nil
+			}
+			if addon.Type == "redis" {
+				if strings.Contains(strings.ToLower(out), "pong") {
+					return nil
+				}
+			} else {
+				if strings.TrimSpace(out) == "true" {
+					return nil
+				}
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	return fmt.Errorf("addon %s did not become healthy within %s", addon.ContainerName, timeout)
 }
 
 func removeAddonContainer(addon Addon, deleteData bool) {

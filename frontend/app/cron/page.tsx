@@ -46,6 +46,7 @@ export default function CronPage() {
   const [jobs, setJobs] = useState<CronJob[]>([])
   const [apps, setApps] = useState<App[]>([])
   const [appId, setAppId] = useState("")
+  const selectedApp = apps.find((app) => app.id === appId)
   const [schedule, setSchedule] = useState("0 * * * *")
   const [command, setCommand] = useState("")
   const [creating, setCreating] = useState(false)
@@ -144,7 +145,9 @@ export default function CronPage() {
                     <Label className="text-xs font-semibold text-muted-foreground">App</Label>
                     <Select value={appId} onValueChange={(v) => setAppId(v || "")}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select app..." />
+                        <SelectValue placeholder="Select app...">
+                          {selectedApp ? selectedApp.name : undefined}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectPopup alignItemWithTrigger={false}>
                         {apps.map((app) => (

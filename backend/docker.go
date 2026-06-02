@@ -134,7 +134,8 @@ func updateAppStatus(appID, status string) {
 }
 
 // allocatePort picks a free host port in [9000, 9999], avoiding ports already
-// assigned to other apps on the same server, and ports currently bound on the host (if local).
+// assigned to other apps on the same server, and ports currently bound on the
+// host (both local and remote).
 //
 // IMPORTANT: callers must hold appsLock, since this reads the apps slice.
 func allocatePort(serverID string) int {
@@ -168,21 +169,27 @@ func allocatePortAvoiding(serverID string, extra map[int]bool) int {
 	const lo, hi = 9000, 9999
 	isLocal := serverID == "localhost"
 
+	// portAvailable checks whether a candidate port is actually free on the
+	// target host. For localhost we try to bind it; for remote servers we
+	// probe over SSH.
+	portAvailable := func(p int) bool {
+		if isLocal {
+			return portFree(p)
+		}
+		return remotePortFree(serverID, p)
+	}
+
 	// Try random ports first to reduce clustering.
 	for attempt := 0; attempt < 200; attempt++ {
 		p := lo + secureIntn(hi-lo+1)
-		if !inUse[p] {
-			if !isLocal || portFree(p) {
-				return p
-			}
+		if !inUse[p] && portAvailable(p) {
+			return p
 		}
 	}
 	// Deterministic fallback: first free port in range.
 	for p := lo; p <= hi; p++ {
-		if !inUse[p] {
-			if !isLocal || portFree(p) {
-				return p
-			}
+		if !inUse[p] && portAvailable(p) {
+			return p
 		}
 	}
 	// Last resort: a port not tracked in memory (host check may have raced).
@@ -218,6 +225,42 @@ func portFree(port int) bool {
 	}
 	_ = ln.Close()
 	return true
+}
+
+// remotePortFree probes whether a TCP port is free on a remote server over SSH.
+// It tries ss(8) first (most common on modern Linux), then falls back to
+// netstat(8), then to bash /dev/tcp probing. If none of these can be run
+// (e.g. SSH unreachable), it optimistically returns true so allocation doesn't
+// deadlock — the subsequent docker-run will still surface a clear port-bind
+// error if it was actually in use.
+func remotePortFree(serverID string, port int) bool {
+	ex, err := GetExecutorForServer(serverID)
+	if err != nil {
+		return true // can't reach host; let docker-run surface the error
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+
+	// ss: list TCP listeners on exactly this port. If any output → port is taken.
+	out, err := ex.RunCommand("ss", "-tlnH", fmt.Sprintf("sport = :%d", port))
+	if err == nil {
+		return strings.TrimSpace(out) == ""
+	}
+
+	// netstat fallback: look for :<port> in LISTEN lines.
+	out, err = ex.RunCommand("netstat", "-tln")
+	if err == nil {
+		needle := fmt.Sprintf(":%d ", port)
+		return !strings.Contains(out, needle)
+	}
+
+	// bash /dev/tcp probe: if we can connect, something is listening.
+	_, err = ex.RunCommand("bash", "-c", fmt.Sprintf("echo < /dev/tcp/127.0.0.1/%d", port))
+	if err == nil {
+		return false // connection succeeded → port is taken
+	}
+	return true // connection refused → port is free (or probe unsupported)
 }
 
 // runDockerPrune runs `docker system prune -f` (without --volumes) and returns
@@ -662,37 +705,77 @@ func startContainer(app App, image, containerName string, hostPort, containerPor
 // healthPath is set it expects an HTTP 2xx/3xx/4xx (any HTTP response means the
 // server is up); otherwise a successful TCP connect is sufficient.
 func waitHealthy(serverID string, hostPort int, healthPath string, timeout time.Duration, logf func(string)) error {
-	targetIP := "127.0.0.1"
-	if serverID != "" && serverID != "localhost" {
-		srv, err := dbGetServer(serverID)
-		if err == nil && srv != nil {
-			targetIP = srv.IP
-		}
-	}
-
-	deadline := time.Now().Add(timeout)
-	attempt := 0
-	for time.Now().Before(deadline) {
-		attempt++
-		if healthPath != "" {
-			url := fmt.Sprintf("http://%s:%d%s", targetIP, hostPort, ensureLeadingSlash(healthPath))
-			client := &http.Client{Timeout: 3 * time.Second}
-			resp, err := client.Get(url)
-			if err == nil {
-				resp.Body.Close()
-				if resp.StatusCode < 500 {
+	// For local deployments, we can query localhost directly from Go.
+	if serverID == "" || serverID == "localhost" {
+		deadline := time.Now().Add(timeout)
+		for time.Now().Before(deadline) {
+			if healthPath != "" {
+				url := fmt.Sprintf("http://127.0.0.1:%d%s", hostPort, ensureLeadingSlash(healthPath))
+				client := &http.Client{Timeout: 2 * time.Second}
+				resp, err := client.Get(url)
+				if err == nil {
+					resp.Body.Close()
+					if resp.StatusCode < 500 {
+						return nil
+					}
+				}
+			} else {
+				conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", hostPort), 2*time.Second)
+				if err == nil {
+					conn.Close()
 					return nil
 				}
 			}
-		} else {
-			conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", targetIP, hostPort), 2*time.Second)
+			time.Sleep(1 * time.Second)
+		}
+		return fmt.Errorf("container did not become healthy within %s", timeout)
+	}
+
+	// For remote deployments, run health check commands on the remote server itself via SSH.
+	// This avoids firewall issues on random ports (9000-9999) which are only bound locally.
+	ex, err := GetExecutorForServer(serverID)
+	if err != nil {
+		return err
+	}
+	if sshEx, ok := ex.(*SSHExecutor); ok {
+		defer sshEx.Close()
+	}
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if healthPath != "" {
+			// Try curl first. If it succeeds and returns a status code < 500, we're healthy.
+			// -s: silent, -o /dev/null: discard body, -w "%{http_code}": print status code
+			url := fmt.Sprintf("http://127.0.0.1:%d%s", hostPort, ensureLeadingSlash(healthPath))
+			out, err := ex.RunCommand("curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", url)
 			if err == nil {
-				conn.Close()
+				code := strings.TrimSpace(out)
+				var statusCode int
+				if _, scanErr := fmt.Sscanf(code, "%d", &statusCode); scanErr == nil {
+					if statusCode > 0 && statusCode < 500 {
+						return nil
+					}
+				}
+			}
+			// Fallback: if curl is not installed or fails, try wget
+			out, err = ex.RunCommand("wget", "-q", "--spider", "--server-response", url)
+			if err == nil {
+				return nil
+			}
+		} else {
+			// TCP check: try to connect using bash's built-in /dev/tcp or nc
+			_, err1 := ex.RunCommand("bash", "-c", fmt.Sprintf("cat < /dev/null > /dev/tcp/127.0.0.1/%d", hostPort))
+			if err1 == nil {
+				return nil
+			}
+			_, err2 := ex.RunCommand("nc", "-z", "-w", "1", "127.0.0.1", fmt.Sprintf("%d", hostPort))
+			if err2 == nil {
 				return nil
 			}
 		}
 		time.Sleep(1 * time.Second)
 	}
+
 	return fmt.Errorf("container did not become healthy within %s", timeout)
 }
 
@@ -819,17 +902,17 @@ func removeAppImages(serverID, appName string) {
 	if sshEx, ok := ex.(*SSHExecutor); ok {
 		defer sshEx.Close()
 	}
-	out, err := ex.RunCommand("docker", "images", "-q", appName)
+	// Query all tags for the app's repository
+	out, err := ex.RunCommand("docker", "images", "--format", "{{.Repository}}:{{.Tag}}", appName)
 	if err != nil {
 		return
 	}
-	seen := make(map[string]bool)
-	for _, id := range strings.Fields(out) {
-		if seen[id] {
+	for _, tag := range strings.Fields(out) {
+		tag = strings.TrimSpace(tag)
+		if tag == "" || strings.HasSuffix(tag, ":<none>") {
 			continue
 		}
-		seen[id] = true
-		_, _ = ex.RunCommand("docker", "rmi", "-f", id)
+		_, _ = ex.RunCommand("docker", "rmi", "-f", tag)
 	}
 }
 

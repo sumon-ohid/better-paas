@@ -245,7 +245,9 @@ function LogsPage() {
             }}
           >
             <SelectTrigger className="h-8 text-xs w-48">
-              <SelectValue placeholder="— Select app —" />
+              <SelectValue placeholder="— Select app —">
+                {selectedApp ? selectedApp.name : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectPopup>
               <SelectItem value="">— Select app —</SelectItem>
