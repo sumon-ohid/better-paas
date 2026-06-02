@@ -148,20 +148,59 @@ export default function CatalogPage() {
     try {
       const data = await api.catalog.list()
       setTemplates(data || [])
+      return data || []
     } catch {
       showToast(
         "Failed to load",
         "Could not fetch the app catalog.",
         "destructive"
       )
+      return []
     } finally {
       setLoading(false)
     }
   }, [showToast])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load()
+    let cancelled = false
+    let pollTimer: ReturnType<typeof setTimeout> | null = null
+
+    const startPolling = (current: CatalogTemplate[]) => {
+      // Only poll if some Docker Hub templates are still missing a size.
+      // Non-Docker Hub (ghcr.io, lscr.io, quay.io) images are skipped by the
+      // backend, so we never wait for them.
+      const isDockerhub = (img: string) =>
+        !img.includes("ghcr.io") &&
+        !img.includes("lscr.io") &&
+        !img.includes("quay.io")
+
+      const stillMissing = current.some(
+        (t) => isDockerhub(t.image) && !t.imageSize
+      )
+      if (!stillMissing || cancelled) return
+
+      pollTimer = setTimeout(async () => {
+        if (cancelled) return
+        try {
+          const fresh = await api.catalog.list()
+          if (!cancelled) {
+            setTemplates(fresh || [])
+            startPolling(fresh || []) // keep going until all sizes are in
+          }
+        } catch {
+          // silently ignore poll errors
+        }
+      }, 3000)
+    }
+
+    load().then((data) => {
+      if (!cancelled) startPolling(data)
+    })
+
+    return () => {
+      cancelled = true
+      if (pollTimer) clearTimeout(pollTimer)
+    }
   }, [load])
 
   const categories = useMemo(() => {
@@ -342,13 +381,17 @@ export default function CatalogPage() {
                 key={tpl.id}
                 className="group relative flex flex-col transition-colors hover:border-primary/30"
               >
-                {/* Image size badge — top-right corner */}
-                {tpl.imageSize && (
-                  <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full border border-border bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
-                    <Docker className="h-2.5 w-2.5 opacity-60" />
-                    {tpl.imageSize}
-                  </span>
-                )}
+                {/* Image size badge — top-right corner. Always rendered so
+                    the card height is stable; fades in once the backend
+                    background-fetch has populated the size. */}
+                <span
+                  className={`absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full border border-border bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm transition-opacity duration-500 ${
+                    tpl.imageSize ? "opacity-100" : "opacity-0 pointer-events-none"
+                  }`}
+                >
+                  <Docker className="h-2.5 w-2.5 opacity-60" />
+                  {tpl.imageSize ?? ""}
+                </span>
                 <CardContent className="flex flex-1 flex-col gap-3 p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-white p-1.5">

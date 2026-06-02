@@ -78,33 +78,58 @@ var (
 
 // fetchImageSizes populates the in-memory cache with compressed sizes for every
 // catalog template. It runs once at startup in its own goroutine so it never
-// blocks the server from starting.
+// blocks the server from starting. Five concurrent workers are used so all
+// ~50 templates are resolved in ~2 s instead of the ~10 s it would take
+// sequentially.
 func fetchImageSizes() {
 	templates := catalogTemplates()
+
+	type job struct{ image string }
+	jobs := make(chan job, len(templates))
 	for _, tpl := range templates {
-		size := fetchDockerHubSize(tpl.Image)
-		if size != "" {
-			imageSizeCacheMu.Lock()
-			imageSizeCache[tpl.Image] = size
-			imageSizeCacheMu.Unlock()
-		}
-		// Be polite to the Docker Hub API.
-		time.Sleep(200 * time.Millisecond)
+		jobs <- job{tpl.Image}
 	}
+	close(jobs)
+
+	const workers = 5
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for range workers {
+		go func() {
+			defer wg.Done()
+			for j := range jobs {
+				size := fetchImageSize(j.image)
+				if size != "" {
+					imageSizeCacheMu.Lock()
+					imageSizeCache[j.image] = size
+					imageSizeCacheMu.Unlock()
+				}
+			}
+		}()
+	}
+	wg.Wait()
 	log.Printf("[catalog] image sizes fetched for %d templates", len(templates))
 }
 
-// fetchDockerHubSize returns a human-readable compressed size string for a
-// Docker Hub image reference ("~85 MB"). Returns "" for non-Hub registries or
-// on any error.
-func fetchDockerHubSize(imageRef string) string {
-	// Only handle plain Docker Hub images (no registry prefix).
-	if strings.Contains(imageRef, "ghcr.io") ||
-		strings.Contains(imageRef, "lscr.io") ||
-		strings.Contains(imageRef, "quay.io") {
-		return ""
+// fetchImageSize returns a human-readable compressed pull size for any image
+// reference we support (Docker Hub, lscr.io/linuxserver, ghcr.io). Returns ""
+// when the registry is unsupported or the lookup fails.
+func fetchImageSize(imageRef string) string {
+	switch {
+	case strings.Contains(imageRef, "lscr.io"):
+		return fetchLinuxserverSize(imageRef)
+	case strings.Contains(imageRef, "ghcr.io"):
+		return fetchGHCRSize(imageRef)
+	case strings.Contains(imageRef, "quay.io"):
+		return "" // quay.io API requires auth — skip
+	default:
+		return fetchDockerHubSize(imageRef)
 	}
+}
 
+// fetchDockerHubSize resolves a Docker Hub image ("namespace/repo:tag" or
+// "repo:tag" for official library images) via the Hub v2 REST API.
+func fetchDockerHubSize(imageRef string) string {
 	// Parse "[namespace/]name:tag" — defaults to library/ and latest.
 	ref := imageRef
 	tag := "latest"
@@ -138,8 +163,169 @@ func fetchDockerHubSize(imageRef string) string {
 	if err := json.Unmarshal(body, &result); err != nil || result.FullSize == 0 {
 		return ""
 	}
-
 	return formatBytes(result.FullSize)
+}
+
+// fetchLinuxserverSize handles lscr.io/linuxserver/{name}:{tag} images.
+// LinuxServer images are published to Docker Hub as linuxserver/{name}, so we
+// can reuse the Hub API by stripping the lscr.io/linuxserver prefix.
+func fetchLinuxserverSize(imageRef string) string {
+	// lscr.io/linuxserver/bookstack:latest → linuxserver/bookstack:latest
+	suffix := strings.TrimPrefix(imageRef, "lscr.io/")
+	return fetchDockerHubSize(suffix)
+}
+
+// fetchGHCRSize resolves a ghcr.io image size via the OCI Distribution API.
+// Public images only require an anonymous Bearer token issued by ghcr.io itself.
+func fetchGHCRSize(imageRef string) string {
+	// Parse ghcr.io/{owner}/{repo}:{tag}
+	withoutRegistry := strings.TrimPrefix(imageRef, "ghcr.io/")
+	tag := "latest"
+	if idx := strings.LastIndex(withoutRegistry, ":"); idx != -1 {
+		tag = withoutRegistry[idx+1:]
+		withoutRegistry = withoutRegistry[:idx]
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// Step 1: obtain anonymous pull token.
+	tokenURL := fmt.Sprintf("https://ghcr.io/token?scope=repository:%s:pull&service=ghcr.io", withoutRegistry)
+	tresp, err := client.Get(tokenURL)
+	if err != nil || tresp.StatusCode != http.StatusOK {
+		return ""
+	}
+	defer tresp.Body.Close()
+	tbody, _ := io.ReadAll(tresp.Body)
+	var tok struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(tbody, &tok); err != nil || tok.Token == "" {
+		return ""
+	}
+
+	// Step 2: fetch the manifest (prefer manifest-list for multi-arch images).
+	manifestURL := fmt.Sprintf("https://ghcr.io/v2/%s/manifests/%s", withoutRegistry, tag)
+	mreq, _ := http.NewRequest(http.MethodGet, manifestURL, nil)
+	mreq.Header.Set("Authorization", "Bearer "+tok.Token)
+	// Accept both manifest lists (multi-arch) and single-arch manifests.
+	mreq.Header.Set("Accept",
+		"application/vnd.oci.image.index.v1+json,"+
+			"application/vnd.docker.distribution.manifest.list.v2+json,"+
+			"application/vnd.oci.image.manifest.v1+json,"+
+			"application/vnd.docker.distribution.manifest.v2+json")
+
+	mresp, err := client.Do(mreq)
+	if err != nil || mresp.StatusCode != http.StatusOK {
+		return ""
+	}
+	defer mresp.Body.Close()
+	mbody, _ := io.ReadAll(mresp.Body)
+
+	// A manifest list contains per-platform manifests — each has a size field
+	// that is the total compressed size of that image variant. We pick the
+	// first linux/amd64 entry, or the first entry if no amd64 is present.
+	var manifestList struct {
+		Manifests []struct {
+			Size     int64 `json:"size"`
+			Platform struct {
+				OS   string `json:"os"`
+				Arch string `json:"architecture"`
+			} `json:"platform"`
+		} `json:"manifests"`
+	}
+	if err := json.Unmarshal(mbody, &manifestList); err == nil && len(manifestList.Manifests) > 0 {
+		// Try to find a single-manifest size embedded in the list entries.
+		// Note: these sizes are the manifest JSON blob, not the image layers.
+		// Fall through to the single-manifest path for accurate layer sizes.
+		_ = manifestList // parsed but we prefer the single-manifest path below
+	}
+
+	// A single-arch manifest contains a config blob size + per-layer sizes.
+	var manifest struct {
+		Config struct {
+			Size int64 `json:"size"`
+		} `json:"config"`
+		Layers []struct {
+			Size int64 `json:"size"`
+		} `json:"layers"`
+	}
+	if err := json.Unmarshal(mbody, &manifest); err == nil && len(manifest.Layers) > 0 {
+		var total int64
+		for _, l := range manifest.Layers {
+			total += l.Size
+		}
+		if total > 0 {
+			return formatBytes(total)
+		}
+	}
+
+	// For manifest lists, resolve the linux/amd64 child manifest.
+	if len(manifestList.Manifests) > 0 {
+		var picked *struct {
+			Digest string `json:"-"` // unused
+		}
+		_ = picked
+		// Re-parse with digest field for child resolution.
+		var mlist struct {
+			Manifests []struct {
+				Digest   string `json:"digest"`
+				Platform struct {
+					OS   string `json:"os"`
+					Arch string `json:"architecture"`
+				} `json:"platform"`
+			} `json:"manifests"`
+		}
+		if err := json.Unmarshal(mbody, &mlist); err == nil {
+			digest := ""
+			for _, m := range mlist.Manifests {
+				if m.Platform.OS == "linux" && m.Platform.Arch == "amd64" {
+					digest = m.Digest
+					break
+				}
+			}
+			if digest == "" && len(mlist.Manifests) > 0 {
+				digest = mlist.Manifests[0].Digest
+			}
+			if digest != "" {
+				return fetchGHCRManifestByDigest(client, tok.Token, withoutRegistry, digest)
+			}
+		}
+	}
+	return ""
+}
+
+// fetchGHCRManifestByDigest fetches a specific manifest by digest and returns
+// the total compressed layer size.
+func fetchGHCRManifestByDigest(client *http.Client, token, repo, digest string) string {
+	url := fmt.Sprintf("https://ghcr.io/v2/%s/manifests/%s", repo, digest)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept",
+		"application/vnd.oci.image.manifest.v1+json,"+
+			"application/vnd.docker.distribution.manifest.v2+json")
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var manifest struct {
+		Layers []struct {
+			Size int64 `json:"size"`
+		} `json:"layers"`
+	}
+	if err := json.Unmarshal(body, &manifest); err != nil {
+		return ""
+	}
+	var total int64
+	for _, l := range manifest.Layers {
+		total += l.Size
+	}
+	if total == 0 {
+		return ""
+	}
+	return formatBytes(total)
 }
 
 // formatBytes converts a byte count into a short human-readable string.
