@@ -176,18 +176,6 @@ func catalogTemplates() []CatalogTemplate {
 			Icon:       "linkding",
 		},
 		{
-			ID:          "actual-budget",
-			Name:        "Actual Budget",
-			Description: "A local-first personal finance and budgeting app.",
-			Category:    "Productivity",
-			Image:       "actualbudget/actual-server:latest",
-			Port:        5006,
-			VolumePath:  "/data",
-			HealthPath:  "/",
-			Website:     "https://actualbudget.org",
-			Icon:        "actual-budget",
-		},
-		{
 			ID:          "freshrss",
 			Name:        "FreshRSS",
 			Description: "A free, self-hostable RSS feed aggregator (SQLite mode).",
