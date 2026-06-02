@@ -558,7 +558,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             <div className="space-y-4">
               {navSections.map((section) => (
                 <div key={section.label} className="space-y-1.5">
-                  <div className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
+                  <div className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em]">
                     {section.label}
                   </div>
                   <SidebarMenu className="space-y-0.5">

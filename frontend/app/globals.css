@@ -147,9 +147,9 @@
     --warning-foreground: #986b22;
     --accent: rgba(94, 106, 210, 0.08);
     --accent-foreground: #20212b;
-    --background: #f8f8f8;
+    --background: #fafafa;
     --border: rgba(20, 21, 31, 0.08);
-    --bg-sidebar: #f8f8f8;
+    --bg-sidebar: #fafafa;
     --card: #ffffff;
     --card-foreground: #20212b;
     --destructive: #fd1010;
@@ -173,11 +173,11 @@
     --code-foreground: var(--foreground);
     --code-highlight: rgba(94, 106, 210, 0.08);
     --radius: 8px;
-    --sidebar: #f8f8f8;
+    --sidebar: #fafafa;
     --sidebar-accent: rgba(94, 106, 210, 0.08);
     --sidebar-accent-foreground: #20212b;
     --sidebar-border: rgba(20, 21, 31, 0.07);
-    --sidebar-foreground: #686b78;
+    --sidebar-foreground: #171820;
     --sidebar-primary: #5e6ad2;
     --sidebar-primary-foreground: #ffffff;
     --sidebar-ring: rgba(94, 106, 210, 0.38);
@@ -227,7 +227,7 @@
     --sidebar-accent: rgba(255, 255, 255, 0.06);
     --sidebar-accent-foreground: #ededed;
     --sidebar-border: rgba(255, 255, 255, 0.07);
-    --sidebar-foreground: rgba(255, 255, 255, 0.46);
+    --sidebar-foreground: rgba(255, 255, 255, 0.75);
     --sidebar-primary: #8b7ff6;
     --sidebar-primary-foreground: #0a0a0b;
     --sidebar-ring: rgba(139, 127, 246, 0.5);
