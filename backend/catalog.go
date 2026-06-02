@@ -1109,25 +1109,6 @@ func catalogTemplates() []CatalogTemplate {
 			Icon:        "nocodb",
 		},
 		{
-			ID:          "formbricks",
-			Name:        "Formbricks",
-			Description: "Privacy-first, open-source micro-surveys and user feedback widgets.",
-			Category:    "Utilities",
-			Image:       "formbricks/formbricks:latest",
-			Port:        3000,
-			RequiredAddons: []CatalogRequiredAddon{
-				{Type: "postgres"},
-			},
-			Env: []CatalogEnv{
-				{Key: "DATABASE_URL", Description: "Auto-filled from a managed Postgres add-on.", Secret: true},
-				{Key: "NEXTAUTH_SECRET", Description: "Random NextAuth secret.", Required: true, Secret: true, Generate: true},
-				{Key: "WEBAPP_URL", Description: "Public app URL, e.g. https://forms.example.com", Required: false},
-			},
-			HealthPath: "/",
-			Website:    "https://formbricks.com",
-			Icon:       "formbricks",
-		},
-		{
 			ID:          "jenkins",
 			Name:        "Jenkins",
 			Description: "The leading open-source automation server for building, deploying, and automating any project.",
