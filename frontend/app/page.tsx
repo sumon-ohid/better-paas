@@ -33,6 +33,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/menu"
 import {
   ToggleGroup,
@@ -205,7 +208,7 @@ function AppActionsMenu({
   app: App
   onDelete: (app: App) => void
   onToggle: (action: "stop" | "start") => void
-  onRedeploy: () => void
+  onRedeploy: (noCache: boolean) => void
 }) {
   const router = useRouter()
   return (
@@ -243,10 +246,20 @@ function AppActionsMenu({
             Start container
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem onClick={onRedeploy}>
-          <RefreshIcon className="text-muted-foreground" />
-          Redeploy
-        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <RefreshIcon className="text-muted-foreground" />
+            Redeploy
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-48">
+            <DropdownMenuItem onClick={() => onRedeploy(false)}>
+              Default build
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onRedeploy(true)}>
+              Clear cache & deploy
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={() => onDelete(app)}>
           <Trash2Icon />
@@ -278,9 +291,9 @@ function useAppActions() {
   )
 
   const redeploy = useCallback(
-    async (app: App) => {
+    async (app: App, noCache: boolean = false) => {
       try {
-        await api.apps.redeploy(app.id)
+        await api.apps.redeploy(app.id, noCache)
         showToast("Redeploying", `${app.name} rebuild triggered.`, "success")
       } catch {
         showToast("Error", "Redeploy failed.", "destructive")
@@ -349,7 +362,7 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
           app={app}
           onDelete={onDelete}
           onToggle={(action) => toggle(app, action)}
-          onRedeploy={() => redeploy(app)}
+          onRedeploy={(noCache) => redeploy(app, noCache)}
         />
       </TableCell>
     </TableRow>
@@ -386,7 +399,7 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
             app={app}
             onDelete={onDelete}
             onToggle={(action) => toggle(app, action)}
-            onRedeploy={() => redeploy(app)}
+            onRedeploy={(noCache) => redeploy(app, noCache)}
           />
         </div>
       </div>

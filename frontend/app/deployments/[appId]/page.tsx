@@ -7,6 +7,12 @@ import { AppShell } from "@/components/app-shell"
 import { StatusBadge } from "@/components/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/menu"
 import { api } from "@/lib/api"
 import type { App, DeploymentRecord } from "@/lib/types"
 
@@ -19,6 +25,7 @@ const ChevronDownIcon = (props: IconProps) => <NucleoIcon {...props} name="chevr
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
+const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 
 export default function ProjectDeploymentsPage() {
   const router = useRouter()
@@ -53,10 +60,10 @@ export default function ProjectDeploymentsPage() {
     fetchData()
   }, [fetchData])
 
-  const handleRedeploy = async () => {
+  const handleRedeploy = async (noCache: boolean = false) => {
     if (!app) return
     try {
-      await api.apps.redeploy(app.id)
+      await api.apps.redeploy(app.id, noCache)
       // Redirect to live build log
       router.push(`/logs?appId=${app.id}&mode=build`)
     } catch (err) {
@@ -146,10 +153,27 @@ export default function ProjectDeploymentsPage() {
 
             {/* Redeploy */}
             {app && (
-              <Button size="sm" onClick={handleRedeploy} className="gap-1.5">
-                <PlayIcon className="h-3.5 w-3.5" />
-                Redeploy
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button size="sm" className="gap-1.5">
+                      <PlayIcon className="h-3.5 w-3.5" />
+                      Redeploy
+                      <ChevronDownIcon className="h-3 w-3 opacity-80" />
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={() => handleRedeploy(false)}>
+                    <PlayIcon className="mr-2 h-4 w-4" />
+                    Redeploy (Default)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleRedeploy(true)}>
+                    <Trash2Icon className="mr-2 h-4 w-4 text-destructive" />
+                    Redeploy & Clear Cache
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </div>

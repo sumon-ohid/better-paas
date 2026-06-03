@@ -127,10 +127,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ id, name }),
       }),
-    redeploy: (id: string) =>
+    redeploy: (id: string, noCache?: boolean) =>
       req<App>("/api/apps/redeploy", {
         method: "POST",
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, noCache }),
       }),
     rollback: (id: string, deploymentId: string) =>
       req<App>("/api/apps/rollback", {

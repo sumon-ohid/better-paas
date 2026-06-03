@@ -341,7 +341,7 @@ func uniqueComposeRowName(base, service string, taken map[string]bool) string {
 //
 // It returns (status, commitSHA, commitMsg) for the primary deployment record.
 // The caller is responsible for calling finishDeployment with these values.
-func deployComposeProject(app App, gitURL, deployID, logFile string, localLog func(string)) (string, string, string) {
+func deployComposeProject(app App, gitURL, deployID, logFile string, noCache bool, localLog func(string)) (string, string, string) {
 	project := composeProjectName(app.ID)
 
 	// ── 1. Clone ─────────────────────────────────────────────────────────────
@@ -427,9 +427,13 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, localLog fu
 
 	// ── 5. Bring the project up ──────────────────────────────────────────────
 	localLog("🚀 Starting compose project (build + up)...")
-	upCmd := exec.Command("docker", "compose", "-p", project,
+	upArgs := []string{"compose", "-p", project,
 		"-f", composeFile, "-f", composeOverrideFile,
-		"up", "-d", "--build", "--remove-orphans")
+		"up", "-d", "--build", "--remove-orphans"}
+	if noCache {
+		upArgs = append(upArgs, "--no-cache")
+	}
+	upCmd := exec.Command("docker", upArgs...)
 	upCmd.Dir = composeDir
 	upCmd.Env = append(os.Environ(), env...)
 	if err := streamBuildCommand(upCmd, localLog); err != nil {

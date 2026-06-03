@@ -294,13 +294,13 @@ func runDockerPrune() (string, error) {
 // a zero-downtime cutover: the new container is started on a fresh port and
 // health-checked before Caddy is switched to it and the old container removed.
 func runPaaSDeployment(app App, gitURL, deployID, logFile string) {
-	runDeployment(app, gitURL, deployID, logFile, "manual", "")
+	runDeployment(app, gitURL, deployID, logFile, "manual", "", false)
 }
 
 // runDeployment is the full build+release pipeline. trigger records how it was
 // initiated ("manual","webhook","rollback") and rollbackImage, when non-empty,
 // skips the build and re-releases an existing image tag.
-func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage string) {
+func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage string, noCache bool) {
 	startedAt := time.Now()
 
 	dep := DeploymentRecord{
@@ -349,7 +349,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		// This path manages its own container lifecycle, port allocation, row
 		// registration, and Caddy rebuild, then returns; it does NOT fall
 		// through to the single-container start/cutover below.
-		status, sha, msg := deployComposeProject(app, gitURL, deployID, logFile, localLog)
+		status, sha, msg := deployComposeProject(app, gitURL, deployID, logFile, noCache, localLog)
 		finishDeployment(app, deployLogs, status, startedAt, deployID, logFile, "", trigger, sha, msg)
 		return
 	} else if app.BuildMethod == "image" {
@@ -442,7 +442,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		image = fmt.Sprintf("%s:%s", app.Name, deployID)
 		appForBuild := app
 		appForBuild.DockerfilePath = "Dockerfile"
-		if err := buildWithDockerfile(appForBuild, buildDir, image, localLog); err != nil {
+		if err := buildWithDockerfile(appForBuild, buildDir, image, noCache, localLog); err != nil {
 			localLog(fmt.Sprintf("✖ Build failed: %v", err))
 			finish("failed", "")
 			return
@@ -487,9 +487,9 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		var buildErr error
 		switch method {
 		case "dockerfile":
-			buildErr = buildWithDockerfile(app, buildSubDir, image, localLog)
+			buildErr = buildWithDockerfile(app, buildSubDir, image, noCache, localLog)
 		default:
-			buildErr = buildWithNixpacks(app, buildDir, buildSubDir, image, localLog)
+			buildErr = buildWithNixpacks(app, buildDir, buildSubDir, image, noCache, localLog)
 		}
 		if buildErr != nil {
 			localLog(fmt.Sprintf("✖ Build failed: %v", buildErr))
@@ -604,7 +604,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 // buildWithNixpacks builds an image from the repo using Nixpacks (the default,
 // auto-detecting builder). buildDir is the clone root; buildSubDir is the
 // (possibly nested) build context.
-func buildWithNixpacks(app App, buildDir, buildSubDir, image string, localLog func(string)) error {
+func buildWithNixpacks(app App, buildDir, buildSubDir, image string, noCache bool, localLog func(string)) error {
 	// Detect required Node version BEFORE patching, because patchPackageJSON
 	// strips the engines field that tells us which Node version the app needs.
 	nodeVersion := detectNodeVersion(buildSubDir, defaultNodeVersion)
@@ -645,6 +645,9 @@ func buildWithNixpacks(app App, buildDir, buildSubDir, image string, localLog fu
 	if platform != "" {
 		args = append(args, "--platform", platform)
 	}
+	if noCache {
+		args = append(args, "--no-cache")
+	}
 	for k, v := range app.EnvVars {
 		args = append(args, "--env", fmt.Sprintf("%s=%s", k, v))
 	}
@@ -663,7 +666,7 @@ func buildWithNixpacks(app App, buildDir, buildSubDir, image string, localLog fu
 // buildWithDockerfile builds an image from a Dockerfile in the repo using
 // `docker build`. Honors app.DockerfilePath (default "Dockerfile"), passes env
 // vars as build args, and uses buildSubDir as the build context.
-func buildWithDockerfile(app App, buildSubDir, image string, localLog func(string)) error {
+func buildWithDockerfile(app App, buildSubDir, image string, noCache bool, localLog func(string)) error {
 	dockerfile := strings.TrimSpace(app.DockerfilePath)
 	if dockerfile == "" {
 		dockerfile = "Dockerfile"
@@ -679,6 +682,9 @@ func buildWithDockerfile(app App, buildSubDir, image string, localLog func(strin
 	args := []string{"build", "-f", dfPath, "-t", image}
 	if platform != "" {
 		args = append(args, "--platform", platform)
+	}
+	if noCache {
+		args = append(args, "--no-cache")
 	}
 	// Surface env vars as build args so Dockerfiles can ARG them if needed.
 	// (They are also injected at runtime by startContainer.)

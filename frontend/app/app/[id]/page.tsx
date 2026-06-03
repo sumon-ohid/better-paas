@@ -9,6 +9,12 @@ import React, {
 } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/menu"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -87,6 +93,9 @@ const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const SquareIcon = (props: IconProps) => <NucleoIcon {...props} name="square" />
 const RefreshIcon = (props: IconProps) => (
   <NucleoIcon {...props} name="refresh" />
+)
+const ChevronDownIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="chevron-down" />
 )
 const LoaderIcon = (props: IconProps) => <NucleoIcon {...props} name="loader" />
 const TerminalIcon = (props: IconProps) => (
@@ -520,11 +529,11 @@ function AppDetailPage() {
     }
   }
 
-  const handleRedeploy = async () => {
+  const handleRedeploy = async (noCache: boolean = false) => {
     if (!app) return
     setIsRedeploying(true)
     try {
-      await api.apps.redeploy(app.id)
+      await api.apps.redeploy(app.id, noCache)
       showToast("Redeploy Started", `Triggering new build for ${app.name}...`)
       fetchData()
       setTab("deployments")
@@ -957,17 +966,33 @@ function AppDetailPage() {
                   Start
                 </Button>
               ) : null}
-              <Button
-                onClick={handleRedeploy}
-                disabled={isRedeploying || app.status === "building"}
-                variant="outline"
-                className="h-7 border-primary/30 text-xs text-primary hover:bg-primary/10 hover:text-primary"
-              >
-                <RefreshIcon
-                  className={`mr-1 h-3 w-3 ${isRedeploying ? "animate-spin" : ""}`}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      disabled={isRedeploying || app.status === "building"}
+                      variant="outline"
+                      className="h-7 border-primary/30 text-xs text-primary hover:bg-primary/10 hover:text-primary gap-1"
+                    >
+                      <RefreshIcon
+                        className={`h-3 w-3 ${isRedeploying ? "animate-spin" : ""}`}
+                      />
+                      {isRedeploying ? "Redeploying..." : "Redeploy"}
+                      <ChevronDownIcon className="h-3 w-3 opacity-80" />
+                    </Button>
+                  }
                 />
-                {isRedeploying ? "Redeploying..." : "Redeploy"}
-              </Button>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={() => handleRedeploy(false)}>
+                    <RefreshIcon className="mr-2 h-4 w-4" />
+                    Redeploy (Default)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleRedeploy(true)}>
+                    <Trash2Icon className="mr-2 h-4 w-4 text-destructive" />
+                    Redeploy & Clear Cache
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 

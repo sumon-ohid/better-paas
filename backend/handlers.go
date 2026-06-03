@@ -653,7 +653,8 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		ID string `json:"id"`
+		ID      string `json:"id"`
+		NoCache bool   `json:"noCache"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "Bad request", http.StatusBadRequest)
@@ -716,7 +717,7 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 	rebuildCaddyfile()
 	jsonOK(w, targetApp.Public())
 
-	go runDeployment(*targetApp, normalizeGitURL(targetApp.GitRepo), deployID, logFile, "manual", "")
+	go runDeployment(*targetApp, normalizeGitURL(targetApp.GitRepo), deployID, logFile, "manual", "", req.NoCache)
 }
 
 // ---------------------------------------------------------------------------
@@ -1227,7 +1228,7 @@ func handleRollback(w http.ResponseWriter, r *http.Request) {
 	rebuildCaddyfile()
 	jsonOK(w, app.Public())
 
-	go runDeployment(*app, normalizeGitURL(app.GitRepo), deployID, logFile, "rollback", target.Image)
+	go runDeployment(*app, normalizeGitURL(app.GitRepo), deployID, logFile, "rollback", target.Image, false)
 }
 
 // ---------------------------------------------------------------------------

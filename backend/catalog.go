@@ -1463,7 +1463,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, newApp.Public())
 
 	// Image-based deploy: gitURL is unused.
-	go runDeployment(newApp, "", deployID, logFile, "catalog", "")
+	go runDeployment(newApp, "", deployID, logFile, "catalog", "", false)
 }
 
 func uniqueCatalogAddonName(appName, addonType string) string {
@@ -1677,7 +1677,7 @@ func startCustomDeploy(w http.ResponseWriter, newApp App, trigger string) {
 	}
 
 	jsonOK(w, newApp.Public())
-	go runDeployment(newApp, "", deployID, logFile, trigger, "")
+	go runDeployment(newApp, "", deployID, logFile, trigger, "", false)
 }
 
 // ---------------------------------------------------------------------------

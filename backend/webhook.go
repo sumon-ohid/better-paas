@@ -154,5 +154,5 @@ func triggerAutoDeploy(app App) {
 	_ = dbCreateDeployment(dep)
 	rebuildCaddyfile()
 
-	go runDeployment(app, normalizeGitURL(app.GitRepo), deployID, logFile, "webhook", "")
+	go runDeployment(app, normalizeGitURL(app.GitRepo), deployID, logFile, "webhook", "", false)
 }
