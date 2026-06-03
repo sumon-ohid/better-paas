@@ -25,7 +25,7 @@ REAL_HOME=$(get_user_home)
 REPO_DIR="$REAL_HOME/better-paas"
 
 # Detect if running from a local repository copy
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null || pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-}")" && pwd 2>/dev/null || pwd)"
 if [ -f "$SCRIPT_DIR/backend/main.go" ]; then
   REPO_DIR="$SCRIPT_DIR"
 fi

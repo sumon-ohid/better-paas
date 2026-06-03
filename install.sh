@@ -28,7 +28,7 @@ REAL_HOME=$(get_user_home)
 REPO_DIR="$REAL_HOME/better-paas"
 
 # Determine if running from a local repository copy
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null || pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-}")" && pwd 2>/dev/null || pwd)"
 if [ -f "$SCRIPT_DIR/backend/main.go" ]; then
   REPO_DIR="$SCRIPT_DIR"
 fi
@@ -336,7 +336,7 @@ install_node() {
 # ── Clone or update the repo ──────────────────────────────────────────────────
 
 setup_repo() {
-  REPO_URL="${BETTER_PAAS_REPO_URL:-}"
+  REPO_URL="${BETTER_PAAS_REPO_URL:-https://github.com/sumon-ohid/better-paas.git}"
   if [ -z "$REPO_URL" ]; then
     error "No repository URL set. Re-run with BETTER_PAAS_REPO_URL=https://github.com/<you>/better-paas.git, or run this script from inside a checked-out copy of the repo."
   fi
