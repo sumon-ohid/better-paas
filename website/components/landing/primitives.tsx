@@ -152,7 +152,7 @@ export function IconTile({
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-xl border border-fd-primary/15 bg-fd-primary/10 text-fd-primary',
+        'bp-feature-orb-tile inline-flex shrink-0 items-center justify-center text-black/80 dark:text-white/80',
         size === 'md' ? 'size-11' : 'size-9',
         className,
       )}

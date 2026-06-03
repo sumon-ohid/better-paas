@@ -350,13 +350,13 @@ export function FeatureShowcase() {
                 <div className="flex items-center gap-3.5 text-base w-full">
                   <span
                     className={cn(
-                      "flex size-9 shrink-0 items-center justify-center rounded-lg transition-all duration-350",
+                      "bp-feature-orb-tile flex size-11 shrink-0 items-center justify-center transition-all duration-350",
                       isActive
-                        ? "bg-fd-primary text-fd-primary-foreground scale-105 shadow-md shadow-fd-primary/20"
-                        : "bg-fd-primary/10 text-fd-primary group-hover:bg-fd-primary/15"
+                        ? "is-active text-black scale-105 dark:text-white"
+                        : "text-black/80 group-hover:text-black dark:text-white/80 dark:group-hover:text-white"
                     )}
                   >
-                    <tab.icon className="size-4.5" />
+                    <tab.icon className="relative z-10 size-4.5" />
                   </span>
                   <span className={cn("transition-colors duration-250", isActive ? "text-fd-primary" : "text-fd-foreground/90")}>
                     {tab.title}
