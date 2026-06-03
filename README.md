@@ -49,12 +49,15 @@ Beyond Git-based deploys, the control plane comes packed with features designed 
 Deploy to your Linux VPS (Ubuntu/Debian, CentOS/RHEL/Fedora/Rocky/Alma) or macOS host. This script automatically installs system dependencies (Go, Docker, Nixpacks, Caddy, Node.js, pnpm), clones/updates the repository, builds the binaries, and configures system services:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | BETTER_PAAS_REPO_URL=https://github.com/sumon-ohid/better-paas.git bash
+curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | bash
 ```
 
 > [!NOTE]
 > On Linux, the installer requires root privileges to configure Caddy/Docker and install packages:
-> `curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | sudo BETTER_PAAS_REPO_URL=https://github.com/sumon-ohid/better-paas.git bash`
+> `curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | sudo bash`
+>
+> If you are using a fork of this repository, you can override the target repository URL by setting the `BETTER_PAAS_REPO_URL` variable:
+> `curl -fsSL https://raw.githubusercontent.com/username/better-paas/main/install.sh | BETTER_PAAS_REPO_URL=https://github.com/username/better-paas.git bash`
 
 #### Local Installation
 If you already have a checked-out copy of the repository:
