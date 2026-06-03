@@ -38,6 +38,7 @@ export default function HomePage() {
       <HowItWorks />
       <Integrations />
       <Security />
+      <Pricing />
       <CallToAction />
     </main>
   );
@@ -91,7 +92,7 @@ function Hero() {
                 },
               },
             }}
-            className="hidden pb-2 lg:block"
+            className="hidden pb-2 mt-3 lg:block"
           >
             <Link
               href="/docs/updates"
@@ -538,6 +539,103 @@ function Security() {
               />
             </div>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ════════════════════════════════  Pricing  ═══════════════════════════════ */
+
+function Pricing() {
+  return (
+    <section id="pricing" className="bg-fd-card/10">
+      <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+        <div className="mx-auto max-w-2xl text-center">
+          <Eyebrow className="justify-center">Pricing</Eyebrow>
+          <h2 className="bp-display mt-4 text-3xl font-semibold text-fd-foreground sm:text-[2.75rem]">
+            Free to self-host
+          </h2>
+          <p className="mt-4 text-lg leading-relaxed text-fd-muted-foreground">
+            Run {appName} on your own servers for free. A managed control plane is coming soon
+            for teams who want us to operate {appName} while they keep control of their servers.
+          </p>
+        </div>
+
+        <div className="mt-14 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="bp-card group relative overflow-hidden rounded-3xl p-7 sm:p-8">
+            <div className="relative z-10 flex h-full flex-col">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <IconTile>
+                    <LogoMark className="size-5" />
+                  </IconTile>
+                  <h3 className="mt-5 text-2xl font-semibold text-fd-foreground">
+                    Self-hosted
+                  </h3>
+                  <p className="mt-2 max-w-md text-sm leading-relaxed text-fd-muted-foreground">
+                    Install it on your VPS, home lab, or private cloud. You own the app,
+                    data, credentials, and runtime.
+                  </p>
+                </div>
+                <div className="sm:text-right">
+                  <div className="bp-display text-6xl font-semibold text-fd-foreground">$0</div>
+                  <p className="mt-1 text-sm font-medium text-fd-muted-foreground">
+                    Free to use
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                {[
+                  'Unlimited apps on your hardware',
+                  'Git deploys, HTTPS, logs, shell',
+                  'Databases, volumes, backups',
+                  'No platform markup or seat pricing',
+                  'No request limits or egress charges',
+                  'No vendor lock-in',
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2.5 text-sm text-fd-muted-foreground">
+                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
+                      <Check className="size-3" />
+                    </span>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <BorderBeam
+              duration={10}
+              size={240}
+              colorFrom="var(--color-fd-primary)"
+              colorTo="transparent"
+              className="opacity-0 transition-opacity group-hover:opacity-30"
+            />
+          </div>
+
+          <div className="bp-card relative overflow-hidden rounded-3xl p-7 sm:p-8">
+            <div className="relative z-10 flex h-full flex-col justify-between gap-10">
+              <div>
+                <span className="inline-flex rounded-full border border-fd-border px-3 py-1 text-xs font-medium text-fd-muted-foreground">
+                  Coming soon
+                </span>
+                <h3 className="mt-5 text-2xl font-semibold text-fd-foreground">
+                  Managed {appName}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-fd-muted-foreground">
+                  We will host and maintain the {appName} control plane for you. You still
+                  connect and manage your own servers, so workloads stay on infrastructure you
+                  control.
+                </p>
+              </div>
+              <div className="border-t border-fd-border pt-5">
+                <p className="text-sm font-medium text-fd-foreground">Price announced later</p>
+                <p className="mt-1 text-sm text-fd-muted-foreground">
+                  Built for teams that want less maintenance without giving up server ownership.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
