@@ -4,7 +4,7 @@
 #
 # Set BETTER_PAAS_REPO_URL to your fork/repo before piping to bash, e.g.:
 #   curl -fsSL https://raw.githubusercontent.com/<you>/better-paas/main/install.sh \
-#     | BETTER_PAAS_REPO_URL=https://github.com/<you>/better-paas.git bash
+#     | BETTER_PAAS_REPO_URL=https://github.com/<you>/better-paas.git sudo bash
 # Or run it from a checked-out copy:
 #   bash install.sh
 # =============================================================================
