@@ -460,17 +460,17 @@ create_launchd_services() {
   launchctl unload "$frontend_plist" 2>/dev/null || true
 
   # Kill any existing processes (specifically targeting better-paas directories to avoid false positives)
-  pgrep -f "server" | while read -r pid; do
+  (pgrep -f "server" || true) | while read -r pid; do
     if lsof -p "$pid" 2>/dev/null | grep -q "better-paas/backend/server"; then
       kill -9 "$pid" 2>/dev/null || true
     fi
   done
-  pgrep -f "next-server" | while read -r pid; do
+  (pgrep -f "next-server" || true) | while read -r pid; do
     if lsof -p "$pid" 2>/dev/null | grep -q "better-paas/frontend"; then
       kill -9 "$pid" 2>/dev/null || true
     fi
   done
-  pgrep -f "caddy" | while read -r pid; do
+  (pgrep -f "caddy" || true) | while read -r pid; do
     if lsof -p "$pid" 2>/dev/null | grep -q "better-paas/backend"; then
       kill -9 "$pid" 2>/dev/null || true
     fi
