@@ -61,6 +61,7 @@ const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
+const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 
 export default function DeployPage() {
   const router = useRouter()
@@ -75,6 +76,17 @@ export default function DeployPage() {
   const [repos, setRepos] = useState<GitHubRepo[]>([])
   const [isLoadingRepos, setIsLoadingRepos] = useState(false)
   const [showRepoList, setShowRepoList] = useState(true)
+  const [repoSearchQuery, setRepoSearchQuery] = useState("")
+
+  const filteredRepos = repos.filter((repo) => {
+    const query = repoSearchQuery.trim().toLowerCase()
+    if (!query) return true
+    return (
+      repo.name.toLowerCase().includes(query) ||
+      (repo.description && repo.description.toLowerCase().includes(query)) ||
+      repo.full_name.toLowerCase().includes(query)
+    )
+  })
 
   // ── Selected repo & branch ─────────────────────────────────────────────────
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null)
@@ -256,6 +268,7 @@ export default function DeployPage() {
     setErrorMsg("")
     setDetectedFramework(null)
     setIsDetectingFramework(false)
+    setRepoSearchQuery("")
 
     // Instant fallback detection from name/description
     const fwFallback = detectFrameworkByName(repo)
@@ -311,6 +324,7 @@ export default function DeployPage() {
       setShowRepoList(true)
       setBranches([])
       setSelectedBranch("")
+      setRepoSearchQuery("")
     } catch {
       // Ignore
     }
@@ -698,53 +712,81 @@ export default function DeployPage() {
                           No repositories found.
                         </div>
                       ) : (
-                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                          {repos.map((repo) => {
-                            const isSelected = selectedRepo?.full_name === repo.full_name
-                            return (
+                        <div className="space-y-3">
+                          {/* Search Input */}
+                          <div className="relative flex items-center">
+                            <SearchIcon className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground/60" />
+                            <Input
+                              value={repoSearchQuery}
+                              onChange={(e) => setRepoSearchQuery(e.target.value)}
+                              placeholder="Search repositories..."
+                              className="h-9 pl-9 pr-8 text-sm placeholder:text-muted-foreground/50"
+                            />
+                            {repoSearchQuery && (
                               <button
-                                key={repo.full_name}
-                                onClick={() => handleRepoSelect(repo.full_name)}
-                                className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
-                                  isSelected
-                                    ? "border-primary/50 bg-primary/5"
-                                    : "border-border bg-card/40 hover:bg-accent/30"
-                                }`}
+                                onClick={() => setRepoSearchQuery("")}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                               >
-                                <div className="flex items-center gap-2.5">
-                                  <div className="h-7 w-7 rounded-md bg-muted/50 flex items-center justify-center shrink-0">
-                                    <GithubLight className="h-4 w-4 dark:hidden" />
-                                    <GithubDark className="h-4 w-4 hidden dark:block" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-sm font-medium text-foreground truncate">
-                                        {repo.name}
-                                      </span>
-                                      {repo.private ? (
-                                        <span className="text-[10px] font-mono px-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                          private
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] font-mono px-1 rounded bg-muted/50 text-muted-foreground border border-border">
-                                          public
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-[11px] text-muted-foreground truncate">
-                                      {repo.description || "No description"}
-                                    </p>
-                                  </div>
-                                  <span className="text-[10px] text-muted-foreground/60 shrink-0">
-                                    {new Date(repo.updated_at).toLocaleDateString(undefined, {
-                                      month: "short",
-                                      day: "numeric",
-                                    })}
-                                  </span>
-                                </div>
+                                <XIcon className="h-3 w-3" />
                               </button>
-                            )
-                          })}
+                            )}
+                          </div>
+
+                          {/* Repo items */}
+                          <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                            {filteredRepos.length === 0 ? (
+                              <div className="py-8 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
+                                No repositories match your search query.
+                              </div>
+                            ) : (
+                              filteredRepos.map((repo) => {
+                                const isSelected = selectedRepo?.full_name === repo.full_name
+                                return (
+                                  <button
+                                    key={repo.full_name}
+                                    onClick={() => handleRepoSelect(repo.full_name)}
+                                    className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
+                                      isSelected
+                                        ? "border-primary/50 bg-primary/5"
+                                        : "border-border bg-card/40 hover:bg-accent/30"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="h-7 w-7 rounded-md bg-muted/50 flex items-center justify-center shrink-0">
+                                        <GithubLight className="h-4 w-4 dark:hidden" />
+                                        <GithubDark className="h-4 w-4 hidden dark:block" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm font-medium text-foreground truncate">
+                                            {repo.name}
+                                          </span>
+                                          {repo.private ? (
+                                            <span className="text-[10px] font-mono px-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                              private
+                                            </span>
+                                          ) : (
+                                            <span className="text-[10px] font-mono px-1 rounded bg-muted/50 text-muted-foreground border border-border">
+                                              public
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground truncate">
+                                          {repo.description || "No description"}
+                                        </p>
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                                        {new Date(repo.updated_at).toLocaleDateString(undefined, {
+                                          month: "short",
+                                          day: "numeric",
+                                        })}
+                                      </span>
+                                    </div>
+                                  </button>
+                                )
+                              })
+                            )}
+                          </div>
                         </div>
                       )
                     )}
