@@ -56,6 +56,7 @@ type CatalogTemplate struct {
 	Category       string                 `json:"category"`
 	Image          string                 `json:"image"`      // pinned registry image
 	Port           int                    `json:"port"`       // internal container port the app listens on
+	StartCommand   string                 `json:"startCommand,omitempty"`
 	VolumePath     string                 `json:"volumePath"` // container path to persist (empty = stateless)
 	VolumePaths    []string               `json:"volumePaths,omitempty"`
 	RequiredAddons []CatalogRequiredAddon `json:"requiredAddons,omitempty"`
@@ -1245,6 +1246,32 @@ func catalogTemplates() []CatalogTemplate {
 			Website:    "https://www.prestashop-project.org",
 			Icon:       "prestashop",
 		},
+		{
+			ID:          "seonaut",
+			Name:        "SEOnaut",
+			Description: "Open-source SEO auditing and reporting tool to crawl and analyze websites.",
+			Category:    "Analytics",
+			Image:       "ghcr.io/stjudewashere/seonaut:latest",
+			Port:         9000,
+			StartCommand: "exec /app/seonaut",
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "mysql"},
+			},
+			Env: []CatalogEnv{
+				{Key: "SEONAUT_DATABASE_SERVER", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "SEONAUT_DATABASE_PORT", Value: "3306", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "SEONAUT_DATABASE_USER", Value: "appuser", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "SEONAUT_DATABASE_PASSWORD", Description: "Auto-filled from a managed MySQL add-on.", Secret: true},
+				{Key: "SEONAUT_DATABASE_DATABASE", Value: "appdb", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "SEONAUT_SERVER_HOST", Value: "0.0.0.0", Description: "Bind address for the application server."},
+				{Key: "SEONAUT_SERVER_PORT", Value: "9000", Description: "Internal port the application listens on."},
+				{Key: "SEONAUT_SERVER_URL", Description: "Public URL, e.g. https://seo.example.com. Used for WebSocket connections.", Required: false},
+			},
+			HealthPath: "/",
+			Website:    "https://github.com/StJudeWasHere/seonaut",
+			Icon:       "seonaut",
+			Notes:      "Better PaaS creates and connects a MySQL add-on automatically for this template. Configure SEONAUT_SERVER_URL after deploy for WebSocket connections to function properly.",
+		},
 	}
 }
 
@@ -1356,6 +1383,9 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	if tpl.ID == "mixpost" {
 		autoEnv["APP_URL"] = appURL
 	}
+	if tpl.ID == "seonaut" {
+		autoEnv["SEONAUT_SERVER_URL"] = appURL
+	}
 	for _, e := range tpl.Env {
 		val := e.Value
 		if auto, ok := autoEnv[e.Key]; ok {
@@ -1424,6 +1454,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		HealthPath:    tpl.HealthPath,
 		BuildMethod:   "image",
 		Image:         tpl.Image,
+		StartCommand:  tpl.StartCommand,
 		CatalogID:     tpl.ID,
 		WebhookSecret: generateRandomID() + generateRandomID(),
 	}
@@ -1555,6 +1586,14 @@ func catalogTemplateAddonEnv(templateID string, addon Addon, password string) ma
 			out["DB_NAME"] = base["MYSQL_DATABASE"]
 			out["DB_USER"] = base["MYSQL_USER"]
 			out["DB_PASSWD"] = base["MYSQL_PASSWORD"]
+		}
+	case "seonaut":
+		if addon.Type == "mysql" {
+			out["SEONAUT_DATABASE_SERVER"] = base["MYSQL_HOST"]
+			out["SEONAUT_DATABASE_PORT"] = "3306"
+			out["SEONAUT_DATABASE_USER"] = base["MYSQL_USER"]
+			out["SEONAUT_DATABASE_PASSWORD"] = base["MYSQL_PASSWORD"]
+			out["SEONAUT_DATABASE_DATABASE"] = base["MYSQL_DATABASE"]
 		}
 	default:
 		for k, v := range base {

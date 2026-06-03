@@ -752,6 +752,9 @@ func startContainer(app App, image, containerName string, hostPort, containerPor
 		}
 	}
 	runArgs = append(runArgs, "--name", containerName, image)
+	if app.StartCommand != "" {
+		runArgs = append(runArgs, "sh", "-c", app.StartCommand)
+	}
 
 	ex, err := GetExecutorForServer(app.ServerID)
 	if err != nil {
