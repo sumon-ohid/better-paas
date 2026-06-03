@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  better-paas:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      image: ghcr.io/sumon-ohid/better-paas:latest
+    container_name: better-paas
+    # On macOS/Windows (Docker Desktop), use port mapping:
+    ports:
+      - "80:80"
+      - "443:443"
+      - "3000:3000"
+      - "8080:8080"
+      - "9000-9050:9000-9050" # Map a range for deployed user apps
+    # On Linux VPS (Production), uncomment network_mode below and comment out ports above:
+    # network_mode: host
+    volumes:
+      # Mount the host's Docker socket to manage containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount local data directory to persist the SQLite database, logs, and keys
+      - ./data:/app/data
+      # Mount builds directory to persist cloned git repositories across runs
+      - ./builds:/app/builds
+    environment:
+      - LISTEN_ADDR=:8080
+      - FRONTEND_PORT=3000
+      - TRUST_PROXY=true
+      # Override the generated admin token (optional)
+      # - ADMIN_TOKEN=your-custom-token
+      # Secret key for at-rest SQLite database encryption (optional)
+      # - BETTER_PAAS_SECRET_KEY=your-32-character-key
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

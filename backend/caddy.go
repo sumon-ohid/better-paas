@@ -30,6 +30,9 @@ func getLocalIP() string {
 // The default route is served by this control-plane Caddy, even when the app
 // container itself runs on a remote target server.
 func appHostIP(_ string) string {
+	if os.Getenv("RUNNING_IN_DOCKER") == "true" {
+		return "127.0.0.1"
+	}
 	return getLocalIP()
 }
 
@@ -104,7 +107,11 @@ func rebuildCaddyfile() {
 			continue
 		}
 
-		upstream := fmt.Sprintf("localhost:%d", app.Port)
+		localHost := "localhost"
+		if os.Getenv("RUNNING_IN_DOCKER") == "true" {
+			localHost = "host.docker.internal"
+		}
+		upstream := fmt.Sprintf("%s:%d", localHost, app.Port)
 		if app.ServerID != "" && app.ServerID != "localhost" {
 			srv, err := dbGetServer(app.ServerID)
 			if err == nil && srv != nil && !srv.IsLocal {

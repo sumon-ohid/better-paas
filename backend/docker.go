@@ -788,7 +788,11 @@ func waitHealthy(serverID, containerName string, hostPort int, healthPath string
 			}
 
 			if healthPath != "" {
-				url := fmt.Sprintf("http://127.0.0.1:%d%s", hostPort, ensureLeadingSlash(healthPath))
+				localIP := "127.0.0.1"
+				if os.Getenv("RUNNING_IN_DOCKER") == "true" {
+					localIP = "host.docker.internal"
+				}
+				url := fmt.Sprintf("http://%s:%d%s", localIP, hostPort, ensureLeadingSlash(healthPath))
 				client := &http.Client{Timeout: 2 * time.Second}
 				resp, err := client.Get(url)
 				if err == nil {
@@ -810,7 +814,11 @@ func waitHealthy(serverID, containerName string, hostPort int, healthPath string
 					}
 				}
 			} else {
-				conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", hostPort), 2*time.Second)
+				localIP := "127.0.0.1"
+				if os.Getenv("RUNNING_IN_DOCKER") == "true" {
+					localIP = "host.docker.internal"
+				}
+				conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", localIP, hostPort), 2*time.Second)
 				if err == nil {
 					conn.Close()
 					streamContainerLogs(serverID, containerName, &printedLines, logf)

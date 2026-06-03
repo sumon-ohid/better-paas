@@ -1,0 +1,4 @@
+# Docker / Compose runtime directories
+builds/
+data/
+Caddyfile
