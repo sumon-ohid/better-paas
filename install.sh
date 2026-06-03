@@ -447,7 +447,17 @@ EOF
 }
 
 create_launchd_services() {
-  info "macOS detected — skipping systemd. Starting processes in background..."
+  info "macOS detected — configuring LaunchAgents..."
+
+  local plist_dir="$REAL_HOME/Library/LaunchAgents"
+  mkdir -p "$plist_dir"
+
+  local backend_plist="$plist_dir/org.better-paas.backend.plist"
+  local frontend_plist="$plist_dir/org.better-paas.frontend.plist"
+
+  # Unload if currently loaded
+  launchctl unload "$backend_plist" 2>/dev/null || true
+  launchctl unload "$frontend_plist" 2>/dev/null || true
 
   # Kill any existing processes (specifically targeting better-paas directories to avoid false positives)
   pgrep -f "server" | while read -r pid; do
@@ -468,17 +478,90 @@ create_launchd_services() {
   pkill -f "better-paas/backend/server" 2>/dev/null || true
   pkill -f "better-paas/frontend" 2>/dev/null || true
 
-  # Start backend
-  cd "$BACKEND_DIR"
-  nohup ./server > "$BACKEND_DIR/server.log" 2>&1 &
-  echo "Backend PID: $!"
+  UPDATE_REPO_SLUG=""
+  REMOTE_URL="$(git -C "$REPO_DIR" config --get remote.origin.url 2>/dev/null || echo "")"
+  if [ -n "$REMOTE_URL" ]; then
+    UPDATE_REPO_SLUG="$(echo "$REMOTE_URL" \
+      | sed -E 's#^git@[^:]+:##; s#^https?://[^/]+/##; s#\.git$##')"
+  fi
 
-  # Start frontend
-  cd "$FRONTEND_DIR"
-  nohup pnpm start > "$FRONTEND_DIR/frontend.log" 2>&1 &
-  echo "Frontend PID: $!"
+  # Create backend plist
+  cat > "$backend_plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>org.better-paas.backend</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${BACKEND_DIR}/server</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>${BACKEND_DIR}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>UPDATE_REPO</key>
+        <string>${UPDATE_REPO_SLUG}</string>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${BACKEND_DIR}/server.log</string>
+    <key>StandardErrorPath</key>
+    <string>${BACKEND_DIR}/server.log</string>
+</dict>
+</plist>
+EOF
 
-  success "Processes started in background."
+  local pnpm_path
+  pnpm_path=$(which pnpm 2>/dev/null || echo "pnpm")
+
+  # Create frontend plist
+  cat > "$frontend_plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>org.better-paas.frontend</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${pnpm_path}</string>
+        <string>start</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>${FRONTEND_DIR}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PORT</key>
+        <string>3000</string>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${FRONTEND_DIR}/frontend.log</string>
+    <key>StandardErrorPath</key>
+    <string>${FRONTEND_DIR}/frontend.log</string>
+</dict>
+</plist>
+EOF
+
+  chmod 644 "$backend_plist" "$frontend_plist"
+  
+  # Load the plists
+  launchctl load "$backend_plist" 2>/dev/null || true
+  launchctl load "$frontend_plist" 2>/dev/null || true
+
+  success "LaunchAgents registered and started."
 }
 
 # ── Print summary ─────────────────────────────────────────────────────────────

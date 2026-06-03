@@ -58,6 +58,15 @@ remove_services() {
   info "Stopping Better-PaaS background services..."
 
   if [ "$OS" = "darwin" ]; then
+    # Unload and remove LaunchAgent files if they exist
+    local plist_dir="$REAL_HOME/Library/LaunchAgents"
+    local backend_plist="$plist_dir/org.better-paas.backend.plist"
+    local frontend_plist="$plist_dir/org.better-paas.frontend.plist"
+
+    launchctl unload "$backend_plist" 2>/dev/null || true
+    launchctl unload "$frontend_plist" 2>/dev/null || true
+    rm -f "$backend_plist" "$frontend_plist"
+
     # Stop backend and frontend processes running from better-paas directories
     pgrep -f "server" | while read -r pid; do
       if lsof -p "$pid" 2>/dev/null | grep -q "better-paas/backend/server"; then
@@ -76,7 +85,7 @@ remove_services() {
     done
     pkill -f "better-paas/backend/server" 2>/dev/null || true
     pkill -f "better-paas/frontend" 2>/dev/null || true
-    success "Stopped macOS background processes."
+    success "Stopped macOS background processes and removed LaunchAgents."
   else
     # Linux systemd services
     if systemctl is-active --quiet better-paas-backend 2>/dev/null; then
