@@ -1272,6 +1272,29 @@ func catalogTemplates() []CatalogTemplate {
 			Icon:       "seonaut",
 			Notes:      "Better PaaS creates and connects a MySQL add-on automatically for this template. Configure SEONAUT_SERVER_URL after deploy for WebSocket connections to function properly.",
 		},
+		{
+			ID:          "seopanel",
+			Name:        "SEO Panel",
+			Description: "Open-source search engine optimization tool kit to monitor and manage website rankings.",
+			Category:    "Analytics",
+			Image:       "seopanel/seopanel:6.0.0",
+			Port:        80,
+			VolumePath:  "/var/www/html",
+			RequiredAddons: []CatalogRequiredAddon{
+				{Type: "mysql"},
+			},
+			Env: []CatalogEnv{
+				{Key: "MYSQL_DB_HOST", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "MYSQL_USER", Value: "appuser", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "MYSQL_PASSWORD", Description: "Auto-filled from a managed MySQL add-on.", Secret: true},
+				{Key: "MYSQL_DATABASE", Value: "appdb", Description: "Auto-filled from a managed MySQL add-on."},
+				{Key: "MYSQL_ROOT_PASSWORD", Description: "Auto-filled from a managed MySQL add-on.", Secret: true},
+			},
+			HealthPath: "/",
+			Website:    "https://www.seopanel.org",
+			Icon:       "seopanel",
+			Notes:      "Better PaaS creates and connects a MySQL add-on automatically for this template.",
+		},
 	}
 }
 
@@ -1594,6 +1617,14 @@ func catalogTemplateAddonEnv(templateID string, addon Addon, password string) ma
 			out["SEONAUT_DATABASE_USER"] = base["MYSQL_USER"]
 			out["SEONAUT_DATABASE_PASSWORD"] = base["MYSQL_PASSWORD"]
 			out["SEONAUT_DATABASE_DATABASE"] = base["MYSQL_DATABASE"]
+		}
+	case "seopanel":
+		if addon.Type == "mysql" {
+			out["MYSQL_DB_HOST"] = base["MYSQL_HOST"]
+			out["MYSQL_USER"] = base["MYSQL_USER"]
+			out["MYSQL_PASSWORD"] = base["MYSQL_PASSWORD"]
+			out["MYSQL_DATABASE"] = base["MYSQL_DATABASE"]
+			out["MYSQL_ROOT_PASSWORD"] = base["MYSQL_PASSWORD"]
 		}
 	default:
 		for k, v := range base {
