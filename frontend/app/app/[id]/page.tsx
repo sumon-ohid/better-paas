@@ -600,9 +600,9 @@ function AppDetailPage() {
         startCommand,
         installCommand,
         portOverride: portOverride ? parseInt(portOverride, 10) : 0,
-        // Compose rows don't expose a reconfigurable build method here; omit it
-        // so we never overwrite the stored "compose" method with a default.
-        ...(app.composeProject
+        // Compose, image, and dockerfile-inline deploys don't expose a reconfigurable build method here; omit it
+        // so we never overwrite the stored method with a default.
+        ...(app.composeProject || app.buildMethod === "image" || app.buildMethod === "dockerfile-inline"
           ? {}
           : {
               buildMethod,

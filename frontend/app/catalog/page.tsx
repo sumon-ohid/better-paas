@@ -74,7 +74,6 @@ const addonLabel = (type: string) => {
 // Logos come from the community dashboard-icons CDN. Only the slug is stored
 // server-side; we build the URL here.
 const iconUrlOverrides: Record<string, string> = {
-  ghost: "https://cdn.jsdelivr.net/npm/simple-icons/icons/ghost.svg",
   homepage:
     "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/homepage.png",
   pairdrop:

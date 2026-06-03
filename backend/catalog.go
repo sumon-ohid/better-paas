@@ -574,22 +574,6 @@ func catalogTemplates() []CatalogTemplate {
 			Icon:        "pocketbase",
 		},
 		{
-			ID:          "ghost",
-			Name:        "Ghost",
-			Description: "Modern publishing platform for blogs, newsletters, and publications.",
-			Category:    "CMS",
-			Image:       "ghost:5-alpine",
-			Port:        2368,
-			VolumePath:  "/var/lib/ghost/content",
-			Env: []CatalogEnv{
-				{Key: "url", Description: "Public URL, e.g. https://blog.example.com. Can be set after deploy.", Required: false},
-			},
-			HealthPath: "/ghost",
-			Website:    "https://ghost.org",
-			Icon:       "ghost",
-			Notes:      "This single-container starter uses Ghost's built-in SQLite storage. For high-traffic production sites, Ghost recommends MySQL.",
-		},
-		{
 			ID:          "directus",
 			Name:        "Directus",
 			Description: "Headless CMS and data platform with instant APIs and a polished admin studio.",
