@@ -84,6 +84,7 @@ const iconUrlOverrides: Record<string, string> = {
   matomo: "https://cdn.jsdelivr.net/npm/simple-icons/icons/matomo.svg",
   seonaut: "https://seonaut.org/favicon.ico",
   seopanel: "https://raw.githubusercontent.com/seopanel/Seo-Panel-Docs/master/_static/seo_lg.png",
+  openui: "https://cdn.jsdelivr.net/npm/simple-icons/icons/weightsandbiases.svg",
 }
 
 function iconUrl(slug: string): string {
