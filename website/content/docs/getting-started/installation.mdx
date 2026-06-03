@@ -83,6 +83,20 @@ cd better-paas
 bash install.sh
 ```
 
+## Docker Compose installation (Recommended for Containers)
+
+If you prefer to run the entire control plane as a containerized stack, you can pull the official image and run it via Docker Compose:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/sumon-ohid/better-paas:latest
+
+# Start the stack
+docker compose up -d
+```
+
+For this, you will need a `docker-compose.yml` file matching the one provided in the root of the repository, mounting `/var/run/docker.sock` and configuring data volume paths.
+
 ## Building manually (for developers)
 
 If you want to run the pieces by hand — useful for contributing — build each
