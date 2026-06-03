@@ -15,7 +15,7 @@ export function InstallLine() {
 
   const command = method === 'curl' 
     ? 'curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | bash'
-    : 'docker pull ghcr.io/sumon-ohid/better-paas:latest';
+    : 'docker pull ghcr.io/sumon-ohid/better-paas:latest && docker run -d --name better-paas --restart unless-stopped -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/data:/app/data -v $(pwd)/builds:/app/builds -p 80:80 -p 443:443 -p 3000:3000 -p 8080:8080 -p 9000-9050:9000-9050 -e LISTEN_ADDR=:8080 -e FRONTEND_PORT=3000 -e TRUST_PROXY=true ghcr.io/sumon-ohid/better-paas:latest';
 
   const copy = useCallback(async () => {
     try {
@@ -53,7 +53,7 @@ export function InstallLine() {
           }`}
         >
           <DockerLogo className="size-3.5" />
-          Docker Pull
+          Docker
         </button>
       </div>
 

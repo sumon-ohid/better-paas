@@ -162,14 +162,24 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <div className="mt-8 w-full border-t border-border/50 pt-5">
             <p className="text-xs leading-relaxed text-muted-foreground/70">
               Your admin token was generated when the backend first started.
-              On your server, get it with any of these:
+              Retrieve it using one of these methods:
             </p>
-            <ul className="mt-2 space-y-1 text-xs leading-relaxed text-muted-foreground/70">
-              <li>backend startup logs (journalctl / docker logs)</li> or{" "}
-              <li>
-                run <code className="rounded bg-muted px-1 py-0.5">./server token</code> from ~/better-paas/backend dir <br />
-              </li>
-            </ul>
+            <div className="mt-3 space-y-3 text-left text-xs leading-relaxed text-muted-foreground/70">
+              <div>
+                <span className="font-semibold text-foreground">For Standard Installation:</span>
+                <ul className="mt-1 ml-4 list-disc space-y-0.5">
+                  <li>Check backend startup logs or systemd service logs.</li>
+                  <li>Run <code className="rounded bg-muted px-1 py-0.5">./server token</code> inside your backend directory.</li>
+                </ul>
+              </div>
+              <div>
+                <span className="font-semibold text-foreground">For Docker Installation:</span>
+                <ul className="mt-1 ml-4 list-disc space-y-0.5">
+                  <li>Run <code className="rounded bg-muted px-1 py-0.5">docker logs better-paas</code></li>
+                  <li>Run <code className="rounded bg-muted px-1 py-0.5">docker exec -it better-paas /app/server token</code></li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>

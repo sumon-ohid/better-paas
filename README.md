@@ -95,7 +95,7 @@ docker compose up -d
 
 1.   **Get Admin Token**: On first boot, the Go backend generates a secure admin bearer token and writes it to a file.
      *   **Native / Script install**: The token is printed to your console and saved to `backend/data/admin_token.txt`.
-     *   **Docker install**: Print the token from container logs via `docker logs better-paas`, or read it from your host machine via `cat data/admin_token.txt`.
+     *   **Docker install**: Get it from container logs via `docker logs better-paas`, run the CLI command inside the container via `docker exec -it better-paas /app/server token`, or read it from your host machine via `cat data/admin_token.txt`.
 2.   **Access Dashboard**: Open the Next.js dashboard in your browser (typically `http://localhost:3000` or your server's IP address).
 3.   **Authenticate**: Paste the token into the sign-in screen. Every subsequent API and WebSocket request carries this token (`Authorization: Bearer <token>` or `?token=<token>`).
 

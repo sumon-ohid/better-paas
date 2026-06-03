@@ -85,7 +85,47 @@ bash install.sh
 
 ## Docker Compose installation (Recommended for Containers)
 
-If you prefer to run the entire control plane as a containerized stack, you can pull the official image and run it via Docker Compose:
+If you prefer to run the entire control plane as a containerized stack, you can run it via Docker Compose. 
+
+Create a `docker-compose.yml` file with the following contents:
+
+```yaml title="docker-compose.yml"
+version: '3.8'
+
+services:
+  better-paas:
+    image: ghcr.io/sumon-ohid/better-paas:latest
+    container_name: better-paas
+    # On macOS/Windows (Docker Desktop), use port mapping:
+    ports:
+      - "80:80"
+      - "443:443"
+      - "3000:3000"
+      - "8080:8080"
+      - "9000-9050:9000-9050" # Map a range for deployed user apps
+    # On Linux VPS (Production), uncomment network_mode below and comment out ports above:
+    # network_mode: host
+    volumes:
+      # Mount the host's Docker socket to manage containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount local data directory to persist the SQLite database, logs, and keys
+      - ./data:/app/data
+      # Mount builds directory to persist cloned git repositories across runs
+      - ./builds:/app/builds
+    environment:
+      - LISTEN_ADDR=:8080
+      - FRONTEND_PORT=3000
+      - TRUST_PROXY=true
+      # Override the generated admin token (optional)
+      # - ADMIN_TOKEN=your-custom-token
+      # Secret key for at-rest SQLite database encryption (optional)
+      # - BETTER_PAAS_SECRET_KEY=your-32-character-key
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+```
+
+Once the file is created, pull the image and start the stack:
 
 ```bash
 # Pull the latest image
@@ -95,7 +135,31 @@ docker pull ghcr.io/sumon-ohid/better-paas:latest
 docker compose up -d
 ```
 
-For this, you will need a `docker-compose.yml` file matching the one provided in the root of the repository, mounting `/var/run/docker.sock` and configuring data volume paths.
+### Alternative: Run with `docker run`
+
+If you prefer not to use Docker Compose, you can start the container directly using a single `docker run` command. Note that you must specify all port mappings, volume mounts, and environment variables:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/sumon-ohid/better-paas:latest
+
+# Start the container
+docker run -d \
+  --name better-paas \
+  --restart unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/builds:/app/builds \
+  -p 80:80 \
+  -p 443:443 \
+  -p 3000:3000 \
+  -p 8080:8080 \
+  -p 9000-9050:9000-9050 \
+  -e LISTEN_ADDR=:8080 \
+  -e FRONTEND_PORT=3000 \
+  -e TRUST_PROXY=true \
+  ghcr.io/sumon-ohid/better-paas:latest
+```
 
 ## Building manually (for developers)
 
@@ -129,9 +193,11 @@ When the installer finishes it prints a summary with two important things:
 2. **Your admin token** — the secret you'll use to log in.
 
 <Callout type="info">
-  Keep that admin token safe. It's the only credential protecting your
-  dashboard. You can reprint it any time with
-  `cd ~/better-paas/backend && ./server token`.
+  Keep that admin token safe. It's the only credential protecting your dashboard.
+  
+  **How to retrieve it again:**
+  - **Standard installation**: Run `cd ~/better-paas/backend && ./server token` on your server.
+  - **Docker installation**: Run `docker exec -it better-paas /app/server token` or check container logs with `docker logs better-paas`.
 </Callout>
 
 ### How it runs in the background
