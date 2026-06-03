@@ -1205,6 +1205,7 @@ function AppDetailPage() {
                   <EnvVarsCard
                     envVars={app.envVars}
                     secretKeys={app.secretKeys}
+                    onEdit={() => setTab("config")}
                   />
                 )}
 

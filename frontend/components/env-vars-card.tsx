@@ -13,6 +13,8 @@ interface EnvVarsCardProps {
   /** Keys whose values are managed secrets (redacted server-side). */
   secretKeys?: string[]
   className?: string
+  /** Callback triggered when clicking the edit button */
+  onEdit?: () => void
 }
 
 // A single env var row: monospace key on the left, masked value on the right
@@ -103,7 +105,7 @@ function EnvVarRow({
   )
 }
 
-export function EnvVarsCard({ envVars, secretKeys = [], className }: EnvVarsCardProps) {
+export function EnvVarsCard({ envVars, secretKeys = [], className, onEdit }: EnvVarsCardProps) {
   const [query, setQuery] = useState("")
   const [revealed, setRevealed] = useState<Record<string, boolean>>({})
   const [allRevealed, setAllRevealed] = useState(false)
@@ -165,6 +167,16 @@ export function EnvVarsCard({ envVars, secretKeys = [], className }: EnvVarsCard
                 className="h-7 w-32 pl-7 text-xs sm:w-40"
               />
             </div>
+          )}
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted/20 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground cursor-pointer"
+            >
+              <NucleoIcon name="edit" className="h-3 w-3" />
+              Edit
+            </button>
           )}
           {hasRevealable && (
             <button
