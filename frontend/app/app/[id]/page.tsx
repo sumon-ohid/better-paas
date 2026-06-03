@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectTrigger,
@@ -206,6 +207,50 @@ function AppDetailPage() {
   )
   const [isDetectingFramework, setIsDetectingFramework] = useState(false)
   const rootDirDetectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [envMode, setEnvMode] = useState<"list" | "raw">("list")
+  const [rawEnvText, setRawEnvText] = useState("")
+
+  const serializeEnvVars = (vars: { key: string; value: string }[]): string => {
+    return vars
+      .filter((v) => v.key.trim())
+      .map((v) => `${v.key}=${v.value}`)
+      .join("\n")
+  }
+
+  const parseEnvBlock = (text: string): Array<{ key: string; value: string }> => {
+    const result: Array<{ key: string; value: string }> = []
+    const seen = new Set<string>()
+
+    for (const rawLine of text.split(/\r?\n/)) {
+      let line = rawLine.trim()
+      if (!line || line.startsWith("#")) continue
+
+      // Strip "export " prefix
+      if (line.startsWith("export ")) {
+        line = line.slice(7).trim()
+      }
+
+      const eqIdx = line.indexOf("=")
+      if (eqIdx === -1) continue
+
+      const key = line.slice(0, eqIdx).trim()
+      let value = line.slice(eqIdx + 1).trim()
+
+      // Strip surrounding quotes
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1)
+      }
+
+      if (!key || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue
+      if (seen.has(key)) continue
+      seen.add(key)
+
+      result.push({ key, value })
+    }
+
+    return result
+  }
 
   // ── Folder browser ──────────────────────────────────────────────────────────
   const [showFolderBrowser, setShowFolderBrowser] = useState(false)
@@ -527,7 +572,9 @@ function AppDetailPage() {
     if (!app) return
     setIsSaving(true)
     const envVarsRecord: Record<string, string> = {}
-    envVars.forEach((item) => {
+
+    const activeVars = envMode === "raw" ? parseEnvBlock(rawEnvText) : envVars
+    activeVars.forEach((item) => {
       if (item.key.trim() && item.value.trim()) {
         envVarsRecord[item.key.trim()] = item.value.trim()
       }
@@ -557,6 +604,8 @@ function AppDetailPage() {
             }),
       })
       showToast("Settings Saved", "Application configuration updated.")
+      setEnvMode("list")
+      setRawEnvText("")
       fetchData()
     } catch (err) {
       showToast("Error", "Failed to save configuration.", "destructive")
@@ -1486,68 +1535,128 @@ function AppDetailPage() {
                 )}
 
                 <div className="space-y-3 border-t border-border pt-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
                     <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                       Environment Variables
                     </Label>
-                    <Button
-                      type="button"
-                      onClick={() =>
-                        setEnvVars((prev) => [...prev, { key: "", value: "" }])
-                      }
-                      className="flex h-6 cursor-pointer items-center gap-1 rounded border-0 bg-secondary px-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary/85"
-                    >
-                      <PlusIcon className="h-3 w-3 text-white dark:text-black" />
-                      <span className="text-white dark:text-black">
-                        Add Variables
-                      </span>
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {envVars.map((env, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Input
-                          value={env.key}
-                          onChange={(e) => {
-                            const updated = [...envVars]
-                            updated[index].key = e.target.value
-                              .toUpperCase()
-                              .replace(/[^A-Z0-9_]/g, "")
-                            setEnvVars(updated)
-                          }}
-                          placeholder="NAME"
-                          className="h-8 flex-1 font-mono text-xs"
-                        />
-                        <Input
-                          value={env.value}
-                          onChange={(e) => {
-                            const updated = [...envVars]
-                            updated[index].value = e.target.value
-                            setEnvVars(updated)
-                          }}
-                          placeholder="value"
-                          className="h-8 flex-1 font-mono text-xs"
-                        />
+                    <div className="flex items-center gap-2 justify-between sm:justify-end w-full sm:w-auto">
+                      {envMode === "list" && (
                         <Button
                           type="button"
                           onClick={() =>
-                            setEnvVars((prev) =>
-                              prev.filter((_, i) => i !== index)
-                            )
+                            setEnvVars((prev) => [...prev, { key: "", value: "" }])
                           }
-                          variant="ghost"
-                          className="h-7 w-7 shrink-0 border-0 p-0 text-rose-400 hover:bg-rose-500/10"
+                          className="flex h-7 cursor-pointer items-center gap-1 rounded border-0 bg-secondary px-2.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/85"
                         >
-                          <XIcon className="h-3.5 w-3.5" />
+                          <PlusIcon className="h-3 w-3 text-white dark:text-black" />
+                          <span className="text-white dark:text-black">
+                            Add Variables
+                          </span>
                         </Button>
+                      )}
+
+                      {/* List/Developer toggle group */}
+                      <div className="flex rounded-md border border-border p-0.5 bg-muted/20 h-7 items-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (envMode === "raw") {
+                              const parsed = parseEnvBlock(rawEnvText)
+                              setEnvVars(parsed.length > 0 ? parsed : [{ key: "", value: "" }])
+                            }
+                            setEnvMode("list")
+                          }}
+                          className={`h-full px-3.5 text-xs font-semibold rounded-md transition-colors cursor-pointer flex items-center justify-center ${
+                            envMode === "list"
+                              ? "bg-primary text-primary-foreground font-bold"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          List
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (envMode === "list") {
+                              setRawEnvText(serializeEnvVars(envVars))
+                            }
+                            setEnvMode("raw")
+                          }}
+                          className={`h-full px-3.5 text-xs font-semibold rounded-md transition-colors cursor-pointer flex items-center justify-center ${
+                            envMode === "raw"
+                              ? "bg-primary text-primary-foreground font-bold"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          Developer
+                        </button>
                       </div>
-                    ))}
+                    </div>
                   </div>
+
+                  {envMode === "raw" ? (
+                    <div className="space-y-2 animate-in fade-in-50">
+                      <Textarea
+                        value={rawEnvText}
+                        onChange={(e) => setRawEnvText(e.target.value)}
+                        placeholder={`KEY=value\nDATABASE_URL="postgres://..."\n# comments are ignored\nexport API_KEY=secret`}
+                        className="w-full h-48 rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 resize-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none"
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        Variables here are in standard `.env` format. Switching to List or saving will parse this text back to individual entries.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {envVars.map((env, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Input
+                            value={env.key}
+                            onChange={(e) => {
+                              const updated = [...envVars]
+                              updated[index].key = e.target.value
+                                .toUpperCase()
+                                .replace(/[^A-Z0-9_]/g, "")
+                              setEnvVars(updated)
+                            }}
+                            placeholder="NAME"
+                            className="h-8 w-[100px] sm:w-[150px] shrink-0 font-mono text-xs"
+                          />
+                          <Input
+                            value={env.value}
+                            onChange={(e) => {
+                              const updated = [...envVars]
+                              updated[index].value = e.target.value
+                              setEnvVars(updated)
+                            }}
+                            placeholder="value"
+                            className="h-8 flex-1 font-mono text-xs min-w-0"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() =>
+                              setEnvVars((prev) =>
+                                prev.filter((_, i) => i !== index)
+                              )
+                            }
+                            variant="ghost"
+                            className="h-7 w-7 shrink-0 border-0 p-0 text-rose-400 hover:bg-rose-500/10"
+                          >
+                            <XIcon className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 pt-2">
                   <Button
-                    onClick={() => setTab("overview")}
+                    onClick={() => {
+                      setTab("overview")
+                      setEnvMode("list")
+                      setRawEnvText("")
+                    }}
                     variant="outline"
                     className="h-8 border-border text-xs"
                   >
