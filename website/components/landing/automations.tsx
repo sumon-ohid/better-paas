@@ -65,33 +65,33 @@ export function AutomationsSection() {
       <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-4 pb-7 pt-16 sm:px-9 sm:py-8 md:grid-cols-1 md:gap-8 lg:grid-cols-[minmax(0,1.02fr)_minmax(270px,0.55fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
         <div className="relative order-2 w-full lg:order-1">
           <div 
-            className="relative flex min-h-[clamp(310px,45svh,360px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-6 shadow-none sm:min-h-[clamp(315px,54vh,510px)] sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
+            className="relative flex min-h-[220px] sm:min-h-[clamp(315px,54vh,510px)] w-full items-center justify-center overflow-hidden rounded-md px-3 py-4.5 shadow-none sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
             style={{
               background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
             }}
           >
             {/* Soft sky-blue/mystic-blue radial glow in the top-left */}
             <div 
-              className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-75 blur-[72px]"
+              className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-35 dark:opacity-75 blur-[72px]"
               style={{ background: '#eef1ff' }}
             />
             
             {/* Soft indigo/purple glow in the bottom-right */}
             <div 
-              className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-45 blur-[82px]"
+              className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-20 dark:opacity-45 blur-[82px]"
               style={{ background: '#2538d8' }}
             />
 
             {/* Radial highlight in center */}
             <div 
-              className="pointer-events-none absolute inset-0 opacity-35 mix-blend-soft-light"
+              className="pointer-events-none absolute inset-0 opacity-15 dark:opacity-35 mix-blend-soft-light"
               style={{
                 background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)',
               }}
             />
 
             {/* Task Automation Card */}
-            <div className="relative w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 px-4 py-4 shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-7 sm:py-6 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
+            <div className="relative w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 p-3 sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-7 sm:py-6 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
               {/* Up next Section */}
               <div className="space-y-1">
                 <h4 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">

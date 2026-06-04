@@ -46,7 +46,7 @@
 
 .dark {
   /* fumadocs tokens — dark mode, mapped 1:1 to the dashboard's dark palette. */
-  --color-fd-background: #102941;
+  --color-fd-background: #0c0d0e;
   --color-fd-foreground: #ededed;
   --color-fd-muted: rgba(255, 255, 255, 0.05);
   --color-fd-muted-foreground: rgba(255, 255, 255, 0.46);
@@ -364,53 +364,38 @@ html > body[data-scroll-locked] {
 .bp-feature-orb-tile {
   position: relative;
   overflow: hidden;
-  border-radius: 15px;
+  border-radius: 9px;
   isolation: isolate;
-  background:
-    linear-gradient(180deg, transparent 52%, color-mix(in oklab, var(--color-fd-primary) 22%, transparent)),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.13), transparent 38%),
-    linear-gradient(145deg, color-mix(in oklab, var(--color-fd-card) 94%, white 6%), color-mix(in oklab, var(--color-fd-card) 82%, black 18%));
+  background: linear-gradient(180deg, #ffffff 45%, color-mix(in oklab, var(--color-fd-primary) 7%, #ffffff) 100%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow:
-    inset 0 1px 0 color-mix(in oklab, white 22%, transparent),
-    inset 0 -1px 0 color-mix(in oklab, var(--color-fd-primary) 24%, transparent),
-    0 5px 12px rgba(20, 21, 31, 0.1);
-}
-
-.bp-feature-orb-tile::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  border-radius: inherit;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.14), transparent 34%),
-    linear-gradient(180deg, transparent 56%, color-mix(in oklab, var(--color-fd-primary) 30%, transparent)),
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.035), transparent);
-  opacity: 0.82;
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1.5px 0 rgba(0, 0, 0, 0.06),
+    0 1.5px 3px rgba(0, 0, 0, 0.03);
 }
 
 .bp-feature-orb-tile.is-active {
-  border-radius: 16px;
+  border-radius: 9px;
   box-shadow:
-    inset 0 1px 0 color-mix(in oklab, white 30%, transparent),
-    inset 0 -1px 0 color-mix(in oklab, var(--color-fd-primary) 45%, transparent),
-    0 6px 14px color-mix(in oklab, var(--color-fd-primary) 8%, transparent),
-    0 8px 18px rgba(20, 21, 31, 0.12);
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1.5px 0 rgba(0, 0, 0, 0.1),
+    0 1.5px 3.5px rgba(0, 0, 0, 0.06);
 }
 
 .dark .bp-feature-orb-tile {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.015) 100%), var(--color-fd-card);
+  border: 1px solid rgba(255, 255, 255, 0.055);
   box-shadow:
-    inset 0 1px 0 color-mix(in oklab, white 22%, transparent),
-    inset 0 -1px 0 color-mix(in oklab, var(--color-fd-primary) 24%, transparent),
-    0 10px 22px color-mix(in oklab, black 24%, transparent);
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1.5px 0 rgba(0, 0, 0, 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .dark .bp-feature-orb-tile.is-active {
   box-shadow:
-    inset 0 1px 0 color-mix(in oklab, white 30%, transparent),
-    inset 0 -1px 0 color-mix(in oklab, var(--color-fd-primary) 45%, transparent),
-    0 10px 20px color-mix(in oklab, var(--color-fd-primary) 14%, transparent),
-    0 12px 28px rgba(0, 0, 0, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1.5px 0 rgba(0, 0, 0, 0.5),
+    0 2.5px 5px color-mix(in oklab, var(--color-fd-primary) 22%, transparent);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────

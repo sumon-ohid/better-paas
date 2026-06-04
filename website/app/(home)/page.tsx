@@ -185,7 +185,7 @@ const stats = [
 
 function Stats() {
   return (
-    <section className="py-16 md:py-24 bg-fd-card/10">
+    <section className="py-16 md:py-24 bg-[#f7f8fb] dark:bg-fd-background dark:border-y dark:border-white/5">
       <div className="mx-auto max-w-6xl px-6">
         <div className="grid gap-8 divide-y divide-fd-border/50 *:pt-8 first:*:pt-0 md:grid-cols-4 md:gap-2 md:divide-x md:divide-y-0 md:divide-fd-border/50 *:md:pt-0 *:md:px-6">
           {stats.map((s, i) => (
@@ -208,123 +208,147 @@ function Bento() {
   return (
     <section className="bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
-      <div className="mb-10 max-w-[520px]">
-        <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">And the details</p>
-        <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
-          The parts that make it yours
-        </h2>
-        <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
-          Thoughtful defaults so the boring parts of running a platform just work.
-        </p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-6">
-        {/* Wide feature cell — live logs */}
-        <div className="md:col-span-4 bp-card relative overflow-hidden flex h-full flex-col justify-between gap-6 rounded-[0.85rem] p-6 md:flex-row md:items-center group">
-          <div className="max-w-sm relative z-10">
-            <IconTile>
-              <Terminal className="size-5" />
-            </IconTile>
-            <h3 className="mt-4 text-lg font-semibold text-fd-foreground">
-              Live logs & in-browser shell
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-fd-muted-foreground">
-              Stream container output in real time and drop into a terminal on any container,
-              straight from the dashboard.
-            </p>
-          </div>
-          <div className="w-full shrink-0 overflow-hidden rounded-xl bg-transparent p-3.5 font-mono text-[11px] leading-relaxed md:w-64 relative z-10 border border-fd-border/40">
-            <div className="text-slate-450 dark:text-slate-300">› Ready on :3000</div>
-            <div className="text-slate-450 dark:text-slate-300">GET /api/health 200 · 4ms</div>
-            <div className="text-[#3c9f7a] dark:text-[#93e0c0]">✔ deploy promoted</div>
-            <div className="text-slate-450 dark:text-slate-300">POST /checkout 201 · 38ms</div>
-            <div className="flex items-center gap-1.5 text-(--bp-success)">
-              <span className="size-1.5 rounded-full bg-(--bp-success) bp-pulse-dot" />
-              streaming
-            </div>
-          </div>
-          <BorderBeam
-            duration={12}
-            size={250}
-            colorFrom="var(--color-fd-primary)"
-            colorTo="transparent"
-            className="opacity-0 group-hover:opacity-30 transition-opacity"
-          />
+        <div className="mb-10 max-w-[520px]">
+          <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">And the details</p>
+          <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
+            The parts that make it yours
+          </h2>
+          <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
+            Thoughtful defaults so the boring parts of running a platform just work.
+          </p>
         </div>
 
-        {/* Tall-ish cell — resource limits */}
-        <div className="md:col-span-2 bp-card relative overflow-hidden flex h-full flex-col rounded-[0.85rem] p-6 group">
-          <div className="relative z-10">
-            <IconTile>
-              <Cpu className="size-5" />
-            </IconTile>
-            <h3 className="mt-4 text-lg font-semibold text-fd-foreground">Resource limits</h3>
-            <p className="mt-2 text-sm leading-relaxed text-fd-muted-foreground">
-              Cap memory and CPU per app, enforced by Docker so a noisy neighbor never starves
-              the host.
-            </p>
-          </div>
-          <div className="mt-auto space-y-2 pt-5 relative z-10">
-            {[
-              ['CPU', '38%', '38%'],
-              ['Memory', '512MB', '64%'],
-            ].map(([label, val, w]) => (
-              <div key={label}>
-                <div className="flex justify-between text-[11px] text-fd-muted-foreground">
-                  <span>{label}</span>
-                  <span className="font-mono">{val}</span>
+        <div 
+          className="relative flex w-full items-center justify-center overflow-hidden rounded-md px-3.5 py-4.5 shadow-none sm:px-9 sm:py-9 lg:px-9 lg:py-9"
+          style={{
+            background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
+          }}
+        >
+          {/* Soft sky-blue/mystic-blue radial glow in the top-left */}
+          <div 
+            className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-35 dark:opacity-75 blur-[72px]"
+            style={{ background: '#eef1ff' }}
+          />
+          
+          {/* Soft indigo/purple glow in the bottom-right */}
+          <div 
+            className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-20 dark:opacity-45 blur-[82px]"
+            style={{ background: '#2538d8' }}
+          />
+
+          {/* Radial highlight in center */}
+          <div 
+            className="pointer-events-none absolute inset-0 opacity-15 dark:opacity-35 mix-blend-soft-light"
+            style={{
+              background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)',
+            }}
+          />
+
+          {/* Bento Grid Parent Translucent Card */}
+          <div className="relative w-full rounded-[0.85rem] bg-[#f8fbff]/92 p-3 sm:p-7 xl:p-8 dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
+            <div className="grid gap-3.5 sm:gap-6 grid-cols-1 sm:grid-cols-6">
+              {/* Wide feature cell — live logs */}
+              <div className="sm:col-span-6 md:col-span-4 relative overflow-hidden flex h-full flex-col justify-between gap-4 rounded-[0.85rem] p-4.5 sm:p-6 md:flex-row md:items-center group bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]">
+                <div className="max-w-sm relative z-10">
+                  <Terminal className="size-4.5 sm:size-5.5 text-black dark:text-white" />
+                  <h3 className="mt-2 sm:mt-3 text-base sm:text-lg font-semibold text-[#121722] dark:text-[#f4f4f5]">
+                    Live logs & in-browser shell
+                  </h3>
+                  <p className="mt-1.5 text-[11.5px] sm:text-sm leading-relaxed text-[#394355] dark:text-[#929297]">
+                    Stream container output in real time and drop into a terminal on any container,
+                    straight from the dashboard.
+                  </p>
                 </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-fd-muted">
-                  <div className="h-full rounded-full bg-fd-primary" style={{ width: w }} />
+                <div className="w-full shrink-0 overflow-hidden rounded-xl bg-transparent p-2.5 sm:p-3.5 font-mono text-[10px] sm:text-[11px] leading-relaxed md:w-64 relative z-10 border border-[#121722]/10 dark:border-white/15">
+                  <div className="text-slate-450 dark:text-slate-300">› Ready on :3000</div>
+                  <div className="hidden sm:block text-slate-450 dark:text-slate-300">GET /api/health 200 · 4ms</div>
+                  <div className="text-[#3c9f7a] dark:text-[#93e0c0]">✔ deploy promoted</div>
+                  <div className="hidden sm:block text-slate-450 dark:text-slate-300">POST /checkout 201 · 38ms</div>
+                  <div className="flex items-center gap-1.5 text-[#3c9f7a] dark:text-[#5fe0a0]">
+                    <span className="size-1 sm:size-1.5 rounded-full bg-[#3c9f7a] dark:bg-[#5fe0a0] bp-pulse-dot" />
+                    streaming
+                  </div>
                 </div>
+                <BorderBeam
+                  duration={12}
+                  size={250}
+                  colorFrom="var(--color-fd-primary)"
+                  colorTo="transparent"
+                  className="opacity-0 group-hover:opacity-30 transition-opacity"
+                />
               </div>
-            ))}
-          </div>
-          <BorderBeam
-            duration={12}
-            size={180}
-            colorFrom="var(--color-fd-primary)"
-            colorTo="transparent"
-            className="opacity-0 group-hover:opacity-30 transition-opacity"
-          />
-        </div>
 
-        {/* Three even cells */}
-        {[
-          {
-            icon: HardDrive,
-            title: 'Persistent volumes',
-            desc: 'Declare volumes that survive redeploys, so stateful apps keep their data between builds.',
-          },
-          {
-            icon: Bell,
-            title: 'Deploy notifications',
-            desc: 'Slack or webhook pings on every success or failure. Know the moment something ships.',
-          },
-          {
-            icon: Boxes,
-            title: 'Framework detection',
-            desc: 'Nixpacks auto-detects Node, Python, Go, Ruby and more. No Dockerfile required.',
-          },
-        ].map((f, i) => (
-          <div key={f.title} className="md:col-span-2 bp-card relative overflow-hidden flex h-full flex-col rounded-[0.85rem] p-6 group">
-            <div className="relative z-10">
-              <IconTile>
-                <f.icon className="size-5" />
-              </IconTile>
-              <h3 className="mt-4 text-lg font-semibold text-fd-foreground">{f.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-fd-muted-foreground">{f.desc}</p>
+              {/* Tall-ish cell — resource limits */}
+              <div className="sm:col-span-3 md:col-span-2 relative overflow-hidden flex h-full flex-col rounded-[0.85rem] p-4.5 sm:p-6 group bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]">
+                <div className="relative z-10">
+                  <Cpu className="size-4.5 sm:size-5.5 text-black dark:text-white" />
+                  <h3 className="mt-2 sm:mt-3 text-base sm:text-lg font-semibold text-[#121722] dark:text-[#f4f4f5]">Resource limits</h3>
+                  <p className="mt-1.5 text-[11.5px] sm:text-sm leading-relaxed text-[#394355] dark:text-[#929297]">
+                    Cap memory and CPU per app, enforced by Docker so a noisy neighbor never starves
+                    the host.
+                  </p>
+                </div>
+                <div className="mt-auto space-y-2 pt-4 sm:pt-5 relative z-10">
+                  {[
+                    ['CPU', '38%', '38%'],
+                    ['Memory', '512MB', '64%'],
+                  ].map(([label, val, w]) => (
+                    <div key={label}>
+                      <div className="flex justify-between text-[10px] sm:text-[11px] text-[#394355] dark:text-[#929297]">
+                        <span>{label}</span>
+                        <span className="font-mono">{val}</span>
+                      </div>
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                        <div className="h-full rounded-full bg-fd-primary" style={{ width: w }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <BorderBeam
+                  duration={12}
+                  size={180}
+                  colorFrom="var(--color-fd-primary)"
+                  colorTo="transparent"
+                  className="opacity-0 group-hover:opacity-30 transition-opacity"
+                />
+              </div>
+
+              {/* Three even cells */}
+              {[
+                {
+                  icon: HardDrive,
+                  title: 'Persistent volumes',
+                  desc: 'Declare volumes that survive redeploys, so stateful apps keep their data between builds.',
+                },
+                {
+                  icon: Bell,
+                  title: 'Deploy notifications',
+                  desc: 'Slack or webhook pings on every success or failure. Know the moment something ships.',
+                },
+                {
+                  icon: Boxes,
+                  title: 'Framework detection',
+                  desc: 'Nixpacks auto-detects Node, Python, Go, Ruby and more. No Dockerfile required.',
+                },
+              ].map((f, i) => (
+                <div key={f.title} className="sm:col-span-3 md:col-span-2 relative overflow-hidden flex h-full flex-col rounded-[0.85rem] p-4.5 sm:p-6 group bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]">
+                  <div className="relative z-10">
+                    <f.icon className="size-4.5 sm:size-5.5 text-black dark:text-white" />
+                    <h3 className="mt-2 sm:mt-3 text-base sm:text-lg font-semibold text-[#121722] dark:text-[#f4f4f5]">{f.title}</h3>
+                    <p className="mt-1.5 text-[11.5px] sm:text-sm leading-relaxed text-[#394355] dark:text-[#929297]">{f.desc}</p>
+                  </div>
+                  <BorderBeam
+                    duration={12}
+                    size={150}
+                    colorFrom="var(--color-fd-primary)"
+                    colorTo="transparent"
+                    className="opacity-0 group-hover:opacity-30 transition-opacity"
+                  />
+                </div>
+              ))}
             </div>
-            <BorderBeam
-              duration={12}
-              size={150}
-              colorFrom="var(--color-fd-primary)"
-              colorTo="transparent"
-              className="opacity-0 group-hover:opacity-30 transition-opacity"
-            />
           </div>
-        ))}
-      </div>
+        </div>
       </div>
     </section>
   );
@@ -377,33 +401,33 @@ function HowItWorks() {
 
         <div className="relative order-2 w-full">
           <div 
-            className="relative flex min-h-[clamp(310px,45svh,360px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-6 shadow-none sm:min-h-[clamp(315px,54vh,510px)] sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
+            className="relative flex min-h-[220px] sm:min-h-[clamp(315px,54vh,510px)] w-full items-center justify-center overflow-hidden rounded-md px-3 py-4.5 shadow-none sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
             style={{
               background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
             }}
           >
             {/* Soft sky-blue/mystic-blue radial glow in the top-left */}
             <div 
-              className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-75 blur-[72px]"
+              className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-35 dark:opacity-75 blur-[72px]"
               style={{ background: '#eef1ff' }}
             />
             
             {/* Soft indigo/purple glow in the bottom-right */}
             <div 
-              className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-45 blur-[82px]"
+              className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-20 dark:opacity-45 blur-[82px]"
               style={{ background: '#2538d8' }}
             />
 
             {/* Radial highlight in center */}
             <div 
-              className="pointer-events-none absolute inset-0 opacity-35 mix-blend-soft-light"
+              className="pointer-events-none absolute inset-0 opacity-15 dark:opacity-35 mix-blend-soft-light"
               style={{
                 background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)',
               }}
             />
 
             {/* Timeline Flow Inside Card */}
-            <div className="relative w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 px-4 py-4 shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-6 sm:py-6 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
+            <div className="relative w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 p-3 sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-6 sm:py-6 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
               <div className="relative flex flex-col gap-4">
                 {/* Vertical timeline connector line */}
                 <div className="absolute left-[19px] top-6 bottom-6 w-0.5 bg-gradient-to-b from-fd-primary/35 via-fd-primary/10 to-transparent sm:left-[23px]" />
@@ -457,63 +481,63 @@ function Integrations() {
         <div className="grid items-center gap-16 sm:grid-cols-2">
           <div className="relative order-2 lg:order-1 w-full">
             <div 
-              className="relative flex min-h-[clamp(310px,45svh,360px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-6 shadow-none sm:min-h-[clamp(315px,54vh,510px)] sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
+              className="relative flex min-h-[220px] sm:min-h-[clamp(315px,54vh,510px)] w-full items-center justify-center overflow-hidden rounded-md px-3 py-4.5 shadow-none sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
               style={{
                 background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
               }}
             >
               {/* Soft sky-blue/mystic-blue radial glow in the top-left */}
               <div 
-                className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-75 blur-[72px]"
+                className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-35 dark:opacity-75 blur-[72px]"
                 style={{ background: '#eef1ff' }}
               />
               
               {/* Soft indigo/purple glow in the bottom-right */}
               <div 
-                className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-45 blur-[82px]"
+                className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-20 dark:opacity-45 blur-[82px]"
                 style={{ background: '#2538d8' }}
               />
 
               {/* Radial highlight in center */}
               <div 
-                className="pointer-events-none absolute inset-0 opacity-35 mix-blend-soft-light"
+                className="pointer-events-none absolute inset-0 opacity-15 dark:opacity-35 mix-blend-soft-light"
                 style={{
                   background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)',
                 }}
               />
 
               {/* Integration Tiles Inside Card */}
-              <div className="relative flex items-center justify-center w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 px-4 py-8 shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-7 sm:py-10 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
+              <div className="relative flex items-center justify-center w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 p-3 sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-7 sm:py-10 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
                 <div className="relative mx-auto w-fit">
-                  <div className="mx-auto mb-2 flex w-fit justify-center gap-2">
+                  <div className="mx-auto mb-1.5 sm:mb-2 flex w-fit justify-center gap-1.5 sm:gap-2">
                     <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
-                      <DockerLogo className="size-8" />
+                      <DockerLogo className="size-6.5 sm:size-8" />
                     </IntegrationCard>
                     <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
-                      <NixLogo className="size-8" />
+                      <NixLogo className="size-6.5 sm:size-8" />
                     </IntegrationCard>
                   </div>
-                  <div className="mx-auto my-2 flex w-fit justify-center gap-2">
+                  <div className="mx-auto my-1.5 sm:my-2 flex w-fit justify-center gap-1.5 sm:gap-2">
                     <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
-                      <CaddyLogo className="size-8" />
+                      <CaddyLogo className="size-6.5 sm:size-8" />
                     </IntegrationCard>
                     <IntegrationCard
                       borderClassName="shadow-fd-primary/10 shadow-xl border-fd-primary/30 dark:border-fd-primary/30"
                       className="bg-fd-primary/10 border border-fd-primary/20"
                     >
-                      <LogoMark className="size-8 text-fd-primary" />
+                      <LogoMark className="size-6.5 sm:size-8 text-fd-primary" />
                     </IntegrationCard>
                     <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
-                      <NextjsLogo className="size-8" />
+                      <NextjsLogo className="size-6.5 sm:size-8" />
                     </IntegrationCard>
                   </div>
 
-                  <div className="mx-auto flex w-fit justify-center gap-2">
+                  <div className="mx-auto flex w-fit justify-center gap-1.5 sm:gap-2">
                     <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
-                      <Database className="size-8 text-[#121722] dark:text-white" />
+                      <Database className="size-6.5 sm:size-8 text-[#121722] dark:text-white" />
                     </IntegrationCard>
                     <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
-                      <GitBranch className="size-8 text-[#121722] dark:text-white" />
+                      <GitBranch className="size-6.5 sm:size-8 text-[#121722] dark:text-white" />
                     </IntegrationCard>
                   </div>
                 </div>
@@ -544,7 +568,7 @@ function Integrations() {
 
 function IntegrationCard({ children, className, borderClassName }: { children: React.ReactNode; className?: string; borderClassName?: string }) {
   return (
-    <div className={cn('bg-fd-card relative flex size-20 rounded-[0.85rem] items-center justify-center border border-fd-border shadow-[0_16px_45px_-32px_rgba(23,44,92,0.45)]', className)}>
+    <div className={cn('bg-fd-card relative flex size-16 sm:size-20 rounded-[0.85rem] items-center justify-center border border-fd-border shadow-[0_16px_45px_-32px_rgba(23,44,92,0.45)]', className)}>
       <div
         role="presentation"
         className={cn('absolute inset-0 rounded-[0.85rem]', borderClassName)}
@@ -611,33 +635,33 @@ function Security() {
 
         <div className="relative order-2 w-full">
           <div 
-            className="relative flex min-h-[clamp(310px,45svh,360px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-6 shadow-none sm:min-h-[clamp(315px,54vh,510px)] sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
+            className="relative flex min-h-[220px] sm:min-h-[clamp(315px,54vh,510px)] w-full items-center justify-center overflow-hidden rounded-md px-3 py-4.5 shadow-none sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
             style={{
               background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
             }}
           >
             {/* Soft sky-blue/mystic-blue radial glow in the top-left */}
             <div 
-              className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-75 blur-[72px]"
+              className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-35 dark:opacity-75 blur-[72px]"
               style={{ background: '#eef1ff' }}
             />
             
             {/* Soft indigo/purple glow in the bottom-right */}
             <div 
-              className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-45 blur-[82px]"
+              className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-20 dark:opacity-45 blur-[82px]"
               style={{ background: '#2538d8' }}
             />
 
             {/* Radial highlight in center */}
             <div 
-              className="pointer-events-none absolute inset-0 opacity-35 mix-blend-soft-light"
+              className="pointer-events-none absolute inset-0 opacity-15 dark:opacity-35 mix-blend-soft-light"
               style={{
                 background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)',
               }}
             />
 
             {/* Security Points Inside Card */}
-            <div className="relative w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 px-4 py-4 shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-7 sm:py-6 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
+            <div className="relative w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 p-3 sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-7 sm:py-6 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
               <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
                 {securityPoints.map((p, i) => (
                   <div 
@@ -721,7 +745,7 @@ function Pricing() {
                   'No vendor lock-in',
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-2.5 text-sm text-fd-muted-foreground">
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
+                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full">
                       <Check className="size-3" />
                     </span>
                     {item}
@@ -780,15 +804,15 @@ function CallToAction() {
           }}
         >
           <div
-            className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-75 blur-[72px]"
+            className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-35 dark:opacity-75 blur-[72px]"
             style={{ background: '#eef1ff' }}
           />
           <div
-            className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-45 blur-[82px]"
+            className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-20 dark:opacity-45 blur-[82px]"
             style={{ background: '#2538d8' }}
           />
           <div
-            className="pointer-events-none absolute inset-0 opacity-35 mix-blend-soft-light"
+            className="pointer-events-none absolute inset-0 opacity-15 dark:opacity-35 mix-blend-soft-light"
             style={{ background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)' }}
           />
 
