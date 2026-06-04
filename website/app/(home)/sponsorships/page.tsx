@@ -160,7 +160,7 @@ export default function SponsorshipsPage() {
             </div>
 
             <p className="mt-6 text-center text-xs text-fd-muted-foreground">
-              You can get free exposure (170k+ unique visitors per month across our landing page, documentation, and GitHub repository) to your project or company.
+              Get visibility for your brand across our landing page, documentation, and GitHub repository as the project grows.
             </p>
           </div>
           <BorderBeam
