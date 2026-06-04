@@ -23,7 +23,7 @@ export default function robots(): MetadataRoute.Robots {
           'PerplexityBot',
           'cohere-ai',
         ],
-        allow: ['/', '/docs', '/llms.txt', '/llms-full.txt', '/llms.mdx/docs'],
+        allow: ['/', '/docs', '/llms.txt', '/llms-full.txt', '/llms-pages.txt', '/llms/seo', '/llms.mdx/docs'],
         disallow: ['/api/'],
       },
     ],
