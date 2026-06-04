@@ -572,6 +572,7 @@ func catalogTemplates() []CatalogTemplate {
 			HealthPath:  "/",
 			Website:     "https://pocketbase.io",
 			Icon:        "pocketbase",
+			Notes:       "The Admin UI is located at /_/. The root path (/) returns a 404 JSON response by default until you upload files into the public directory (pb_public). You can create your first admin account by visiting /_/ or by running 'pocketbase superuser upsert EMAIL PASS' in the container's terminal.",
 		},
 		{
 			ID:          "directus",
