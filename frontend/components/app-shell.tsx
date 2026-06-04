@@ -506,6 +506,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
           <SidebarHeader className="relative flex flex-row items-center justify-between overflow-hidden px-4 py-3">
             <div className="pointer-events-none absolute inset-0 bg-pixel-grid opacity-60 mask-fade-b" />
             <div className="relative flex items-center gap-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
                   src="/logo.svg"
                   alt="Better-PaaS Logo"

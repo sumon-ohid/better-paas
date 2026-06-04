@@ -167,13 +167,11 @@ export default function AddonsPage() {
       : (servers.find((server) => server.id === targetServer)?.name ??
         "Remote server")
 
-  useEffect(() => {
-    if (activeServerId === "all" || activeServerId === "localhost") {
-      setTargetServer("localhost")
-    } else {
-      setTargetServer(activeServerId)
-    }
-  }, [activeServerId])
+  const [prevActiveServerId, setPrevActiveServerId] = useState(activeServerId)
+  if (activeServerId !== prevActiveServerId) {
+    setPrevActiveServerId(activeServerId)
+    setTargetServer(activeServerId === "all" || activeServerId === "localhost" ? "localhost" : activeServerId)
+  }
 
   // Attach dialog state
   const [attachAddon, setAttachAddon] = useState<Addon | null>(null)

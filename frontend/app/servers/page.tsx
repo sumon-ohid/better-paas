@@ -879,7 +879,7 @@ export function AddServerWizard({
                 className="flex-1"
                 id="key-added-btn"
               >
-                I've added the key
+                I&apos;ve added the key
                 <ArrowRightIcon className="ml-1.5 h-3.5 w-3.5" />
               </Button>
             </>
@@ -1110,6 +1110,7 @@ function PublicKeyModal({
 
   useEffect(() => {
     if (!open || !serverId) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     api.servers
       .publicKey(serverId)
@@ -1256,6 +1257,7 @@ export default function ServersPage() {
   }, [showToast])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchServers()
   }, [fetchServers])
 

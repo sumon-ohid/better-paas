@@ -164,6 +164,7 @@ function LogsPage() {
         const appServerId = app.serverId || "localhost"
         const targetServerId = activeServerId === "all" ? "all" : (activeServerId === "localhost" ? "localhost" : activeServerId)
         if (targetServerId !== "all" && appServerId !== targetServerId) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setSelectedAppId("")
           const url = new URL(window.location.href)
           url.searchParams.delete("appId")

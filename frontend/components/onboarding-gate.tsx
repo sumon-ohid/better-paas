@@ -44,7 +44,6 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const [ghConnected, setGhConnected] = useState(false)
   const [ghModalOpen, setGhModalOpen] = useState(false)
   const [finishing, setFinishing] = useState(false)
-  const [servers, setServers] = useState<Server[]>([])
 
   // Decide whether to show onboarding. If the call fails (e.g. older backend
   // without the endpoint), fail open: skip onboarding rather than block.
@@ -60,11 +59,6 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
       api.git
         .tokenStatus()
         .then((s) => setGhConnected(s.connected))
-        .catch(() => {})
-      // Pre-load servers list for the server step.
-      api.servers
-        .list()
-        .then((list) => setServers(list))
         .catch(() => {})
       setPhase("active")
     } catch {
@@ -145,7 +139,6 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
             <div className="mt-8">
               {step === "server" && (
                 <ChooseServerStep
-                  servers={servers}
                   onContinue={() => setStep("github")}
                   onSkip={() => setStep("github")}
                 />
@@ -438,11 +431,9 @@ function CompleteStep({ onFinish, busy }: { onFinish: () => void; busy: boolean 
 }
 
 function ChooseServerStep({
-  servers,
   onContinue,
   onSkip,
 }: {
-  servers: Server[]
   onContinue: () => void
   onSkip: () => void
 }) {

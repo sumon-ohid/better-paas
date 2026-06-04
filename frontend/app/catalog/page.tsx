@@ -195,6 +195,7 @@ export default function CatalogPage() {
       }, 3000)
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load().then((data) => {
       if (!cancelled) startPolling(data)
     })
