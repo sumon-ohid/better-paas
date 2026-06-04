@@ -30,7 +30,7 @@ const footerNav: { heading: string; links: { label: string; href: string; extern
     ],
   },
   {
-    heading: 'SEO Resources',
+    heading: 'Resources',
     links: [
       { label: 'Alternatives', href: '/alternatives' },
       { label: 'Comparisons', href: '/compare' },
@@ -64,20 +64,13 @@ const footerNav: { heading: string; links: { label: string; href: string; extern
       { label: 'Issues', href: `${githubUrl}/issues`, external: true },
     ],
   },
-  {
-    heading: 'Legal',
-    links: [
-      { label: 'Privacy Policy', href: '/privacy' },
-      { label: 'Terms of Service', href: '/terms' },
-    ],
-  },
 ];
 
 function Footer() {
   return (
     <footer className="border-t border-fd-border bg-fd-card/30">
       <div className="mx-auto max-w-6xl px-6 py-16">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_repeat(5,1fr)]">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr]">
           <div className="flex flex-col gap-4">
             <Logo />
             <p className="max-w-xs text-sm leading-relaxed text-fd-muted-foreground">
@@ -126,10 +119,27 @@ function Footer() {
           ))}
         </div>
 
-        <div className="mt-14 flex flex-col items-center justify-center gap-3 pt-6 text-xs text-fd-muted-foreground sm:flex-row">
+        <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-fd-border/30 pt-6 text-xs text-fd-muted-foreground sm:flex-row">
           <span>
-            © {new Date().getFullYear()} {appName}. Released under an open source license.
+            © {new Date().getFullYear()} {appName}. Released under the{' '}
+            <a
+              href={`${githubUrl}/blob/main/LICENSE`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-fd-foreground"
+            >
+              GNU AGPLv3 License
+            </a>
+            .
           </span>
+          <div className="flex gap-4">
+            <Link href="/privacy" className="hover:text-fd-foreground transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-fd-foreground transition-colors">
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
