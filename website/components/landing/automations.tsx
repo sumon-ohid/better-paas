@@ -60,8 +60,8 @@ function TaskRow({ title, agent, badge, status, type }: TaskItemProps) {
 
 export function AutomationsSection() {
   return (
-    <section className="relative overflow-hidden border-t border-fd-border bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
-      <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-10 pb-7 pt-16 sm:px-9 sm:py-8 md:grid-cols-1 md:gap-8 lg:grid-cols-[minmax(0,1.02fr)_minmax(270px,0.55fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
+    <section className="relative overflow-hidden bg-[#f7f8fb] py-10 dark:bg-fd-background">
+      <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-4 pb-7 pt-16 sm:px-9 sm:py-8 md:grid-cols-1 md:gap-8 lg:grid-cols-[minmax(0,1.02fr)_minmax(270px,0.55fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
         <div className="relative order-2 w-full lg:order-1">
           <div 
             className="relative flex min-h-[clamp(310px,45svh,360px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-6 shadow-none sm:min-h-[clamp(315px,54vh,510px)] sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"

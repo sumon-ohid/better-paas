@@ -91,7 +91,7 @@ export function SiteHeader() {
           : 'border-b border-transparent bg-fd-background'
       }`}
     >
-      <div className="mx-auto flex h-[4.5rem] max-w-6xl items-center gap-4 px-6">
+      <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center gap-4 px-4 md:px-12">
         {/* Brand */}
         <Link
           href="/"
@@ -155,7 +155,7 @@ export function SiteHeader() {
             href="/docs/quickstart"
             className="hidden h-9 items-center gap-1.5 rounded-full bg-fd-foreground px-4 text-sm font-semibold text-fd-background transition-opacity hover:opacity-90 sm:inline-flex"
           >
-            Get started
+            Read Docs
             <ArrowRight className="size-4" />
           </Link>
 

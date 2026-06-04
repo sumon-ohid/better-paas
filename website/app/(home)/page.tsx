@@ -19,7 +19,7 @@ import { ProductDemo } from '@/components/landing/product-demo';
 import { FeatureShowcase } from '@/components/landing/feature-showcase';
 import { TechMarquee } from '@/components/landing/tech-marquee';
 import { InstallLine } from '@/components/landing/install-line';
-import { Eyebrow, IconTile } from '@/components/landing/primitives';
+import { IconTile } from '@/components/landing/primitives';
 import { GithubIcon } from '@/components/landing/github-icon';
 import { DockerLogo, NixLogo, CaddyLogo, NextjsLogo } from '@/components/landing/brand-logos';
 import { TextEffect } from '@/components/tailark/text-effect';
@@ -36,7 +36,7 @@ export default function HomePage() {
       <Showcase />
       <Stats />
       <Bento />
-      {/* <AutomationsSection /> */}
+      <AutomationsSection />
       <HowItWorks />
       <Integrations />
       <Security />
@@ -51,14 +51,14 @@ export default function HomePage() {
 function Hero() {
   return (
     <section className="bp-hero-stage relative overflow-hidden">
-      <div className="relative mx-auto max-w-6xl px-6 pt-28 pb-8 sm:pt-36">
+      <div className="relative mx-auto max-w-6xl px-4 pt-28 pb-8 sm:pt-36">
         <div className="relative z-10 grid items-end gap-8 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="max-w-4xl text-left">
             <TextEffect
               preset="fade-in-blur"
               speedSegment={0.5}
               as="h1"
-              className="bp-display max-w-4xl text-[3rem] font-normal text-fd-foreground sm:text-[3.25rem] md:text-[4rem]"
+              className="bp-display max-w-4xl text-[2rem] font-normal text-fd-foreground sm:text-[3.25rem] md:text-[4rem]"
             >
               The self-hosted platform for apps, databases, and agents
             </TextEffect>
@@ -136,7 +136,7 @@ function Hero() {
 
 function TechStrip() {
   return (
-    <section className="bg-transparent border-t border-fd-border/30">
+    <section className="bg-transparent py-10">
       <div className="mx-auto max-w-6xl px-6 py-12">
         <p className="text-center text-xs font-medium uppercase tracking-[0.16em] text-fd-muted-foreground/70">
           Built on the tools you already trust
@@ -153,8 +153,8 @@ function TechStrip() {
 
 function Showcase() {
   return (
-    <section id="platform" className="relative overflow-hidden border-t border-fd-border bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
-      <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-10 pb-7 pt-16 sm:px-9 sm:py-8 md:grid-cols-1 md:gap-8 lg:grid-cols-[minmax(270px,0.55fr)_minmax(0,1.02fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
+    <section id="platform" className="relative py-10 overflow-hidden  bg-[#f7f8fb] dark:bg-fd-background">
+      <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-4 pb-7 pt-16 sm:px-6 sm:py-8 md:grid-cols-1 md:gap-8 lg:grid-cols-[minmax(270px,0.55fr)_minmax(0,1.02fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
         <div className="order-1 max-w-[443px] lg:pl-1.5">
           <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">
             The platform
@@ -208,20 +208,21 @@ function Stats() {
 
 function Bento() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
-      <div className="mx-auto max-w-2xl text-center mb-16">
-        <Eyebrow className="justify-center">And the details</Eyebrow>
-        <h2 className="bp-display mt-4 text-3xl font-semibold text-fd-foreground sm:text-[2.75rem]">
+    <section className="bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+      <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
+      <div className="mb-10 max-w-[520px]">
+        <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">And the details</p>
+        <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
           The parts that make it yours
         </h2>
-        <p className="mt-4 text-lg leading-relaxed text-fd-muted-foreground">
+        <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
           Thoughtful defaults so the boring parts of running a platform just work.
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-6">
         {/* Wide feature cell — live logs */}
-        <div className="md:col-span-4 bp-card relative overflow-hidden flex h-full flex-col justify-between gap-6 rounded-3xl p-7 md:flex-row md:items-center group">
+        <div className="md:col-span-4 bp-card relative overflow-hidden flex h-full flex-col justify-between gap-6 rounded-[0.85rem] p-6 md:flex-row md:items-center group">
           <div className="max-w-sm relative z-10">
             <IconTile>
               <Terminal className="size-5" />
@@ -254,7 +255,7 @@ function Bento() {
         </div>
 
         {/* Tall-ish cell — resource limits */}
-        <div className="md:col-span-2 bp-card relative overflow-hidden flex h-full flex-col rounded-3xl p-7 group">
+        <div className="md:col-span-2 bp-card relative overflow-hidden flex h-full flex-col rounded-[0.85rem] p-6 group">
           <div className="relative z-10">
             <IconTile>
               <Cpu className="size-5" />
@@ -308,7 +309,7 @@ function Bento() {
             desc: 'Nixpacks auto-detects Node, Python, Go, Ruby and more. No Dockerfile required.',
           },
         ].map((f, i) => (
-          <div key={f.title} className="md:col-span-2 bp-card relative overflow-hidden flex h-full flex-col rounded-3xl p-7 group">
+          <div key={f.title} className="md:col-span-2 bp-card relative overflow-hidden flex h-full flex-col rounded-[0.85rem] p-6 group">
             <div className="relative z-10">
               <IconTile>
                 <f.icon className="size-5" />
@@ -325,6 +326,7 @@ function Bento() {
             />
           </div>
         ))}
+      </div>
       </div>
     </section>
   );
@@ -352,15 +354,15 @@ const steps = [
 
 function HowItWorks() {
   return (
-    <section className="bg-fd-card/10">
-      <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+    <section className="py-10 bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+      <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
         <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
           <div className="lg:sticky lg:top-24 lg:self-start">
-            <Eyebrow>How it works</Eyebrow>
-            <h2 className="bp-display mt-4 text-3xl font-semibold text-fd-foreground sm:text-[2.75rem]">
+            <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">How it works</p>
+            <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
               From zero to deployed in minutes
             </h2>
-            <p className="mt-4 text-lg leading-relaxed text-fd-muted-foreground">
+            <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
               Three steps, no prior DevOps experience required.
             </p>
             <Link
@@ -374,13 +376,13 @@ function HowItWorks() {
 
           <div className="flex flex-col gap-6">
             {steps.map((s, i) => (
-              <div key={s.n} className="bp-card relative overflow-hidden flex gap-5 rounded-2xl p-6 group">
-                <span className="bp-display shrink-0 font-mono text-2xl font-semibold text-fd-primary/40">
+              <div key={s.n} className="bp-card relative overflow-hidden flex gap-5 rounded-[0.85rem] p-6 group">
+                <span className="shrink-0 font-mono text-[0.8rem] font-medium text-fd-primary/70">
                   {s.n}
                 </span>
                 <div className="relative z-10">
-                  <h3 className="text-lg font-semibold text-fd-foreground">{s.title}</h3>
-                  <p className="mt-2 leading-relaxed text-fd-muted-foreground text-sm">{s.desc}</p>
+                  <h3 className="text-[1rem] font-medium tracking-[-0.01em] text-fd-foreground">{s.title}</h3>
+                  <p className="mt-2 text-sm font-light leading-relaxed text-fd-muted-foreground">{s.desc}</p>
                 </div>
                 <BorderBeam
                   duration={8}
@@ -402,8 +404,8 @@ function HowItWorks() {
 
 function Integrations() {
   return (
-    <section className="bg-fd-card/10">
-      <div className="mx-auto max-w-6xl px-6 py-24 md:py-32">
+    <section className=" bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+      <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 md:py-20 xl:px-12">
         <div className="grid items-center gap-16 sm:grid-cols-2">
           <div className="relative mx-auto w-fit">
             <div
@@ -443,11 +445,11 @@ function Integrations() {
             </div>
           </div>
           <div className="mx-auto mt-6 max-w-lg space-y-6 text-center sm:mt-0 sm:text-left">
-            <Eyebrow>Integrations</Eyebrow>
-            <h2 className="bp-display text-3xl font-semibold md:text-4xl">
+            <p className="text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">Integrations</p>
+            <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
               Works with your existing stack
             </h2>
-            <p className="text-fd-muted-foreground leading-relaxed">
+            <p className="font-light leading-relaxed text-[#394355] dark:text-[#dfdfe2]">
               Better-PaaS builds your code with Nixpacks, runs it via Docker, and manages certificates and routing automatically with Caddy. No lock-in, just open standards.
             </p>
             <Link
@@ -466,10 +468,10 @@ function Integrations() {
 
 function IntegrationCard({ children, className, borderClassName }: { children: React.ReactNode; className?: string; borderClassName?: string }) {
   return (
-    <div className={cn('bg-fd-card relative flex size-20 rounded-xl items-center justify-center border border-fd-border', className)}>
+    <div className={cn('bg-fd-card relative flex size-20 rounded-[0.85rem] items-center justify-center border border-fd-border shadow-[0_16px_45px_-32px_rgba(23,44,92,0.45)]', className)}>
       <div
         role="presentation"
-        className={cn('absolute inset-0 rounded-xl', borderClassName)}
+        className={cn('absolute inset-0 rounded-[0.85rem]', borderClassName)}
       />
       <div className="relative z-20 m-auto flex items-center justify-center">{children}</div>
     </div>
@@ -503,16 +505,17 @@ const securityPoints = [
 
 function Security() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+    <section className="bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+      <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
       <div className="grid items-center gap-14 lg:grid-cols-2">
         <div>
-          <Eyebrow>Security</Eyebrow>
-          <h2 className="bp-display mt-4 text-3xl font-semibold text-fd-foreground sm:text-[2.75rem]">
+          <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">Security</p>
+          <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
             Secure by default,
             <br />
             not by configuration
           </h2>
-          <p className="mt-5 text-lg leading-relaxed text-fd-muted-foreground">
+          <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
             Your server, your data, your keys. {appName} is built so the safe path is the default
             path — you don’t have to be a security expert to run it well.
           </p>
@@ -532,7 +535,7 @@ function Security() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           {securityPoints.map((p, i) => (
-            <div key={p.title} className="bp-card h-full rounded-2xl p-6 relative overflow-hidden group hover:border-fd-primary/50 transition-colors">
+            <div key={p.title} className="bp-card h-full rounded-[0.85rem] p-6 relative overflow-hidden group hover:border-fd-primary/50 transition-colors">
               <IconTile size="sm">
                 <p.icon className="size-4" />
               </IconTile>
@@ -549,6 +552,7 @@ function Security() {
           ))}
         </div>
       </div>
+      </div>
     </section>
   );
 }
@@ -557,21 +561,21 @@ function Security() {
 
 function Pricing() {
   return (
-    <section id="pricing" className="bg-fd-card/10">
-      <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
-        <div className="mx-auto max-w-2xl text-center">
-          <Eyebrow className="justify-center">Pricing</Eyebrow>
-          <h2 className="bp-display mt-4 text-3xl font-semibold text-fd-foreground sm:text-[2.75rem]">
+    <section id="pricing" className="bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+      <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
+        <div className="max-w-[560px]">
+          <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">Pricing</p>
+          <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
             Free to self-host
           </h2>
-          <p className="mt-4 text-lg leading-relaxed text-fd-muted-foreground">
+          <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
             Run {appName} on your own servers for free. A managed control plane is coming soon
             for teams who want us to operate {appName} while they keep control of their servers.
           </p>
         </div>
 
         <div className="mt-14 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="bp-card group relative overflow-hidden rounded-3xl p-7 sm:p-8">
+          <div className="bp-card group relative overflow-hidden rounded-[0.85rem] p-7 sm:p-8">
             <div className="relative z-10 flex h-full flex-col">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -621,7 +625,7 @@ function Pricing() {
             />
           </div>
 
-          <div className="bp-card relative overflow-hidden rounded-3xl p-7 sm:p-8">
+          <div className="bp-card relative overflow-hidden rounded-[0.85rem] p-7 sm:p-8">
             <div className="relative z-10 flex h-full flex-col justify-between gap-10">
               <div>
                 <span className="inline-flex rounded-full border border-fd-border px-3 py-1 text-xs font-medium text-fd-muted-foreground">
@@ -654,44 +658,60 @@ function Pricing() {
 
 function CallToAction() {
   return (
-    <section className="border-none">
-      <div className="mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="bp-card relative overflow-hidden rounded-3xl px-6 py-20 text-center sm:px-12 group">
-          <div className="relative flex flex-col items-center z-10">
-            <LogoMark className="size-12 text-fd-primary animate-pulse" />
-            <h2 className="bp-display mt-7 max-w-2xl text-3xl font-semibold text-fd-foreground sm:text-5xl">
-              Own your deployment pipeline
-            </h2>
-            <p className="bp-balance mt-5 max-w-xl text-lg leading-relaxed text-fd-muted-foreground">
-              Spin up {appName} on a $5 VPS and deploy as many apps as your server can hold.
-              Free, open source, yours forever.
-            </p>
-            <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row">
-              <Link
-                href="/docs"
-                className="bp-primary inline-flex h-11 items-center gap-2 rounded-lg px-6 text-sm font-medium"
-              >
-                Read the docs
-                <ArrowRight className="size-4" />
-              </Link>
-              <a
-                href={githubUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bp-surface inline-flex h-11 items-center gap-2 rounded-lg px-5 text-sm font-medium text-fd-foreground"
-              >
-                <GithubIcon className="size-4" />
-                Star on GitHub
-              </a>
+    <section className="bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+      <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 md:py-20 xl:px-12">
+        <div
+          className="relative flex min-h-[clamp(360px,52svh,520px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-8 shadow-none sm:px-9 sm:py-12"
+          style={{
+            background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
+          }}
+        >
+          <div
+            className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-75 blur-[72px]"
+            style={{ background: '#eef1ff' }}
+          />
+          <div
+            className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-45 blur-[82px]"
+            style={{ background: '#2538d8' }}
+          />
+          <div
+            className="pointer-events-none absolute inset-0 opacity-35 mix-blend-soft-light"
+            style={{ background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)' }}
+          />
+
+          <div className="relative w-full max-w-[720px] overflow-hidden rounded-[0.85rem] bg-[#f8fbff]/92 px-4 py-10 text-center shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:px-10 sm:py-12 dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
+            <div className="relative flex flex-col items-center z-10">
+              <LogoMark className="size-10 text-fd-primary" />
+              <p className="mt-6 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">
+                Start shipping
+              </p>
+              <h2 className="bp-display mt-3 max-w-2xl text-[clamp(2rem,7.8vw,2.8rem)] font-normal leading-[1.08] tracking-[-0.035em] text-[#121722] dark:text-[#f4f4f5]">
+                Own your deployment pipeline
+              </h2>
+              <p className="bp-balance mt-5 max-w-xl text-[clamp(0.92rem,3.2vw,1.1rem)] font-light leading-[1.5] tracking-[-0.006em] text-[#394355] dark:text-[#dfdfe2]">
+                Spin up {appName} on a $5 VPS and deploy as many apps as your server can hold.
+                Free, open source, yours forever.
+              </p>
+              <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
+                <Link
+                  href="/docs"
+                  className="inline-flex h-11 items-center gap-2 rounded-full bg-[#121722] px-6 text-sm font-medium text-white transition-colors hover:bg-[#26364d] dark:bg-[#f4f4f5] dark:text-[#080809] dark:hover:bg-white"
+                >
+                  Read the docs
+                  <ArrowRight className="size-4" />
+                </Link>
+                <a
+                  href={githubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-11 items-center gap-2 rounded-full border border-fd-border bg-fd-card/70 px-5 text-sm font-medium text-fd-foreground transition-colors hover:bg-fd-card dark:bg-white/[0.055] dark:hover:bg-white/[0.09]"
+                >
+                  <GithubIcon className="size-4" />
+                  Star on GitHub
+                </a>
+              </div>
             </div>
           </div>
-          <BorderBeam
-            duration={10}
-            size={350}
-            colorFrom="var(--color-fd-primary)"
-            colorTo="var(--color-fd-ring)"
-            className="opacity-60"
-          />
         </div>
       </div>
     </section>

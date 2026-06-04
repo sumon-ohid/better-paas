@@ -69,7 +69,7 @@ const footerNav: { heading: string; links: { label: string; href: string; extern
 function Footer() {
   return (
     <footer className="border-t border-fd-border bg-fd-card/30">
-      <div className="mx-auto max-w-6xl px-6 py-16">
+      <div className="mx-auto max-w-7xl px-4 md:px-12 py-16">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr]">
           <div className="flex flex-col gap-4">
             <Logo />
