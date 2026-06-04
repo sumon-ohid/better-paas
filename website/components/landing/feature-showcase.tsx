@@ -11,7 +11,6 @@ import {
   GitCommit,
   Check,
 } from 'lucide-react';
-import { StatusDot, StatusBadge, RepoPill } from './primitives';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/cn';
 
@@ -58,8 +57,55 @@ const TABS: { id: TabId; icon: typeof GitBranch; title: string; desc: string }[]
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bp-card flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-fd-card p-5 select-none">
+    <div className="bp-card flex h-full min-h-0 pb-6 flex-col overflow-hidden rounded-2xl bg-fd-card p-4 select-none">
       {children}
+    </div>
+  );
+}
+
+function DemoHeader({
+  title,
+  badge,
+  badgeTone = 'neutral',
+}: {
+  title: string;
+  badge?: string;
+  badgeTone?: 'neutral' | 'success' | 'warning';
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="truncate text-sm font-semibold tracking-[-0.01em] text-fd-foreground">
+        {title}
+      </span>
+      {badge && (
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-medium leading-none",
+            badgeTone === 'success'
+              ? "bg-[color-mix(in_oklab,var(--bp-success)_16%,transparent)] text-(--bp-success)"
+              : badgeTone === 'warning'
+                ? "bg-[color-mix(in_oklab,var(--bp-warning)_16%,transparent)] text-(--bp-warning)"
+                : "bg-fd-muted/55 text-fd-muted-foreground"
+          )}
+        >
+          {badgeTone === 'success' && <span className="size-1.5 rounded-full bg-(--bp-success) bp-pulse-dot" />}
+          {badge}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function DemoFooter({ icon, label, value }: { icon?: React.ReactNode; label: string; value?: string }) {
+  return (
+    <div className="mt-auto grid mb-6 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 rounded-[0.85rem] bg-fd-muted/35 px-3 py-2 text-[10px] leading-snug text-fd-muted-foreground">
+      <span className="flex size-3.5 items-center justify-center text-(--bp-accent-2)">
+        {icon}
+      </span>
+      <span className="truncate">
+        {label}
+        {value && <span className="font-medium text-fd-foreground"> {value}</span>}
+      </span>
     </div>
   );
 }
@@ -70,39 +116,41 @@ function DeployDemo() {
     ['Detecting framework (Nixpacks)', 'done'],
     ['Building image', 'active'],
     ['Health check', 'pending'],
-    ['Switch traffic', 'pending'],
   ];
   return (
     <Frame>
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2 text-sm font-semibold text-fd-foreground">
-          <StatusDot status="building" />
-          api-gateway
-        </span>
-        <StatusBadge status="building" />
-      </div>
-      <div className="mt-5 flex-1 flex flex-col justify-center space-y-3.5 font-mono text-xs my-4">
+      <DemoHeader title="Git deploy pipeline" badge="Building" badgeTone="warning" />
+      <div className="my-4 flex min-h-0 flex-1 flex-col justify-center gap-2">
         {rows.map(([label, state]) => (
-          <div key={label} className="flex items-center gap-2.5">
-            {state === 'done' ? (
-              <span className="flex size-4 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--bp-success)_18%,transparent)] text-(--bp-success)">
-                <Check className="size-2.5" />
-              </span>
-            ) : state === 'active' ? (
-              <span className="size-4 animate-spin rounded-full border-2 border-(--bp-warning) border-t-transparent" />
-            ) : (
-              <span className="size-4 rounded-full border border-fd-border" />
-            )}
-            <span className={state === 'pending' ? 'text-fd-muted-foreground/60' : 'text-fd-foreground'}>
+          <div
+            key={label}
+            className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2.5 rounded-[0.85rem] border border-fd-border bg-fd-muted/20 px-3 py-2"
+          >
+            <span
+              className={cn(
+                "flex size-5 items-center justify-center rounded-full border",
+                state === 'done'
+                  ? "border-[color-mix(in_oklab,var(--bp-success)_28%,transparent)] bg-[color-mix(in_oklab,var(--bp-success)_16%,transparent)] text-(--bp-success)"
+                  : state === 'active'
+                    ? "border-[color-mix(in_oklab,var(--bp-warning)_38%,transparent)] bg-[color-mix(in_oklab,var(--bp-warning)_13%,transparent)]"
+                    : "border-fd-border bg-fd-card text-fd-muted-foreground"
+              )}
+            >
+              {state === 'done' ? (
+                <Check className="size-3" />
+              ) : state === 'active' ? (
+                <span className="size-2.5 animate-spin rounded-full border-2 border-(--bp-warning) border-t-transparent" />
+              ) : (
+                <span className="size-1.5 rounded-full bg-current opacity-50" />
+              )}
+            </span>
+            <span className={cn("truncate text-[11px] font-medium", state === 'pending' ? 'text-fd-muted-foreground/65' : 'text-fd-foreground')}>
               {label}
             </span>
           </div>
         ))}
       </div>
-      <div className="mt-auto flex items-center gap-1.5 border-t border-fd-border/60 pt-3 text-xs text-fd-muted-foreground">
-        <GitCommit className="size-3.5 opacity-60" />
-        <span className="truncate font-mono">a1b9f2c · feat: add rate limiting</span>
-      </div>
+      <DemoFooter icon={<GitCommit className="size-3.5" />} label="latest commit" value="a1b9f2c · feat: add rate limiting" />
     </Frame>
   );
 }
@@ -115,33 +163,33 @@ function HttpsDemo() {
   ];
   return (
     <Frame>
-      <span className="text-sm font-semibold text-fd-foreground">Custom domains</span>
-      <div className="mt-5 flex-1 flex flex-col justify-center space-y-3 my-4">
+      <DemoHeader title="Custom domains" badge="Auto TLS" badgeTone="success" />
+      <div className="my-4 flex min-h-0 flex-1 flex-col justify-center gap-2.5">
         {rows.map(([domain, secured]) => (
           <div
             key={domain}
-            className="flex items-center justify-between rounded-lg border border-fd-border bg-fd-muted/20 px-3 py-2.5"
+            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[0.85rem] border border-fd-border bg-fd-muted/20 px-3 py-2.5"
           >
-            <span className="flex items-center gap-2 font-mono text-sm text-fd-foreground">
-              <Globe className="size-4 text-fd-primary" />
+            <span className="flex size-7 items-center justify-center rounded-[0.7rem] bg-[color-mix(in_oklab,var(--color-fd-primary)_13%,transparent)] text-fd-primary ring-1 ring-fd-primary/10">
+              <Globe className="size-3.5 stroke-[1.9]" />
+            </span>
+            <span className="truncate font-mono text-[12px] font-medium text-fd-foreground">
               {domain}
             </span>
             {secured ? (
-              <span className="flex items-center gap-1.5 text-xs text-(--bp-success)">
-                <Check className="size-3.5" /> TLS active
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--bp-success)_16%,transparent)] px-2 py-1 text-[10px] font-medium leading-none text-(--bp-success)">
+                <Check className="size-3" /> TLS active
               </span>
             ) : (
-              <span className="flex items-center gap-1.5 text-xs text-(--bp-warning)">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--bp-warning)_16%,transparent)] px-2 py-1 text-[10px] font-medium leading-none text-(--bp-warning)">
                 <span className="size-1.5 rounded-full bg-(--bp-warning) bp-pulse-dot" />
-                Issuing…
+                Issuing
               </span>
             )}
           </div>
         ))}
       </div>
-      <p className="mt-auto pt-4 text-[10px] text-fd-muted-foreground">
-        Certificates renew automatically. No certbot, no cron, no downtime.
-      </p>
+      <DemoFooter icon={<Globe className="size-3.5" />} label="certificates renew automatically" value="with Caddy" />
     </Frame>
   );
 }
@@ -154,14 +202,8 @@ function RollbackDemo() {
   ];
   return (
     <Frame>
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-fd-foreground">Deploy history</span>
-        <span className="rounded-full bg-[color-mix(in_oklab,var(--bp-success)_16%,transparent)] px-2 py-1 text-[10px] font-medium text-(--bp-success)">
-          Traffic protected
-        </span>
-      </div>
+      <DemoHeader title="Deploy history" badge="Traffic protected" badgeTone="success" />
       <div className="relative my-4 flex min-h-0 flex-1 flex-col justify-center gap-2.5">
-        
         {rows.map(([id, state, msg, time]) => (
           <div
             key={id}
@@ -193,7 +235,9 @@ function RollbackDemo() {
             </span>
             <span className="justify-self-end">
               {state === 'live' ? (
-                <StatusBadge status="running" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--bp-success)_16%,transparent)] px-2 py-1 text-[10px] font-medium leading-none text-(--bp-success)">
+                  <Check className="size-3" /> Running
+                </span>
               ) : (
                 <span className="inline-flex items-center gap-1 rounded-full border border-fd-border bg-fd-card px-2 py-1 text-[10px] font-medium text-fd-muted-foreground transition-colors hover:border-fd-primary/40 hover:text-fd-foreground">
                   <RotateCcw className="size-3" /> Restore
@@ -203,6 +247,7 @@ function RollbackDemo() {
           </div>
         ))}
       </div>
+      <DemoFooter icon={<RotateCcw className="size-3.5" />} label="previous releases stay ready" value="for instant restore" />
     </Frame>
   );
 }
@@ -216,30 +261,39 @@ function DatabasesDemo() {
   ];
   return (
     <Frame>
-      <span className="text-sm font-semibold text-fd-foreground">Add-ons</span>
-      <div className="mt-5 flex-1 flex flex-col justify-center my-4">
-        <div className="grid grid-cols-2 gap-3">
+      <DemoHeader title="Add-ons" badge="4 services" />
+      <div className="my-4 flex min-h-0 flex-1 flex-col justify-center">
+        <div className="grid grid-cols-2 gap-2.5">
           {rows.map(([name, ver, status], i) => (
-            <div key={i} className="bp-card rounded-xl p-3">
-              <div className="flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-md bg-fd-primary/10 text-fd-primary">
-                  <Database className="size-3.5" />
+            <div
+              key={`${name}-${ver}-${i}`}
+              className="group rounded-[1rem] border border-fd-border bg-fd-muted/20 p-3 transition-colors hover:border-fd-primary/25 hover:bg-fd-muted/30"
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-[0.8rem] bg-[color-mix(in_oklab,var(--color-fd-primary)_13%,transparent)] text-fd-primary ring-1 ring-fd-primary/10">
+                  <Database className="size-4 stroke-[1.9]" />
                 </span>
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-fd-foreground">{name}</div>
-                  <div className="font-mono text-[10px] text-fd-muted-foreground">v{ver}</div>
+                  <div className="truncate text-[13px] font-medium leading-tight tracking-[-0.01em] text-fd-foreground">{name}</div>
+                  <div className="mt-0.5 font-mono text-[10px] leading-none text-fd-muted-foreground">v{ver}</div>
                 </div>
               </div>
-              <div className="mt-2.5">
-                <StatusBadge status={status} />
-              </div>
+              <span
+                className={cn(
+                  "mt-3 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-medium leading-none",
+                  status === 'running'
+                    ? "bg-[color-mix(in_oklab,var(--bp-success)_16%,transparent)] text-(--bp-success)"
+                    : "bg-fd-muted text-fd-muted-foreground"
+                )}
+              >
+                {status === 'running' ? <Check className="size-3 stroke-[2.2]" /> : <span className="size-2 rounded-[0.2rem] border border-current opacity-70" />}
+                {status === 'running' ? 'Running' : 'Paused'}
+              </span>
             </div>
           ))}
         </div>
       </div>
-      <div className="mt-auto flex items-center gap-1.5 rounded-lg bg-fd-muted/30 px-3 py-2 font-mono text-[10px] text-fd-muted-foreground">
-        <span className="text-(--bp-success)">DATABASE_URL</span> injected into storefront-web
-      </div>
+      <DemoFooter icon={<Database className="size-3.5" />} label="DATABASE_URL injected into" value="storefront-web" />
     </Frame>
   );
 }
@@ -252,74 +306,77 @@ function CronDemo() {
   ];
   return (
     <Frame>
-      <span className="text-sm font-semibold text-fd-foreground">Scheduled jobs</span>
-      <div className="mt-5 flex-1 flex flex-col justify-center space-y-2.5 my-4">
+      <DemoHeader title="Scheduled jobs" badge="Cron enabled" />
+      <div className="my-4 flex min-h-0 flex-1 flex-col justify-center gap-2.5">
         {rows.map(([name, schedule, cmd, status]) => (
           <div
             key={name}
-            className="flex items-center gap-3 rounded-lg border border-fd-border bg-fd-muted/20 px-3 py-2.5"
+            className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2.5 rounded-[0.85rem] border border-fd-border bg-fd-muted/20 px-3 py-2.5"
           >
-            <span className="flex size-7 items-center justify-center rounded-md bg-fd-primary/10 text-fd-primary">
-              <Clock className="size-3.5" />
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-[0.8rem] bg-[color-mix(in_oklab,var(--color-fd-primary)_13%,transparent)] text-fd-primary ring-1 ring-fd-primary/10">
+              <Clock className="size-4 stroke-[1.9]" />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium text-fd-foreground">{name}</div>
+              <div className="truncate text-[13px] font-medium leading-tight tracking-[-0.01em] text-fd-foreground">{name}</div>
               <div className="truncate font-mono text-[10px] text-fd-muted-foreground">{cmd}</div>
             </div>
-            <RepoPill className="hidden sm:inline-flex">{schedule}</RepoPill>
-            <StatusDot status={status} />
+            <span className="hidden rounded-full border border-fd-border bg-fd-card px-2 py-1 font-mono text-[10px] leading-none text-fd-muted-foreground sm:inline-flex">
+              {schedule}
+            </span>
+            <span
+              className={cn(
+                "size-2 rounded-full",
+                status === 'running' ? "bg-(--bp-success)" : "bg-fd-muted-foreground/45"
+              )}
+            />
           </div>
         ))}
       </div>
-      <p className="mt-auto pt-4 text-[10px] text-fd-muted-foreground">
-        Standard cron syntax, executed inside your app’s container.
-      </p>
+      <DemoFooter icon={<Clock className="size-3.5" />} label="standard cron syntax runs inside" value="app containers" />
     </Frame>
   );
 }
 
 function LogsDemo() {
-  const lines: [string, 'info' | 'ok' | 'err'][] = [
-    ['$ npm run start', 'info'],
-    ['› Ready on http://0.0.0.0:3000', 'ok'],
-    ['GET /api/health 200 · 4ms', 'info'],
-    ['POST /api/checkout 201 · 38ms', 'info'],
-    ['✔ webhook processed · order_8821', 'ok'],
-    ['GET /assets/app.js 200 · 1ms', 'info'],
-    ['✖ upstream timeout · retrying', 'err'],
-    ['› reconnected to redis', 'ok'],
-    ['GET /api/users/me 200 · 12ms', 'info'],
-    ['POST /api/webhooks/stripe 200 · 45ms', 'ok'],
-    ['✔ volume backup completed', 'ok'],
+  const lines: [string, string, 'info' | 'ok' | 'err'][] = [
+    ['12:01', 'Ready on :3000', 'ok'],
+    ['12:02', 'GET /api/health 200 · 4ms', 'info'],
+    ['12:04', 'webhook processed · order_8821', 'ok'],
+    ['12:06', 'upstream timeout · retrying', 'err'],
+    ['12:07', 'reconnected to redis', 'ok'],
   ];
   return (
     <Frame>
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2 text-sm font-semibold text-fd-foreground">
-          <Terminal className="size-4 text-(--bp-accent-2)" />
-          storefront-web
-        </span>
-        <span className="flex items-center gap-1.5 text-xs text-(--bp-success)">
-          <span className="size-1.5 rounded-full bg-(--bp-success) bp-pulse-dot" />
-          streaming
-        </span>
+      <DemoHeader title="Live logs & shell" badge="Streaming" badgeTone="success" />
+      <div className="my-4 flex min-h-0 flex-1 flex-col justify-center gap-2 overflow-hidden">
+        {lines.map(([time, message, state]) => (
+          <div
+            key={`${time}-${message}`}
+            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[0.85rem] border border-fd-border bg-fd-muted/20 px-3 py-2"
+          >
+            <span className="font-mono text-[10px] text-fd-muted-foreground">{time}</span>
+            <span
+              className={cn(
+                "truncate font-mono text-[10px]",
+                state === 'ok'
+                  ? "text-(--bp-success)"
+                  : state === 'err'
+                    ? "text-(--bp-warning)"
+                    : "text-fd-foreground"
+              )}
+            >
+              {message}
+            </span>
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                state === 'ok' ? "bg-(--bp-success)" : state === 'err' ? "bg-(--bp-warning)" : "bg-fd-muted-foreground/45"
+              )}
+            />
+          </div>
+        ))}
       </div>
-      <div className="my-2 mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl  bg-transparent p-3.5 font-mono text-[9px] leading-relaxed">
-        <div className="flex min-h-0 flex-1 flex-col justify-center space-y-1 overflow-hidden">
-          {lines.map((l, i) => (
-            <div key={i} className="flex gap-2.5">
-              <span className="shrink-0 text-slate-500">[{`12:0${i}:11`}]</span>
-              <span
-                className={
-                  l[1] === 'err' ? 'text-rose-450' : l[1] === 'ok' ? 'text-[#3c9f7a] dark:text-[#93e0c0]' : 'text-slate-650 dark:text-slate-300'
-                }
-              >
-                {l[0]}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <DemoFooter icon={<Terminal className="size-3.5" />} label="shell attached to" value="storefront-web" />
     </Frame>
   );
 }
@@ -374,7 +431,7 @@ export function FeatureShowcase() {
       />
 
       <div className="relative grid w-full max-w-[500px] gap-5 overflow-hidden rounded-[0.85rem] bg-[#f8fbff]/92 px-4 pb-8 pt-4 shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:max-w-[620px] sm:rounded-[0.675rem] sm:px-7 sm:pb-10 sm:pt-6 md:h-[360px] md:grid-cols-[0.82fr_1fr] xl:max-w-[680px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
-        <div className="mb-6 flex min-w-0 flex-col gap-1 md:mb-0">
+        <div className="mb-6 flex min-w-0 flex-col gap-1 md:mb-10">
           <h3 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">
             Core features
           </h3>
