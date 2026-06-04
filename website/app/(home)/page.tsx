@@ -12,6 +12,7 @@ import {
   Check,
   Database,
   GitBranch,
+  Rocket,
 } from 'lucide-react';
 import { LogoMark } from '@/components/logo';
 import { appName, githubUrl } from '@/lib/shared';
@@ -156,9 +157,6 @@ function Showcase() {
     <section id="platform" className="relative py-10 overflow-hidden  bg-[#f7f8fb] dark:bg-fd-background">
       <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-4 pb-7 pt-16 sm:px-6 sm:py-8 md:grid-cols-1 md:gap-8 lg:grid-cols-[minmax(270px,0.55fr)_minmax(0,1.02fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
         <div className="order-1 max-w-[443px] lg:pl-1.5">
-          <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">
-            The platform
-          </p>
           <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
             Everything a real platform needs
           </h2>
@@ -339,16 +337,19 @@ const steps = [
     n: '01',
     title: 'Install on a server',
     desc: 'Run the one-command installer on any Ubuntu, Debian, or macOS box. It provisions Docker, Caddy, and the dashboard for you.',
+    icon: Terminal,
   },
   {
     n: '02',
     title: 'Connect a repository',
     desc: 'Sign in with your admin token, paste a Git URL, pick a branch. The framework is detected automatically.',
+    icon: GitBranch,
   },
   {
     n: '03',
     title: 'Ship on every push',
     desc: 'It builds with Nixpacks, health-checks the container, and routes traffic through Caddy with HTTPS. Every git push redeploys.',
+    icon: Rocket,
   },
 ];
 
@@ -356,8 +357,8 @@ function HowItWorks() {
   return (
     <section className="py-10 bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
-        <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="lg:sticky lg:top-24 lg:self-start">
+        <div className="grid items-center gap-12 lg:grid-cols-[0.8fr_1.2fr]">
+          <div className="lg:sticky lg:top-24">
             <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">How it works</p>
             <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
               From zero to deployed in minutes
@@ -367,33 +368,80 @@ function HowItWorks() {
             </p>
             <Link
               href="/docs/quickstart"
-              className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-fd-primary hover:underline"
+              className="mt-6 inline-flex items-center gap-2 text-sm font-medium hover:underline"
             >
               Read the quickstart
               <ArrowRight className="size-4" />
             </Link>
           </div>
 
-          <div className="flex flex-col gap-6">
-            {steps.map((s, i) => (
-              <div key={s.n} className="bp-card relative overflow-hidden flex gap-5 rounded-[0.85rem] p-6 group">
-                <span className="shrink-0 font-mono text-[0.8rem] font-medium text-fd-primary/70">
-                  {s.n}
-                </span>
-                <div className="relative z-10">
-                  <h3 className="text-[1rem] font-medium tracking-[-0.01em] text-fd-foreground">{s.title}</h3>
-                  <p className="mt-2 text-sm font-light leading-relaxed text-fd-muted-foreground">{s.desc}</p>
-                </div>
-                <BorderBeam
-                  duration={8}
-                  size={120}
-                  colorFrom="var(--color-fd-primary)"
-                  colorTo="transparent"
-                  className="opacity-0 group-hover:opacity-30 transition-opacity"
-                />
+        <div className="relative order-2 w-full">
+          <div 
+            className="relative flex min-h-[clamp(310px,45svh,360px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-6 shadow-none sm:min-h-[clamp(315px,54vh,510px)] sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
+            style={{
+              background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
+            }}
+          >
+            {/* Soft sky-blue/mystic-blue radial glow in the top-left */}
+            <div 
+              className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-75 blur-[72px]"
+              style={{ background: '#eef1ff' }}
+            />
+            
+            {/* Soft indigo/purple glow in the bottom-right */}
+            <div 
+              className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-45 blur-[82px]"
+              style={{ background: '#2538d8' }}
+            />
+
+            {/* Radial highlight in center */}
+            <div 
+              className="pointer-events-none absolute inset-0 opacity-35 mix-blend-soft-light"
+              style={{
+                background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)',
+              }}
+            />
+
+            {/* Timeline Flow Inside Card */}
+            <div className="relative w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 px-4 py-4 shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-6 sm:py-6 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
+              <div className="relative flex flex-col gap-4">
+                {/* Vertical timeline connector line */}
+                <div className="absolute left-[19px] top-6 bottom-6 w-0.5 bg-gradient-to-b from-fd-primary/35 via-fd-primary/10 to-transparent sm:left-[23px]" />
+
+                {steps.map((s, i) => (
+                  <div key={s.n} className="relative pl-14 sm:pl-16 group">
+                    {/* Circular icon badge */}
+                    <div className="absolute left-0 top-1.5 z-10 flex size-10 items-center justify-center rounded-full border border-black/5 dark:border-white/10 bg-white dark:bg-[#1a1a1a] text-black dark:text-white shadow-sm sm:size-12">
+                      <s.icon className="size-4.5 sm:size-5" />
+                    </div>
+
+                    {/* Card Container */}
+                    <div className="relative overflow-hidden flex flex-col rounded-[0.75rem] bg-white/60 p-3 sm:py-3.5 sm:px-4.5 border border-black/5 dark:border-white/10 dark:bg-white/[0.03] transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]">
+                      <div className="relative z-10">
+                        <span className="inline-flex rounded-full bg-fd-primary/10 px-2 py-0.5 text-[8.5px] font-semibold uppercase tracking-wider text-fd-primary sm:text-[9.5px]">
+                          Step {s.n}
+                        </span>
+                        <h3 className="mt-1 text-sm font-semibold tracking-[-0.01em] text-[#121722] sm:text-[0.95rem] dark:text-[#f4f4f5]">
+                          {s.title}
+                        </h3>
+                        <p className="mt-1 text-[11px] font-light leading-snug text-[#394355] sm:text-[12.5px] dark:text-[#929297]">
+                          {s.desc}
+                        </p>
+                      </div>
+                      <BorderBeam
+                        duration={8}
+                        size={100}
+                        colorFrom="var(--color-fd-primary)"
+                        colorTo="transparent"
+                        className="opacity-0 group-hover:opacity-30 transition-opacity"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
+        </div>
         </div>
       </div>
     </section>
@@ -407,44 +455,72 @@ function Integrations() {
     <section className=" bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 md:py-20 xl:px-12">
         <div className="grid items-center gap-16 sm:grid-cols-2">
-          <div className="relative mx-auto w-fit">
-            <div
-              aria-hidden
-              className="bg-radial to-fd-background absolute inset-0 z-10 from-transparent to-75% pointer-events-none"
-            />
-            <div className="mx-auto mb-2 flex w-fit justify-center gap-2">
-              <IntegrationCard>
-                <DockerLogo className="size-8" />
-              </IntegrationCard>
-              <IntegrationCard>
-                <NixLogo className="size-8" />
-              </IntegrationCard>
-            </div>
-            <div className="mx-auto my-2 flex w-fit justify-center gap-2">
-              <IntegrationCard>
-                <CaddyLogo className="size-8" />
-              </IntegrationCard>
-              <IntegrationCard
-                borderClassName="shadow-fd-primary/10 shadow-xl border-fd-primary/30 dark:border-fd-primary/30"
-                className="bg-fd-primary/10"
-              >
-                <LogoMark className="size-8 text-fd-primary" />
-              </IntegrationCard>
-              <IntegrationCard>
-                <NextjsLogo className="size-8" />
-              </IntegrationCard>
-            </div>
+          <div className="relative order-2 lg:order-1 w-full">
+            <div 
+              className="relative flex min-h-[clamp(310px,45svh,360px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-6 shadow-none sm:min-h-[clamp(315px,54vh,510px)] sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
+              style={{
+                background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
+              }}
+            >
+              {/* Soft sky-blue/mystic-blue radial glow in the top-left */}
+              <div 
+                className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-75 blur-[72px]"
+                style={{ background: '#eef1ff' }}
+              />
+              
+              {/* Soft indigo/purple glow in the bottom-right */}
+              <div 
+                className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-45 blur-[82px]"
+                style={{ background: '#2538d8' }}
+              />
 
-            <div className="mx-auto flex w-fit justify-center gap-2">
-              <IntegrationCard>
-                <Database className="size-8 text-fd-muted-foreground" />
-              </IntegrationCard>
-              <IntegrationCard>
-                <GitBranch className="size-8 text-fd-muted-foreground" />
-              </IntegrationCard>
+              {/* Radial highlight in center */}
+              <div 
+                className="pointer-events-none absolute inset-0 opacity-35 mix-blend-soft-light"
+                style={{
+                  background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)',
+                }}
+              />
+
+              {/* Integration Tiles Inside Card */}
+              <div className="relative flex items-center justify-center w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 px-4 py-8 shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-7 sm:py-10 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
+                <div className="relative mx-auto w-fit">
+                  <div className="mx-auto mb-2 flex w-fit justify-center gap-2">
+                    <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
+                      <DockerLogo className="size-8" />
+                    </IntegrationCard>
+                    <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
+                      <NixLogo className="size-8" />
+                    </IntegrationCard>
+                  </div>
+                  <div className="mx-auto my-2 flex w-fit justify-center gap-2">
+                    <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
+                      <CaddyLogo className="size-8" />
+                    </IntegrationCard>
+                    <IntegrationCard
+                      borderClassName="shadow-fd-primary/10 shadow-xl border-fd-primary/30 dark:border-fd-primary/30"
+                      className="bg-fd-primary/10 border border-fd-primary/20"
+                    >
+                      <LogoMark className="size-8 text-fd-primary" />
+                    </IntegrationCard>
+                    <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
+                      <NextjsLogo className="size-8" />
+                    </IntegrationCard>
+                  </div>
+
+                  <div className="mx-auto flex w-fit justify-center gap-2">
+                    <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
+                      <Database className="size-8 text-[#121722] dark:text-white" />
+                    </IntegrationCard>
+                    <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
+                      <GitBranch className="size-8 text-[#121722] dark:text-white" />
+                    </IntegrationCard>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="mx-auto mt-6 max-w-lg space-y-6 text-center sm:mt-0 sm:text-left">
+          <div className="mx-auto mt-6 max-w-lg space-y-6 text-center sm:mt-0 sm:text-left order-1 lg:order-2">
             <p className="text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">Integrations</p>
             <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
               Works with your existing stack
@@ -454,7 +530,7 @@ function Integrations() {
             </p>
             <Link
               href="/docs#whats-under-the-hood"
-              className="bp-primary inline-flex h-9 items-center gap-2 rounded-lg px-4 text-xs font-medium"
+              className="inline-flex h-9 items-center gap-2 rounded-lg hover:underline text-xs font-medium"
             >
               Learn about the architecture
               <ArrowRight className="size-3.5" />
@@ -523,7 +599,7 @@ function Security() {
             {['No third-party access to your code', 'Secrets encrypted before storage', 'Audited, open source control plane'].map(
               (item) => (
                 <li key={item} className="flex items-center gap-2.5 text-sm text-fd-muted-foreground">
-                  <span className="flex size-5 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
+                  <span className="flex size-5 items-center justify-center rounded-full ">
                     <Check className="size-3" />
                   </span>
                   {item}
@@ -533,23 +609,60 @@ function Security() {
           </ul>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {securityPoints.map((p, i) => (
-            <div key={p.title} className="bp-card h-full rounded-[0.85rem] p-6 relative overflow-hidden group hover:border-fd-primary/50 transition-colors">
-              <IconTile size="sm">
-                <p.icon className="size-4" />
-              </IconTile>
-              <h3 className="mt-4 font-semibold text-fd-foreground">{p.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-fd-muted-foreground">{p.desc}</p>
-              <BorderBeam
-                duration={8}
-                size={80}
-                colorFrom="var(--color-fd-primary)"
-                colorTo="transparent"
-                className="opacity-0 group-hover:opacity-45 transition-opacity"
-              />
+        <div className="relative order-2 w-full">
+          <div 
+            className="relative flex min-h-[clamp(310px,45svh,360px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-6 shadow-none sm:min-h-[clamp(315px,54vh,510px)] sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
+            style={{
+              background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
+            }}
+          >
+            {/* Soft sky-blue/mystic-blue radial glow in the top-left */}
+            <div 
+              className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-75 blur-[72px]"
+              style={{ background: '#eef1ff' }}
+            />
+            
+            {/* Soft indigo/purple glow in the bottom-right */}
+            <div 
+              className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-45 blur-[82px]"
+              style={{ background: '#2538d8' }}
+            />
+
+            {/* Radial highlight in center */}
+            <div 
+              className="pointer-events-none absolute inset-0 opacity-35 mix-blend-soft-light"
+              style={{
+                background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)',
+              }}
+            />
+
+            {/* Security Points Inside Card */}
+            <div className="relative w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 px-4 py-4 shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-7 sm:py-6 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
+                {securityPoints.map((p, i) => (
+                  <div 
+                    key={p.title} 
+                    className="relative overflow-hidden group rounded-[0.75rem] bg-white/60 p-3 sm:p-5 border border-black/5 dark:border-white/10 dark:bg-white/[0.03] transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]"
+                  >
+                    <p.icon className="size-4 sm:size-5 text-black dark:text-white" />
+                    <h3 className="mt-2.5 text-[11px] sm:text-sm font-semibold leading-tight text-[#121722] dark:text-[#f4f4f5]">
+                      {p.title}
+                    </h3>
+                    <p className="mt-1 text-[9.5px] sm:text-[11.5px] leading-normal sm:leading-relaxed text-[#394355] dark:text-[#929297]">
+                      {p.desc}
+                    </p>
+                    <BorderBeam
+                      duration={8}
+                      size={80}
+                      colorFrom="var(--color-fd-primary)"
+                      colorTo="transparent"
+                      className="opacity-0 group-hover:opacity-45 transition-opacity"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+          </div>
         </div>
       </div>
       </div>
