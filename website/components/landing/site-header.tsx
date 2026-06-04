@@ -26,7 +26,7 @@ const NAV_LINKS: { label: string; href: string }[] = [
   { label: 'Product', href: '#platform' },
   { label: 'Resources', href: '/docs' },
   { label: 'Security', href: '/docs/security' },
-  { label: 'Pricing', href: '#pricing' },
+  { label: 'Pricing', href: '/pricing' },
   { label: 'Sponsor', href: '/sponsorships' },
 ];
 

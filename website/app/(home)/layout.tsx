@@ -41,6 +41,7 @@ const footerNav: { heading: string; links: { label: string; href: string; extern
     heading: 'Project',
     links: [
       { label: 'GitHub', href: githubUrl, external: true },
+      { label: 'Discord', href: 'https://discord.com/invite/9TP4xEs2', external: true },
       { label: 'Releases', href: `${githubUrl}/releases`, external: true },
       { label: 'Issues', href: `${githubUrl}/issues`, external: true },
     ],
