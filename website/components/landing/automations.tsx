@@ -2,6 +2,7 @@
 
 import { Circle, Check, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { appName } from '@/lib/shared';
 
 interface TaskItemProps {
   title: string;
@@ -94,34 +95,34 @@ export function AutomationsSection() {
               {/* Up next Section */}
               <div className="space-y-1">
                 <h4 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">
-                  Up next
+                  Active & Scheduled
                 </h4>
                 <TaskRow 
-                  title="Check for Sentry crashes" 
-                  agent="Sora" 
-                  badge="Every 2 hours" 
+                  title="Build & Deploy" 
+                  agent="better-paas-web" 
+                  badge="Git webhook" 
                   status="In progress" 
                   type="up-next" 
                 />
                 <TaskRow 
-                  title="Every morning" 
-                  agent="Codex" 
-                  badge="Starts in 30m" 
+                  title="Database Snapshot" 
+                  agent="postgres-db" 
+                  badge="Cron 0 2 * * *" 
                   status="Starts in 13m" 
                   type="up-next" 
                 />
                 <TaskRow 
-                  title="Find and fix a bug" 
-                  agent="ChatGPT" 
-                  badge="Daily 8pm" 
+                  title="SSL Cert Renewal" 
+                  agent="caddy-proxy" 
+                  badge="Auto renew" 
                   status="Starts in 4h" 
                   type="up-next" 
                 />
                 <TaskRow 
-                  title="Every morning" 
-                  agent="Atlas" 
-                  badge="Weds at 7am" 
-                  status="Starts in 3d" 
+                  title="Audit Logs Purge" 
+                  agent="system" 
+                  badge="Daily 3am" 
+                  status="Starts in 14h" 
                   type="up-next" 
                 />
               </div>
@@ -132,18 +133,18 @@ export function AutomationsSection() {
                 {/* Unread Section */}
                 <div className="space-y-1">
                   <h4 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">
-                    Unread
+                    Live Events
                   </h4>
                   <TaskRow 
-                    title="Every morning" 
-                    agent="Codex" 
+                    title="Git webhook received" 
+                    agent="better-paas-web" 
                     status="Just now" 
                     type="unread" 
                   />
                   <TaskRow 
-                    title="Find and fix a bug" 
-                    agent="Atlas" 
-                    status="5m" 
+                    title="Health check passed" 
+                    agent="auth-service" 
+                    status="5m ago" 
                     type="unread" 
                   />
                 </div>
@@ -154,25 +155,25 @@ export function AutomationsSection() {
                 {/* Completed Section */}
                 <div className="space-y-1">
                   <h4 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">
-                    <span className="sm:hidden">Read</span>
+                    <span className="sm:hidden">Completed</span>
                     <span className="hidden sm:inline">Completed</span>
                   </h4>
                   <TaskRow 
-                    title="Check for Sentry crashes" 
-                    agent="Sora" 
-                    status="1d" 
+                    title="Nixpacks image build" 
+                    agent="better-paas-web" 
+                    status="1h ago" 
                     type="completed" 
                   />
                   <TaskRow 
-                    title="Find and fix a bug" 
-                    agent="ChatGPT" 
-                    status="1d" 
+                    title="Daily DB Backup" 
+                    agent="postgres-db" 
+                    status="3h ago" 
                     type="completed" 
                   />
                   <TaskRow 
-                    title="Every morning" 
-                    agent="Codex" 
-                    status="1d" 
+                    title="Caddy TLS provisioned" 
+                    agent="api.betterpaas.dev" 
+                    status="1d ago" 
                     type="completed" 
                   />
                 </div>
@@ -183,10 +184,10 @@ export function AutomationsSection() {
 
         <div className="order-1 max-w-[443px] lg:order-2 lg:pl-1.5">
           <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
-            Made for always-on background work
+            Made for always-on background jobs
           </h2>
           <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:mt-5 lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
-            With Automations, Codex works unprompted, picking up routine but important work like issue triage, alert monitoring, CI/CD, and more, so you can stay focused on building.
+            With built-in automations, {appName} manages background work automatically. It handles Git-push auto-deployments, schedules database backups, runs cron tasks inside containers, and monitors application health, keeping your apps running smoothly without manual overhead.
           </p>
         </div>
       </div>
