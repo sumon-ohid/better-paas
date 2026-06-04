@@ -26,6 +26,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: page.family === 'alternatives' || page.family === 'deploy' ? 0.85 : 0.75,
   }));
 
+  const staticPages = [
+    '/catalog',
+    '/platform',
+    '/pricing',
+    '/privacy',
+    '/sponsorships',
+    '/terms',
+  ].map((path) => ({
+    url: `${siteUrl}${path}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.9,
+  }));
+
   return [
     {
       url: siteUrl,
@@ -33,6 +47,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'daily' as const,
       priority: 1.0,
     },
+    ...staticPages,
     ...docsUrls,
     ...seoHubUrls,
     ...seoUrls,
