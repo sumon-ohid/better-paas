@@ -760,6 +760,19 @@ func catalogTemplates() []CatalogTemplate {
 			Website:     "https://privatebin.info",
 			Icon:        "privatebin",
 		},
+		{
+			ID:          "adguard-home",
+			Name:        "AdGuard Home",
+			Description: "Network-wide DNS server for blocking ads & tracking and managing your DNS.",
+			Category:    "Security",
+			Image:       "adguard/adguardhome:latest",
+			Port:        3000,
+			VolumePaths: []string{"/opt/adguardhome/work", "/opt/adguardhome/conf"},
+			HealthPath:  "/",
+			Website:     "https://github.com/AdguardTeam/AdGuardHome",
+			Icon:        "adguard-home",
+			Notes:       "CRITICAL: During the initial setup wizard, you MUST change the 'Admin Web Interface' port from 80 to 3000. If you leave it as 80, the dashboard will not be accessible after onboarding because the reverse proxy is configured to route traffic to port 3000.",
+		},
 
 		// ── Developer tools & utilities ───────────────────────────────────────
 		{
