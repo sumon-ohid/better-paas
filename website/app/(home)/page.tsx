@@ -25,6 +25,7 @@ import { DockerLogo, NixLogo, CaddyLogo, NextjsLogo } from '@/components/landing
 import { TextEffect } from '@/components/tailark/text-effect';
 import { AnimatedGroup } from '@/components/tailark/animated-group';
 import { BorderBeam } from '@/components/tailark/border-beam';
+import { AutomationsSection } from '@/components/landing/automations';
 import { cn } from '@/lib/cn';
 
 export default function HomePage() {
@@ -35,6 +36,7 @@ export default function HomePage() {
       <Showcase />
       <Stats />
       <Bento />
+      {/* <AutomationsSection /> */}
       <HowItWorks />
       <Integrations />
       <Security />
@@ -151,19 +153,25 @@ function TechStrip() {
 
 function Showcase() {
   return (
-    <section id="platform" className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
-      <div className="max-w-2xl mb-14">
-        <Eyebrow>The platform</Eyebrow>
-        <h2 className="bp-display mt-4 text-3xl font-semibold text-fd-foreground sm:text-[2.75rem]">
-          Everything a real platform needs
-        </h2>
-        <p className="mt-4 text-lg leading-relaxed text-fd-muted-foreground">
-          Not a toy. {appName} ships the capabilities you’d expect from a managed cloud. Move
-          through them and watch the product respond.
-        </p>
-      </div>
+    <section id="platform" className="relative overflow-hidden border-t border-fd-border bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+      <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-10 pb-7 pt-16 sm:px-9 sm:py-8 md:grid-cols-1 md:gap-8 lg:grid-cols-[minmax(270px,0.55fr)_minmax(0,1.02fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
+        <div className="order-1 max-w-[443px] lg:pl-1.5">
+          <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">
+            The platform
+          </p>
+          <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
+            Everything a real platform needs
+          </h2>
+          <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:mt-5 lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
+            Deploy from Git, route HTTPS, add databases, run scheduled jobs, inspect logs, and roll
+            back safely from one self-hosted control plane.
+          </p>
+        </div>
 
-      <FeatureShowcase />
+        <div className="relative order-2 w-full">
+          <FeatureShowcase />
+        </div>
+      </div>
     </section>
   );
 }

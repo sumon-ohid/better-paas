@@ -3,3 +3,4 @@ builds/
 data/
 Caddyfile
 .wrangler
+.DS_Store

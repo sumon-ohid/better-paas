@@ -12,7 +12,6 @@ import {
   Check,
 } from 'lucide-react';
 import { StatusDot, StatusBadge, RepoPill } from './primitives';
-import { BorderBeam } from '@/components/tailark/border-beam';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/cn';
 
@@ -58,7 +57,11 @@ const TABS: { id: TabId; icon: typeof GitBranch; title: string; desc: string }[]
 ];
 
 function Frame({ children }: { children: React.ReactNode }) {
-  return <div className="bp-card flex flex-1 flex-col rounded-2xl p-5 bg-fd-card select-none">{children}</div>;
+  return (
+    <div className="bp-card flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-fd-card p-5 select-none">
+      {children}
+    </div>
+  );
 }
 
 function DeployDemo() {
@@ -136,7 +139,7 @@ function HttpsDemo() {
           </div>
         ))}
       </div>
-      <p className="mt-auto pt-4 text-xs text-fd-muted-foreground">
+      <p className="mt-auto pt-4 text-[10px] text-fd-muted-foreground">
         Certificates renew automatically. No certbot, no cron, no downtime.
       </p>
     </Frame>
@@ -151,29 +154,55 @@ function RollbackDemo() {
   ];
   return (
     <Frame>
-      <span className="text-sm font-semibold text-fd-foreground">Deploy history</span>
-      <div className="mt-5 flex-1 flex flex-col justify-center space-y-2.5 my-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-fd-foreground">Deploy history</span>
+        <span className="rounded-full bg-[color-mix(in_oklab,var(--bp-success)_16%,transparent)] px-2 py-1 text-[10px] font-medium text-(--bp-success)">
+          Traffic protected
+        </span>
+      </div>
+      <div className="relative my-4 flex min-h-0 flex-1 flex-col justify-center gap-2.5">
+        
         {rows.map(([id, state, msg, time]) => (
           <div
             key={id}
-            className="flex items-center gap-3 rounded-lg border border-fd-border bg-fd-muted/20 px-3 py-2.5"
-          >
-            <span className="font-mono text-xs text-fd-muted-foreground">{id}</span>
-            <span className="min-w-0 flex-1 truncate text-sm text-fd-foreground">{msg}</span>
-            <span className="hidden text-[11px] text-fd-muted-foreground sm:block">{time}</span>
-            {state === 'live' ? (
-              <StatusBadge status="running" />
-            ) : (
-              <span className="flex items-center gap-1 rounded-md border border-fd-border px-2 py-0.5 text-[11px] text-fd-muted-foreground transition-colors hover:border-fd-primary/40 hover:text-fd-foreground">
-                <RotateCcw className="size-3" /> Roll back
-              </span>
+            className={cn(
+              "relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
+              state === 'live'
+                ? "border-[color-mix(in_oklab,var(--bp-success)_26%,var(--color-fd-border))] bg-[color-mix(in_oklab,var(--bp-success)_7%,var(--color-fd-card))]"
+                : "border-fd-border bg-fd-muted/20"
             )}
+          >
+            <span
+              className={cn(
+                "relative z-10 flex size-6 items-center justify-center rounded-full border text-[10px]",
+                state === 'live'
+                  ? "border-[color-mix(in_oklab,var(--bp-success)_36%,transparent)] bg-[color-mix(in_oklab,var(--bp-success)_18%,var(--color-fd-card))] text-(--bp-success)"
+                  : "border-fd-border bg-fd-card text-fd-muted-foreground"
+              )}
+            >
+              {state === 'live' ? <Check className="size-3" /> : id.replace('#', '')}
+            </span>
+            <span className="min-w-0">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-sm font-medium text-fd-foreground">{msg}</span>
+                <span className="shrink-0 font-mono text-[10px] text-fd-muted-foreground">{id}</span>
+              </span>
+              <span className="mt-0.5 block text-[11px] text-fd-muted-foreground">
+                {state === 'live' ? `Live for ${time}` : `Last active ${time}`}
+              </span>
+            </span>
+            <span className="justify-self-end">
+              {state === 'live' ? (
+                <StatusBadge status="running" />
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full border border-fd-border bg-fd-card px-2 py-1 text-[10px] font-medium text-fd-muted-foreground transition-colors hover:border-fd-primary/40 hover:text-fd-foreground">
+                  <RotateCcw className="size-3" /> Restore
+                </span>
+              )}
+            </span>
           </div>
         ))}
       </div>
-      <p className="mt-auto pt-4 text-xs text-fd-muted-foreground">
-        Every build is kept. One click restores a previous deploy instantly.
-      </p>
     </Frame>
   );
 }
@@ -208,7 +237,7 @@ function DatabasesDemo() {
           ))}
         </div>
       </div>
-      <div className="mt-auto flex items-center gap-1.5 rounded-lg bg-fd-muted/30 px-3 py-2 font-mono text-[11px] text-fd-muted-foreground">
+      <div className="mt-auto flex items-center gap-1.5 rounded-lg bg-fd-muted/30 px-3 py-2 font-mono text-[10px] text-fd-muted-foreground">
         <span className="text-(--bp-success)">DATABASE_URL</span> injected into storefront-web
       </div>
     </Frame>
@@ -242,7 +271,7 @@ function CronDemo() {
           </div>
         ))}
       </div>
-      <p className="mt-auto pt-4 text-xs text-fd-muted-foreground">
+      <p className="mt-auto pt-4 text-[10px] text-fd-muted-foreground">
         Standard cron syntax, executed inside your app’s container.
       </p>
     </Frame>
@@ -275,8 +304,8 @@ function LogsDemo() {
           streaming
         </span>
       </div>
-      <div className="mt-4 flex-1 flex flex-col justify-between overflow-hidden rounded-xl bg-transparent p-3.5 font-mono text-[11px] leading-relaxed border border-fd-border/30 my-2">
-        <div className="space-y-1.5 flex-1 flex flex-col justify-center">
+      <div className="my-2 mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl  bg-transparent p-3.5 font-mono text-[9px] leading-relaxed">
+        <div className="flex min-h-0 flex-1 flex-col justify-center space-y-1 overflow-hidden">
           {lines.map((l, i) => (
             <div key={i} className="flex gap-2.5">
               <span className="shrink-0 text-slate-500">[{`12:0${i}:11`}]</span>
@@ -324,84 +353,67 @@ export function FeatureShowcase() {
 
   return (
     <div 
-      className="grid gap-12 md:grid-cols-[1fr_1.15fr] lg:gap-20 items-stretch"
+      className="relative flex min-h-[clamp(310px,45svh,360px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-6 shadow-none sm:min-h-[clamp(315px,54vh,510px)] sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      style={{
+        background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
+      }}
     >
-      {/* Left side list of custom animated accordion items */}
-      <div className="w-full flex flex-col gap-1.5 justify-center">
-        {TABS.map((tab) => {
-          const isActive = tab.id === active;
-          return (
-            <div
-              key={tab.id}
-              className={cn(
-                "border-b border-fd-border/30 transition-all duration-350 ease-in-out pl-3 pr-2.5 rounded-r-xl rounded-l-none border-l-2",
-                isActive 
-                  ? "bg-fd-primary/[0.03] border-l-fd-primary shadow-xs" 
-                  : "border-l-transparent hover:bg-fd-muted/15"
-              )}
-            >
+      <div
+        className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-75 blur-[72px]"
+        style={{ background: '#eef1ff' }}
+      />
+      <div
+        className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-45 blur-[82px]"
+        style={{ background: '#2538d8' }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-35 mix-blend-soft-light"
+        style={{ background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)' }}
+      />
+
+      <div className="relative grid w-full max-w-[500px] gap-5 overflow-hidden rounded-[0.85rem] bg-[#f8fbff]/92 px-4 pb-8 pt-4 shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:max-w-[620px] sm:rounded-[0.675rem] sm:px-7 sm:pb-10 sm:pt-6 md:h-[360px] md:grid-cols-[0.82fr_1fr] xl:max-w-[680px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
+        <div className="mb-6 flex min-w-0 flex-col gap-1 md:mb-0">
+          <h3 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">
+            Core features
+          </h3>
+          {TABS.map((tab) => {
+            const isActive = tab.id === active;
+            return (
               <button
+                key={tab.id}
                 type="button"
                 onClick={() => setActive(tab.id)}
-                className="w-full flex items-center justify-between py-4 text-left font-semibold text-fd-foreground focus:outline-none cursor-pointer group"
+                className={cn(
+                  "group grid -mt-0.5 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-md px-2 py-[0.3125rem] text-left transition-all duration-300 sm:gap-3 sm:py-2",
+                  isActive ? "bg-[#edf2ff]/75 dark:bg-white/[0.035]" : "hover:bg-white/[0.2] dark:hover:bg-white/[0.025]"
+                )}
               >
-                <div className="flex items-center gap-3.5 text-base w-full">
-                  <span
-                    className={cn(
-                      "bp-feature-orb-tile flex size-11 shrink-0 items-center justify-center transition-all duration-350",
-                      isActive
-                        ? "is-active text-black scale-105 dark:text-white"
-                        : "text-black/80 group-hover:text-black dark:text-white/80 dark:group-hover:text-white"
-                    )}
-                  >
-                    <tab.icon className="relative z-10 size-4.5" />
-                  </span>
-                  <span className={cn("transition-colors duration-250", isActive ? "text-fd-primary" : "text-fd-foreground/90")}>
+                <span
+                  className={cn(
+                    "flex size-5 shrink-0 items-center justify-center rounded-full transition-colors sm:size-6",
+                    isActive
+                      ? "bg-[#26364d] text-white dark:bg-[#f2f4f8] dark:text-[#080809]"
+                      : "text-[#4d5f7a]/70 dark:text-[#eceff5]/80"
+                  )}
+                >
+                  <tab.icon className="size-2.5 sm:size-3" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[10px] font-medium tracking-[-0.01em] text-[#172033] sm:text-[12px] dark:text-[#eeeeee]">
                     {tab.title}
                   </span>
-                </div>
-                <svg
-                  className={cn(
-                    "size-4 text-fd-muted-foreground transition-transform duration-350 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                    isActive ? "rotate-180 text-fd-primary" : "group-hover:text-fd-foreground"
-                  )}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
+                  <span className="hidden truncate text-[9px] font-light leading-snug text-[#657286] sm:block dark:text-[#929297]">
+                    {tab.desc}
+                  </span>
+                </span>
               </button>
+            );
+          })}
+        </div>
 
-              <AnimatePresence initial={false}>
-                {isActive && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{
-                      height: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
-                      opacity: { duration: 0.25, ease: "linear" },
-                    }}
-                  >
-                    <p className="text-fd-muted-foreground pl-12.5 pb-4 leading-relaxed text-[14px]">
-                      {tab.desc}
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Right side visual container */}
-      <div className="bg-fd-card relative flex overflow-hidden rounded-3xl border border-fd-border p-2 min-h-96 md:min-h-[440px] flex-col flex-1">
-        <div className="w-15 absolute inset-0 right-0 ml-auto border-l border-fd-border/50 bg-[repeating-linear-gradient(-45deg,var(--color-fd-border),var(--color-fd-border)_1px,transparent_1px,transparent_8px)] opacity-30"></div>
-        <div className="relative w-full rounded-2xl bg-fd-card flex flex-col flex-1">
+        <div className="hidden min-h-0 min-w-0 flex-col md:flex">
           <AnimatePresence mode="wait">
             <motion.div
               key={active}
@@ -409,19 +421,12 @@ export function FeatureShowcase() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 6, scale: 0.985 }}
               transition={{ duration: 0.25 }}
-              className="w-full h-full flex flex-col flex-1 overflow-hidden rounded-2xl bg-fd-card"
+              className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[0.65rem]"
             >
               <ActiveDemo />
             </motion.div>
           </AnimatePresence>
         </div>
-        <BorderBeam
-          duration={6}
-          size={200}
-          colorFrom="var(--color-fd-primary)"
-          colorTo="var(--color-fd-ring)"
-          className="opacity-70"
-        />
       </div>
     </div>
   );

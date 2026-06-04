@@ -46,7 +46,7 @@
 
 .dark {
   /* fumadocs tokens — dark mode, mapped 1:1 to the dashboard's dark palette. */
-  --color-fd-background: #0c0d0e;
+  --color-fd-background: #102941;
   --color-fd-foreground: #ededed;
   --color-fd-muted: rgba(255, 255, 255, 0.05);
   --color-fd-muted-foreground: rgba(255, 255, 255, 0.46);
@@ -78,6 +78,7 @@ html {
 
 body {
   letter-spacing: -0.011em;
+  background: var(--color-fd-background);
 }
 
 html > body[data-scroll-locked] {
