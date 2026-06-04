@@ -23,7 +23,7 @@ import { githubUrl } from '@/lib/shared';
  * ────────────────────────────────────────────────────────────────────────── */
 
 const NAV_LINKS: { label: string; href: string }[] = [
-  { label: 'Product', href: '#platform' },
+  { label: 'Product', href: '/platform' },
   { label: 'Resources', href: '/docs' },
   { label: 'Security', href: '/docs/security' },
   { label: 'Pricing', href: '/pricing' },
