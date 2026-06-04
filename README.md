@@ -10,6 +10,9 @@
   A self-hosted, lightweight PaaS: a Go control plane that builds Git repositories with Nixpacks, runs them as Docker containers, and routes traffic through Caddy. Powered by a sleek, responsive Next.js dashboard.
 </p>
 
+<img width="1470" height="799" alt="Screenshot 2026-06-01 at 00 38 27" src="https://github.com/user-attachments/assets/64e4f0ba-2a3a-4aa1-954f-5c5547cc41fd" />
+
+
 <table align="center">
   <tr>
     <td><a href="https://discord.gg/9TP4xEs2"><img src="https://img.shields.io/badge/discord-chat-7289da?logo=discord&logoColor=white" alt="Discord" /></a></td>
