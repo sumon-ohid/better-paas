@@ -39,9 +39,11 @@ export default function HomePage() {
       <Stats />
       <Bento />
       <AutomationsSection />
-      <HowItWorks />
-      <Integrations />
-      <Security />
+      <div className="relative z-10">
+        <HowItWorks />
+        <Integrations />
+        <Security />
+      </div>
       <Pricing />
       <FAQSection />
       <CallToAction />
@@ -186,7 +188,7 @@ function TechStrip() {
 
 function Showcase() {
   return (
-    <section id="platform" className="relative py-10 overflow-hidden  bg-[#f7f8fb] dark:bg-fd-background">
+    <section id="platform" className="relative py-10 overflow-hidden bg-fd-background">
       <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-4 pb-7 pt-16 sm:px-6 sm:py-8 md:grid-cols-1 md:gap-8 lg:grid-cols-[minmax(270px,0.55fr)_minmax(0,1.02fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
         <div className="order-1 max-w-[443px] lg:pl-1.5">
           <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
@@ -217,7 +219,7 @@ const stats = [
 
 function Stats() {
   return (
-    <section className="py-16 md:py-24 bg-[#f7f8fb] dark:bg-fd-background dark:border-y dark:border-white/5">
+    <section className="py-16 md:py-24 bg-fd-background">
       <div className="mx-auto max-w-6xl px-6">
         <div className="grid gap-8 divide-y divide-fd-border/50 *:pt-8 first:*:pt-0 md:grid-cols-4 md:gap-2 md:divide-x md:divide-y-0 md:divide-fd-border/50 *:md:pt-0 *:md:px-6">
           {stats.map((s, i) => (
@@ -238,7 +240,7 @@ function Stats() {
 
 function Bento() {
   return (
-    <section className="bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+    <section className="bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
         <div className="mb-10 max-w-[520px]">
           <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">And the details</p>
@@ -411,7 +413,7 @@ const steps = [
 
 function HowItWorks() {
   return (
-    <section className="py-10 bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+    <section className="relative lg:sticky lg:top-24 z-10 py-10 bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
         <div className="grid items-center gap-12 lg:grid-cols-[0.8fr_1.2fr]">
           <div className="lg:sticky lg:top-24">
@@ -508,7 +510,7 @@ function HowItWorks() {
 
 function Integrations() {
   return (
-    <section className=" bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+    <section className="relative lg:sticky lg:top-24 z-20 py-10 bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 md:py-20 xl:px-12">
         <div className="grid items-center gap-16 sm:grid-cols-2">
           <div className="relative order-2 lg:order-1 w-full">
@@ -637,7 +639,7 @@ const securityPoints = [
 
 function Security() {
   return (
-    <section className="bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+    <section className="relative lg:sticky lg:top-24 z-30 py-10 bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
       <div className="grid items-center gap-14 lg:grid-cols-2">
         <div>
@@ -730,7 +732,7 @@ function Security() {
 
 function Pricing() {
   return (
-    <section id="pricing" className="bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+    <section id="pricing" className="bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
         <div className="max-w-[560px]">
           <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">Pricing</p>
@@ -866,7 +868,7 @@ function Pricing() {
 
 function CallToAction() {
   return (
-    <section className="bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+    <section className="bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 md:py-20 xl:px-12">
         <div
           className="relative flex min-h-[clamp(360px,52svh,520px)] w-full items-center justify-center overflow-hidden rounded-md px-5 py-8 shadow-none sm:px-9 sm:py-12"

@@ -71,7 +71,7 @@ export function FAQSection() {
   };
 
   return (
-    <section id="faq" className="bg-[#f7f8fb] dark:border-white/5 dark:bg-fd-background">
+    <section id="faq" className="bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.5fr] lg:items-start">
           {/* Left Column: Heading and info */}
