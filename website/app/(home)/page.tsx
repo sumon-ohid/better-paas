@@ -221,7 +221,7 @@ function Stats() {
   return (
     <section className="py-16 md:py-24 bg-fd-background">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="grid gap-8 divide-y divide-fd-border/50 *:pt-8 first:*:pt-0 md:grid-cols-4 md:gap-2 md:divide-x md:divide-y-0 md:divide-fd-border/50 *:md:pt-0 *:md:px-6">
+        <div className="grid gap-8 md:grid-cols-4 md:gap-2 md:divide-x md:divide-fd-border/50 *:md:px-6">
           {stats.map((s, i) => (
             <div key={s.label} className="text-center md:text-left space-y-2">
               <div className="bg-gradient-to-r from-fd-foreground to-fd-muted-foreground/80 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl dark:from-white dark:to-zinc-600">
