@@ -107,10 +107,10 @@ export function FAQSection() {
                     aria-expanded={isOpen}
                     className="flex w-full items-center justify-between gap-4 p-5 text-left transition-colors focus:outline-none"
                   >
-                    <span className="text-base font-medium text-[#121722] dark:text-[#f4f4f5]">
+                    <span className="flex-1 text-base font-medium text-[#121722] dark:text-[#f4f4f5]">
                       {item.question}
                     </span>
-                    <span className="flex size-7 items-center justify-center rounded-full border border-black/5 bg-white/50 text-[#121722] transition-transform duration-300 dark:border-white/10 dark:bg-white/[0.02] dark:text-[#f4f4f5]">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-black/5 bg-white/50 text-[#121722] transition-transform duration-300 dark:border-white/10 dark:bg-white/[0.02] dark:text-[#f4f4f5]">
                       <ChevronDown
                         className={cn(
                           "size-4 transition-transform duration-300 ease-in-out",
