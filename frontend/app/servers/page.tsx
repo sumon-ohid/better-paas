@@ -241,7 +241,7 @@ export function AddServerWizard({
 }: AddServerWizardProps) {
   const { showToast } = useToast()
   const [step, setStep] = useState<WizardStep>(1)
-  const [mode, setMode] = useState<ConnectionMode>("cloud")
+  const [mode, setMode] = useState<ConnectionMode>("manual")
 
   // Step 1 fields
   const [name, setName] = useState("")
@@ -287,7 +287,7 @@ export function AddServerWizard({
 
   const reset = () => {
     setStep(1)
-    setMode("cloud")
+    setMode("manual")
     setName("")
     setDescription("")
     setIp("")
@@ -479,17 +479,6 @@ export function AddServerWizard({
               <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-muted/20 p-1">
                 <button
                   type="button"
-                  onClick={() => setMode("cloud")}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    mode === "cloud"
-                      ? "bg-background text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Cloud Provider
-                </button>
-                <button
-                  type="button"
                   onClick={() => setMode("manual")}
                   className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                     mode === "manual"
@@ -498,6 +487,17 @@ export function AddServerWizard({
                   }`}
                 >
                   Manual SSH
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("cloud")}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    mode === "cloud"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Cloud Provider
                 </button>
               </div>
 
@@ -597,7 +597,11 @@ export function AddServerWizard({
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue>
+                            {providerConfig.regions.find(
+                              (r) => r.value === cloudRegion
+                            )?.label || cloudRegion}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {providerConfig.regions.map((region) => (
@@ -617,7 +621,11 @@ export function AddServerWizard({
                         onValueChange={(value) => value && setCloudSize(value)}
                       >
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue>
+                            {providerConfig.sizes.find(
+                              (s) => s.value === cloudSize
+                            )?.label || cloudSize}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {providerConfig.sizes.map((size) => (
