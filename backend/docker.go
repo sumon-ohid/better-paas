@@ -489,7 +489,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		case "dockerfile":
 			buildErr = buildWithDockerfile(app, buildSubDir, image, noCache, localLog)
 		default:
-			buildErr = buildWithNixpacks(app, buildDir, buildSubDir, image, noCache, localLog)
+			buildErr = buildWithNixpacks(&app, buildDir, buildSubDir, image, noCache, localLog)
 		}
 		if buildErr != nil {
 			localLog(fmt.Sprintf("✖ Build failed: %v", buildErr))
@@ -604,7 +604,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 // buildWithNixpacks builds an image from the repo using Nixpacks (the default,
 // auto-detecting builder). buildDir is the clone root; buildSubDir is the
 // (possibly nested) build context.
-func buildWithNixpacks(app App, buildDir, buildSubDir, image string, noCache bool, localLog func(string)) error {
+func buildWithNixpacks(app *App, buildDir, buildSubDir, image string, noCache bool, localLog func(string)) error {
 	// Detect required Node version BEFORE patching, because patchPackageJSON
 	// strips the engines field that tells us which Node version the app needs.
 	nodeVersion := detectNodeVersion(buildSubDir, defaultNodeVersion)
@@ -629,6 +629,10 @@ func buildWithNixpacks(app App, buildDir, buildSubDir, image string, noCache boo
 			startCmd = c
 		}
 	}
+
+	app.InstallCommand = installCmd
+	app.BuildCommand = buildCmd
+	app.StartCommand = startCmd
 
 	// Remove a restrictive .dockerignore so Nixpacks sees the full context.
 	dockerignorePath := filepath.Join(buildSubDir, ".dockerignore")
@@ -740,6 +744,10 @@ func startContainer(app App, image, containerName string, hostPort, containerPor
 		runArgs = append(runArgs, "--cpus", app.CPUs)
 	}
 	envs := make(map[string]string)
+	// Default HOSTNAME=0.0.0.0 and HOST=0.0.0.0 so that Next.js and other
+	// Node/Vite-based frameworks bind to all interfaces inside the container.
+	envs["HOSTNAME"] = "0.0.0.0"
+	envs["HOST"] = "0.0.0.0"
 	for k, v := range app.EnvVars {
 		envs[k] = v
 	}
@@ -753,7 +761,11 @@ func startContainer(app App, image, containerName string, hostPort, containerPor
 	}
 	runArgs = append(runArgs, "--name", containerName, image)
 	if app.StartCommand != "" {
-		runArgs = append(runArgs, "sh", "-c", app.StartCommand)
+		if app.BuildMethod == "nixpacks" || app.BuildMethod == "" {
+			runArgs = append(runArgs, app.StartCommand)
+		} else {
+			runArgs = append(runArgs, "sh", "-c", app.StartCommand)
+		}
 	}
 
 	ex, err := GetExecutorForServer(app.ServerID)
