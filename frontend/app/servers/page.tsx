@@ -262,7 +262,8 @@ export function AddServerWizard({
   // Step 2 state (generated server + public key)
   const [createdServer, setCreatedServer] = useState<Server | null>(null)
   const [publicKey, setPublicKey] = useState("")
-  const [copied, setCopied] = useState(false)
+  const [keyCopied, setKeyCopied] = useState(false)
+  const [commandCopied, setCommandCopied] = useState(false)
 
   // Step 3 state (connection test)
   const [testing, setTesting] = useState(false)
@@ -296,7 +297,8 @@ export function AddServerWizard({
     setCloudToken("")
     setCreatedServer(null)
     setPublicKey("")
-    setCopied(false)
+    setKeyCopied(false)
+    setCommandCopied(false)
     setTestResult(null)
     setError("")
   }
@@ -400,16 +402,16 @@ export function AddServerWizard({
 
   const copyKey = () => {
     navigator.clipboard.writeText(publicKey)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setKeyCopied(true)
+    setTimeout(() => setKeyCopied(false), 2000)
   }
 
   const copyCommand = () => {
     navigator.clipboard.writeText(
       `echo '${publicKey}' >> ~/.ssh/authorized_keys`
     )
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCommandCopied(true)
+    setTimeout(() => setCommandCopied(false), 2000)
   }
 
   return (
@@ -719,18 +721,19 @@ export function AddServerWizard({
                   Public Key (paste into your server)
                 </Label>
                 <div className="relative">
-                  <pre className="max-h-28 overflow-x-auto overflow-y-auto rounded-lg border border-border bg-[#090a0f] p-3 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-green-400">
+                  <pre className="max-h-28 overflow-x-auto overflow-y-auto rounded-lg border border-border bg-[#090a0f] p-3 pr-12 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-green-400">
                     {publicKey || "Generating…"}
                   </pre>
                   <button
+                    type="button"
                     onClick={copyKey}
-                    className="absolute top-2 right-2 rounded bg-muted/60 p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="absolute top-2.5 right-2.5 rounded-md border border-zinc-700/50 bg-zinc-900/90 p-1.5 text-muted-foreground shadow-md transition-colors hover:bg-zinc-800 hover:text-foreground active:scale-95"
                     title="Copy public key"
                   >
-                    {copied ? (
-                      <CheckIcon className="h-3.5 w-3.5 text-success" />
+                    {keyCopied ? (
+                      <CheckIcon className="h-4 w-4 text-success" />
                     ) : (
-                      <CopyIcon className="h-3.5 w-3.5" />
+                      <CopyIcon className="h-4 w-4" />
                     )}
                   </button>
                 </div>
@@ -738,21 +741,22 @@ export function AddServerWizard({
 
               <div className="space-y-2">
                 <Label className="text-xs font-semibold text-muted-foreground">
-                  Quick install command — run this on your server:
+                  Quick install command — run this on your server terminal:
                 </Label>
                 <div className="relative">
-                  <pre className="overflow-x-auto rounded-lg border border-border bg-[#090a0f] p-3 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-slate-200">
+                  <pre className="overflow-x-auto rounded-lg border border-border bg-[#090a0f] p-3 pr-12 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-slate-200">
                     {`echo '${publicKey}' >> ~/.ssh/authorized_keys`}
                   </pre>
                   <button
+                    type="button"
                     onClick={copyCommand}
-                    className="absolute top-2 right-2 rounded bg-muted/60 p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="absolute top-2.5 right-2.5 rounded-md border border-zinc-700/50 bg-zinc-900/90 p-1.5 text-muted-foreground shadow-md transition-colors hover:bg-zinc-800 hover:text-foreground active:scale-95"
                     title="Copy command"
                   >
-                    {copied ? (
-                      <CheckIcon className="h-3.5 w-3.5 text-success" />
+                    {commandCopied ? (
+                      <CheckIcon className="h-4 w-4 text-success" />
                     ) : (
-                      <CopyIcon className="h-3.5 w-3.5" />
+                      <CopyIcon className="h-4 w-4" />
                     )}
                   </button>
                 </div>
