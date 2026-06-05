@@ -1534,11 +1534,17 @@ func detectNodeVersion(buildSubDir, fallback string) string {
 	}
 
 	if best > 0 {
+		if best <= 18 {
+			best = 22
+		}
 		return strconv.Itoa(best)
 	}
 
 	// .nvmrc fallback (e.g. a bare "24" or "v24.1.0" or "lts/*").
 	if v := nodeMajorFromNvmrc(filepath.Join(buildSubDir, ".nvmrc")); v > 0 {
+		if v <= 18 {
+			v = 22
+		}
 		return strconv.Itoa(v)
 	}
 
