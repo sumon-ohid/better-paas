@@ -5,6 +5,7 @@ require "socket"
 # The platform injects PORT; bind to it on all interfaces (0.0.0.0).
 set :bind, "0.0.0.0"
 set :port, (ENV["PORT"] || "4567").to_i
+set :host_authorization, { permitted_hosts: [] }
 
 get "/" do
   content_type :json
