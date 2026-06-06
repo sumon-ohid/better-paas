@@ -73,6 +73,22 @@ If your VPS provider has a separate cloud firewall, open the same inbound TCP
 ports there too.
 </Accordion>
 
+<Accordion title="App URLs do not load and Caddy says bind: permission denied">
+Better-PaaS starts Caddy as a subprocess. On Linux, ports `80` and `443` are
+privileged, so the Caddy binary needs permission to bind them:
+
+```bash
+sudo setcap 'cap_net_bind_service=+ep' "$(readlink -f "$(command -v caddy)")"
+sudo systemctl restart better-paas-backend
+```
+
+Then confirm Caddy is listening:
+
+```bash
+sudo ss -tulpn | grep -E ':80|:443|:2019'
+```
+</Accordion>
+
 <Accordion title="A private repo won't clone">
 Better-PaaS needs a Git access token to clone private repositories. Add one when
 deploying, or save it under **Settings → Git**. Tokens are

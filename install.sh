@@ -109,11 +109,11 @@ install_dependencies() {
   case "$OS" in
     ubuntu|debian)
       apt-get update -qq
-      apt-get install -y -qq curl git build-essential ca-certificates gnupg lsb-release
+      apt-get install -y -qq curl git build-essential ca-certificates gnupg lsb-release libcap2-bin
       ;;
     centos|rhel|fedora|almalinux|rocky)
       yum makecache || true
-      yum install -y curl git gcc ca-certificates
+      yum install -y curl git gcc ca-certificates libcap
       ;;
     darwin)
       if ! command -v brew &>/dev/null; then
@@ -285,6 +285,35 @@ install_caddy() {
       ;;
   esac
   success "Caddy installed."
+}
+
+configure_caddy_bind_capability() {
+  if [ "$OS" = "darwin" ]; then
+    return
+  fi
+
+  if ! command -v caddy &>/dev/null; then
+    warn "Caddy is not available in PATH; skipping low-port capability setup."
+    return
+  fi
+
+  local caddy_bin
+  caddy_bin="$(command -v caddy)"
+  if command -v readlink &>/dev/null; then
+    caddy_bin="$(readlink -f "$caddy_bin" 2>/dev/null || echo "$caddy_bin")"
+  fi
+
+  if ! command -v setcap &>/dev/null; then
+    warn "setcap is not available; Caddy may fail to bind ports 80/443 unless run as root."
+    return
+  fi
+
+  info "Allowing Caddy to bind ports 80/443 without running Better-PaaS as root..."
+  if setcap 'cap_net_bind_service=+ep' "$caddy_bin"; then
+    success "Caddy bind capability configured on $caddy_bin."
+  else
+    warn "Could not set cap_net_bind_service on $caddy_bin. If app URLs fail, run: sudo setcap 'cap_net_bind_service=+ep' $caddy_bin"
+  fi
 }
 
 # ── Install Node.js + pnpm ────────────────────────────────────────────────────
@@ -639,6 +668,7 @@ main() {
   install_docker
   install_nixpacks
   install_caddy
+  configure_caddy_bind_capability
   install_node
 
   # If running from the repo directly, skip clone

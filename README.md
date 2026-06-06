@@ -69,6 +69,15 @@ sudo ufw status
 If your VPS provider has a separate cloud firewall, allow the same inbound TCP
 ports there too.
 
+The installer also grants the Caddy binary permission to bind ports `80` and
+`443` without running the Better-PaaS backend as root. If app URLs fail and the
+backend log says `bind: permission denied`, run:
+
+```bash
+sudo setcap 'cap_net_bind_service=+ep' "$(readlink -f "$(command -v caddy)")"
+sudo systemctl restart better-paas-backend
+```
+
 > [!NOTE]
 > On macOS and Linux, the installer requires root privileges to configure Caddy/Docker and install packages:
 > `curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | sudo bash`

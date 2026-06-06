@@ -44,6 +44,15 @@ sudo ufw status
 If your hosting provider has its own cloud firewall, allow the same inbound TCP
 ports there too.
 
+The installer configures Caddy so it can bind ports `80` and `443` without
+running the Better-PaaS backend as root. If app URLs fail and the backend log
+says `bind: permission denied`, fix it with:
+
+```bash title="On your server"
+sudo setcap 'cap_net_bind_service=+ep' "$(readlink -f "$(command -v caddy)")"
+sudo systemctl restart better-paas-backend
+```
+
 When it finishes, you'll see a summary like this:
 
 ```text
