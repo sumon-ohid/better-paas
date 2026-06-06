@@ -21,8 +21,7 @@
 
 ---
 
-<img width="1470" height="801" alt="Screenshot 2026-06-04 at 09 03 54" src="https://github.com/user-attachments/assets/4303d59c-7038-4a1b-9cdf-2c1d273ede8c" />
-
+<img width="1470" height="800" alt="Screenshot 2026-06-04 at 19 21 21" src="https://github.com/user-attachments/assets/4699d0d7-b575-4f64-a51d-5dbd165e8836" />
 
 ## Features
 
