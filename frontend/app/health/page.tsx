@@ -69,17 +69,30 @@ export default function HealthPage() {
     })
     setCpuHistory(Array(20).fill(0))
     setMemHistory(Array(20).fill(0))
-    const ws = createStatsWs(serverId)
-    ws.onmessage = (event) => {
-      const data: ServerStats = JSON.parse(event.data)
-      setStats(data)
-      setCpuHistory((prev) => [...prev.slice(1), data.cpuUsage])
-      setMemHistory((prev) => [...prev.slice(1), data.memoryUsage])
-    }
+    let cancelled = false
+    let ws: WebSocket | null = null
+    createStatsWs(serverId)
+      .then((socket) => {
+        if (cancelled) {
+          socket.close()
+          return
+        }
+        ws = socket
+        ws.onmessage = (event) => {
+          const data: ServerStats = JSON.parse(event.data)
+          setStats(data)
+          setCpuHistory((prev) => [...prev.slice(1), data.cpuUsage])
+          setMemHistory((prev) => [...prev.slice(1), data.memoryUsage])
+        }
+      })
+      .catch((err) => console.error("Failed to open stats stream", err))
 
     return () => {
-      ws.onclose = null
-      ws.close()
+      cancelled = true
+      if (ws) {
+        ws.onclose = null
+        ws.close()
+      }
     }
   }, [activeServerId, fetchData])
 

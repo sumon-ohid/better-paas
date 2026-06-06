@@ -367,7 +367,12 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, noCache boo
 	// ── 2. Resolve compose file + directory ──────────────────────────────────
 	composeDir := buildDir
 	if app.RootDir != "" && app.RootDir != "." && app.RootDir != "./" {
-		composeDir = filepath.Join(buildDir, app.RootDir)
+		rootDir, err := validateRootDir(app.RootDir)
+		if err != nil {
+			localLog(fmt.Sprintf("✖ %v", err))
+			return "failed", commitSHA, commitMsg
+		}
+		composeDir = filepath.Join(buildDir, rootDir)
 	}
 	composeFile := strings.TrimSpace(app.ComposePath)
 	if composeFile == "" {
@@ -655,7 +660,9 @@ func composeGroupRows(project string) []App {
 func composeDirForApp(primary App) string {
 	dir := filepath.Join("builds", primary.ID)
 	if primary.RootDir != "" && primary.RootDir != "." && primary.RootDir != "./" {
-		dir = filepath.Join(dir, primary.RootDir)
+		if rootDir, err := validateRootDir(primary.RootDir); err == nil {
+			dir = filepath.Join(dir, rootDir)
+		}
 	}
 	return dir
 }

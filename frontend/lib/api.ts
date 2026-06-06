@@ -558,38 +558,36 @@ export function getWsBase(): string {
   return base.replace(/^http/, "ws")
 }
 
-// Appends the admin token to a WS URL so the backend can authenticate the
-// handshake (browsers cannot set headers on WebSocket connections).
-function withToken(url: string): string {
-  const token = getToken()
-  if (!token) return url
+async function createWs(path: string): Promise<WebSocket> {
+  const { ticket } = await req<{ ticket: string; expiresIn: number }>(
+    "/api/auth/ws-ticket",
+    { method: "POST" }
+  )
+  const url = `${getWsBase()}${path}`
   const sep = url.includes("?") ? "&" : "?"
-  return `${url}${sep}token=${encodeURIComponent(token)}`
+  return new WebSocket(`${url}${sep}ticket=${encodeURIComponent(ticket)}`)
 }
 
-export function createBuildLogsWs(appId: string): WebSocket {
-  return new WebSocket(withToken(`${getWsBase()}/ws/logs?appId=${appId}`))
+export function createBuildLogsWs(appId: string): Promise<WebSocket> {
+  return createWs(`/ws/logs?appId=${encodeURIComponent(appId)}`)
 }
 
-export function createRuntimeLogsWs(appId: string): WebSocket {
-  return new WebSocket(
-    withToken(`${getWsBase()}/ws/runtime-logs?appId=${appId}`)
-  )
+export function createRuntimeLogsWs(appId: string): Promise<WebSocket> {
+  return createWs(`/ws/runtime-logs?appId=${encodeURIComponent(appId)}`)
 }
 
-export function createStatsWs(serverId = "localhost"): WebSocket {
-  return new WebSocket(
-    withToken(
-      `${getWsBase()}/ws/stats?serverId=${encodeURIComponent(serverId)}`
-    )
-  )
+export function createStatsWs(serverId = "localhost"): Promise<WebSocket> {
+  return createWs(`/ws/stats?serverId=${encodeURIComponent(serverId)}`)
 }
 
-export function createTerminalWs(appId: string): WebSocket {
-  return new WebSocket(withToken(`${getWsBase()}/ws/terminal?appId=${appId}`))
+export function createTerminalWs(appId: string): Promise<WebSocket> {
+  return createWs(`/ws/terminal?appId=${encodeURIComponent(appId)}`)
 }
 
-export function createHostTerminalWs(serverId?: string): WebSocket {
-  const query = serverId && serverId !== "all" ? `?serverId=${serverId}` : ""
-  return new WebSocket(withToken(`${getWsBase()}/ws/host-terminal${query}`))
+export function createHostTerminalWs(serverId?: string): Promise<WebSocket> {
+  const query =
+    serverId && serverId !== "all"
+      ? `?serverId=${encodeURIComponent(serverId)}`
+      : ""
+  return createWs(`/ws/host-terminal${query}`)
 }

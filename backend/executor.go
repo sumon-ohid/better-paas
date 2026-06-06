@@ -94,10 +94,9 @@ func getSSHClient(server *Server) (*ssh.Client, error) {
 	}
 
 	cfg := &ssh.ClientConfig{
-		User: server.SSHUser,
-		Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)},
-		//nolint:gosec
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		User:            server.SSHUser,
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		HostKeyCallback: pinnedHostKeyCallback(server),
 		Timeout:         5 * time.Second,
 	}
 
@@ -132,29 +131,48 @@ func CloseCachedSSHClient(serverID string) {
 // NewSSHExecutor dials the remote server and returns a ready SSHExecutor.
 // The caller is responsible for calling Close() when done.
 //
-// Security note: host key verification is skipped in this MVP (InsecureIgnoreHostKey).
-// TODO (Phase 2): Store and verify the host fingerprint in the servers table.
-func NewSSHExecutor(ip string, port int, user, privateKeyPEM string) (*SSHExecutor, error) {
-	signer, err := ssh.ParsePrivateKey([]byte(privateKeyPEM))
+// Host keys are pinned on first successful connection and verified thereafter.
+func NewSSHExecutor(server *Server) (*SSHExecutor, error) {
+	signer, err := ssh.ParsePrivateKey([]byte(server.SSHKey))
 	if err != nil {
 		return nil, fmt.Errorf("parse SSH private key: %w", err)
 	}
 
 	cfg := &ssh.ClientConfig{
-		User: user,
-		Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)},
-		// TODO (Phase 2): replace with stored host fingerprint verification.
-		//nolint:gosec
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		User:            server.SSHUser,
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		HostKeyCallback: pinnedHostKeyCallback(server),
 		Timeout:         10 * time.Second,
 	}
 
-	addr := fmt.Sprintf("%s:%d", ip, port)
+	addr := fmt.Sprintf("%s:%d", server.IP, server.Port)
 	client, err := ssh.Dial("tcp", addr, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("SSH dial %s: %w", addr, err)
 	}
 	return &SSHExecutor{client: client, unpooled: true}, nil
+}
+
+func pinnedHostKeyCallback(server *Server) ssh.HostKeyCallback {
+	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		fingerprint := ssh.FingerprintSHA256(key)
+		if server.SSHHostKey == "" {
+			if err := dbUpdateServerHostKey(server.ID, fingerprint); err != nil {
+				return fmt.Errorf("store SSH host key fingerprint for %s: %w", server.ID, err)
+			}
+			server.SSHHostKey = fingerprint
+			logHostKeyPinned(server.ID, fingerprint)
+			return nil
+		}
+		if server.SSHHostKey != fingerprint {
+			return fmt.Errorf("SSH host key mismatch for %s: expected %s, got %s", server.ID, server.SSHHostKey, fingerprint)
+		}
+		return nil
+	}
+}
+
+func logHostKeyPinned(serverID, fingerprint string) {
+	fmt.Fprintf(os.Stderr, "[ssh] pinned host key for server %s: %s\n", serverID, fingerprint)
 }
 
 // Close releases the underlying SSH connection.
@@ -271,8 +289,8 @@ func shellQuote(s string) string {
 
 // sshDialTest is a lightweight connectivity check: dials, runs `docker info`,
 // returns the Docker server version or an error.
-func sshDialTest(ip string, port int, user, privateKeyPEM string) (dockerVersion string, err error) {
-	exec, err := NewSSHExecutor(ip, port, user, privateKeyPEM)
+func sshDialTest(server *Server) (dockerVersion string, err error) {
+	exec, err := NewSSHExecutor(server)
 	if err != nil {
 		return "", err
 	}

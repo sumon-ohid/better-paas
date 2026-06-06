@@ -26,7 +26,6 @@ import (
 // engines.node constraint. Nixpacks resolves this via NIXPACKS_NODE_VERSION.
 const defaultNodeVersion = "22"
 
-
 // generateRandomID returns a 10-character lowercase alphanumeric string using
 // a cryptographically secure source. IDs form part of the public per-app URL,
 // so they must not be predictable.
@@ -242,7 +241,6 @@ func portFree(port int) bool {
 
 	return true
 }
-
 
 // remotePortFree probes whether a TCP port is free on a remote server over SSH.
 // It tries ss(8) first (most common on modern Linux), then falls back to
@@ -473,8 +471,14 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		// ── 2. Determine build subdirectory ──────────────────────────────────
 		buildSubDir := buildDir
 		if app.RootDir != "" && app.RootDir != "." && app.RootDir != "./" {
-			buildSubDir = filepath.Join(buildDir, app.RootDir)
-			localLog(fmt.Sprintf("📂 Using sub-directory build context: %s", app.RootDir))
+			rootDir, err := validateRootDir(app.RootDir)
+			if err != nil {
+				localLog(fmt.Sprintf("✖ %v", err))
+				finish("failed", "")
+				return
+			}
+			buildSubDir = filepath.Join(buildDir, rootDir)
+			localLog(fmt.Sprintf("📂 Using sub-directory build context: %s", rootDir))
 		}
 
 		// ── 3. Build the image (method depends on app.BuildMethod) ────────────
@@ -1765,7 +1769,7 @@ func transferImageToRemote(serverID, image string, localLog func(string)) error 
 	cfg := &ssh.ClientConfig{
 		User:            server.SSHUser,
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: pinnedHostKeyCallback(server),
 		Timeout:         20 * time.Second,
 	}
 

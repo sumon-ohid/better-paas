@@ -33,9 +33,11 @@ Every API endpoint and WebSocket interface on Better-PaaS is protected.
   ```
   Authorization: Bearer <your_admin_token>
   ```
-* **WebSocket Authentication**: Requires a `token` query parameter:
+* **WebSocket Authentication**: First mint a one-use ticket over authenticated
+  HTTP, then connect with that ticket:
   ```
-  ws://YOUR_SERVER:3000/api/ws?token=<your_admin_token>
+  POST /api/auth/ws-ticket
+  ws://YOUR_SERVER:3000/ws/logs?ticket=<one_use_ticket>
   ```
 
 ---

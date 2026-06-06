@@ -238,7 +238,7 @@ func handleServerTest(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "server has no SSH key — please recreate it", http.StatusBadRequest)
 			return
 		}
-		dockerVersion, testErr = sshDialTest(server.IP, server.Port, server.SSHUser, server.SSHKey)
+		dockerVersion, testErr = sshDialTest(server)
 	}
 
 	status := "connected"

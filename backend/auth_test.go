@@ -144,3 +144,53 @@ func TestHTTPAuthOK_Writes429WhenLockedOut(t *testing.T) {
 		t.Fatalf("expected Retry-After header during lockout")
 	}
 }
+
+func TestWSTicketIsSingleUse(t *testing.T) {
+	prev := wsTickets
+	wsTickets = make(map[string]wsTicket)
+	t.Cleanup(func() { wsTickets = prev })
+
+	ticket := issueWSTicket()
+	if !consumeWSTicket(ticket) {
+		t.Fatalf("expected fresh ticket to be accepted")
+	}
+	if consumeWSTicket(ticket) {
+		t.Fatalf("expected ticket to be single-use")
+	}
+}
+
+func TestWSTicketExpires(t *testing.T) {
+	prev := wsTickets
+	wsTickets = make(map[string]wsTicket)
+	t.Cleanup(func() { wsTickets = prev })
+
+	wsTicketLock.Lock()
+	wsTickets["expired"] = wsTicket{expiresAt: time.Now().Add(-time.Second)}
+	wsTicketLock.Unlock()
+
+	if consumeWSTicket("expired") {
+		t.Fatalf("expected expired ticket to be rejected")
+	}
+}
+
+func TestPublicPathsStayNarrow(t *testing.T) {
+	want := map[string]bool{
+		"/api/health":              true,
+		"/api/auth/verify":         true,
+		"/api/track":               true,
+		"/api/analytics/script.js": true,
+	}
+	if len(publicPaths) != len(want) {
+		t.Fatalf("publicPaths length = %d, want %d: %#v", len(publicPaths), len(want), publicPaths)
+	}
+	for path := range want {
+		if !publicPaths[path] {
+			t.Fatalf("expected %s to remain public", path)
+		}
+	}
+	for path := range publicPaths {
+		if !want[path] {
+			t.Fatalf("unexpected public path: %s", path)
+		}
+	}
+}

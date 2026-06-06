@@ -264,7 +264,7 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 		cfg := &ssh.ClientConfig{
 			User:            server.SSHUser,
 			Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			HostKeyCallback: pinnedHostKeyCallback(server),
 			Timeout:         15 * time.Second,
 		}
 		addr := fmt.Sprintf("%s:%d", server.IP, server.Port)
@@ -378,4 +378,3 @@ func handleStatsWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
-

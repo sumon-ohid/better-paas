@@ -22,10 +22,10 @@ import (
 // This is a self-hosted, single-admin control plane. On first run we generate
 // a high-entropy bearer token, persist it in the DB (meta table) and write it
 // to data/admin_token.txt so the operator can retrieve it. Every API and
-// WebSocket request must present this token:
+// WebSocket requests first mint a short-lived ticket using this token:
 //
-//   - HTTP:       Authorization: Bearer <token>
-//   - WebSocket:  ?token=<token>   (browsers can't set WS headers)
+//   - HTTP:      Authorization: Bearer <token>
+//   - WebSocket: POST /api/auth/ws-ticket, then connect with ?ticket=<ticket>
 //
 // The token can be overridden via the ADMIN_TOKEN environment variable, which
 // takes precedence over the stored value (useful for IaC / rotation).
@@ -33,6 +33,16 @@ import (
 var (
 	authTokenLock sync.RWMutex
 	authToken     string
+)
+
+type wsTicket struct {
+	expiresAt time.Time
+	used      bool
+}
+
+var (
+	wsTicketLock sync.Mutex
+	wsTickets    = make(map[string]wsTicket)
 )
 
 // secureToken returns a 32-byte cryptographically random hex string.
@@ -138,10 +148,52 @@ func bearerFromRequest(r *http.Request) string {
 	return ""
 }
 
-// wsAuthOK validates the token query parameter for a WebSocket upgrade,
-// enforcing the per-IP brute-force lockout. On failure it writes the HTTP
-// status (before the upgrade handshake) and returns false.
+// issueWSTicket creates a one-use, short-lived credential for browser
+// WebSocket upgrades. Browsers cannot attach Authorization headers to WS
+// handshakes, and putting the long-lived admin token in the URL leaks it into
+// access logs. A ticket limits that exposure to a single handshake.
+func issueWSTicket() string {
+	ticket := secureToken()
+	wsTicketLock.Lock()
+	wsTickets[ticket] = wsTicket{expiresAt: time.Now().Add(60 * time.Second)}
+	wsTicketLock.Unlock()
+	return ticket
+}
+
+func consumeWSTicket(ticket string) bool {
+	if ticket == "" {
+		return false
+	}
+	now := time.Now()
+	wsTicketLock.Lock()
+	defer wsTicketLock.Unlock()
+	entry, ok := wsTickets[ticket]
+	if !ok {
+		return false
+	}
+	delete(wsTickets, ticket)
+	return !entry.used && now.Before(entry.expiresAt)
+}
+
+func sweepWSTickets() {
+	now := time.Now()
+	wsTicketLock.Lock()
+	for ticket, entry := range wsTickets {
+		if entry.used || now.After(entry.expiresAt) {
+			delete(wsTickets, ticket)
+		}
+	}
+	wsTicketLock.Unlock()
+}
+
+// wsAuthOK validates a short-lived ticket for a WebSocket upgrade. For
+// backwards compatibility it also accepts the legacy token query parameter,
+// still enforcing the per-IP brute-force lockout. On failure it writes the HTTP
+// status before the upgrade handshake and returns false.
 func wsAuthOK(w http.ResponseWriter, r *http.Request) bool {
+	if consumeWSTicket(r.URL.Query().Get("ticket")) {
+		return true
+	}
 	res := authenticate(r, r.URL.Query().Get("token"))
 	if res.OK {
 		return true
@@ -153,6 +205,21 @@ func wsAuthOK(w http.ResponseWriter, r *http.Request) bool {
 	}
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	return false
+}
+
+// handleAuthWSTicket mints a one-use WebSocket ticket. It is intentionally not
+// public; authGate requires the normal Authorization bearer token before this
+// handler runs.
+func handleAuthWSTicket(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	sweepWSTickets()
+	jsonOK(w, map[string]interface{}{
+		"ticket":    issueWSTicket(),
+		"expiresIn": 60,
+	})
 }
 
 // ---------------------------------------------------------------------------

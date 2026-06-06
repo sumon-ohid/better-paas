@@ -896,6 +896,10 @@ CREATE TABLE IF NOT EXISTS servers (
 	if _, err := sqliteDB.Exec(schema); err != nil {
 		return err
 	}
+	if _, err := sqliteDB.Exec(`ALTER TABLE servers ADD COLUMN ssh_host_key TEXT NOT NULL DEFAULT ''`); err != nil &&
+		!strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
 
 	// Seed the default localhost row on first boot.
 	_, err := sqliteDB.Exec(`
@@ -912,8 +916,8 @@ CREATE TABLE IF NOT EXISTS servers (
 
 func dbSaveServer(s Server) error {
 	_, err := sqliteDB.Exec(`
-		INSERT INTO servers (id, name, description, ip, port, ssh_user, ssh_key, is_local, status, last_checked, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO servers (id, name, description, ip, port, ssh_user, ssh_key, ssh_host_key, is_local, status, last_checked, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name,
 			description=excluded.description,
@@ -921,11 +925,12 @@ func dbSaveServer(s Server) error {
 			port=excluded.port,
 			ssh_user=excluded.ssh_user,
 			ssh_key=excluded.ssh_key,
+			ssh_host_key=excluded.ssh_host_key,
 			status=excluded.status,
 			last_checked=excluded.last_checked
 	`,
 		s.ID, s.Name, s.Description, s.IP, s.Port, s.SSHUser,
-		encryptSecret(s.SSHKey), s.IsLocal, s.Status, s.LastChecked, s.CreatedAt,
+		encryptSecret(s.SSHKey), s.SSHHostKey, s.IsLocal, s.Status, s.LastChecked, s.CreatedAt,
 	)
 	return err
 }
@@ -935,8 +940,8 @@ func dbGetServer(id string) (*Server, error) {
 	var sshKeyEnc, description sql.NullString
 	var lastChecked sql.NullTime
 	err := sqliteDB.QueryRow(
-		`SELECT id, name, description, ip, port, ssh_user, ssh_key, is_local, status, last_checked, created_at FROM servers WHERE id = ?`, id,
-	).Scan(&s.ID, &s.Name, &description, &s.IP, &s.Port, &s.SSHUser, &sshKeyEnc, &s.IsLocal, &s.Status, &lastChecked, &s.CreatedAt)
+		`SELECT id, name, description, ip, port, ssh_user, ssh_key, ssh_host_key, is_local, status, last_checked, created_at FROM servers WHERE id = ?`, id,
+	).Scan(&s.ID, &s.Name, &description, &s.IP, &s.Port, &s.SSHUser, &sshKeyEnc, &s.SSHHostKey, &s.IsLocal, &s.Status, &lastChecked, &s.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -953,7 +958,7 @@ func dbGetServer(id string) (*Server, error) {
 
 func dbLoadServers() ([]Server, error) {
 	rows, err := sqliteDB.Query(
-		`SELECT id, name, description, ip, port, ssh_user, ssh_key, is_local, status, last_checked, created_at FROM servers ORDER BY is_local DESC, created_at ASC`,
+		`SELECT id, name, description, ip, port, ssh_user, ssh_key, ssh_host_key, is_local, status, last_checked, created_at FROM servers ORDER BY is_local DESC, created_at ASC`,
 	)
 	if err != nil {
 		return nil, err
@@ -965,7 +970,7 @@ func dbLoadServers() ([]Server, error) {
 		var s Server
 		var sshKeyEnc, description sql.NullString
 		var lastChecked sql.NullTime
-		if err := rows.Scan(&s.ID, &s.Name, &description, &s.IP, &s.Port, &s.SSHUser, &sshKeyEnc, &s.IsLocal, &s.Status, &lastChecked, &s.CreatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.Name, &description, &s.IP, &s.Port, &s.SSHUser, &sshKeyEnc, &s.SSHHostKey, &s.IsLocal, &s.Status, &lastChecked, &s.CreatedAt); err != nil {
 			continue
 		}
 		s.Description = description.String
@@ -976,6 +981,11 @@ func dbLoadServers() ([]Server, error) {
 		result = append(result, s)
 	}
 	return result, nil
+}
+
+func dbUpdateServerHostKey(id, fingerprint string) error {
+	_, err := sqliteDB.Exec(`UPDATE servers SET ssh_host_key = ? WHERE id = ?`, fingerprint, id)
+	return err
 }
 
 func dbDeleteServer(id string) error {

@@ -26,7 +26,8 @@ services:
     environment:
       - LISTEN_ADDR=:8080
       - FRONTEND_PORT=3000
-      - TRUST_PROXY=true
+      # Enable only when the API is reachable exclusively through a trusted reverse proxy.
+      - TRUST_PROXY=false
       # Override the generated admin token (optional)
       # - ADMIN_TOKEN=your-custom-token
       # Secret key for at-rest SQLite database encryption (optional)

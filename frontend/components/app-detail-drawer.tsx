@@ -82,9 +82,11 @@ export function AppDetailDrawer({
   const [runtimeLogsConnected, setRuntimeLogsConnected] = useState(false)
   const [appMetrics, setAppMetrics] = useState<{ cpuPercent: number; memUsageMb: number; memLimitMb: number; memPercent: number } | null>(null)
   const runtimeLogsWsRef = useRef<WebSocket | null>(null)
+  const runtimeLogsWsSeqRef = useRef(0)
   const runtimeLogEndRef = useRef<HTMLDivElement | null>(null)
 
   const connectRuntimeLogs = (appId: string) => {
+    const seq = ++runtimeLogsWsSeqRef.current
     if (runtimeLogsWsRef.current) {
       runtimeLogsWsRef.current.onclose = null
       runtimeLogsWsRef.current.onerror = null
@@ -97,34 +99,45 @@ export function AppDetailDrawer({
     setRuntimeLogs([])
     setRuntimeLogsConnected(false)
 
-    const ws = createRuntimeLogsWs(appId)
-    runtimeLogsWsRef.current = ws
+    createRuntimeLogsWs(appId)
+      .then((ws) => {
+        if (seq !== runtimeLogsWsSeqRef.current) {
+          ws.close()
+          return
+        }
+        runtimeLogsWsRef.current = ws
 
-    ws.onopen = () => {
-      console.log('[WS runtime-logs] opened for', appId)
-      setRuntimeLogsConnected(true)
-    }
+        ws.onopen = () => {
+          console.log('[WS runtime-logs] opened for', appId)
+          setRuntimeLogsConnected(true)
+        }
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      setRuntimeLogs((prev) => [...prev, { message: data.message, timestamp: data.timestamp }])
-    }
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data)
+          setRuntimeLogs((prev) => [...prev, { message: data.message, timestamp: data.timestamp }])
+        }
 
-    ws.onclose = (event) => {
-      console.log('[WS runtime-logs] closed:', event.code, event.reason)
-      setRuntimeLogsConnected(false)
-      if (runtimeLogsWsRef.current === ws) {
-        runtimeLogsWsRef.current = null
-      }
-    }
+        ws.onclose = (event) => {
+          console.log('[WS runtime-logs] closed:', event.code, event.reason)
+          setRuntimeLogsConnected(false)
+          if (runtimeLogsWsRef.current === ws) {
+            runtimeLogsWsRef.current = null
+          }
+        }
 
-    ws.onerror = (err) => {
-      console.error('[WS runtime-logs] error:', err)
-      setRuntimeLogsConnected(false)
-      if (runtimeLogsWsRef.current === ws) {
-        runtimeLogsWsRef.current = null
-      }
-    }
+        ws.onerror = (err) => {
+          console.error('[WS runtime-logs] error:', err)
+          setRuntimeLogsConnected(false)
+          if (runtimeLogsWsRef.current === ws) {
+            runtimeLogsWsRef.current = null
+          }
+        }
+      })
+      .catch((err) => {
+        if (seq !== runtimeLogsWsSeqRef.current) return
+        console.error('[WS runtime-logs] error:', err)
+        setRuntimeLogsConnected(false)
+      })
   }
 
   useEffect(() => {
@@ -133,6 +146,7 @@ export function AppDetailDrawer({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       connectRuntimeLogs(app.id)
     } else {
+      runtimeLogsWsSeqRef.current++
       if (runtimeLogsWsRef.current) {
         runtimeLogsWsRef.current.close()
         runtimeLogsWsRef.current = null
@@ -140,6 +154,8 @@ export function AppDetailDrawer({
       setRuntimeLogsConnected(false)
     }
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      runtimeLogsWsSeqRef.current++
       if (runtimeLogsWsRef.current) {
         runtimeLogsWsRef.current.close()
         runtimeLogsWsRef.current = null

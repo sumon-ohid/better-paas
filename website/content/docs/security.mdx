@@ -15,9 +15,11 @@ The entire control plane is protected by a single **admin bearer token**.
 - On first run, Better-PaaS generates a strong random token, prints it to the
   logs, and saves it to `backend/data/admin_token.txt`.
 - You paste it into the dashboard sign-in screen to log in.
-- **Every** API and WebSocket request must carry it:
-  - HTTP: `Authorization: Bearer <token>`
-  - WebSocket: `?token=<token>`
+- **Every** privileged API request must carry it as
+  `Authorization: Bearer <token>`.
+- Browser WebSocket sessions first request a short-lived, one-use ticket from
+  `/api/auth/ws-ticket`, then connect with that ticket instead of putting the
+  long-lived admin token in the WebSocket URL.
 
 To pin or rotate the token, set `ADMIN_TOKEN` in the backend environment.
 
@@ -37,8 +39,17 @@ trigger an **escalating lockout** — the server responds with HTTP `429` and a
 `Retry-After` header, slowing guesses to a crawl. Combined with a 256-bit token,
 guessing is infeasible.
 
-If you run Better-PaaS behind a reverse proxy, set `TRUST_PROXY=true` so the
-lockout keys on the real client IP instead of the proxy's.
+If the API is reachable **only** through a trusted reverse proxy, set
+`TRUST_PROXY=true` so lockouts key on the real client IP instead of the proxy's.
+Leave it disabled when port `8080` is directly exposed, otherwise clients can
+spoof forwarded IP headers.
+
+## Remote server SSH
+
+When you connect a remote server, Better-PaaS pins that server's SSH host key
+fingerprint on first successful connection and verifies it on later SSH
+operations. If the remote host key changes unexpectedly, Better-PaaS rejects the
+connection instead of silently trusting a possible man-in-the-middle.
 
 ## Encryption at rest
 

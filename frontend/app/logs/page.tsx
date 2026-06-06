@@ -42,6 +42,7 @@ function LogsPage() {
   const [isRedeploying, setIsRedeploying] = useState(false)
 
   const wsRef = useRef<WebSocket | null>(null)
+  const wsSeqRef = useRef(0)
   const logBufferRef = useRef<LogEntry[]>([])
   const flushTimerRef = useRef<NodeJS.Timeout | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
@@ -68,6 +69,7 @@ function LogsPage() {
 
   const connectStream = useCallback((appId: string, mode: LogMode) => {
     // Teardown existing connection
+    const seq = ++wsSeqRef.current
     if (wsRef.current) {
       wsRef.current.onclose = null
       wsRef.current.onerror = null
@@ -87,38 +89,50 @@ function LogsPage() {
 
     if (!appId) return
 
-    const ws = mode === "build" ? createBuildLogsWs(appId) : createRuntimeLogsWs(appId)
-    wsRef.current = ws
+    const openWs = mode === "build" ? createBuildLogsWs : createRuntimeLogsWs
+    openWs(appId)
+      .then((ws) => {
+        if (seq !== wsSeqRef.current) {
+          ws.close()
+          return
+        }
+        wsRef.current = ws
 
-    ws.onopen = () => setConnected(true)
+        ws.onopen = () => setConnected(true)
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      logBufferRef.current.push({ message: data.message, timestamp: data.timestamp })
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data)
+          logBufferRef.current.push({ message: data.message, timestamp: data.timestamp })
 
-      if (!flushTimerRef.current) {
-        flushTimerRef.current = setTimeout(() => {
-          const batch = [...logBufferRef.current]
-          logBufferRef.current = []
-          setLogs((prev) => [...prev, ...batch])
-          flushTimerRef.current = null
-        }, 80)
-      }
-    }
+          if (!flushTimerRef.current) {
+            flushTimerRef.current = setTimeout(() => {
+              const batch = [...logBufferRef.current]
+              logBufferRef.current = []
+              setLogs((prev) => [...prev, ...batch])
+              flushTimerRef.current = null
+            }, 80)
+          }
+        }
 
-    ws.onclose = () => {
-      setConnected(false)
-      if (wsRef.current === ws) wsRef.current = null
-      if (logBufferRef.current.length > 0) {
-        const batch = [...logBufferRef.current]
-        logBufferRef.current = []
-        setLogs((prev) => [...prev, ...batch])
-      }
-      if (flushTimerRef.current) {
-        clearTimeout(flushTimerRef.current)
-        flushTimerRef.current = null
-      }
-    }
+        ws.onclose = () => {
+          setConnected(false)
+          if (wsRef.current === ws) wsRef.current = null
+          if (logBufferRef.current.length > 0) {
+            const batch = [...logBufferRef.current]
+            logBufferRef.current = []
+            setLogs((prev) => [...prev, ...batch])
+          }
+          if (flushTimerRef.current) {
+            clearTimeout(flushTimerRef.current)
+            flushTimerRef.current = null
+          }
+        }
+      })
+      .catch((err) => {
+        if (seq !== wsSeqRef.current) return
+        console.error("Failed to open log stream", err)
+        setConnected(false)
+      })
   }, [])
 
   // Connect when app or mode changes
@@ -140,6 +154,8 @@ function LogsPage() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      wsSeqRef.current++
       if (wsRef.current) {
         wsRef.current.onclose = null
         wsRef.current.close()

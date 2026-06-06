@@ -159,6 +159,11 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	rootDir, err := validateRootDir(req.RootDir)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	buildMethod, dockerfilePath, err := validateBuildMethod(req.BuildMethod, req.DockerfilePath)
 	if err != nil {
@@ -190,7 +195,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		Port:           allocatePort(serverID),
 		CreatedAt:      time.Now(),
 		GitToken:       req.GitToken,
-		RootDir:        req.RootDir,
+		RootDir:        rootDir,
 		EnvVars:        req.EnvVars,
 		BuildCommand:   req.BuildCommand,
 		StartCommand:   req.StartCommand,
@@ -513,6 +518,11 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	rootDir, err := validateRootDir(req.RootDir)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	// Validate build method when provided. We resolve the effective method +
 	// dockerfile path so an unset path defaults correctly.
@@ -537,7 +547,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		if apps[i].ID == req.ID {
 			apps[i].GitRepo = req.GitRepo
 			apps[i].Branch = req.Branch
-			apps[i].RootDir = req.RootDir
+			apps[i].RootDir = rootDir
 			apps[i].EnvVars = mergeEnvVars(apps[i].EnvVars, req.EnvVars, req.SecretKeys)
 			apps[i].BuildCommand = req.BuildCommand
 			apps[i].StartCommand = req.StartCommand

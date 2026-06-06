@@ -304,6 +304,11 @@ export function AddServerWizard({
   }
 
   const handleClose = () => {
+    if (createdServer && (!testResult || testResult.status !== "connected")) {
+      api.servers.delete(createdServer.id).catch((err) => {
+        console.error("Failed to clean up unverified server on close:", err)
+      })
+    }
     reset()
     onClose()
   }
@@ -850,7 +855,7 @@ export function AddServerWizard({
               <p className="text-center text-xs text-muted-foreground">
                 {mode === "cloud"
                   ? "Cloud-init can take a few minutes to finish Docker installation. If the first test fails, wait briefly and retest."
-                  : "You can also finish without testing and test later from the Servers page."}
+                  : "Please verify the connection to ensure the SSH key was added correctly."}
               </p>
             </div>
           )}
@@ -881,7 +886,16 @@ export function AddServerWizard({
             <>
               <Button
                 variant="outline"
-                onClick={() => setStep(1)}
+                onClick={() => {
+                  if (createdServer) {
+                    api.servers.delete(createdServer.id).catch((err) => {
+                      console.error("Failed to clean up server on back:", err)
+                    })
+                    setCreatedServer(null)
+                    setPublicKey("")
+                  }
+                  setStep(1)
+                }}
                 className="flex-1"
               >
                 Back
@@ -900,17 +914,31 @@ export function AddServerWizard({
             <>
               <Button
                 variant="outline"
-                onClick={() => setStep(mode === "cloud" ? 1 : 2)}
+                onClick={() => {
+                  if (mode === "cloud") {
+                    if (createdServer) {
+                      api.servers.delete(createdServer.id).catch((err) => {
+                        console.error("Failed to clean up server on back:", err)
+                      })
+                      setCreatedServer(null)
+                      setPublicKey("")
+                    }
+                    setStep(1)
+                  } else {
+                    setStep(2)
+                  }
+                }}
                 className="flex-1"
               >
                 Back
               </Button>
               <Button
                 onClick={handleFinish}
+                disabled={testResult?.status !== "connected"}
                 className="flex-1"
                 id="finish-server-btn"
               >
-                {testResult?.status === "connected" ? "Finish" : "Save Anyway"}
+                Finish
               </Button>
             </>
           )}

@@ -100,7 +100,7 @@ docker compose up -d
      *   **Native / Script install**: The token is printed to your console and saved to `backend/data/admin_token.txt`.
      *   **Docker install**: Get it from container logs via `docker logs better-paas`, run the CLI command inside the container via `docker exec -it better-paas /app/server token`, or read it from your host machine via `cat data/admin_token.txt`.
 2.   **Access Dashboard**: Open the Next.js dashboard in your browser (typically `http://localhost:3000` or your server's IP address).
-3.   **Authenticate**: Paste the token into the sign-in screen. Every subsequent API and WebSocket request carries this token (`Authorization: Bearer <token>` or `?token=<token>`).
+3.   **Authenticate**: Paste the token into the sign-in screen. API requests use `Authorization: Bearer <token>`. Browser WebSocket sessions first mint a short-lived ticket from the authenticated API, then connect with that one-use ticket.
 
 ---
 

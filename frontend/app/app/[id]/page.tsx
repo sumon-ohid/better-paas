@@ -276,6 +276,7 @@ function AppDetailPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [logsConnected, setLogsConnected] = useState(false)
   const logsWsRef = useRef<WebSocket | null>(null)
+  const logsWsSeqRef = useRef(0)
   const logBufferRef = useRef<LogEntry[]>([])
   const flushTimerRef = useRef<NodeJS.Timeout | null>(null)
   const logEndRef = useRef<HTMLDivElement | null>(null)
@@ -429,6 +430,7 @@ function AppDetailPage() {
     if (!appId) return
 
     // Teardown
+    const seq = ++logsWsSeqRef.current
     if (logsWsRef.current) {
       logsWsRef.current.onclose = null
       logsWsRef.current.onerror = null
@@ -446,41 +448,52 @@ function AppDetailPage() {
     setLogsConnected(false)
     logBufferRef.current = []
 
-    const ws = createRuntimeLogsWs(appId)
-    logsWsRef.current = ws
+    createRuntimeLogsWs(appId)
+      .then((ws) => {
+        if (seq !== logsWsSeqRef.current) {
+          ws.close()
+          return
+        }
+        logsWsRef.current = ws
 
-    ws.onopen = () => setLogsConnected(true)
+        ws.onopen = () => setLogsConnected(true)
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      logBufferRef.current.push({
-        message: data.message,
-        timestamp: data.timestamp,
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data)
+          logBufferRef.current.push({
+            message: data.message,
+            timestamp: data.timestamp,
+          })
+          if (!flushTimerRef.current) {
+            flushTimerRef.current = setTimeout(() => {
+              const batch = [...logBufferRef.current]
+              logBufferRef.current = []
+              setLogs((prev) => [...prev, ...batch])
+              flushTimerRef.current = null
+            }, 100)
+          }
+        }
+
+        ws.onclose = () => {
+          setLogsConnected(false)
+          if (logsWsRef.current === ws) logsWsRef.current = null
+          if (logBufferRef.current.length > 0) {
+            setLogs((prev) => [...prev, ...logBufferRef.current])
+            logBufferRef.current = []
+          }
+          if (flushTimerRef.current) {
+            clearTimeout(flushTimerRef.current)
+            flushTimerRef.current = null
+          }
+        }
+
+        ws.onerror = () => setLogsConnected(false)
       })
-      if (!flushTimerRef.current) {
-        flushTimerRef.current = setTimeout(() => {
-          const batch = [...logBufferRef.current]
-          logBufferRef.current = []
-          setLogs((prev) => [...prev, ...batch])
-          flushTimerRef.current = null
-        }, 100)
-      }
-    }
-
-    ws.onclose = () => {
-      setLogsConnected(false)
-      if (logsWsRef.current === ws) logsWsRef.current = null
-      if (logBufferRef.current.length > 0) {
-        setLogs((prev) => [...prev, ...logBufferRef.current])
-        logBufferRef.current = []
-      }
-      if (flushTimerRef.current) {
-        clearTimeout(flushTimerRef.current)
-        flushTimerRef.current = null
-      }
-    }
-
-    ws.onerror = () => setLogsConnected(false)
+      .catch((err) => {
+        if (seq !== logsWsSeqRef.current) return
+        console.error("Failed to open runtime logs stream", err)
+        setLogsConnected(false)
+      })
   }, [appId])
 
   useEffect(() => {
@@ -490,6 +503,8 @@ function AppDetailPage() {
       connectLogs()
     }
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      logsWsSeqRef.current++
       if (logsWsRef.current) {
         logsWsRef.current.onclose = null
         logsWsRef.current.close()

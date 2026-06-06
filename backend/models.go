@@ -246,6 +246,7 @@ type Server struct {
 	Port        int       `json:"port"`
 	SSHUser     string    `json:"sshUser"`
 	SSHKey      string    `json:"-"` // never exposed; encrypted at rest
+	SSHHostKey  string    `json:"sshHostKey,omitempty"`
 	IsLocal     bool      `json:"isLocal"`
 	Status      string    `json:"status"` // "connected", "error", "unknown"
 	LastChecked time.Time `json:"lastChecked"`

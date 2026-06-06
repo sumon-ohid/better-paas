@@ -171,6 +171,23 @@ func validateComposePath(composePath string) (string, error) {
 	return p, nil
 }
 
+// validateRootDir normalizes and validates an optional repo subdirectory.
+// Empty, "." and "./" all mean the repository root. Any other value must be a
+// safe relative path so build contexts cannot escape the cloned repo.
+func validateRootDir(rootDir string) (string, error) {
+	p := strings.TrimSpace(rootDir)
+	if p == "" || p == "." || p == "./" {
+		return "", nil
+	}
+	if strings.ContainsAny(p, "\x00\\") {
+		return "", fmt.Errorf("invalid root directory: must use forward-slash relative paths")
+	}
+	if !safeRelPath(p) {
+		return "", fmt.Errorf("invalid root directory: must be a relative path inside the repo")
+	}
+	return filepath.ToSlash(p), nil
+}
+
 // safeRelPath reports whether p is a relative path that stays within its base
 // (no leading slash, no "." escape via ".." segments).
 func safeRelPath(p string) bool {

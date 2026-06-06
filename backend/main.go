@@ -160,6 +160,7 @@ func main() {
 	// System
 	mux.HandleFunc("/api/health", handleHealth)
 	mux.HandleFunc("/api/auth/verify", handleAuthVerify)
+	mux.HandleFunc("/api/auth/ws-ticket", handleAuthWSTicket)
 	mux.HandleFunc("/api/system/onboarding", handleOnboardingGet)
 	mux.HandleFunc("/api/system/onboarding/complete", handleOnboardingComplete)
 	mux.HandleFunc("/api/system/onboarding/reset", handleOnboardingReset)
@@ -180,7 +181,7 @@ func main() {
 	mux.HandleFunc("/api/track", handleTrack)
 	mux.HandleFunc("/api/analytics/script.js", handleAnalyticsScript)
 
-	// WebSockets (auth enforced inside each handler via ?token=).
+	// WebSockets authenticate inside each handler via a short-lived ?ticket=.
 	mux.HandleFunc("/ws/stats", handleStatsWS)
 	mux.HandleFunc("/ws/logs", handleLogsWS)
 	mux.HandleFunc("/ws/runtime-logs", handleRuntimeLogsWS)
@@ -200,11 +201,10 @@ func main() {
 	}
 }
 
-// trustProxy controls whether X-Forwarded-For / X-Real-IP headers are honored
-// for client-IP resolution (only enable when behind a trusted reverse proxy,
-// otherwise clients could spoof their IP to evade rate limits).
-var trustProxy = strings.EqualFold(strings.TrimSpace(os.Getenv("TRUST_PROXY")), "true") ||
-	os.Getenv("TRUST_PROXY") == "1"
+// trustProxy controls whether X-Forwarded-For / X-Real-IP headers are honored.
+// Default to false: if the API is directly exposed, trusting forwarded headers
+// lets clients spoof their source IP and bypass rate limits/auth lockouts.
+var trustProxy = parseBoolEnv("TRUST_PROXY")
 
 // maxRequestBody caps JSON request bodies to defend against memory-exhaustion.
 // WebSocket upgrades are exempt (they are long-lived streams).
@@ -249,6 +249,11 @@ func envInt(key string, def int) int {
 	return n
 }
 
+func parseBoolEnv(key string) bool {
+	v := strings.TrimSpace(os.Getenv(key))
+	return strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes")
+}
+
 // publicPaths are reachable without an admin token.
 var publicPaths = map[string]bool{
 	"/api/health":      true,
@@ -260,9 +265,10 @@ var publicPaths = map[string]bool{
 }
 
 // authGate enforces bearer-token auth on every API route except public ones.
-// WebSocket routes authenticate themselves (token query param) since browsers
-// cannot attach Authorization headers to WS handshakes. The GitHub webhook
-// endpoint is also exempt: it is authenticated per-app by HMAC signature.
+// WebSocket routes authenticate themselves with short-lived tickets since
+// browsers cannot attach Authorization headers to WS handshakes. The GitHub
+// webhook endpoint is also exempt: it is authenticated per-app by HMAC
+// signature.
 func authGate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodOptions ||

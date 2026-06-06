@@ -57,7 +57,7 @@ const LIGHT_THEME: ITheme = {
 
 interface XtermShellProps {
   /** Factory that opens the backing WebSocket for this shell session. */
-  connect: () => WebSocket
+  connect: () => Promise<WebSocket>
   /** Label shown in the terminal chrome header, e.g. "web — shell". */
   title: string
   /** Bumping this value forces a reconnect (used by the Reconnect button). */
@@ -109,37 +109,17 @@ function XtermShell({ connect, title, reconnectToken, sessionKey }: XtermShellPr
     safeFit()
     term.focus()
 
-    const ws = connect()
-    ws.binaryType = "arraybuffer"
+    let ws: WebSocket | null = null
+    let cancelled = false
 
     const sendResize = () => {
-      if (ws.readyState !== WebSocket.OPEN) return
+      if (!ws || ws.readyState !== WebSocket.OPEN) return
       ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }))
     }
 
-    ws.onopen = () => {
-      setConnected(true)
-      safeFit()
-      sendResize()
-    }
-
-    ws.onmessage = (event) => {
-      if (typeof event.data === "string") {
-        term.write(event.data)
-      } else {
-        term.write(new Uint8Array(event.data as ArrayBuffer))
-      }
-    }
-
-    ws.onclose = () => {
-      setConnected(false)
-      term.write("\r\n\x1b[38;5;244m[session closed]\x1b[0m\r\n")
-    }
-    ws.onerror = () => setConnected(false)
-
     // Forward keystrokes to the PTY.
     const dataDisposable = term.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "input", data }))
       }
     })
@@ -155,15 +135,49 @@ function XtermShell({ connect, title, reconnectToken, sessionKey }: XtermShellPr
     const ro = new ResizeObserver(() => handleResize())
     ro.observe(host)
 
+    connect()
+      .then((socket) => {
+        if (cancelled) {
+          socket.close()
+          return
+        }
+        ws = socket
+        ws.binaryType = "arraybuffer"
+        ws.onopen = () => {
+          setConnected(true)
+          safeFit()
+          sendResize()
+        }
+        ws.onmessage = (event) => {
+          if (typeof event.data === "string") {
+            term.write(event.data)
+          } else {
+            term.write(new Uint8Array(event.data as ArrayBuffer))
+          }
+        }
+        ws.onclose = () => {
+          setConnected(false)
+          term.write("\r\n\x1b[38;5;244m[session closed]\x1b[0m\r\n")
+        }
+        ws.onerror = () => setConnected(false)
+      })
+      .catch((err) => {
+        setConnected(false)
+        term.write(`\r\n\x1b[38;5;196m[connection failed: ${err instanceof Error ? err.message : "unknown error"}]\x1b[0m\r\n`)
+      })
+
     return () => {
+      cancelled = true
       window.removeEventListener("resize", handleResize)
       ro.disconnect()
       dataDisposable.dispose()
-      ws.onopen = null
-      ws.onmessage = null
-      ws.onclose = null
-      ws.onerror = null
-      ws.close()
+      if (ws) {
+        ws.onopen = null
+        ws.onmessage = null
+        ws.onclose = null
+        ws.onerror = null
+        ws.close()
+      }
       term.dispose()
       termRef.current = null
     }
