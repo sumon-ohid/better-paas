@@ -51,6 +51,7 @@ import {
   AlertDialogClose,
 } from "@/components/ui/alert-dialog"
 import { api, createRuntimeLogsWs } from "@/lib/api"
+import { getAppUrl } from "@/lib/utils"
 import type {
   App,
   DeploymentRecord,
@@ -786,8 +787,9 @@ function AppDetailPage() {
   // ── Helpers ────────────────────────────────────────────────────────────────
   const [copied, setCopied] = useState(false)
   const handleCopyUrl = () => {
-    if (!app?.url) return
-    navigator.clipboard.writeText(app.url)
+    const url = app ? getAppUrl(app) : ""
+    if (!url) return
+    navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
     showToast("Copied", "URL copied to clipboard.")
@@ -1040,7 +1042,7 @@ function AppDetailPage() {
                   <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                     {/* Live site preview (web-facing rows only). Non-web compose
                       services (workers, databases) have no URL to preview. */}
-                    <SitePreview url={app.url} status={app.status} />
+                    <SitePreview url={getAppUrl(app)} status={app.status} />
 
                     {/* Deployment summary — snapshot of the live release */}
                     <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
@@ -1134,7 +1136,7 @@ function AppDetailPage() {
                             <>
                               <div className="flex items-center gap-1.5">
                                 <a
-                                  href={app.url}
+                                  href={getAppUrl(app)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary"

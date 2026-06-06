@@ -169,7 +169,7 @@ export default function SettingsPage() {
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [applyingUpdate, setApplyingUpdate] = useState(false)
   const [updateProgress, setUpdateProgress] = useState<UpdateProgress | null>(null)
-  const [pollingUpdate, setPollingUpdate] = useState(false)
+  const [, setPollingUpdate] = useState(false)
   const updateLogEndRef = useRef<HTMLDivElement>(null)
 
   // Custom Domain
@@ -178,21 +178,24 @@ export default function SettingsPage() {
   const [savingDomain, setSavingDomain] = useState(false)
 
   const pollUpdateProgress = useCallback(async () => {
-    try {
-      const p = await api.system.updateStatus()
-      setUpdateProgress(p)
-      if (p.inProgress) {
-        setTimeout(pollUpdateProgress, 1500)
-      } else {
-        setPollingUpdate(false)
-        if (p.state === "completed") {
-          api.system.version().then(setSysVersion).catch(() => {})
-          api.system.updateCheck(true).then(setUpdateStatus).catch(() => {})
+    const poll = async () => {
+      try {
+        const p = await api.system.updateStatus()
+        setUpdateProgress(p)
+        if (p.inProgress) {
+          setTimeout(poll, 1500)
+        } else {
+          setPollingUpdate(false)
+          if (p.state === "completed") {
+            api.system.version().then(setSysVersion).catch(() => {})
+            api.system.updateCheck(true).then(setUpdateStatus).catch(() => {})
+          }
         }
+      } catch {
+        setPollingUpdate(false)
       }
-    } catch {
-      setPollingUpdate(false)
     }
+    await poll()
   }, [])
 
   useEffect(() => {

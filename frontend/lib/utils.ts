@@ -1,8 +1,19 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { App } from "./types";
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
+}
+
+export function getAppUrl(app: App): string {
+  if (app.domains && app.domains.length > 0) {
+    const domain = app.domains[0];
+    return domain.startsWith("http://") || domain.startsWith("https://")
+      ? domain
+      : `https://${domain}`;
+  }
+  return app.url || "";
 }
 
 export async function copyText(text: string): Promise<void> {

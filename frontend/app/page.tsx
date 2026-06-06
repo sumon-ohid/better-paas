@@ -56,6 +56,7 @@ import {
   AlertDialogClose,
 } from "@/components/ui/alert-dialog"
 import { api } from "@/lib/api"
+import { getAppUrl } from "@/lib/utils"
 import type { App } from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
@@ -181,17 +182,18 @@ function BranchBadge({ branch }: { branch: string }) {
 
 function UrlLink({ url }: { url: string | undefined }) {
   if (!url) return <span className="text-sm text-muted-foreground font-mono">—</span>
+  const displayUrl = url.replace(/^https?:\/\//, "")
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
-      title={url.replace("http://", "")}
+      title={displayUrl}
       className="flex min-w-0 items-center gap-1 text-sm font-mono text-primary hover:underline transition-colors"
     >
       <LinkIcon className="h-3 w-3 shrink-0 opacity-60" />
-      <span className="truncate">{url.replace("http://", "")}</span>
+      <span className="truncate">{displayUrl}</span>
       <ExternalLinkIcon className="h-3 w-3 shrink-0 opacity-60" />
     </a>
   )
@@ -340,7 +342,7 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
       </TableCell>
 
       <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
-        <UrlLink url={app.url} />
+        <UrlLink url={getAppUrl(app)} />
       </TableCell>
 
       <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
@@ -413,8 +415,8 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
       </div>
 
       <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3" onClick={(e) => e.stopPropagation()}>
-        {app.url ? (
-          <UrlLink url={app.url} />
+        {getAppUrl(app) ? (
+          <UrlLink url={getAppUrl(app)} />
         ) : (
           <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
             <NoUrlIcon className="h-3 w-3 shrink-0 opacity-60" />
@@ -476,8 +478,8 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
         className="mt-3 space-y-1.5 border-t border-border/50 pt-3"
         onClick={(e) => e.stopPropagation()}
       >
-        {app.url ? (
-          <UrlLink url={app.url} />
+        {getAppUrl(app) ? (
+          <UrlLink url={getAppUrl(app)} />
         ) : (
           <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
             <NoUrlIcon className="h-3 w-3 shrink-0 opacity-60" />

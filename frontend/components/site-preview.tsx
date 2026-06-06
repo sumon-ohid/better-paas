@@ -108,7 +108,7 @@ export function SitePreview({ url, status, className }: SitePreviewProps) {
           ) : isMixedContent ? (
             /* Mixed Content Blocked preview */
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center p-6 bg-card/50">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
+              <div className="flex h-10 w-10 items-center justify-center text-amber-500">
                 <NucleoIcon name="triangle-alert" className="h-5 w-5" />
               </div>
               <div className="space-y-1">

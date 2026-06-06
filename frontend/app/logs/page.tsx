@@ -6,6 +6,7 @@ import { NucleoIcon } from "@/components/nucleo-icons"
 import { AppShell, useToast } from "@/components/app-shell"
 import { StatusBadge } from "@/components/status-badge"
 import { api, createBuildLogsWs, createRuntimeLogsWs } from "@/lib/api"
+import { getAppUrl } from "@/lib/utils"
 import type { App, LogEntry } from "@/lib/types"
 import { useActiveServer } from "@/components/server-context"
 import {
@@ -288,15 +289,15 @@ function LogsPage() {
                 </span>
               )}
 
-              {selectedApp.url && (
+              {getAppUrl(selectedApp) && (
                 <a
-                  href={selectedApp.url}
+                  href={getAppUrl(selectedApp)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-xs font-mono text-muted-foreground hover:text-primary transition-colors"
                 >
                   <ExternalIcon className="h-3 w-3" />
-                  {selectedApp.url.replace("http://", "")}
+                  {getAppUrl(selectedApp).replace(/^https?:\/\//, "")}
                 </a>
               )}
             </div>

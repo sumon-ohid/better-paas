@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { api } from "@/lib/api"
+import { getAppUrl } from "@/lib/utils"
 import type { App, AnalyticsSummary, AnalyticsBreakdown, AnalyticsBucket } from "@/lib/types"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
@@ -434,15 +435,15 @@ export default function AnalyticsPage() {
         ) : (
           <>
             {/* Selected site URL */}
-            {selectedApp?.url && (
+            {selectedApp && getAppUrl(selectedApp) && (
               <a
-                href={selectedApp.url}
+                href={getAppUrl(selectedApp)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm font-mono text-primary hover:underline"
               >
                 <LinkIcon className="h-3.5 w-3.5 opacity-60" />
-                {selectedApp.url.replace(/^https?:\/\//, "")}
+                {getAppUrl(selectedApp).replace(/^https?:\/\//, "")}
                 <ExternalLinkIcon className="h-3 w-3 opacity-60" />
               </a>
             )}

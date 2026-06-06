@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { api, createRuntimeLogsWs } from "@/lib/api"
+import { getAppUrl } from "@/lib/utils"
+import type { App } from "@/lib/types"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
@@ -23,30 +25,7 @@ const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch"
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const RefreshCwIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 
-interface App {
-  id: string
-  name: string
-  status: string
-  gitRepo: string
-  branch: string
-  port: number
-  url: string
-  createdAt: string
-  rootDir?: string
-  envVars?: Record<string, string>
-  buildCommand?: string
-  startCommand?: string
-  installCommand?: string
-  portOverride?: number
-  domains?: string[]
-  memory?: string
-  cpus?: string
-  volumes?: string[]
-  healthPath?: string
-  secretKeys?: string[]
-  autoDeploy?: boolean
-  image?: string
-}
+
 
 interface ServerStats {
   cpuUsage: number
@@ -286,7 +265,7 @@ export function AppDetailDrawer({
   if (!isOpen || !app) return null
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(app.url)
+    navigator.clipboard.writeText(getAppUrl(app))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -532,7 +511,7 @@ export function AppDetailDrawer({
                   <span className="text-muted-foreground font-medium">Domain Url</span>
                   <div className="flex items-center gap-1.5">
                     <a 
-                      href={app.url} 
+                      href={getAppUrl(app)} 
                       target="_blank" 
                       rel="noreferrer"
                       className="text-foreground hover:underline flex items-center gap-1 font-mono text-xs"
