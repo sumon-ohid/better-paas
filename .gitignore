@@ -4,3 +4,4 @@ data/
 Caddyfile
 .wrangler
 .DS_Store
+release.sh
