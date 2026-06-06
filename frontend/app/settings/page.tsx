@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,7 +27,7 @@ import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { Eye, EyeOff, RotateCcw } from "lucide-react"
-import type { NotificationConfig, UpdateStatus, SystemVersion } from "@/lib/types"
+import type { NotificationConfig, UpdateStatus, SystemVersion, UpdateProgress } from "@/lib/types"
 import { Cloudflare } from "@/components/ui/svgs/cloudflare"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
@@ -43,6 +43,7 @@ const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" 
 const DownloadIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
 const LinkIcon = (props: IconProps) => <NucleoIcon {...props} name="link" />
 const SunIcon = (props: IconProps) => <NucleoIcon {...props} name="sun" />
+const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 
 // Settings categories shown in the left sub-nav. Each maps to a group of cards
 // rendered in the content column.
@@ -167,13 +168,34 @@ export default function SettingsPage() {
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [applyingUpdate, setApplyingUpdate] = useState(false)
+  const [updateProgress, setUpdateProgress] = useState<UpdateProgress | null>(null)
+  const [pollingUpdate, setPollingUpdate] = useState(false)
+  const updateLogEndRef = useRef<HTMLDivElement>(null)
 
   // Custom Domain
   const [paasDomain, setPaasDomain] = useState("")
   const [paasDomainEnvOverridden, setPaasDomainEnvOverridden] = useState(false)
   const [savingDomain, setSavingDomain] = useState(false)
 
-  React.useEffect(() => {
+  const pollUpdateProgress = useCallback(async () => {
+    try {
+      const p = await api.system.updateStatus()
+      setUpdateProgress(p)
+      if (p.inProgress) {
+        setTimeout(pollUpdateProgress, 1500)
+      } else {
+        setPollingUpdate(false)
+        if (p.state === "completed") {
+          api.system.version().then(setSysVersion).catch(() => {})
+          api.system.updateCheck(true).then(setUpdateStatus).catch(() => {})
+        }
+      }
+    } catch {
+      setPollingUpdate(false)
+    }
+  }, [])
+
+  useEffect(() => {
     api.notifications
       .get()
       .then(setNotif)
@@ -197,7 +219,25 @@ export default function SettingsPage() {
         setPaasDomainEnvOverridden(d.envOverridden)
       })
       .catch(() => {})
-  }, [])
+
+    // Check initial update progress on mount
+    api.system
+      .updateStatus()
+      .then((p) => {
+        setUpdateProgress(p)
+        if (p.inProgress) {
+          setPollingUpdate(true)
+          pollUpdateProgress()
+        }
+      })
+      .catch(() => {})
+  }, [pollUpdateProgress])
+
+  useEffect(() => {
+    if (updateLogEndRef.current) {
+      updateLogEndRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [updateProgress?.log])
 
   const handleCheckUpdate = async () => {
     setCheckingUpdate(true)
@@ -224,6 +264,8 @@ export default function SettingsPage() {
       const res = await api.system.updateApply()
       setShowUpdateModal(false)
       showToast("Update started", res.message, "success")
+      setPollingUpdate(true)
+      setTimeout(pollUpdateProgress, 1500)
     } catch (err) {
       showToast("Update failed", err instanceof ApiError ? err.message : "Could not start update.", "destructive")
     } finally {
@@ -487,6 +529,59 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {updateProgress && updateProgress.state !== "idle" && (
+          <Card className="mt-6 border-border/60 bg-card/40 backdrop-blur-md">
+            <CardHeader className="border-b border-border/30 pb-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <TerminalIcon className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base font-semibold text-foreground">Update Progress & Logs</CardTitle>
+                </div>
+                {updateProgress.inProgress ? (
+                  <Badge variant="warning" size="sm" className="animate-pulse">
+                    In Progress
+                  </Badge>
+                ) : updateProgress.state === "completed" ? (
+                  <Badge variant="success" size="sm">
+                    Completed
+                  </Badge>
+                ) : updateProgress.state === "failed" ? (
+                  <Badge variant="destructive" size="sm">
+                    Failed
+                  </Badge>
+                ) : null}
+              </div>
+              <CardDescription className="text-xs text-muted-foreground mt-1">
+                Status: <span className="font-mono font-medium">{updateProgress.state}</span>. Real-time build and deployment logs from the self-update script.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="relative flex flex-col font-mono text-xs h-80 bg-muted/5">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 bg-muted/10 text-[10px] uppercase font-bold tracking-wider text-muted-foreground select-none">
+                  <span>Update Script Output</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${updateProgress.inProgress ? "bg-success animate-pulse" : "bg-muted-foreground/50"}`} />
+                    {updateProgress.inProgress ? "Live" : "Ended"}
+                  </span>
+                </div>
+                <div className="p-4 overflow-y-auto flex-1 space-y-1.5 leading-relaxed text-foreground/90 selection:bg-primary/20 scrollbar-thin">
+                  {updateProgress.log ? (
+                    <pre className="whitespace-pre-wrap break-all font-mono text-foreground/90 text-xs">
+                      {updateProgress.log}
+                    </pre>
+                  ) : (
+                    <div className="text-muted-foreground italic text-center py-16 flex flex-col items-center justify-center gap-2">
+                      <TerminalIcon className="h-5 w-5 opacity-40 animate-pulse text-muted-foreground" />
+                      <span>Waiting for update output...</span>
+                    </div>
+                  )}
+                  <div ref={updateLogEndRef} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
               </>
             )}
 
