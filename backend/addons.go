@@ -453,6 +453,10 @@ func handleAddonDelete(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Add-on not found", http.StatusNotFound)
 		return
 	}
+	if isComposeAddonID(addon.ID) {
+		jsonError(w, "Compose-backed databases are managed by their Compose project. Delete the project to remove this add-on entry.", http.StatusBadRequest)
+		return
+	}
 
 	removeAddonContainer(*addon, req.DeleteData)
 	if err := dbDeleteAddon(req.ID); err != nil {

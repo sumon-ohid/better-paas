@@ -754,7 +754,12 @@ func dbSaveAddon(a Addon) error {
 		INSERT INTO addons (id, type, name, container_name, status, volume, port, conn_env, attached_apps, created_at, server_id)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
+			type=excluded.type,
+			name=excluded.name,
+			container_name=excluded.container_name,
 			status=excluded.status,
+			volume=excluded.volume,
+			port=excluded.port,
 			conn_env=excluded.conn_env,
 			attached_apps=excluded.attached_apps,
 			server_id=excluded.server_id

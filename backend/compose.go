@@ -65,8 +65,9 @@ type composeConfig struct {
 }
 
 type composeServiceConfig struct {
-	Image string        `json:"image"`
-	Ports []composePort `json:"ports"`
+	Image       string                 `json:"image"`
+	Environment map[string]interface{} `json:"environment"`
+	Ports       []composePort          `json:"ports"`
 }
 
 type composePort struct {
@@ -135,6 +136,42 @@ func isDatabaseService(name, image string) bool {
 		return true
 	}
 	return false
+}
+
+func composeDatabaseType(name string, svc composeServiceConfig) string {
+	text := strings.ToLower(strings.TrimSpace(name) + " " + strings.TrimSpace(svc.Image))
+	hasPort := func(port int) bool {
+		for _, p := range svc.Ports {
+			if p.Target == port {
+				return true
+			}
+		}
+		return false
+	}
+
+	if strings.Contains(text, "postgres") || strings.Contains(text, "postgis") || hasPort(5432) {
+		return "postgres"
+	}
+	if strings.Contains(text, "mysql") || strings.Contains(text, "mariadb") || strings.Contains(text, "percona") || hasPort(3306) {
+		return "mysql"
+	}
+	if strings.Contains(text, "redis") || strings.Contains(text, "valkey") || hasPort(6379) {
+		return "redis"
+	}
+	return ""
+}
+
+func composeEnvValue(env map[string]interface{}, key, fallback string) string {
+	if env == nil {
+		return fallback
+	}
+	if v, ok := env[key]; ok && v != nil {
+		s := strings.TrimSpace(fmt.Sprint(v))
+		if s != "" {
+			return s
+		}
+	}
+	return fallback
 }
 
 // classifyComposeServices turns a parsed config into the platform's service
@@ -286,6 +323,116 @@ func composeServiceContainerName(project, service string) string {
 		}
 	}
 	return ""
+}
+
+func composeAddonID(project, service string) string {
+	cleanService := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			return r
+		}
+		if r >= 'A' && r <= 'Z' {
+			return r + ('a' - 'A')
+		}
+		return '-'
+	}, service)
+	return "compose-" + project + "-" + strings.Trim(cleanService, "-")
+}
+
+func isComposeAddonID(id string) bool {
+	return strings.HasPrefix(id, "compose-paas-")
+}
+
+func registerComposeDatabaseAddon(app App, project string, svc composeService, cfg composeServiceConfig, container string) {
+	addonType := composeDatabaseType(svc.Name, cfg)
+	if addonType == "" || container == "" {
+		return
+	}
+
+	env := cfg.Environment
+	conn := map[string]string{}
+	switch addonType {
+	case "postgres":
+		user := composeEnvValue(env, "POSTGRES_USER", "postgres")
+		dbname := composeEnvValue(env, "POSTGRES_DB", user)
+		pass := composeEnvValue(env, "POSTGRES_PASSWORD", "")
+		conn = map[string]string{
+			"DATABASE_URL": fmt.Sprintf("postgres://%s:%s@%s:5432/%s", user, pass, container, dbname),
+			"PGHOST":       container,
+			"PGPORT":       "5432",
+			"PGUSER":       user,
+			"PGPASSWORD":   pass,
+			"PGDATABASE":   dbname,
+		}
+	case "mysql":
+		user := composeEnvValue(env, "MYSQL_USER", "root")
+		pass := composeEnvValue(env, "MYSQL_PASSWORD", composeEnvValue(env, "MYSQL_ROOT_PASSWORD", ""))
+		dbname := composeEnvValue(env, "MYSQL_DATABASE", "")
+		conn = map[string]string{
+			"DATABASE_URL":   fmt.Sprintf("mysql://%s:%s@%s:3306/%s", user, pass, container, dbname),
+			"MYSQL_HOST":     container,
+			"MYSQL_PORT":     "3306",
+			"MYSQL_USER":     user,
+			"MYSQL_PASSWORD": pass,
+			"MYSQL_DATABASE": dbname,
+		}
+	case "redis":
+		pass := composeEnvValue(env, "REDIS_PASSWORD", "")
+		conn = map[string]string{
+			"REDIS_URL":      fmt.Sprintf("redis://:%s@%s:6379", pass, container),
+			"REDIS_HOST":     container,
+			"REDIS_PORT":     "6379",
+			"REDIS_PASSWORD": pass,
+		}
+	}
+
+	addon := Addon{
+		ID:            composeAddonID(project, svc.Name),
+		Type:          addonType,
+		Name:          app.Name + "-" + svc.Name,
+		ContainerName: container,
+		Status:        "running",
+		Port:          addonSpecs()[addonType].InternalPort,
+		ConnEnv:       conn,
+		AttachedApps:  []string{app.ID},
+		CreatedAt:     time.Now(),
+		ServerID:      app.ServerID,
+	}
+	if err := dbSaveAddon(addon); err != nil {
+		log.Printf("[compose] failed to register database add-on for %s/%s: %v", project, svc.Name, err)
+	}
+}
+
+func removeComposeImportedAddons(project string) {
+	addons, err := dbLoadAddons()
+	if err != nil {
+		log.Printf("[compose] failed to load imported add-ons for cleanup: %v", err)
+		return
+	}
+	prefix := "compose-" + project + "-"
+	for _, addon := range addons {
+		if strings.HasPrefix(addon.ID, prefix) {
+			if err := dbDeleteAddon(addon.ID); err != nil {
+				log.Printf("[compose] failed to delete imported add-on %s: %v", addon.ID, err)
+			}
+		}
+	}
+}
+
+func updateComposeImportedAddonStatus(project, status string) {
+	addons, err := dbLoadAddons()
+	if err != nil {
+		log.Printf("[compose] failed to load imported add-ons for status update: %v", err)
+		return
+	}
+	prefix := "compose-" + project + "-"
+	for _, addon := range addons {
+		if strings.HasPrefix(addon.ID, prefix) {
+			addon.Status = status
+			if err := dbSaveAddon(addon); err != nil {
+				log.Printf("[compose] failed to update imported add-on %s status: %v", addon.ID, err)
+			}
+		}
+	}
 }
 
 // choosePrimaryService picks which service becomes the group's primary row. It
@@ -489,6 +636,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, noCache boo
 		}
 		// Attach to the shared add-on network (best-effort) for managed DB access.
 		exec.Command("docker", "network", "connect", addonNetwork, container).Run()
+		registerComposeDatabaseAddon(app, project, s, cfg.Services[s.Name], container)
 
 		hostPort := webHostPorts[s.Name]
 		if s.Name == primaryService {
@@ -718,6 +866,7 @@ func deleteComposeGroup(any App) {
 
 	// Remove the per-app network (best-effort; created on demand at deploy).
 	exec.Command("docker", "network", "rm", composeNetworkName(any.ID)).Run()
+	removeComposeImportedAddons(project)
 
 	// Remove all rows + their DB rows / artifacts.
 	for _, r := range rows {
@@ -808,6 +957,7 @@ func stopComposeGroup(any App) {
 			log.Printf("[db] failed to mark %s stopped: %v", r.ID, err)
 		}
 	}
+	updateComposeImportedAddonStatus(project, "stopped")
 	rebuildCaddyfile()
 }
 
@@ -849,6 +999,7 @@ func startComposeGroup(any App) error {
 			startRuntimeLogCapture(r.ID, container)
 		}
 	}
+	updateComposeImportedAddonStatus(project, "running")
 	rebuildCaddyfile()
 	return nil
 }

@@ -105,6 +105,10 @@ function typeMeta(type: string) {
   )
 }
 
+function isComposeBackedAddon(addon: Addon) {
+  return addon.id.startsWith("compose-paas-")
+}
+
 // Friendly status presentation.
 function statusBadge(status: string): {
   variant: "success" | "warning" | "destructive"
@@ -491,6 +495,7 @@ export default function AddonsPage() {
                       const sb = statusBadge(addon.status)
                       const attached = attachedAppsFor(addon)
                       const envEntries = Object.entries(addon.connEnv || {})
+                      const composeBacked = isComposeBackedAddon(addon)
                       return (
                         <div
                           key={addon.id}
@@ -513,6 +518,11 @@ export default function AddonsPage() {
                                   <Badge variant={sb.variant} size="sm">
                                     {sb.label}
                                   </Badge>
+                                  {composeBacked && (
+                                    <Badge variant="secondary" size="sm">
+                                      Compose
+                                    </Badge>
+                                  )}
                                 </div>
                                 <p className="truncate font-mono text-[11px] text-muted-foreground">
                                   host: {addon.containerName}
@@ -548,8 +558,14 @@ export default function AddonsPage() {
                               <Button
                                 variant="destructive-outline"
                                 onClick={() => openDelete(addon)}
+                                disabled={composeBacked}
                                 className="h-8"
-                                aria-label="Delete database"
+                                aria-label={composeBacked ? "Managed by compose project" : "Delete database"}
+                                title={
+                                  composeBacked
+                                    ? "This database is managed by its Compose project."
+                                    : "Delete database"
+                                }
                               >
                                 <TrashIcon className="h-3.5 w-3.5" />
                               </Button>

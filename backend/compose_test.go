@@ -33,6 +33,37 @@ func TestIsDatabaseService(t *testing.T) {
 	}
 }
 
+func TestComposeDatabaseType(t *testing.T) {
+	cases := []struct {
+		name string
+		svc  composeServiceConfig
+		want string
+	}{
+		{name: "db", svc: composeServiceConfig{Image: "postgres:16-alpine"}, want: "postgres"},
+		{name: "mysql", svc: composeServiceConfig{Image: "mariadb:11"}, want: "mysql"},
+		{name: "cache", svc: composeServiceConfig{Image: "redis:7-alpine"}, want: "redis"},
+		{name: "store", svc: composeServiceConfig{Ports: []composePort{{Target: 5432}}}, want: "postgres"},
+		{name: "frontend", svc: composeServiceConfig{Image: "node:22", Ports: []composePort{{Target: 3000}}}, want: ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := composeDatabaseType(c.name, c.svc); got != c.want {
+				t.Errorf("composeDatabaseType(%q) = %q, want %q", c.name, got, c.want)
+			}
+		})
+	}
+}
+
+func TestComposeAddonID(t *testing.T) {
+	got := composeAddonID("paas-abc123", "Primary_DB")
+	if got != "compose-paas-abc123-primary-db" {
+		t.Errorf("composeAddonID = %q", got)
+	}
+	if !isComposeAddonID(got) {
+		t.Errorf("expected %q to be recognized as compose-backed", got)
+	}
+}
+
 func TestClassifyComposeServices(t *testing.T) {
 	cfg := &composeConfig{
 		Services: map[string]composeServiceConfig{
