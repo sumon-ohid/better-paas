@@ -436,6 +436,7 @@ Type=simple
 User=${SERVICE_USER}
 WorkingDirectory=${BACKEND_DIR}
 Environment=UPDATE_REPO=${UPDATE_REPO_SLUG}
+Environment=PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 ExecStart=${BACKEND_DIR}/server
 Restart=on-failure
 RestartSec=5
@@ -461,6 +462,7 @@ ExecStart=$(which pnpm) start
 Restart=on-failure
 RestartSec=5
 Environment=PORT=3000
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=better-paas-frontend
