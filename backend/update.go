@@ -42,13 +42,21 @@ const (
 var updateApplyLock sync.Mutex
 var updateInProgress bool
 
-// repoDir returns the git checkout root (parent of the backend working dir).
-// The backend runs from <repo>/backend, so the repo is one level up.
+// repoDir returns the git checkout root by querying git or falling back
+// to the parent of the working directory.
 func repoDir() string {
 	wd, err := os.Getwd()
 	if err != nil {
-		return ".."
+		wd = "."
 	}
+	// Try to find the git repository toplevel.
+	out, err := exec.Command("git", "-C", wd, "rev-parse", "--show-toplevel").Output()
+	if err == nil {
+		if path := strings.TrimSpace(string(out)); path != "" {
+			return path
+		}
+	}
+	// Fallback to old behavior: one level up
 	return filepath.Dir(wd)
 }
 
@@ -282,6 +290,9 @@ restart_backend() {
 }
 start_frontend() {
   echo "[updater] relaunching frontend (dev/macOS)..."
+  pkill -f "next-server" 2>/dev/null || true
+  pkill -f "next start" 2>/dev/null || true
+  lsof -t -i :3000 | xargs kill -9 2>/dev/null || true
   ( cd "%[2]s" && nohup pnpm start > "%[2]s/frontend.log" 2>&1 & )
 }
 `, backendDir, frontendDir)
