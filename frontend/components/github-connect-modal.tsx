@@ -28,7 +28,7 @@ interface GitHubConnectModalProps {
 type ConnectionStep = "intro" | "paste"
 
 const STEPS = [
-  { n: 1, title: "Create a token", desc: "Generate a PAT with repo scope." },
+  { n: 1, title: "Create a token", desc: "Generate a PAT with repo and admin:repo_hook scopes." },
   { n: 2, title: "Paste it here", desc: "Your token is saved on your server and never leaves it." },
   { n: 3, title: "Browse and deploy", desc: "Pick any repo, select a branch, and go." },
 ]
@@ -41,7 +41,7 @@ export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConne
   const [error, setError] = useState("")
 
   const githubTokenUrl =
-    "https://github.com/settings/tokens/new?description=BaaS+Deploy+Token&scopes=repo,read:user"
+    "https://github.com/settings/tokens/new?description=BaaS+Deploy+Token&scopes=repo,read:user,admin:repo_hook"
 
   const handleSave = async () => {
     if (!token.trim()) {
@@ -135,7 +135,9 @@ export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConne
                           <>
                             Generate a PAT with{" "}
                             <code className="rounded bg-muted px-1 py-0.5 text-[10px]">repo</code>{" "}
-                            scope.
+                            and{" "}
+                            <code className="rounded bg-muted px-1 py-0.5 text-[10px]">admin:repo_hook</code>{" "}
+                            scopes.
                           </>
                         ) : (
                           s.desc

@@ -504,9 +504,18 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, noCache boo
 	buildDir := filepath.Join("builds", app.ID)
 	os.RemoveAll(buildDir)
 
-	localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, app.Branch))
+	branchLog := app.Branch
+	if branchLog == "" {
+		branchLog = "default branch"
+	}
+	localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, branchLog))
 	authenticatedURL := formatGitURL(gitURL, app.GitToken)
-	cloneCmd := exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
+	var cloneCmd *exec.Cmd
+	if app.Branch != "" {
+		cloneCmd = exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
+	} else {
+		cloneCmd = exec.Command("git", "clone", authenticatedURL, buildDir, "--depth", "1")
+	}
 	if output, err := cloneCmd.CombinedOutput(); err != nil {
 		localLog(fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, scrubCredentials(string(output))))
 		return "failed", "", ""

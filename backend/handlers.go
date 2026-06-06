@@ -255,6 +255,38 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 
 	jsonOK(w, newApp.Public())
 
+	// Auto-configure GitHub webhook if a git token is present and repository is GitHub
+	if gitToken != "" {
+		publicBaseURL := webhookPublicBaseURL(r)
+		go func(a App, tok, baseURL string) {
+			slug := parseGitHubRepoSlug(a.GitRepo)
+			if slug == "" {
+				return
+			}
+			hookURL := fmt.Sprintf("%s/api/webhooks/github/%s", baseURL, a.ID)
+			log.Printf("[webhook] Auto-configuring webhook on deploy for app %s (%s)", a.ID, a.Name)
+			hookID, action, err := ensureGitHubRepoWebhook(tok, slug, hookURL, a.WebhookSecret)
+			if err != nil {
+				log.Printf("[webhook] Failed to auto-configure webhook on deploy for app %s: %v", a.ID, err)
+				return
+			}
+			log.Printf("[webhook] Webhook auto-configured on deploy for app %s: hook ID %d, action %s", a.ID, hookID, action)
+
+			appsLock.Lock()
+			for i := range apps {
+				if apps[i].ID == a.ID {
+					apps[i].AutoDeploy = true
+					a = apps[i]
+					break
+				}
+			}
+			appsLock.Unlock()
+			if err := dbSaveApp(a); err != nil {
+				log.Printf("[db] failed to save app after auto-configuring webhook: %v", err)
+			}
+		}(newApp, gitToken, publicBaseURL)
+	}
+
 	// Run deployment asynchronously.
 	go runPaaSDeployment(newApp, gitURL, deployID, logFile)
 }
@@ -1157,6 +1189,50 @@ func handleGitTokenSet(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[db] failed to save token: %v", err)
 	}
 
+	if req.Token != "" {
+		publicBaseURL := webhookPublicBaseURL(r)
+		go func(tok, baseURL string) {
+			appsLock.Lock()
+			appsCopy := make([]App, len(apps))
+			copy(appsCopy, apps)
+			appsLock.Unlock()
+
+			for _, app := range appsCopy {
+				if app.GitRepo == "" {
+					continue
+				}
+				slug := parseGitHubRepoSlug(app.GitRepo)
+				if slug == "" {
+					continue
+				}
+				if app.WebhookSecret == "" {
+					continue
+				}
+				hookURL := fmt.Sprintf("%s/api/webhooks/github/%s", baseURL, app.ID)
+				log.Printf("[webhook] Auto-configuring webhook on token connect for app %s (%s)", app.ID, app.Name)
+				hookID, action, err := ensureGitHubRepoWebhook(tok, slug, hookURL, app.WebhookSecret)
+				if err != nil {
+					log.Printf("[webhook] Failed to auto-configure webhook for app %s: %v", app.ID, err)
+					continue
+				}
+				log.Printf("[webhook] Webhook auto-configured for app %s: hook ID %d, action %s", app.ID, hookID, action)
+
+				appsLock.Lock()
+				for i := range apps {
+					if apps[i].ID == app.ID {
+						apps[i].AutoDeploy = true
+						app = apps[i]
+						break
+					}
+				}
+				appsLock.Unlock()
+				if err := dbSaveApp(app); err != nil {
+					log.Printf("[db] failed to save app %s after auto-configuring webhook: %v", app.ID, err)
+				}
+			}
+		}(req.Token, publicBaseURL)
+	}
+
 	jsonOK(w, map[string]string{"status": "saved"})
 }
 
@@ -1357,6 +1433,20 @@ func handleGitHubWebhookCreate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadGateway)
 		return
+	}
+
+	// Automatically enable AutoDeploy for the app on successful webhook creation
+	appsLock.Lock()
+	for i := range apps {
+		if apps[i].ID == app.ID {
+			apps[i].AutoDeploy = true
+			app = &apps[i]
+			break
+		}
+	}
+	appsLock.Unlock()
+	if err := dbSaveApp(*app); err != nil {
+		log.Printf("[db] failed to save app after webhook creation: %v", err)
 	}
 
 	jsonOK(w, map[string]any{

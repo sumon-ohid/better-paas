@@ -87,6 +87,7 @@ func handleGitHubWebhook(w http.ResponseWriter, r *http.Request) {
 	pushedBranch := strings.TrimPrefix(payload.Ref, "refs/heads/")
 
 	if !app.AutoDeploy {
+		log.Printf("[webhook] ignoring push event for app %s (%s) because auto-deploy is disabled", app.ID, app.Name)
 		jsonOK(w, map[string]string{"status": "ignored", "reason": "auto-deploy disabled"})
 		return
 	}
@@ -95,6 +96,7 @@ func handleGitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		branch = "main"
 	}
 	if pushedBranch != "" && pushedBranch != branch {
+		log.Printf("[webhook] ignoring push event for app %s (%s) because pushed branch %q does not match configured branch %q", app.ID, app.Name, pushedBranch, branch)
 		jsonOK(w, map[string]string{"status": "ignored", "reason": "branch " + pushedBranch + " != " + branch})
 		return
 	}
