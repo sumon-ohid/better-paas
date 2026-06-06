@@ -44,6 +44,10 @@ func TestClassifyComposeServices(t *testing.T) {
 				Image: "node:22",
 				Ports: []composePort{{Target: 3000, Published: "3000", Protocol: "tcp"}},
 			},
+			"frontend": {
+				Image: "node:22",
+				Ports: []composePort{{Target: 5173, Protocol: "tcp"}},
+			},
 			"db": {
 				Image: "postgres:16",
 				Ports: []composePort{{Target: 5432, Published: "5432", Protocol: "tcp"}},
@@ -71,6 +75,9 @@ func TestClassifyComposeServices(t *testing.T) {
 	}
 	if !byName["api"].Web || byName["api"].ContainerPort != 3000 {
 		t.Errorf("api: got web=%v port=%d, want web=true port=3000", byName["api"].Web, byName["api"].ContainerPort)
+	}
+	if !byName["frontend"].Web || byName["frontend"].ContainerPort != 5173 {
+		t.Errorf("frontend: got web=%v port=%d, want web=true port=5173", byName["frontend"].Web, byName["frontend"].ContainerPort)
 	}
 	if byName["db"].Web {
 		t.Error("db should not be web-facing")
@@ -166,6 +173,25 @@ func TestWriteComposeOverride(t *testing.T) {
 	// worker had no published ports → should not appear at all.
 	if strings.Contains(dataStr, "worker:") {
 		t.Errorf("worker should be absent (no published ports):\n%s", dataStr)
+	}
+}
+
+func TestWriteComposeOverrideEmptyServices(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/paas-override.yml"
+	services := []composeService{
+		{Name: "worker", Web: false, HadPublished: false},
+	}
+
+	if err := writeComposeOverride(path, services, map[string]int{}); err != nil {
+		t.Fatalf("writeComposeOverride: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if got := string(data); !strings.Contains(got, "services: {}") {
+		t.Errorf("empty override should use an empty services mapping, got:\n%s", got)
 	}
 }
 
