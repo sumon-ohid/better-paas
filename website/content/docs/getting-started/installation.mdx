@@ -194,6 +194,23 @@ When the installer finishes it prints a summary with two important things:
   - **Docker installation**: Run `docker exec -it better-paas /app/server token` or check container logs with `docker logs better-paas`.
 </Callout>
 
+### Open firewall ports
+
+On a remote VPS, the services can be running correctly but still unreachable if
+the firewall blocks them. If you use `ufw`, allow the dashboard, API, and web
+traffic ports:
+
+```bash title="On your server"
+sudo ufw allow 3000/tcp
+sudo ufw allow 8080/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw status
+```
+
+If your VPS provider also has a cloud firewall, open the same inbound TCP ports
+there.
+
 ### How it runs in the background
 
 On Linux, the installer registers two **systemd services** so Better-PaaS starts

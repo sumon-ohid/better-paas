@@ -21,6 +21,7 @@ import type {
   BackupInfo,
   BackupConfig,
   WebhookInfo,
+  GitHubWebhookInstallResult,
   SystemVersion,
   UpdateStatus,
   UpdateProgress,
@@ -79,7 +80,16 @@ async function req<T>(path: string, options?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const body = await res.text()
-    throw new ApiError(body || `HTTP ${res.status}`, res.status)
+    let message = body || `HTTP ${res.status}`
+    try {
+      const parsed = JSON.parse(body) as { error?: unknown }
+      if (typeof parsed.error === "string" && parsed.error.trim()) {
+        message = parsed.error
+      }
+    } catch {
+      // Plain-text error bodies are fine as-is.
+    }
+    throw new ApiError(message, res.status)
   }
   return res.json() as Promise<T>
 }
@@ -141,6 +151,11 @@ export const api = {
       req<WebhookInfo>(`/api/apps/webhook?id=${encodeURIComponent(id)}`),
     regenerateWebhook: (id: string) =>
       req<{ secret: string }>("/api/apps/webhook/regenerate", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
+    createGitHubWebhook: (id: string) =>
+      req<GitHubWebhookInstallResult>("/api/apps/webhook/github/create", {
         method: "POST",
         body: JSON.stringify({ id }),
       }),

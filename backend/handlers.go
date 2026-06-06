@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -751,7 +752,13 @@ func handleGitBranches(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gitURL := normalizeGitURL(req.GitRepo)
-	authenticatedURL := formatGitURL(gitURL, req.GitToken)
+	gitToken := strings.TrimSpace(req.GitToken)
+	if gitToken == "" {
+		githubTokenLock.RLock()
+		gitToken = githubToken
+		githubTokenLock.RUnlock()
+	}
+	authenticatedURL := formatGitURL(gitURL, gitToken)
 
 	cmd := exec.Command("git", "ls-remote", "--heads", authenticatedURL)
 	output, err := cmd.CombinedOutput()
@@ -1294,6 +1301,216 @@ func handleWebhookRegenerate(w http.ResponseWriter, r *http.Request) {
 		_ = dbSaveApp(*full)
 	}
 	jsonOK(w, map[string]string{"secret": newSecret})
+}
+
+// POST /api/apps/webhook/github/create — create or update the repo webhook on GitHub.
+func handleGitHubWebhookCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	app := findApp(req.ID)
+	if app == nil {
+		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+	if app.GitRepo == "" {
+		jsonError(w, "This app is not linked to a Git repository", http.StatusBadRequest)
+		return
+	}
+	if app.WebhookSecret == "" {
+		jsonError(w, "Webhook secret is missing; regenerate it first", http.StatusBadRequest)
+		return
+	}
+
+	slug := parseGitHubRepoSlug(app.GitRepo)
+	if slug == "" {
+		jsonError(w, "Could not derive a GitHub owner/repo from this Git URL", http.StatusBadRequest)
+		return
+	}
+
+	githubTokenLock.RLock()
+	tok := githubToken
+	githubTokenLock.RUnlock()
+	if tok == "" {
+		jsonError(w, "No GitHub token configured", http.StatusUnauthorized)
+		return
+	}
+
+	hookURL := fmt.Sprintf("%s/api/webhooks/github/%s", webhookPublicBaseURL(r), app.ID)
+	hookID, action, err := ensureGitHubRepoWebhook(tok, slug, hookURL, app.WebhookSecret)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+
+	jsonOK(w, map[string]any{
+		"status": "success",
+		"action": action,
+		"hookId": hookID,
+		"url":    hookURL,
+	})
+}
+
+func webhookPublicBaseURL(r *http.Request) string {
+	if domain := strings.TrimSpace(getPaasDomain()); domain != "" {
+		return "https://" + strings.TrimSuffix(domain, "/")
+	}
+	return externalBaseURL(r)
+}
+
+func parseGitHubRepoSlug(remote string) string {
+	s := strings.TrimSuffix(strings.TrimSpace(remote), ".git")
+	if s == "" {
+		return ""
+	}
+	if strings.HasPrefix(s, "git@github.com:") {
+		return cleanSlug(strings.TrimPrefix(s, "git@github.com:"))
+	}
+	if strings.HasPrefix(s, "github.com/") {
+		return cleanSlug(strings.TrimPrefix(s, "github.com/"))
+	}
+	if i := strings.Index(s, "://"); i >= 0 {
+		rest := s[i+3:]
+		j := strings.Index(rest, "/")
+		if j < 0 {
+			return ""
+		}
+		host := rest[:j]
+		if !strings.HasSuffix(host, "github.com") {
+			return ""
+		}
+		return cleanSlug(rest[j+1:])
+	}
+	return ""
+}
+
+type githubRepoHook struct {
+	ID     int64 `json:"id"`
+	Active bool  `json:"active"`
+	Config struct {
+		URL string `json:"url"`
+	} `json:"config"`
+}
+
+func ensureGitHubRepoWebhook(token, repoSlug, hookURL, secret string) (int64, string, error) {
+	client := &http.Client{Timeout: 15 * time.Second}
+	hooks, err := listGitHubRepoHooks(client, token, repoSlug)
+	if err != nil {
+		return 0, "", err
+	}
+	for _, hook := range hooks {
+		if hook.Config.URL == hookURL {
+			if err := updateGitHubRepoHook(client, token, repoSlug, hook.ID, hookURL, secret); err != nil {
+				return 0, "", err
+			}
+			return hook.ID, "updated", nil
+		}
+	}
+
+	id, err := createGitHubRepoHook(client, token, repoSlug, hookURL, secret)
+	if err != nil {
+		return 0, "", err
+	}
+	return id, "created", nil
+}
+
+func listGitHubRepoHooks(client *http.Client, token, repoSlug string) ([]githubRepoHook, error) {
+	req, err := githubAPIRequest(http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/hooks", repoSlug), token, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub request")
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reach GitHub API")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("GitHub API error: %s", string(body))
+	}
+	var hooks []githubRepoHook
+	if err := json.NewDecoder(resp.Body).Decode(&hooks); err != nil {
+		return nil, fmt.Errorf("failed to parse GitHub hooks response")
+	}
+	return hooks, nil
+}
+
+func createGitHubRepoHook(client *http.Client, token, repoSlug, hookURL, secret string) (int64, error) {
+	req, err := githubAPIRequest(http.MethodPost, fmt.Sprintf("https://api.github.com/repos/%s/hooks", repoSlug), token, githubWebhookPayload(hookURL, secret))
+	if err != nil {
+		return 0, fmt.Errorf("failed to create GitHub request")
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("failed to reach GitHub API")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return 0, fmt.Errorf("GitHub API error: %s", string(body))
+	}
+	var hook githubRepoHook
+	if err := json.NewDecoder(resp.Body).Decode(&hook); err != nil {
+		return 0, fmt.Errorf("failed to parse GitHub hook response")
+	}
+	return hook.ID, nil
+}
+
+func updateGitHubRepoHook(client *http.Client, token, repoSlug string, hookID int64, hookURL, secret string) error {
+	req, err := githubAPIRequest(http.MethodPatch, fmt.Sprintf("https://api.github.com/repos/%s/hooks/%d", repoSlug, hookID), token, githubWebhookPayload(hookURL, secret))
+	if err != nil {
+		return fmt.Errorf("failed to create GitHub request")
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to reach GitHub API")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("GitHub API error: %s", string(body))
+	}
+	return nil
+}
+
+func githubWebhookPayload(hookURL, secret string) io.Reader {
+	body, _ := json.Marshal(map[string]any{
+		"name":   "web",
+		"active": true,
+		"events": []string{"push"},
+		"config": map[string]string{
+			"url":          hookURL,
+			"content_type": "json",
+			"secret":       secret,
+			"insecure_ssl": "0",
+		},
+	})
+	return bytes.NewReader(body)
+}
+
+func githubAPIRequest(method, url, token string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	req.Header.Set("User-Agent", "Better-PaaS")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	return req, nil
 }
 
 // externalBaseURL best-effort reconstructs the externally visible base URL for

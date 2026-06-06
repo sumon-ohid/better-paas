@@ -42,8 +42,8 @@ func TestIsNewer(t *testing.T) {
 		{"v1.2.0", "v1.2.0", false},
 		{"v1.2.0", "v1.1.9", false},
 		{"v2.0.0", "v1.9.9", false},
-		{"dev", "v0.0.1", true},     // dev is always older than a real release
-		{"dev", "garbage", false},   // ...unless the candidate isn't a version
+		{"dev", "v0.0.1", true},   // dev is always older than a real release
+		{"dev", "garbage", false}, // ...unless the candidate isn't a version
 		{"v1.0.0", "not-a-tag", false},
 		{"1.0.0", "1.0.0", false},
 	}
@@ -95,6 +95,24 @@ func TestParseRepoSlug(t *testing.T) {
 	for _, c := range cases {
 		if got := parseRepoSlug(c.in); got != c.want {
 			t.Errorf("parseRepoSlug(%q)=%q want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestParseGitHubRepoSlug(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"git@github.com:owner/repo.git", "owner/repo"},
+		{"https://github.com/owner/repo.git", "owner/repo"},
+		{"https://token@github.com/owner/repo", "owner/repo"},
+		{"github.com/owner/repo", "owner/repo"},
+		{"https://gitlab.com/group/sub/repo.git", ""},
+		{"https://github.com/owner", ""},
+	}
+	for _, c := range cases {
+		if got := parseGitHubRepoSlug(c.in); got != c.want {
+			t.Errorf("parseGitHubRepoSlug(%q)=%q want %q", c.in, got, c.want)
 		}
 	}
 }

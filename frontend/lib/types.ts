@@ -264,6 +264,13 @@ export interface WebhookInfo {
   event: string
 }
 
+export interface GitHubWebhookInstallResult {
+  status: string
+  action: "created" | "updated"
+  hookId: number
+  url: string
+}
+
 export interface UpdateRelease {
   tagName: string
   name: string

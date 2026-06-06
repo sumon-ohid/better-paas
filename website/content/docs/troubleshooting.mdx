@@ -50,6 +50,29 @@ your app must listen on it rather than a hard-coded port. See
 [Environment Variables](/docs/guides/environment-variables#the-port-variable).
 </Accordion>
 
+<Accordion title="The dashboard or API won't load from my browser">
+If `http://YOUR_SERVER_IP:3000` or `http://YOUR_SERVER_IP:8080/api/health`
+doesn't respond from your browser, first test from the server itself:
+
+```bash
+curl http://127.0.0.1:3000
+curl http://127.0.0.1:8080/api/health
+```
+
+If those work locally, open the firewall ports. For `ufw`:
+
+```bash
+sudo ufw allow 3000/tcp
+sudo ufw allow 8080/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw status
+```
+
+If your VPS provider has a separate cloud firewall, open the same inbound TCP
+ports there too.
+</Accordion>
+
 <Accordion title="A private repo won't clone">
 Better-PaaS needs a Git access token to clone private repositories. Add one when
 deploying, or save it under **Settings → Git**. Tokens are

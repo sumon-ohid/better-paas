@@ -182,6 +182,8 @@ export function AppDetailDrawer({
   const [webhookUrl, setWebhookUrl] = useState("")
   const [webhookSecret, setWebhookSecret] = useState("")
   const [webhookCopied, setWebhookCopied] = useState(false)
+  const [githubWebhookInstalling, setGithubWebhookInstalling] = useState(false)
+  const [githubWebhookStatus, setGithubWebhookStatus] = useState("")
 
   // Declared before the effect that uses it so the reference is stable and the
   // effect dependency list stays honest.
@@ -331,9 +333,30 @@ export function AppDetailDrawer({
     try {
       const res = await api.apps.regenerateWebhook(app.id)
       setWebhookSecret(res.secret)
+      setGithubWebhookStatus("")
     } catch (err) {
       console.error(err)
       alert("Failed to regenerate webhook secret.")
+    }
+  }
+
+  const handleCreateGitHubWebhook = async () => {
+    setGithubWebhookInstalling(true)
+    setGithubWebhookStatus("")
+    try {
+      const res = await api.apps.createGitHubWebhook(app.id)
+      setWebhookUrl(res.url)
+      setGithubWebhookStatus(
+        res.action === "created"
+          ? `GitHub webhook created (#${res.hookId}).`
+          : `GitHub webhook updated (#${res.hookId}).`
+      )
+    } catch (err) {
+      console.error(err)
+      const message = err instanceof Error ? err.message : "Failed to create GitHub webhook."
+      alert(message)
+    } finally {
+      setGithubWebhookInstalling(false)
     }
   }
 
@@ -830,6 +853,14 @@ export function AppDetailDrawer({
                       </button>
                       <button
                         type="button"
+                        onClick={handleCreateGitHubWebhook}
+                        disabled={githubWebhookInstalling || !app.gitRepo}
+                        className="text-[10px] text-primary hover:underline disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        {githubWebhookInstalling ? "Creating..." : "Create on GitHub"}
+                      </button>
+                      <button
+                        type="button"
                         onClick={handleRegenerateWebhook}
                         className="text-[10px] text-muted-foreground hover:text-foreground"
                       >
@@ -842,9 +873,13 @@ export function AppDetailDrawer({
                     <div><span className="text-foreground/80 font-semibold">Secret: </span><span className="select-all">{webhookSecret || "—"}</span></div>
                   </div>
                   <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
-                    Add this as a <span className="font-mono">push</span> webhook (content type
-                    <span className="font-mono"> application/json</span>) in your repo settings, then enable auto-deploy.
+                    Create it automatically with your connected GitHub token, or add it manually as a
+                    <span className="font-mono"> push</span> webhook using
+                    <span className="font-mono"> application/json</span>.
                   </p>
+                  {githubWebhookStatus && (
+                    <p className="text-[10px] font-medium text-success">{githubWebhookStatus}</p>
+                  )}
                 </div>
               </div>
 

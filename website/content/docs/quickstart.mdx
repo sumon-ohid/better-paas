@@ -31,6 +31,19 @@ This installs everything Better-PaaS needs — **Go**, **Docker**, **Nixpacks**,
   On a fresh machine this takes a few minutes. Grab a coffee. ☕
 </Callout>
 
+If your VPS uses `ufw`, open the ports Better-PaaS needs:
+
+```bash title="On your server"
+sudo ufw allow 3000/tcp
+sudo ufw allow 8080/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw status
+```
+
+If your hosting provider has its own cloud firewall, allow the same inbound TCP
+ports there too.
+
 When it finishes, you'll see a summary like this:
 
 ```text

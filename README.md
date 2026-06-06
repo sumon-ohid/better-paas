@@ -55,6 +55,20 @@ Deploy to your Linux VPS (Ubuntu/Debian, CentOS/RHEL/Fedora/Rocky/Alma) or macOS
 curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | sudo bash
 ```
 
+If you are installing on a remote VPS with `ufw` enabled, open the dashboard,
+API, and web traffic ports:
+
+```bash
+sudo ufw allow 3000/tcp
+sudo ufw allow 8080/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw status
+```
+
+If your VPS provider has a separate cloud firewall, allow the same inbound TCP
+ports there too.
+
 > [!NOTE]
 > On macOS and Linux, the installer requires root privileges to configure Caddy/Docker and install packages:
 > `curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | sudo bash`

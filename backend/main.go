@@ -79,6 +79,7 @@ func main() {
 	mux.HandleFunc("/api/apps/rollback", handleRollback)
 	mux.HandleFunc("/api/apps/webhook", handleWebhookInfo)
 	mux.HandleFunc("/api/apps/webhook/regenerate", handleWebhookRegenerate)
+	mux.HandleFunc("/api/apps/webhook/github/create", handleGitHubWebhookCreate)
 	mux.HandleFunc("/api/apps/domains/add", handleDomainAdd)
 	mux.HandleFunc("/api/apps/domains/remove", handleDomainRemove)
 
