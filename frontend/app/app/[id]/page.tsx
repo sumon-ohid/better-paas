@@ -1040,27 +1040,7 @@ function AppDetailPage() {
                   <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                     {/* Live site preview (web-facing rows only). Non-web compose
                       services (workers, databases) have no URL to preview. */}
-                    {app.url ? (
-                      <SitePreview url={app.url} status={app.status} />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card/72 p-6 text-center backdrop-blur-xl">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
-                          <NucleoIcon
-                            name="server"
-                            className="h-5 w-5 text-muted-foreground"
-                          />
-                        </div>
-                        <p className="text-sm font-medium text-foreground">
-                          {app.composeService
-                            ? `Internal service: ${app.composeService}`
-                            : "Internal service"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          This service has no public URL. Use the terminal and
-                          logs to inspect it.
-                        </p>
-                      </div>
-                    )}
+                    <SitePreview url={app.url} status={app.status} />
 
                     {/* Deployment summary — snapshot of the live release */}
                     <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">

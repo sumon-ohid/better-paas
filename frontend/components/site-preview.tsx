@@ -1,13 +1,13 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { StatusDot } from "@/components/status-badge"
 import { cn } from "@/lib/utils"
 
 interface SitePreviewProps {
   /** Live URL of the deployed app. */
-  url: string
+  url?: string
   /** Current app status — drives the placeholder vs. live preview. */
   status: string
   className?: string
@@ -26,12 +26,23 @@ export function SitePreview({ url, status, className }: SitePreviewProps) {
   // Track which url/reload combination has finished loading, so the spinner
   // clears only for the frame that's actually shown — no effect needed to reset.
   const [loadedKey, setLoadedKey] = useState("")
+  const [isMixedContent, setIsMixedContent] = useState(false)
 
   const isRunning = status === "running"
   const isBuilding = status === "building"
-  const displayUrl = url.replace(/^https?:\/\//, "").replace(/\/$/, "")
-  const frameKey = `${url}#${reloadToken}`
+  const displayUrl = url ? url.replace(/^https?:\/\//, "").replace(/\/$/, "") : "no-public-url"
+  const frameKey = `${url || ""}#${reloadToken}`
   const loaded = loadedKey === frameKey
+
+  // Detect mixed content blocking (HTTPS hosting HTTP iframe)
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.protocol === "https:" && url?.startsWith("http://")) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsMixedContent(true)
+    } else {
+      setIsMixedContent(false)
+    }
+  }, [url])
 
   // Keep the embedded viewport scaled to the available width.
   useEffect(() => {
@@ -59,64 +70,104 @@ export function SitePreview({ url, status, className }: SitePreviewProps) {
         </div>
         <button
           onClick={() => setReloadToken((t) => t + 1)}
-          disabled={!isRunning}
+          disabled={!isRunning || !url}
           title="Reload preview"
           className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:pointer-events-none"
         >
           <NucleoIcon name="refresh" className="h-3 w-3" />
         </button>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Open in new tab"
-          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <NucleoIcon name="external" className="h-3 w-3" />
-        </a>
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open in new tab"
+            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <NucleoIcon name="external" className="h-3 w-3" />
+          </a>
+        )}
       </div>
 
       {/* Viewport */}
       <div ref={containerRef} className="relative rounded-2xl border-y aspect-16/10 w-full overflow-hidden bg-muted/10">
         {isRunning ? (
-          <>
-            {scale > 0 && (
-              <iframe
-                key={reloadToken}
-                src={url}
-                title="Live site preview"
-                loading="lazy"
-                sandbox="allow-scripts allow-same-origin allow-forms"
-                referrerPolicy="no-referrer"
-                onLoad={() => setLoadedKey(frameKey)}
-                className="absolute left-0 top-0 origin-top-left border-0 bg-white"
-                style={{
-                  width: PREVIEW_VIEWPORT_WIDTH,
-                  height: PREVIEW_VIEWPORT_HEIGHT,
-                  transform: `scale(${scale})`,
-                }}
-              />
-            )}
-            {!loaded && (
-              <div className="absolute inset-0 flex items-center justify-center bg-muted/20">
-                <NucleoIcon name="loader" className="h-5 w-5 animate-spin text-muted-foreground" />
+          !url ? (
+            /* No URL configured (Empty preview) */
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center p-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
+                <NucleoIcon name="link-2-off" className="h-5 w-5 text-muted-foreground" />
               </div>
-            )}
-            {/* Click-through overlay → open the real site, and stops the iframe
-                from stealing scroll/clicks while it acts as a thumbnail. */}
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group absolute inset-0 flex items-end justify-end p-3"
-              title="Open site"
-            >
-              <span className="inline-flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-[11px] font-medium text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">No preview available</p>
+                <p className="max-w-[280px] text-xs text-muted-foreground leading-normal">
+                  This application has no public web URL configured (e.g. database or worker).
+                </p>
+              </div>
+            </div>
+          ) : isMixedContent ? (
+            /* Mixed Content Blocked preview */
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center p-6 bg-card/50">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
+                <NucleoIcon name="triangle-alert" className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Preview Insecure Blocked</p>
+                <p className="max-w-[320px] text-xs text-muted-foreground leading-normal">
+                  Your dashboard runs securely over HTTPS, but this app is served over HTTP. Modern browsers block mixed content previews.
+                </p>
+              </div>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow transition-colors hover:bg-primary/90"
+              >
                 <NucleoIcon name="external" className="h-3 w-3" />
-                Open site
-              </span>
-            </a>
-          </>
+                Open App in New Tab
+              </a>
+            </div>
+          ) : (
+            /* Standard Iframe Preview */
+            <>
+              {scale > 0 && (
+                <iframe
+                  key={reloadToken}
+                  src={url}
+                  title="Live site preview"
+                  loading="lazy"
+                  sandbox="allow-scripts allow-same-origin allow-forms"
+                  referrerPolicy="no-referrer"
+                  onLoad={() => setLoadedKey(frameKey)}
+                  className="absolute left-0 top-0 origin-top-left border-0 bg-white"
+                  style={{
+                    width: PREVIEW_VIEWPORT_WIDTH,
+                    height: PREVIEW_VIEWPORT_HEIGHT,
+                    transform: `scale(${scale})`,
+                  }}
+                />
+              )}
+              {!loaded && (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted/20">
+                  <NucleoIcon name="loader" className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {/* Click-through overlay → open the real site, and stops the iframe
+                  from stealing scroll/clicks while it acts as a thumbnail. */}
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group absolute inset-0 flex items-end justify-end p-3"
+                title="Open site"
+              >
+                <span className="inline-flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-[11px] font-medium text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
+                  <NucleoIcon name="external" className="h-3 w-3" />
+                  Open site
+                </span>
+              </a>
+            </>
+          )
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
