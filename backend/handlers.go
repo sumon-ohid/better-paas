@@ -179,6 +179,12 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gitURL := normalizeGitURL(req.GitRepo)
+	gitToken := strings.TrimSpace(req.GitToken)
+	if gitToken == "" {
+		githubTokenLock.RLock()
+		gitToken = githubToken
+		githubTokenLock.RUnlock()
+	}
 
 	appsLock.Lock()
 	appID := generateRandomID()
@@ -195,7 +201,7 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		Branch:         req.Branch,
 		Port:           allocatePort(serverID),
 		CreatedAt:      time.Now(),
-		GitToken:       req.GitToken,
+		GitToken:       gitToken,
 		RootDir:        rootDir,
 		EnvVars:        req.EnvVars,
 		BuildCommand:   req.BuildCommand,

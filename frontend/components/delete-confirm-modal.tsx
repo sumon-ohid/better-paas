@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
 } from "@/components/ui/alert-dialog"
-import { cn } from "@/lib/utils"
+import { cn, copyText } from "@/lib/utils"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
@@ -56,10 +56,14 @@ export function DeleteConfirmModal({
 
   const isMatch = inputValue.trim() === appName.trim()
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(appName)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const handleCopy = async () => {
+    try {
+      await copyText(appName)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      inputRef.current?.focus()
+    }
   }
 
   const handleConfirm = async () => {
