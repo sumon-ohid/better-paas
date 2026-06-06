@@ -44,7 +44,7 @@ import {
   CommandShortcut,
   CommandFooter,
 } from "@/components/ui/command"
-
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 import { useActiveServer } from "@/components/server-context"
 import {
@@ -517,23 +517,45 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                   Better-PaaS
                 </span>
                 {version && (
-                  updateAvailable ? (
-                    <button
-                      onClick={() => router.push("/settings")}
-                      className="flex items-center gap-1 rounded-sm bg-warning/10 px-1.5 py-0.5 text-[10px] font-mono leading-none text-warning hover:bg-warning/20 cursor-pointer whitespace-nowrap"
-                      title={`Version ${version} (Update available — open Settings)`}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
-                      {cleanVersion(version)}
-                    </button>
-                  ) : (
-                    <span 
-                      className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[10px] font-mono leading-none text-muted-foreground/80 whitespace-nowrap"
-                      title={version}
-                    >
-                      {cleanVersion(version)}
-                    </span>
-                  )
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        updateAvailable ? (
+                          <button
+                            onClick={() => router.push("/settings")}
+                            className="flex items-center gap-1 rounded-sm bg-warning/10 px-1.5 py-0.5 text-[10px] font-mono leading-none text-warning hover:bg-warning/20 cursor-pointer whitespace-nowrap"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                            {cleanVersion(version)}
+                          </button>
+                        ) : (
+                          <span 
+                            className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[10px] font-mono leading-none text-muted-foreground/80 whitespace-nowrap cursor-default"
+                          >
+                            {cleanVersion(version)}
+                          </span>
+                        )
+                      }
+                    />
+                    <TooltipContent side="right" className="flex flex-col gap-1 max-w-[180px] select-none text-[11px] font-sans">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="font-semibold text-foreground">Better-PaaS</span>
+                        <span className="font-mono text-[10px] text-muted-foreground/80">{version}</span>
+                      </div>
+                      <div className="h-px bg-border/40 my-0.5" />
+                      {updateAvailable ? (
+                        <div className="flex items-center gap-1.5 text-warning font-medium leading-normal">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning animate-pulse" />
+                          <span>Update available</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-success font-medium leading-normal">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+                          <span>Up to date</span>
+                        </div>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </div>
