@@ -843,7 +843,11 @@ function AppDetailPage() {
         "Redeployment started with updated packages.",
         "success"
       )
-      setTab("logs") // redirect to logs to see build progress
+      setVulScanRun(false)
+      setTab("deployments") // redirect to deployments to see build progress
+      if (res && res.deployId) {
+        setExpandedDepl(res.deployId)
+      }
       // Also refresh the app info
       void fetchData()
     } catch (err: any) {
@@ -856,6 +860,15 @@ function AppDetailPage() {
       setFixingVul(false)
     }
   }
+
+  // Invalidate vulnerability scan cache when a build finishes so the tab shows fresh findings
+  const prevStatusRef = useRef(app?.status)
+  useEffect(() => {
+    if (prevStatusRef.current === "building" && app?.status !== "building") {
+      setVulScanRun(false)
+    }
+    prevStatusRef.current = app?.status
+  }, [app?.status])
 
   useEffect(() => {
     if (currentTab === "vulnerabilities" && !vulScanRun && !loadingVul) {
@@ -2226,19 +2239,30 @@ function AppDetailPage() {
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
                   {/* Vulnerabilities List */}
                   <div className="space-y-4">
-                    <div className="overflow-hidden rounded-lg border border-border bg-card/50">
-                      <div className="border-b border-border bg-muted/20 px-4 py-3">
+                    <Card className="border-border bg-card/72 p-5 backdrop-blur-xl flex flex-col h-full">
+                      <div className="flex items-center justify-between border-b border-border/40 pb-4 mb-4">
                         <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                           Detected Advisories ({vulnerabilities.length})
                         </span>
+                        <Button
+                          onClick={() => fixVulnerability("")}
+                          disabled={fixingVul || app.status === "building"}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 px-2.5 text-xs text-amber-500 border-amber-500/20 hover:bg-amber-500/10"
+                        >
+                          <RefreshIcon className="h-3 w-3" />
+                          Update All
+                        </Button>
                       </div>
-                      <div className="max-h-[50vh] divide-y divide-border/60 overflow-y-auto">
+
+                      <div className="max-h-[50vh] divide-y divide-border/40 overflow-y-auto pr-1">
                         {vulnerabilities.map((vul, idx) => (
                           <div
                             key={idx}
-                            className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-start"
+                            className="flex flex-col justify-between gap-4 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start"
                           >
-                            <div className="min-w-0 space-y-1.5">
+                            <div className="min-w-0 space-y-2">
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge
                                   variant={
@@ -2263,7 +2287,7 @@ function AppDetailPage() {
                                   </span>
                                 )}
                               </div>
-                              <h4 className="text-sm font-medium text-foreground">
+                              <h4 className="text-sm font-medium text-foreground leading-relaxed">
                                 {vul.title}
                               </h4>
                               {vul.url && (
@@ -2279,17 +2303,20 @@ function AppDetailPage() {
                               )}
                             </div>
                             <Button
-                              onClick={() => setFixPackage(vul.package)}
+                              onClick={() => {
+                                setFixPackage(vul.package)
+                                void fixVulnerability(vul.package)
+                              }}
                               variant="outline"
                               size="sm"
-                              className="h-7 self-start text-xs sm:self-center"
+                              className="h-7 self-start text-xs sm:self-center border-border hover:bg-muted/50"
                             >
                               Update
                             </Button>
                           </div>
                         ))}
                       </div>
-                    </div>
+                    </Card>
                   </div>
 
                   {/* Manual Fix Panel */}

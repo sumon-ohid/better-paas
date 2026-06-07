@@ -1282,6 +1282,8 @@ func finishDeployment(app App, deployLogs []string, status string, startedAt tim
 // provide fails the entire install. The "packageManager" field is preserved so
 // Nixpacks still provisions the correct package-manager binary.
 func patchPackageJSON(appID, buildDir string, logger func(string)) {
+	ensureValidPnpmWorkspace(buildDir, logger)
+
 	// Patch the root manifest and capture workspace globs.
 	rootPkg, _ := patchSinglePackageJSON(filepath.Join(buildDir, "package.json"))
 
@@ -1343,6 +1345,26 @@ func patchSinglePackageJSON(pkgPath string) (map[string]interface{}, bool) {
 		}
 	}
 	return pkg, true
+}
+
+// ensureValidPnpmWorkspace checks if a pnpm-workspace.yaml file is present but
+// missing the "packages:" field, and appends a default packages list to prevent
+// pnpm v10 from crashing with "packages field missing or empty".
+func ensureValidPnpmWorkspace(buildDir string, logger func(string)) {
+	for _, name := range []string{"pnpm-workspace.yaml", "pnpm-workspace.yml"} {
+		workspacePath := filepath.Join(buildDir, name)
+		if data, err := os.ReadFile(workspacePath); err == nil {
+			content := string(data)
+			if !strings.Contains(content, "packages:") {
+				newContent := content + "\n\npackages:\n  - '.'\n"
+				if err := os.WriteFile(workspacePath, []byte(newContent), 0644); err == nil {
+					if logger != nil {
+						logger("💡 Added missing packages list to pnpm-workspace.yaml to fix pnpm workspace installation")
+					}
+				}
+			}
+		}
+	}
 }
 
 // workspacePackageDirs resolves the directories of workspace packages declared

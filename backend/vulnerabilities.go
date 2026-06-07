@@ -347,6 +347,8 @@ func handleVulnerabilitiesFix(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	ensureValidPnpmWorkspace(appPath, nil)
+
 	updateCmd.Dir = appPath
 	if output, err := updateCmd.CombinedOutput(); err != nil {
 		jsonError(w, fmt.Sprintf("Failed to update package: %v\nOutput: %s", err, string(output)), http.StatusInternalServerError)
