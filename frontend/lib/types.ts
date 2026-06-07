@@ -42,6 +42,14 @@ export interface App {
   vulnerabilitiesCount?: number
 }
 
+export interface Vulnerability {
+  severity: "critical" | "high" | "moderate" | "low" | string
+  package: string
+  title: string
+  range?: string
+  url?: string
+}
+
 export interface ServerStats {
   cpuUsage: number
   memoryUsage: number

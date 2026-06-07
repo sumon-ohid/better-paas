@@ -57,6 +57,7 @@ import type {
   DeploymentRecord,
   LogEntry,
   GitHubContent,
+  Vulnerability,
 } from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
@@ -199,7 +200,7 @@ function AppDetailPage() {
   const [isRollingBack, setIsRollingBack] = useState(false)
 
   // ── Vulnerabilities ────────────────────────────────────────────────────────
-  const [vulnerabilities, setVulnerabilities] = useState<any[]>([])
+  const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([])
   const [packageManager, setPackageManager] = useState<string>("")
   const [loadingVul, setLoadingVul] = useState(false)
   const [fixingVul, setFixingVul] = useState(false)
@@ -812,10 +813,14 @@ function AppDetailPage() {
       setVulnerabilities(res.vulnerabilities || [])
       setPackageManager(res.packageManager || "")
       setVulScanRun(true)
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to scan package vulnerabilities."
       showToast(
         "Scan Failed",
-        err.message || "Failed to scan package vulnerabilities.",
+        message,
         "destructive"
       )
     } finally {
@@ -850,10 +855,12 @@ function AppDetailPage() {
       }
       // Also refresh the app info
       void fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to update package."
       showToast(
         "Update Failed",
-        err.message || "Failed to update package.",
+        message,
         "destructive"
       )
     } finally {
@@ -872,7 +879,10 @@ function AppDetailPage() {
 
   useEffect(() => {
     if (currentTab === "vulnerabilities" && !vulScanRun && !loadingVul) {
-      void scanVulnerabilities()
+      const timeoutId = window.setTimeout(() => {
+        void scanVulnerabilities()
+      }, 0)
+      return () => window.clearTimeout(timeoutId)
     }
   }, [currentTab, vulScanRun, loadingVul, scanVulnerabilities])
 

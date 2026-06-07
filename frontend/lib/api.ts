@@ -27,6 +27,7 @@ import type {
   UpdateProgress,
   AnalyticsSummary,
   AnalyticsOverviewRow,
+  Vulnerability,
 } from "./types"
 import { getToken } from "./auth"
 
@@ -177,7 +178,7 @@ export const api = {
 
   vulnerabilities: {
     scan: (id: string) =>
-      req<{ vulnerabilities: any[]; packageManager: string }>(
+      req<{ vulnerabilities: Vulnerability[]; packageManager: string }>(
         `/api/apps/vulnerabilities/scan?id=${encodeURIComponent(id)}`
       ),
     fix: (data: { id: string; option: "git" | "local"; package?: string }) =>
