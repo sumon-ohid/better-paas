@@ -7,7 +7,11 @@
 <h1 align="center">better-paas</h1>
 
 <p align="center">
-  A self-hosted, lightweight PaaS: a Go control plane that builds Git repositories with Nixpacks, runs them as Docker containers, and routes traffic through Caddy. Powered by a sleek, responsive Next.js dashboard.
+  Better-PaaS is an open source self-hostable lightweight PaaS: Altervative to Vercel/Render/Railway combined. Made for humans.
+  You only need an SSH connection. You can manage VPS, Bare Metal, Raspberry PIs, and anything else.
+  It works with almost any frameworks and libraries. You can also create databases like sqlite, postgres and redis and attach to deployed app with a single click. no rewriting env and all   those crap. 
+  You own the platform, No vendor lock-in. 
+  Please read the docs for more informations: <a href="https://better-paas.com/docs/quickstart">better-paas docs</a>
 </p>
 
 <table align="center">
