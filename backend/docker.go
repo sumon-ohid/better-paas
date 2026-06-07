@@ -1214,6 +1214,14 @@ func shortSHA(sha string) string {
 
 // finishDeployment updates app status, saves deployment record, and persists.
 func finishDeployment(app App, deployLogs []string, status string, startedAt time.Time, deployID, logFile, image, trigger, commit, commitMsg string) {
+	if status == "success" {
+		// Run vulnerability scan synchronously so that the final client poll
+		// gets the updated vulnerabilities count.
+		if _, err := scanAndSaveVulnerabilities(app.ID); err != nil {
+			log.Printf("[vulnerabilities] background scan failed: %v", err)
+		}
+	}
+
 	duration := time.Since(startedAt).Round(time.Second).String()
 
 	finalStatus := "running"
@@ -1266,13 +1274,6 @@ func finishDeployment(app App, deployLogs []string, status string, startedAt tim
 	// Fire deploy notifications (best-effort, non-blocking).
 	go notifyDeploy(app, record)
 
-	if status == "success" {
-		go func() {
-			if _, err := scanAndSaveVulnerabilities(app.ID); err != nil {
-				log.Printf("[vulnerabilities] background scan failed: %v", err)
-			}
-		}()
-	}
 }
 
 // patchPackageJSON sanitizes Node.js package.json files for Nixpacks

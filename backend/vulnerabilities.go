@@ -329,7 +329,8 @@ func handleVulnerabilitiesFix(w http.ResponseWriter, r *http.Request) {
 	switch packageManager {
 	case "pnpm":
 		if pkgName != "" {
-			updateCmd = exec.Command("pnpm", "add", pkgName+"@latest", "--ignore-scripts")
+			// Update the package and all its transitive usages recursively
+			updateCmd = exec.Command("pnpm", "update", pkgName, "--depth", "Infinity", "--ignore-scripts")
 		} else {
 			updateCmd = exec.Command("pnpm", "update", "--ignore-scripts")
 		}
