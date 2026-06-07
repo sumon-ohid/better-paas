@@ -6,7 +6,7 @@
 
 <h1 align="center">better-paas</h1>
 
-<p align="center">
+<p align="left">
   Better-PaaS is an open source self-hostable lightweight Platform as a Service (PaaS) </br>
   that simplifies the deployment and management of applications and databases. </br>
   You only need an SSH connection. You can manage VPS, Bare Metal, Raspberry PIs, and anything else. </br>
