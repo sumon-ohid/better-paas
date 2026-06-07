@@ -15,7 +15,7 @@ import {
   Rocket,
 } from 'lucide-react';
 import { LogoMark } from '@/components/logo';
-import { appName, githubUrl } from '@/lib/shared';
+import { appName, gitConfig, githubUrl } from '@/lib/shared';
 import { ProductDemo } from '@/components/landing/product-demo';
 import { FeatureShowcase } from '@/components/landing/feature-showcase';
 import { TechMarquee } from '@/components/landing/tech-marquee';
@@ -30,10 +30,12 @@ import { AutomationsSection } from '@/components/landing/automations';
 import { FAQSection } from '@/components/landing/faq';
 import { cn } from '@/lib/cn';
 
-export default function HomePage() {
+export default async function HomePage() {
+  const latestRelease = await getLatestRelease();
+
   return (
     <main className="flex flex-1 flex-col relative">
-      <Hero />
+      <Hero latestRelease={latestRelease} />
       <TechStrip />
       <Showcase />
       <Stats />
@@ -53,7 +55,43 @@ export default function HomePage() {
 
 /* ═════════════════════════════════  Hero  ═══════════════════════════════ */
 
-function Hero() {
+type GitHubRelease = {
+  tag_name?: string;
+  html_url?: string;
+};
+
+async function getLatestRelease(): Promise<{ version: string; url: string } | null> {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${gitConfig.user}/${gitConfig.repo}/releases/latest`,
+      {
+        next: { revalidate: 1800 },
+      },
+    );
+
+    if (!res.ok) return null;
+
+    const release = (await res.json()) as GitHubRelease;
+    if (!release.tag_name) return null;
+
+    return {
+      version: release.tag_name,
+      url: release.html_url || `${githubUrl}/releases/latest`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function Hero({
+  latestRelease,
+}: {
+  latestRelease: { version: string; url: string } | null;
+}) {
+  const releaseLabel = latestRelease
+    ? `${latestRelease.version} beta`
+    : 'Beta release';
+
   return (
     <section className="bp-hero-stage relative overflow-hidden">
       <div className="relative mx-auto max-w-6xl px-4 pt-28 pb-8 sm:pt-36">
@@ -102,11 +140,13 @@ function Hero() {
             className="hidden pb-2 mt-3 lg:block"
           >
             <Link
-              href="/docs/updates"
+              href={latestRelease?.url || `${githubUrl}/releases`}
               className="group inline-flex items-center gap-3 text-sm font-medium text-fd-muted-foreground transition-colors hover:text-fd-foreground"
+              target="_blank"
+              rel="noreferrer"
             >
               <span className="size-2 rounded-full bg-fd-primary/80 shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-fd-primary)_18%,transparent)]" />
-              Managed databases are live
+              {releaseLabel}
               <ArrowRight className="size-4 opacity-60 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </AnimatedGroup>
