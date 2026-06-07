@@ -399,10 +399,35 @@ build_backend() {
 build_frontend() {
   info "Installing frontend dependencies..."
   cd "$FRONTEND_DIR"
-  pnpm install --frozen-lockfile
+  CI=true pnpm install --frozen-lockfile
   info "Building frontend production bundle..."
   pnpm build
   success "Frontend built."
+}
+
+# ── Configure updater restart permissions ────────────────────────────────────
+
+configure_updater_sudoers() {
+  if [ "$OS" = "darwin" ]; then
+    return
+  fi
+
+  local systemctl_path
+  systemctl_path="$(command -v systemctl || true)"
+  if [ -z "$systemctl_path" ]; then
+    warn "systemctl not found; skipping updater sudoers setup."
+    return
+  fi
+
+  info "Allowing updater to restart Better-PaaS services..."
+  cat > /etc/sudoers.d/better-paas <<EOF
+${SERVICE_USER} ALL=(root) NOPASSWD: ${systemctl_path} restart better-paas-backend, ${systemctl_path} restart better-paas-frontend
+EOF
+  chmod 0440 /etc/sudoers.d/better-paas
+  if command -v visudo &>/dev/null; then
+    visudo -cf /etc/sudoers.d/better-paas >/dev/null
+  fi
+  success "Updater restart permissions configured."
 }
 
 # ── Create systemd services ───────────────────────────────────────────────────
@@ -473,6 +498,7 @@ EOF
 
   systemctl daemon-reload
   systemctl enable better-paas-backend better-paas-frontend
+  configure_updater_sudoers
   systemctl restart better-paas-backend better-paas-frontend
   success "Systemd services installed and started."
 }
