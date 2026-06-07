@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 )
 
 // VulnerabilityInfo represents a single detected package vulnerability.
@@ -348,6 +351,21 @@ func handleVulnerabilitiesFix(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Inject overrides to ensure transitive vulnerabilities are forced to resolve to safe versions
+	var vulnerabilities []VulnerabilityInfo
+	if pkgName == "" {
+		vuls, _, err := runAuditForPath(appPath)
+		if err == nil {
+			vulnerabilities = vuls
+		} else {
+			log.Printf("[vulnerabilities] failed to audit path before fix: %v", err)
+		}
+	}
+
+	if err := injectDependencyOverrides(appPath, packageManager, pkgName, vulnerabilities); err != nil {
+		log.Printf("[vulnerabilities] failed to inject dependency overrides: %v", err)
+	}
+
 	ensureValidPnpmWorkspace(appPath, nil)
 
 	updateCmd.Dir = appPath
@@ -436,3 +454,196 @@ func handleVulnerabilitiesFix(w http.ResponseWriter, r *http.Request) {
 		"deployId": deployID,
 	})
 }
+
+// getLatestNpmVersion queries npm registry for the latest version of a package.
+func getLatestNpmVersion(ctx context.Context, pkg string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "npm", "view", pkg, "version")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// injectDependencyOverrides injects overrides/resolutions to package.json to force transitive dependency updates.
+func injectDependencyOverrides(appPath, packageManager, targetPkg string, vulnerabilities []VulnerabilityInfo) error {
+	packageJSONPath := filepath.Join(appPath, "package.json")
+	if _, err := os.Stat(packageJSONPath); os.IsNotExist(err) {
+		return nil // No package.json, skip
+	}
+
+	// Determine packages to override
+	var pkgsToOverride []string
+	if targetPkg != "" {
+		pkgsToOverride = append(pkgsToOverride, targetPkg)
+	} else {
+		// Dedup package names from vulnerabilities list
+		seen := make(map[string]bool)
+		for _, vul := range vulnerabilities {
+			if vul.Package != "" && !seen[vul.Package] {
+				seen[vul.Package] = true
+				pkgsToOverride = append(pkgsToOverride, vul.Package)
+			}
+		}
+	}
+
+	if len(pkgsToOverride) == 0 {
+		return nil
+	}
+
+	// Fetch latest versions concurrently
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	pkgVersions := make(map[string]string)
+
+	ctx := context.Background()
+	for _, pkg := range pkgsToOverride {
+		wg.Add(1)
+		go func(p string) {
+			defer wg.Done()
+			ver, err := getLatestNpmVersion(ctx, p)
+			if err != nil {
+				log.Printf("[vulnerabilities] failed to fetch latest version for %s: %v", p, err)
+				return
+			}
+			mu.Lock()
+			pkgVersions[p] = ver
+			mu.Unlock()
+		}(pkg)
+	}
+	wg.Wait()
+
+	if len(pkgVersions) == 0 {
+		return nil // Nothing successfully fetched
+	}
+
+	// Read package.json
+	data, err := os.ReadFile(packageJSONPath)
+	if err != nil {
+		return err
+	}
+
+	var pkgMap map[string]interface{}
+	if err := json.Unmarshal(data, &pkgMap); err != nil {
+		return err
+	}
+
+	switch packageManager {
+	case "pnpm":
+		// pnpm v11+ ignores overrides in package.json; they must be in pnpm-workspace.yaml.
+		// We patch (or create) that file with the needed overrides section.
+		if err := injectPnpmWorkspaceOverrides(appPath, pkgVersions); err != nil {
+			return err
+		}
+		// For pnpm the package.json write is not needed – return early.
+		return nil
+
+	case "yarn":
+		var resolutions map[string]interface{}
+		if val, exists := pkgMap["resolutions"]; exists {
+			if m, ok := val.(map[string]interface{}); ok {
+				resolutions = m
+			}
+		}
+		if resolutions == nil {
+			resolutions = make(map[string]interface{})
+		}
+
+		for pkg, ver := range pkgVersions {
+			resolutions[pkg] = "^" + ver
+			log.Printf("[vulnerabilities] injecting yarn resolution: %s -> ^%s", pkg, ver)
+		}
+		pkgMap["resolutions"] = resolutions
+
+	default: // npm
+		var overrides map[string]interface{}
+		if val, exists := pkgMap["overrides"]; exists {
+			if m, ok := val.(map[string]interface{}); ok {
+				overrides = m
+			}
+		}
+		if overrides == nil {
+			overrides = make(map[string]interface{})
+		}
+
+		for pkg, ver := range pkgVersions {
+			overrides[pkg] = "^" + ver
+			log.Printf("[vulnerabilities] injecting npm override: %s -> ^%s", pkg, ver)
+		}
+		pkgMap["overrides"] = overrides
+	}
+
+	newData, err := json.MarshalIndent(pkgMap, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(packageJSONPath, newData, 0644)
+}
+
+// injectPnpmWorkspaceOverrides writes/updates the overrides: section in
+// pnpm-workspace.yaml (pnpm v11+ ignores package.json["pnpm"]["overrides"]).
+// If pnpm-workspace.yaml does not exist it is created.
+func injectPnpmWorkspaceOverrides(appPath string, pkgVersions map[string]string) error {
+	workspacePath := ""
+	for _, name := range []string{"pnpm-workspace.yaml", "pnpm-workspace.yml"} {
+		p := filepath.Join(appPath, name)
+		if _, err := os.Stat(p); err == nil {
+			workspacePath = p
+			break
+		}
+	}
+	if workspacePath == "" {
+		workspacePath = filepath.Join(appPath, "pnpm-workspace.yaml")
+	}
+
+	var existing string
+	if data, err := os.ReadFile(workspacePath); err == nil {
+		existing = string(data)
+	}
+
+	// Remove any existing overrides: block (simple line-based approach)
+	lines := strings.Split(existing, "\n")
+	var filtered []string
+	inOverridesBlock := false
+	for _, line := range lines {
+		trimmed := strings.TrimRight(line, " \t")
+		if trimmed == "overrides:" {
+			inOverridesBlock = true
+			continue
+		}
+		if inOverridesBlock {
+			// Lines that start with whitespace are continuation of the overrides block
+			if len(trimmed) > 0 && (trimmed[0] == ' ' || trimmed[0] == '\t') {
+				continue
+			}
+			inOverridesBlock = false
+		}
+		filtered = append(filtered, line)
+	}
+
+	// Trim trailing blank lines
+	for len(filtered) > 0 && strings.TrimSpace(filtered[len(filtered)-1]) == "" {
+		filtered = filtered[:len(filtered)-1]
+	}
+
+	// Ensure packages: entry exists
+	content := strings.Join(filtered, "\n")
+	if !strings.Contains(content, "packages:") {
+		content = content + "\n\npackages:\n  - '.'"
+	}
+
+	// Append overrides block
+	overrideLines := "\n\noverrides:"
+	for pkg, ver := range pkgVersions {
+		overrideLines += fmt.Sprintf("\n  %s: \"^%s\"", pkg, ver)
+		log.Printf("[vulnerabilities] injecting pnpm workspace override: %s -> ^%s", pkg, ver)
+	}
+	content = content + overrideLines + "\n"
+
+	return os.WriteFile(workspacePath, []byte(content), 0644)
+}
+
