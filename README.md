@@ -7,13 +7,13 @@
 <h1 align="center">better-paas</h1>
 
 <p align="left">
-  Better-PaaS is an open source self-hostable lightweight Platform as a Service (PaaS) </br>
+  Better-PaaS is an open source self-hostable lightweight Platform as a Service (PaaS)
   that simplifies the deployment and management of applications and databases. </br>
-  You only need an SSH connection. You can manage VPS, Bare Metal, Raspberry PIs, and anything else. </br>
+  You only need an SSH connection. You can manage VPS, Bare Metal, Raspberry PIs, and anything else.
   It works with almost any frameworks and libraries. </br>
-  You can also create databases like sqlite, postgres and redis and attach to deployed app with a single click. </br>
+  You can also create databases like sqlite, postgres and redis and attach to deployed app with a single click.
   You own the platform, No vendor lock-in. </br>
-  Please read the docs for more informations: <a href="https://better-paas.com/docs/quickstart">Better-PaaS Docs Page</a>
+  Please read the docs: <a href="https://better-paas.com/docs/quickstart">Better-PaaS Docs Page</a>
 </p>
 
 <table align="center">
