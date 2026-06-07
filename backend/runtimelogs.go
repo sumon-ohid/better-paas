@@ -220,6 +220,9 @@ func appendRuntimeLine(path, line string) {
 
 // readRuntimeLog returns up to the last `maxLines` persisted runtime log lines.
 func readRuntimeLog(appID string, maxLines int) ([]string, error) {
+	if !validAppName(appID) {
+		return nil, fmt.Errorf("invalid app id")
+	}
 	lines, err := readLogFile(runtimeLogPath(appID))
 	if err != nil {
 		return nil, err

@@ -173,6 +173,29 @@ func TestWSTicketExpires(t *testing.T) {
 	}
 }
 
+func TestWSAuthRejectsLegacyQueryToken(t *testing.T) {
+	setTestToken(t, "secret")
+
+	r := httptest.NewRequest("GET", "/ws/logs?token=secret", nil)
+	w := httptest.NewRecorder()
+	if wsAuthOK(w, r) {
+		t.Fatalf("expected legacy token query auth to be rejected")
+	}
+	if w.Code != 401 {
+		t.Fatalf("expected HTTP 401, got %d", w.Code)
+	}
+}
+
+func TestRequestOriginAllowedDefaultsToSameHostname(t *testing.T) {
+	r := httptest.NewRequest("GET", "http://api.example.com:8080/api/apps", nil)
+	if !requestOriginAllowed(r, "http://api.example.com:3000", nil) {
+		t.Fatalf("expected same hostname with a different dashboard port to be allowed")
+	}
+	if requestOriginAllowed(r, "https://evil.example.net", nil) {
+		t.Fatalf("expected different hostname to be rejected by default")
+	}
+}
+
 func TestPublicPathsStayNarrow(t *testing.T) {
 	want := map[string]bool{
 		"/api/health":              true,

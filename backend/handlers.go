@@ -1702,6 +1702,10 @@ func handleRuntimeLogHistory(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Missing id", http.StatusBadRequest)
 		return
 	}
+	if findApp(id) == nil {
+		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
 	lines := 500
 	if n := r.URL.Query().Get("lines"); n != "" {
 		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {

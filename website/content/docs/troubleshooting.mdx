@@ -16,8 +16,8 @@ Print it on the server:
 cd ~/better-paas/backend && ./server token
 ```
 
-It's also saved at `backend/data/admin_token.txt` and printed in the backend
-logs on first run.
+It's also saved at `backend/data/admin_token.txt`. Backend logs include it on
+first run only, unless `SHOW_ADMIN_TOKEN_ON_STARTUP=true` is set.
 </Accordion>
 
 <Accordion title="I'm getting locked out (HTTP 429)">
@@ -30,8 +30,9 @@ on the real client IP.
 
 <Accordion title="The dashboard can't reach the API">
 Check `NEXT_PUBLIC_API_URL` points to the right backend host/port, and that the
-backend is running (`sudo systemctl status better-paas-backend`). CORS issues?
-Set `DASHBOARD_ORIGIN` to your dashboard's origin.
+backend is running (`sudo systemctl status better-paas-backend`). If the
+dashboard and API use different hostnames, set `DASHBOARD_ORIGIN` to your
+dashboard's origin.
 </Accordion>
 </Accordions>
 

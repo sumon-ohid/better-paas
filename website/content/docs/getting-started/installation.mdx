@@ -191,7 +191,7 @@ When the installer finishes it prints a summary with two important things:
   
   **How to retrieve it again:**
   - **Standard installation**: Run `cd ~/better-paas/backend && ./server token` on your server.
-  - **Docker installation**: Run `docker exec -it better-paas /app/server token` or check container logs with `docker logs better-paas`.
+  - **Docker installation**: Run `docker exec -it better-paas /app/server token`. Container logs include the token on first boot only unless `SHOW_ADMIN_TOKEN_ON_STARTUP=true` is set.
 </Callout>
 
 ### Open firewall ports

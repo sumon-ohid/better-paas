@@ -82,9 +82,11 @@ func initAuth() {
 	authToken = tok
 	authTokenLock.Unlock()
 
-	// Always print the token banner on startup so operators can find it in the
-	// logs (journalctl, docker logs, nohup output) no matter how they deploy.
-	printTokenBanner(tok, firstRun)
+	if firstRun || parseBoolEnv("SHOW_ADMIN_TOKEN_ON_STARTUP") {
+		printTokenBanner(tok, firstRun)
+	} else {
+		log.Println("[auth] Admin token loaded. Retrieve it with './server token' or from data/admin_token.txt.")
+	}
 }
 
 // printTokenBanner writes the admin token to the logs in a clearly delimited
@@ -186,22 +188,11 @@ func sweepWSTickets() {
 	wsTicketLock.Unlock()
 }
 
-// wsAuthOK validates a short-lived ticket for a WebSocket upgrade. For
-// backwards compatibility it also accepts the legacy token query parameter,
-// still enforcing the per-IP brute-force lockout. On failure it writes the HTTP
-// status before the upgrade handshake and returns false.
+// wsAuthOK validates a short-lived ticket for a WebSocket upgrade. On failure
+// it writes the HTTP status before the upgrade handshake and returns false.
 func wsAuthOK(w http.ResponseWriter, r *http.Request) bool {
 	if consumeWSTicket(r.URL.Query().Get("ticket")) {
 		return true
-	}
-	res := authenticate(r, r.URL.Query().Get("token"))
-	if res.OK {
-		return true
-	}
-	if res.LockedOut {
-		w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds(res.RetryAfter)))
-		http.Error(w, "Too many failed attempts", http.StatusTooManyRequests)
-		return false
 	}
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	return false
@@ -226,10 +217,9 @@ func handleAuthWSTicket(w http.ResponseWriter, r *http.Request) {
 // Brute-force–aware authentication
 // ---------------------------------------------------------------------------
 //
-// Every token check (HTTP bearer, WebSocket query param, and the login/verify
-// endpoint) funnels through authenticate so a shared per-IP failure tracker
-// can lock out repeated bad guesses with an escalating backoff. validToken
-// remains the pure constant-time comparison used underneath.
+// Every token check funnels through authenticate so a shared per-IP failure
+// tracker can lock out repeated bad guesses with an escalating backoff.
+// validToken remains the pure constant-time comparison used underneath.
 
 // authResult captures the outcome of an authentication attempt.
 type authResult struct {

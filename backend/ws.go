@@ -21,20 +21,16 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 4096,
 }
 
-// checkWSOrigin restricts WebSocket upgrades to the configured dashboard
-// origin(s) when DASHBOARD_ORIGIN is set. When unset, any origin is allowed at
-// the handshake level — the per-connection token check (wsAuthOK) is the
-// primary defense against cross-site WebSocket hijacking.
+// checkWSOrigin restricts WebSocket upgrades to DASHBOARD_ORIGIN when set,
+// otherwise to the same hostname as the API request. Empty Origin is allowed
+// for non-browser clients.
 func checkWSOrigin(r *http.Request) bool {
 	allowed := parseAllowedOrigins(os.Getenv("DASHBOARD_ORIGIN"))
-	if len(allowed) == 0 {
-		return true
-	}
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		return true // non-browser client (e.g. CLI)
 	}
-	return originAllowed(origin, allowed)
+	return requestOriginAllowed(r, origin, allowed)
 }
 
 // wsSend sends a JSON-encoded log message over the WebSocket.

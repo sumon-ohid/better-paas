@@ -1,16 +1,25 @@
 // Client-side admin token storage.
 //
 // The token is the backend's admin bearer token (generated on first run and
-// printed by install.sh / written to data/admin_token.txt). It is stored in
-// localStorage so the single-admin dashboard persists the session across
-// reloads. This is appropriate for a self-hosted single-user control plane.
+// written to data/admin_token.txt). Keep it in sessionStorage so a future XSS
+// bug would have less time to harvest a long-lived credential.
 
 const STORAGE_KEY = "better-paas_admin_token"
 
 export function getToken(): string {
   if (typeof window === "undefined") return ""
   try {
-    return window.localStorage.getItem(STORAGE_KEY) ?? ""
+    const token = window.sessionStorage.getItem(STORAGE_KEY)
+    if (token) return token
+
+    // Migrate older installs away from persistent localStorage.
+    const legacy = window.localStorage.getItem(STORAGE_KEY)
+    if (legacy) {
+      window.sessionStorage.setItem(STORAGE_KEY, legacy)
+      window.localStorage.removeItem(STORAGE_KEY)
+      return legacy
+    }
+    return ""
   } catch {
     return ""
   }
@@ -20,10 +29,11 @@ export function setToken(token: string): void {
   if (typeof window === "undefined") return
   try {
     if (token) {
-      window.localStorage.setItem(STORAGE_KEY, token)
+      window.sessionStorage.setItem(STORAGE_KEY, token)
     } else {
-      window.localStorage.removeItem(STORAGE_KEY)
+      window.sessionStorage.removeItem(STORAGE_KEY)
     }
+    window.localStorage.removeItem(STORAGE_KEY)
   } catch {
     // ignore storage failures (private mode, etc.)
   }

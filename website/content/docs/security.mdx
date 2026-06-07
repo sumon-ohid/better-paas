@@ -14,12 +14,18 @@ The entire control plane is protected by a single **admin bearer token**.
 
 - On first run, Better-PaaS generates a strong random token, prints it to the
   logs, and saves it to `backend/data/admin_token.txt`.
+- On later starts, Better-PaaS does **not** print an existing token by default.
+  Retrieve it with `./server token`, or set `SHOW_ADMIN_TOKEN_ON_STARTUP=true`
+  if your deployment process intentionally depends on startup logs.
 - You paste it into the dashboard sign-in screen to log in.
 - **Every** privileged API request must carry it as
   `Authorization: Bearer <token>`.
 - Browser WebSocket sessions first request a short-lived, one-use ticket from
   `/api/auth/ws-ticket`, then connect with that ticket instead of putting the
   long-lived admin token in the WebSocket URL.
+- The dashboard stores the token in browser session storage, so closing the
+  browser session signs you out and limits how long a future browser bug could
+  expose the token.
 
 To pin or rotate the token, set `ADMIN_TOKEN` in the backend environment.
 
@@ -82,6 +88,18 @@ start with.
 For extra hardening, put Better-PaaS behind a reverse proxy and set
 `LISTEN_ADDR` to loopback (`127.0.0.1:8080`) so the API isn't directly exposed.
 
+## Origin checks
+
+CORS and browser WebSocket upgrades are restricted by origin:
+
+- If `DASHBOARD_ORIGIN` is set, only those comma-separated origins are allowed.
+- If it isn't set, Better-PaaS allows the same hostname on any port. This keeps
+  the default dashboard (`:3000`) and API (`:8080`) setup working without
+  reflecting arbitrary third-party origins.
+
+Set `DASHBOARD_ORIGIN` when the dashboard and API use different hostnames, for
+example `https://paas.example.com` and `https://api.example.com`.
+
 ## The data directory
 
 `backend/data/` holds your SQLite database, admin token, encryption key, and
@@ -105,6 +123,10 @@ and your SSH port).
 </Step>
 <Step>
 **Set `BETTER_PAAS_SECRET_KEY` out-of-band** for stronger encryption at rest.
+</Step>
+<Step>
+**Set `DASHBOARD_ORIGIN`** if the dashboard and API are served from different
+hostnames.
 </Step>
 <Step>
 **Set `TRUST_PROXY=true`** if you run behind a reverse proxy.

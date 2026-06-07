@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -288,20 +290,15 @@ func authGate(next http.Handler) http.Handler {
 	})
 }
 
-// corsMiddleware adds CORS headers. The allowed origin is reflected from the
-// request (or restricted to DASHBOARD_ORIGIN, comma-separated, when set).
-// Credentials are NOT enabled because auth uses bearer tokens, not cookies, so
-// a malicious origin still cannot forge an authenticated request.
+// corsMiddleware adds CORS headers. Origins are restricted to DASHBOARD_ORIGIN
+// when set, otherwise to the same hostname as the API request. Credentials are
+// NOT enabled because auth uses bearer tokens, not cookies.
 func corsMiddleware(next http.Handler) http.Handler {
 	allowed := parseAllowedOrigins(os.Getenv("DASHBOARD_ORIGIN"))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		w.Header().Set("Vary", "Origin")
-		if originAllowed(origin, allowed) {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-		} else if len(allowed) == 0 && origin != "" {
-			// No explicit allow-list configured: reflect origin (safe under
-			// bearer-token auth, no ambient credentials are exposed).
+		if requestOriginAllowed(r, origin, allowed) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -339,4 +336,26 @@ func originAllowed(origin string, allowed []string) bool {
 		}
 	}
 	return false
+}
+
+func requestOriginAllowed(r *http.Request, origin string, allowed []string) bool {
+	if origin == "" {
+		return false
+	}
+	if len(allowed) > 0 {
+		return originAllowed(origin, allowed)
+	}
+	return sameHostnameOrigin(r, origin)
+}
+
+func sameHostnameOrigin(r *http.Request, origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return false
+	}
+	host := r.Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	return strings.EqualFold(u.Hostname(), strings.Trim(host, "[]"))
 }

@@ -126,7 +126,7 @@ docker compose up -d
 
 1.   **Get Admin Token**: On first boot, the Go backend generates a secure admin bearer token and writes it to a file.
      *   **Native / Script install**: The token is printed to your console and saved to `backend/data/admin_token.txt`.
-     *   **Docker install**: Get it from container logs via `docker logs better-paas`, run the CLI command inside the container via `docker exec -it better-paas /app/server token`, or read it from your host machine via `cat data/admin_token.txt`.
+     *   **Docker install**: On first boot, get it from container logs via `docker logs better-paas`. After that, run the CLI command inside the container via `docker exec -it better-paas /app/server token`, or read it from your host machine via `cat data/admin_token.txt`.
 2.   **Access Dashboard**: Open the Next.js dashboard in your browser (typically `http://localhost:3000` or your server's IP address).
 3.   **Authenticate**: Paste the token into the sign-in screen. API requests use `Authorization: Bearer <token>`. Browser WebSocket sessions first mint a short-lived ticket from the authenticated API, then connect with that one-use ticket.
 
@@ -155,7 +155,8 @@ Backend configuration is managed via environment variables (see `backend/.env.ex
 | :--- | :--- | :--- |
 | `ADMIN_TOKEN` | generated | Admin bearer token. Overrides the auto-generated value. |
 | `LISTEN_ADDR` | `:8080` | API listen address. Use `127.0.0.1:8080` behind a proxy. |
-| `DASHBOARD_ORIGIN` | reflected | Comma-separated allowed origins for CORS / WS. |
+| `DASHBOARD_ORIGIN` | same hostname | Comma-separated allowed origins for CORS / WS when the dashboard is served from a different hostname. |
+| `SHOW_ADMIN_TOKEN_ON_STARTUP` | `false` | Print the admin token on every startup. First run always prints it. |
 | `BETTER_PAAS_SECRET_KEY`| generated | 32-byte key (hex or base64) for at-rest secret encryption. |
 | `TRUST_PROXY` | `false` | Honor `X-Forwarded-For`/`X-Real-IP` (set when behind a proxy). |
 | `ACME_EMAIL` | unset | Email for Let's Encrypt registration (custom-domain HTTPS). |
@@ -175,8 +176,10 @@ To pin or rotate the admin token at any time, define `ADMIN_TOKEN` in your syste
 
 ## 🔒 Security Hardening
 
-*   **API Exposure**: The backend API binds to all interfaces by default to accommodate remote browsers. Because every request requires the admin token, this is secure. For maximum isolation, you can place it behind a local reverse proxy and set `LISTEN_ADDR` to `127.0.0.1:8080`.
+*   **API Exposure**: The backend API binds to all interfaces by default to accommodate remote browsers. Because every privileged request requires the admin token, this is secure. For maximum isolation, you can place it behind a local reverse proxy and set `LISTEN_ADDR` to `127.0.0.1:8080`.
+*   **Origin Checks**: CORS and WebSocket upgrades allow `DASHBOARD_ORIGIN` when configured. Without it, Better-PaaS allows the same hostname on any port, which supports the default `:3000` dashboard talking to the `:8080` API without reflecting arbitrary origins.
 *   **Gitignored Secrets**: The SQLite database, keys, and logs are kept in `backend/data/` (created with `0700` permissions) and are excluded from git.
+*   **Admin Token Handling**: Existing admin tokens are not printed on every startup. Use `./server token` to retrieve the token, or set `SHOW_ADMIN_TOKEN_ON_STARTUP=true` if your deployment process depends on startup logs. The dashboard stores the token in browser session storage rather than persistent local storage.
 *   **Brute-Force Protection**: Repeated failed login attempts from an IP trigger an escalating lockout window (`HTTP 429` with `Retry-After`). Set `TRUST_PROXY=true` behind proxies to track the real client IP.
 *   **At-Rest Encryption**: Deploy tokens (`gitToken`) and GitHub tokens are encrypted with `AES-256-GCM` before database insertion. The key is read from `BETTER_PAAS_SECRET_KEY` or generated locally in `backend/data/secret.key` (with `0600` permissions). Supply `BETTER_PAAS_SECRET_KEY` out-of-band (e.g. systemd credentials) to protect against an attacker who gains file-level access to the host.
 
