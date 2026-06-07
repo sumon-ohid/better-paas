@@ -39,6 +39,7 @@ export interface App {
   activeDeployId?: string
   activeCommit?: string
   activeCommitMsg?: string
+  vulnerabilitiesCount?: number
 }
 
 export interface ServerStats {

@@ -175,6 +175,18 @@ export const api = {
       ),
   },
 
+  vulnerabilities: {
+    scan: (id: string) =>
+      req<{ vulnerabilities: any[]; packageManager: string }>(
+        `/api/apps/vulnerabilities/scan?id=${encodeURIComponent(id)}`
+      ),
+    fix: (data: { id: string; option: "git" | "local"; package?: string }) =>
+      req<{ status: string; deployId?: string }>("/api/apps/vulnerabilities/fix", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
   // ── Custom domains: server info + Cloudflare DNS ────────────────────────────
   server: {
     info: () => req<{ publicIp: string; localIp: string }>("/api/server/info"),

@@ -447,34 +447,40 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		}
 		localLog("✔ Docker image built successfully!")
 	} else {
-		// ── 1. Clone repository ──────────────────────────────────────────────
-		localLog(fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
 		buildDir := filepath.Join("builds", app.ID)
-		os.RemoveAll(buildDir)
+		if trigger == "local" {
+			localLog(fmt.Sprintf("✨ Using existing local build directory for app: %s (local package update)", app.Name))
+			commitSHA = gitHeadCommit(buildDir)
+			commitMsg = "Local build with package updates"
+		} else {
+			// ── 1. Clone repository ──────────────────────────────────────────────
+			localLog(fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
+			os.RemoveAll(buildDir)
 
-		branchLog := app.Branch
-		if branchLog == "" {
-			branchLog = "default branch"
-		}
-		localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, branchLog))
-		authenticatedURL := formatGitURL(gitURL, app.GitToken)
-		var cloneCmd *exec.Cmd
-		if app.Branch != "" {
-			cloneCmd = exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
-		} else {
-			cloneCmd = exec.Command("git", "clone", authenticatedURL, buildDir, "--depth", "1")
-		}
-		if output, err := cloneCmd.CombinedOutput(); err != nil {
-			localLog(fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, scrubCredentials(string(output))))
-			finish("failed", "")
-			return
-		}
-		commitSHA = gitHeadCommit(buildDir)
-		commitMsg = gitHeadCommitMsg(buildDir)
-		if commitSHA != "" {
-			localLog(fmt.Sprintf("✔ Repository cloned (commit %s).", shortSHA(commitSHA)))
-		} else {
-			localLog("✔ Repository cloned successfully.")
+			branchLog := app.Branch
+			if branchLog == "" {
+				branchLog = "default branch"
+			}
+			localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, branchLog))
+			authenticatedURL := formatGitURL(gitURL, app.GitToken)
+			var cloneCmd *exec.Cmd
+			if app.Branch != "" {
+				cloneCmd = exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
+			} else {
+				cloneCmd = exec.Command("git", "clone", authenticatedURL, buildDir, "--depth", "1")
+			}
+			if output, err := cloneCmd.CombinedOutput(); err != nil {
+				localLog(fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, scrubCredentials(string(output))))
+				finish("failed", "")
+				return
+			}
+			commitSHA = gitHeadCommit(buildDir)
+			commitMsg = gitHeadCommitMsg(buildDir)
+			if commitSHA != "" {
+				localLog(fmt.Sprintf("✔ Repository cloned (commit %s).", shortSHA(commitSHA)))
+			} else {
+				localLog("✔ Repository cloned successfully.")
+			}
 		}
 
 		// ── 2. Determine build subdirectory ──────────────────────────────────
@@ -1259,6 +1265,14 @@ func finishDeployment(app App, deployLogs []string, status string, startedAt tim
 
 	// Fire deploy notifications (best-effort, non-blocking).
 	go notifyDeploy(app, record)
+
+	if status == "success" {
+		go func() {
+			if _, err := scanAndSaveVulnerabilities(app.ID); err != nil {
+				log.Printf("[vulnerabilities] background scan failed: %v", err)
+			}
+		}()
+	}
 }
 
 // patchPackageJSON sanitizes Node.js package.json files for Nixpacks

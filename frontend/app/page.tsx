@@ -173,7 +173,7 @@ function RepoLink({ gitRepo, image }: { gitRepo: string; image?: string }) {
 function BranchBadge({ branch }: { branch: string }) {
   if (!branch) return null
   return (
-    <Badge variant="outline" size="sm" className="gap-1 font-mono">
+    <Badge variant="outline" size="sm" className="gap-1 font-mono py-2.5 px-1">
       <GitBranchIcon className="h-3 w-3" />
       {branch}
     </Badge>
@@ -325,6 +325,24 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
           <span className="font-semibold text-base text-foreground group-hover:text-primary transition-colors">
             {app.name}
           </span>
+          {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/app/${app.id}?tab=vulnerabilities`)
+                    }}
+                    className="flex cursor-pointer items-center text-amber-500 hover:text-amber-600 transition-colors shrink-0"
+                  >
+                    <NucleoIcon name="circle-alert" className="h-4 w-4" />
+                  </span>
+                }
+              />
+              <TooltipContent>{app.vulnerabilitiesCount} package vulnerabilities detected. Click to view.</TooltipContent>
+            </Tooltip>
+          ) : null}
           {app.composeService && (
             <span
               title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
@@ -406,9 +424,37 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <StatusBadge status={app.status} />
         <BranchBadge branch={app.branch} />
+        {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    router.push(`/app/${app.id}?tab=vulnerabilities`)
+                  }}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                >
+                  <NucleoIcon name="circle-alert" className="h-3 w-3 animate-pulse" />
+                  <span>
+                    {app.vulnerabilitiesCount}{" "}
+                    {app.vulnerabilitiesCount === 1
+                      ? "vulnerability"
+                      : "vulnerabilities"}
+                  </span>
+                </span>
+              }
+            />
+            <TooltipContent>
+              {app.vulnerabilitiesCount} package{" "}
+              {app.vulnerabilitiesCount === 1 ? "vulnerability" : "vulnerabilities"}{" "}
+              detected. Click card to view details.
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
           {formatRelativeTime(app.createdAt)}
         </span>
@@ -471,6 +517,34 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <StatusBadge status={app.status} />
         <BranchBadge branch={app.branch} />
+        {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    router.push(`/app/${app.id}?tab=vulnerabilities`)
+                  }}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                >
+                  <NucleoIcon name="circle-alert" className="h-3 w-3 animate-pulse" />
+                  <span>
+                    {app.vulnerabilitiesCount}{" "}
+                    {app.vulnerabilitiesCount === 1
+                      ? "vulnerability"
+                      : "vulnerabilities"}
+                  </span>
+                </span>
+              }
+            />
+            <TooltipContent>
+              {app.vulnerabilitiesCount} package{" "}
+              {app.vulnerabilitiesCount === 1 ? "vulnerability" : "vulnerabilities"}{" "}
+              detected. Click card to view details.
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
       </div>
 
       {/* URL + repo */}
@@ -494,7 +568,7 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
       {app.composeService ? (
         <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
           <Docker className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-          <span className="line-clamp-2 min-w-0">
+          <span className="line-clamp-1 min-w-0">
             Compose service{app.composeWeb ? "" : " · internal"}
           </span>
         </div>
@@ -504,12 +578,12 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
           title={app.activeCommitMsg}
         >
           <GitCommitIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-          <span className="line-clamp-2 min-w-0">{app.activeCommitMsg}</span>
+          <span className="line-clamp-1 min-w-0">{app.activeCommitMsg}</span>
         </div>
       ) : !app.gitRepo ? (
         <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
           <LayersIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-          <span className="line-clamp-2 min-w-0">
+          <span className="line-clamp-1 min-w-0">
             {app.catalogId ? "Deployed from catalog" : "Prebuilt image deployment"}
           </span>
         </div>

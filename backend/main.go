@@ -82,6 +82,8 @@ func main() {
 	mux.HandleFunc("/api/apps/webhook/github/create", handleGitHubWebhookCreate)
 	mux.HandleFunc("/api/apps/domains/add", handleDomainAdd)
 	mux.HandleFunc("/api/apps/domains/remove", handleDomainRemove)
+	mux.HandleFunc("/api/apps/vulnerabilities/scan", handleVulnerabilitiesScan)
+	mux.HandleFunc("/api/apps/vulnerabilities/fix", handleVulnerabilitiesFix)
 
 	// Custom domains + Cloudflare DNS
 	mux.HandleFunc("/api/server/info", handleServerInfo)

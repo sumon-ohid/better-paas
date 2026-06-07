@@ -121,6 +121,9 @@ const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 const ChevronRightIcon = (props: IconProps) => (
   <NucleoIcon {...props} name="chevron-right" />
 )
+const CircleAlertIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="circle-alert" />
+)
 
 export type AppTab =
   | "overview"
@@ -129,6 +132,7 @@ export type AppTab =
   | "logs"
   | "terminal"
   | "deployments"
+  | "vulnerabilities"
 
 // timeAgo renders a short, human-friendly relative time like "11d ago" or
 // "just now". Falls back to an empty string for invalid dates.
@@ -194,6 +198,15 @@ function AppDetailPage() {
   )
   const [isRollingBack, setIsRollingBack] = useState(false)
 
+  // ── Vulnerabilities ────────────────────────────────────────────────────────
+  const [vulnerabilities, setVulnerabilities] = useState<any[]>([])
+  const [packageManager, setPackageManager] = useState<string>("")
+  const [loadingVul, setLoadingVul] = useState(false)
+  const [fixingVul, setFixingVul] = useState(false)
+  const [vulScanRun, setVulScanRun] = useState(false)
+  const [fixOption, setFixOption] = useState<"git" | "local">("local")
+  const [fixPackage, setFixPackage] = useState("")
+
   // ── Config edit states ─────────────────────────────────────────────────────
   const [gitRepo, setGitRepo] = useState("")
   const [branch, setBranch] = useState("")
@@ -228,7 +241,9 @@ function AppDetailPage() {
       .join("\n")
   }
 
-  const parseEnvBlock = (text: string): Array<{ key: string; value: string }> => {
+  const parseEnvBlock = (
+    text: string
+  ): Array<{ key: string; value: string }> => {
     const result: Array<{ key: string; value: string }> = []
     const seen = new Set<string>()
 
@@ -248,7 +263,10 @@ function AppDetailPage() {
       let value = line.slice(eqIdx + 1).trim()
 
       // Strip surrounding quotes
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         value = value.slice(1, -1)
       }
 
@@ -618,7 +636,9 @@ function AppDetailPage() {
         portOverride: portOverride ? parseInt(portOverride, 10) : 0,
         // Compose, image, and dockerfile-inline deploys don't expose a reconfigurable build method here; omit it
         // so we never overwrite the stored method with a default.
-        ...(app.composeProject || app.buildMethod === "image" || app.buildMethod === "dockerfile-inline"
+        ...(app.composeProject ||
+        app.buildMethod === "image" ||
+        app.buildMethod === "dockerfile-inline"
           ? {}
           : {
               buildMethod,
@@ -784,6 +804,65 @@ function AppDetailPage() {
     redetectForRootDir(path)
   }
 
+  // ── Vulnerabilities Callbacks ──────────────────────────────────────────────
+  const scanVulnerabilities = useCallback(async () => {
+    setLoadingVul(true)
+    try {
+      const res = await api.vulnerabilities.scan(appId)
+      setVulnerabilities(res.vulnerabilities || [])
+      setPackageManager(res.packageManager || "")
+      setVulScanRun(true)
+    } catch (err: any) {
+      showToast(
+        "Scan Failed",
+        err.message || "Failed to scan package vulnerabilities.",
+        "destructive"
+      )
+    } finally {
+      setLoadingVul(false)
+    }
+  }, [appId, showToast])
+
+  const fixVulnerability = async (pkgName?: string) => {
+    setFixingVul(true)
+    try {
+      const targetPkg = pkgName || fixPackage
+      showToast(
+        "Updating package...",
+        targetPkg
+          ? `Updating ${targetPkg} to latest version...`
+          : "Running audit fix..."
+      )
+      const res = await api.vulnerabilities.fix({
+        id: appId,
+        option: fixOption,
+        package: targetPkg || undefined,
+      })
+      showToast(
+        "Update Triggered",
+        "Redeployment started with updated packages.",
+        "success"
+      )
+      setTab("logs") // redirect to logs to see build progress
+      // Also refresh the app info
+      void fetchData()
+    } catch (err: any) {
+      showToast(
+        "Update Failed",
+        err.message || "Failed to update package.",
+        "destructive"
+      )
+    } finally {
+      setFixingVul(false)
+    }
+  }
+
+  useEffect(() => {
+    if (currentTab === "vulnerabilities" && !vulScanRun && !loadingVul) {
+      void scanVulnerabilities()
+    }
+  }, [currentTab, vulScanRun, loadingVul, scanVulnerabilities])
+
   // ── Helpers ────────────────────────────────────────────────────────────────
   const [copied, setCopied] = useState(false)
   const handleCopyUrl = () => {
@@ -871,6 +950,7 @@ function AppDetailPage() {
     { id: "logs", label: "Logs" },
     { id: "terminal", label: "Terminal" },
     { id: "deployments", label: "Deployments" },
+    { id: "vulnerabilities", label: "Vulnerabilities" },
   ]
 
   return (
@@ -989,7 +1069,7 @@ function AppDetailPage() {
                     <Button
                       disabled={isRedeploying || app.status === "building"}
                       variant="outline"
-                      className="h-7 border-primary/30 text-xs text-primary hover:bg-primary/10 hover:text-primary gap-1"
+                      className="h-7 gap-1 border-primary/30 text-xs text-primary hover:bg-primary/10 hover:text-primary"
                     >
                       <RefreshIcon
                         className={`h-3 w-3 ${isRedeploying ? "animate-spin" : ""}`}
@@ -1561,12 +1641,15 @@ function AppDetailPage() {
                     <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                       Environment Variables
                     </Label>
-                    <div className="flex items-center gap-2 justify-between sm:justify-end w-full sm:w-auto">
+                    <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
                       {envMode === "list" && (
                         <Button
                           type="button"
                           onClick={() =>
-                            setEnvVars((prev) => [...prev, { key: "", value: "" }])
+                            setEnvVars((prev) => [
+                              ...prev,
+                              { key: "", value: "" },
+                            ])
                           }
                           className="flex h-7 cursor-pointer items-center gap-1 rounded border-0 bg-secondary px-2.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/85"
                         >
@@ -1578,19 +1661,23 @@ function AppDetailPage() {
                       )}
 
                       {/* List/Developer toggle group */}
-                      <div className="flex rounded-md border border-border p-0.5 bg-muted/20 h-7 items-center">
+                      <div className="flex h-7 items-center rounded-md border border-border bg-muted/20 p-0.5">
                         <button
                           type="button"
                           onClick={() => {
                             if (envMode === "raw") {
                               const parsed = parseEnvBlock(rawEnvText)
-                              setEnvVars(parsed.length > 0 ? parsed : [{ key: "", value: "" }])
+                              setEnvVars(
+                                parsed.length > 0
+                                  ? parsed
+                                  : [{ key: "", value: "" }]
+                              )
                             }
                             setEnvMode("list")
                           }}
-                          className={`h-full px-3.5 text-xs font-semibold rounded-md transition-colors cursor-pointer flex items-center justify-center ${
+                          className={`flex h-full cursor-pointer items-center justify-center rounded-md px-3.5 text-xs font-semibold transition-colors ${
                             envMode === "list"
-                              ? "bg-primary text-primary-foreground font-bold"
+                              ? "bg-primary font-bold text-primary-foreground"
                               : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
@@ -1604,9 +1691,9 @@ function AppDetailPage() {
                             }
                             setEnvMode("raw")
                           }}
-                          className={`h-full px-3.5 text-xs font-semibold rounded-md transition-colors cursor-pointer flex items-center justify-center ${
+                          className={`flex h-full cursor-pointer items-center justify-center rounded-md px-3.5 text-xs font-semibold transition-colors ${
                             envMode === "raw"
-                              ? "bg-primary text-primary-foreground font-bold"
+                              ? "bg-primary font-bold text-primary-foreground"
                               : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
@@ -1617,15 +1704,17 @@ function AppDetailPage() {
                   </div>
 
                   {envMode === "raw" ? (
-                    <div className="space-y-2 animate-in fade-in-50">
+                    <div className="animate-in fade-in-50 space-y-2">
                       <Textarea
                         value={rawEnvText}
                         onChange={(e) => setRawEnvText(e.target.value)}
                         placeholder={`KEY=value\nDATABASE_URL="postgres://..."\n# comments are ignored\nexport API_KEY=secret`}
-                        className="w-full h-48 rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 resize-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none"
+                        className="h-48 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none"
                       />
                       <p className="text-[10px] text-muted-foreground">
-                        Variables here are in standard `.env` format. Switching to List or saving will parse this text back to individual entries.
+                        Variables here are in standard `.env` format. Switching
+                        to List or saving will parse this text back to
+                        individual entries.
                       </p>
                     </div>
                   ) : (
@@ -1642,7 +1731,7 @@ function AppDetailPage() {
                               setEnvVars(updated)
                             }}
                             placeholder="NAME"
-                            className="h-8 w-[100px] sm:w-[150px] shrink-0 font-mono text-xs"
+                            className="h-8 w-[100px] shrink-0 font-mono text-xs sm:w-[150px]"
                           />
                           <Input
                             value={env.value}
@@ -1652,7 +1741,7 @@ function AppDetailPage() {
                               setEnvVars(updated)
                             }}
                             placeholder="value"
-                            className="h-8 flex-1 font-mono text-xs min-w-0"
+                            className="h-8 min-w-0 flex-1 font-mono text-xs"
                           />
                           <Button
                             type="button"
@@ -2080,169 +2169,361 @@ function AppDetailPage() {
               )}
             </div>
           )}
-        </div>
-      </div>
 
-      <DeleteConfirmModal
-        isOpen={showDeleteModal}
-        appName={app?.name ?? ""}
-        onConfirm={handleDelete}
-        onCancel={() => setShowDeleteModal(false)}
-      />
-
-      {/* Rollback Confirm Modal */}
-      <AlertDialog
-        open={!!rollbackTarget}
-        onOpenChange={(open) => {
-          if (!open) setRollbackTarget(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-info/10 text-info sm:mx-0">
-              <RefreshIcon className="h-5 w-5" />
-            </div>
-            <AlertDialogTitle>Roll back deployment</AlertDialogTitle>
-            <AlertDialogDescription>
-              This re-releases the image built for{" "}
-              {rollbackTarget?.commit ? (
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-                  {rollbackTarget.commit.slice(0, 7)}
-                </code>
-              ) : (
-                "this deployment"
-              )}
-              {rollbackTarget?.commitMsg
-                ? ` — “${rollbackTarget.commitMsg}”`
-                : ""}
-              . A new deployment will be created and your live container will be
-              replaced with it. No rebuild happens, so it&apos;s fast.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogClose
-              render={<Button variant="outline">Cancel</Button>}
-            />
-            <Button
-              onClick={() => rollbackTarget && handleRollback(rollbackTarget)}
-              disabled={isRollingBack}
-              className="gap-1.5"
-            >
-              <RefreshIcon
-                className={`h-4 w-4 ${isRollingBack ? "animate-spin" : ""}`}
-              />
-              {isRollingBack ? "Rolling back…" : "Confirm rollback"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Folder Browser Modal */}
-      <Dialog open={showFolderBrowser} onOpenChange={setShowFolderBrowser}>
-        <DialogContent className="flex max-h-[70vh] flex-col sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-bold">
-              Select Root Directory
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Choose the directory containing your project files.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Breadcrumbs */}
-          <div className="flex items-center gap-1 overflow-x-auto px-6 pb-1 text-xs text-muted-foreground">
-            <button
-              className={`flex shrink-0 items-center gap-0.5 hover:text-foreground ${folderBrowserPath === "" ? "font-medium text-foreground" : ""}`}
-              onClick={() => navigateToBreadcrumb(-1)}
-            >
-              <NucleoIcon name="house" className="h-3 w-3" />
-              Root
-            </button>
-            {folderBrowserBreadcrumbs.map((crumb, i) => (
-              <React.Fragment key={i}>
-                <ChevronRightIcon className="h-3 w-3 shrink-0" />
-                <button
-                  className={`shrink-0 hover:text-foreground ${i === folderBrowserBreadcrumbs.length - 1 ? "font-medium text-foreground" : ""}`}
-                  onClick={() => navigateToBreadcrumb(i)}
+          {/* ── Vulnerabilities ─────────────────────────────────────────── */}
+          {currentTab === "vulnerabilities" && (
+            <div className="animate-in fade-in-50 h-full space-y-6 overflow-y-auto p-4 duration-200 md:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">
+                    Security Vulnerabilities
+                  </h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Scan and update package dependencies for your application.
+                  </p>
+                </div>
+                <Button
+                  onClick={scanVulnerabilities}
+                  disabled={loadingVul}
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs"
                 >
-                  {crumb}
-                </button>
-              </React.Fragment>
-            ))}
-          </div>
+                  <RefreshIcon
+                    className={`h-3 w-3 ${loadingVul ? "animate-spin" : ""}`}
+                  />
+                  {loadingVul ? "Scanning..." : "Rescan"}
+                </Button>
+              </div>
 
-          {/* Current selection indicator */}
-          {folderBrowserPath && (
-            <div className="mx-6 mb-2 rounded border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-medium text-primary">
-              Selected: ./{folderBrowserPath}
+              {loadingVul ? (
+                <div className="flex flex-col items-center justify-center space-y-3 py-12">
+                  <LoaderIcon className="h-6 w-6 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">
+                    Running package audit scan...
+                  </span>
+                </div>
+              ) : !vulScanRun ? (
+                <div className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+                  <CircleAlertIcon className="mx-auto mb-3 h-6 w-6 opacity-20" />
+                  Click scan or wait for results to load.
+                </div>
+              ) : vulnerabilities.length === 0 ? (
+                <Card className="border-emerald-500/20 bg-emerald-500/5 p-6 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
+                      <CheckIcon className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                      No Vulnerabilities Found
+                    </h3>
+                    <p className="max-w-md text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                      Great news! The audit scan ({packageManager}) reported 0
+                      security advisories for your project dependencies.
+                    </p>
+                  </div>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+                  {/* Vulnerabilities List */}
+                  <div className="space-y-4">
+                    <div className="overflow-hidden rounded-lg border border-border bg-card/50">
+                      <div className="border-b border-border bg-muted/20 px-4 py-3">
+                        <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Detected Advisories ({vulnerabilities.length})
+                        </span>
+                      </div>
+                      <div className="max-h-[50vh] divide-y divide-border/60 overflow-y-auto">
+                        {vulnerabilities.map((vul, idx) => (
+                          <div
+                            key={idx}
+                            className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-start"
+                          >
+                            <div className="min-w-0 space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge
+                                  variant={
+                                    vul.severity === "critical" ||
+                                    vul.severity === "high"
+                                      ? "error"
+                                      : vul.severity === "moderate"
+                                        ? "warning"
+                                        : "secondary"
+                                  }
+                                  size="sm"
+                                  className="font-mono text-[10px] uppercase"
+                                >
+                                  {vul.severity}
+                                </Badge>
+                                <span className="font-mono text-sm font-semibold text-foreground">
+                                  {vul.package}
+                                </span>
+                                {vul.range && (
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    ({vul.range})
+                                  </span>
+                                )}
+                              </div>
+                              <h4 className="text-sm font-medium text-foreground">
+                                {vul.title}
+                              </h4>
+                              {vul.url && (
+                                <a
+                                  href={vul.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                >
+                                  More details
+                                  <ExternalIcon className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                            <Button
+                              onClick={() => setFixPackage(vul.package)}
+                              variant="outline"
+                              size="sm"
+                              className="h-7 self-start text-xs sm:self-center"
+                            >
+                              Update
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Manual Fix Panel */}
+                  <div className="space-y-4">
+                    <Card className="border-border bg-card/72 p-5 backdrop-blur-xl">
+                      <h3 className="mb-4 text-sm font-bold text-foreground">
+                        Manual Package Update
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-muted-foreground uppercase">
+                            Package Name
+                          </Label>
+                          <Input
+                            value={fixPackage}
+                            onChange={(e) => setFixPackage(e.target.value)}
+                            placeholder="e.g., lodash (leave blank for general audit fix)"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-muted-foreground uppercase">
+                            Update Option
+                          </Label>
+                          <Select
+                            value={fixOption}
+                            onValueChange={(val) =>
+                              setFixOption(val as "git" | "local")
+                            }
+                          >
+                            <SelectTrigger className="h-9 w-full text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectPopup>
+                              <SelectItem value="local">
+                                Option 2: Keep update locally and redeploy
+                              </SelectItem>
+                              <SelectItem value="git">
+                                Option 1: Push update to Git and redeploy
+                              </SelectItem>
+                            </SelectPopup>
+                          </Select>
+                          <p className="text-[10px] text-muted-foreground">
+                            {fixOption === "git"
+                              ? "Updates files, commits, and pushes back to your repository branch before triggering a deployment."
+                              : "Updates packages directly in the server's build directory and deploys. The Git remote is not modified."}
+                          </p>
+                        </div>
+
+                        <Button
+                          onClick={() => fixVulnerability()}
+                          disabled={fixingVul || app.status === "building"}
+                          className="h-9 w-full text-xs"
+                        >
+                          {fixingVul ? (
+                            <>
+                              <LoaderIcon className="mr-2 h-3 w-3 animate-spin" />
+                              Updating...
+                            </>
+                          ) : (
+                            "Update and Redeploy"
+                          )}
+                        </Button>
+                      </div>
+                    </Card>
+                  </div>
+                </div>
+              )}
             </div>
           )}
+        </div>
 
-          {/* Folder list */}
-          <div className="mx-6 mb-2 flex-1 overflow-y-auto rounded-md border border-border">
-            {folderBrowserLoading ? (
-              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-                <RefreshIcon className="mr-2 h-4 w-4 animate-spin" />
-                Loading folders…
+        <DeleteConfirmModal
+          isOpen={showDeleteModal}
+          appName={app?.name ?? ""}
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteModal(false)}
+        />
+
+        {/* Rollback Confirm Modal */}
+        <AlertDialog
+          open={!!rollbackTarget}
+          onOpenChange={(open) => {
+            if (!open) setRollbackTarget(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-info/10 text-info sm:mx-0">
+                <RefreshIcon className="h-5 w-5" />
               </div>
-            ) : folderBrowserContents.filter((i) => i.type === "dir").length ===
-              0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                No subdirectories found.
-              </div>
-            ) : (
-              <div className="divide-y divide-border/50">
-                {folderBrowserContents
-                  .filter((item) => item.type === "dir")
-                  .map((item) => (
-                    <div
-                      key={item.path}
-                      className="group flex cursor-pointer items-center justify-between px-4 py-2.5 hover:bg-muted/30"
-                      onClick={() => navigateIntoFolder(item.name)}
-                    >
-                      <div className="flex items-center gap-2 text-sm text-foreground">
-                        <FolderIcon className="h-4 w-4 text-muted-foreground group-hover:text-amber-400" />
-                        {item.name}
-                      </div>
-                      <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                    </div>
-                  ))}
+              <AlertDialogTitle>Roll back deployment</AlertDialogTitle>
+              <AlertDialogDescription>
+                This re-releases the image built for{" "}
+                {rollbackTarget?.commit ? (
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+                    {rollbackTarget.commit.slice(0, 7)}
+                  </code>
+                ) : (
+                  "this deployment"
+                )}
+                {rollbackTarget?.commitMsg
+                  ? ` — “${rollbackTarget.commitMsg}”`
+                  : ""}
+                . A new deployment will be created and your live container will
+                be replaced with it. No rebuild happens, so it&apos;s fast.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogClose
+                render={<Button variant="outline">Cancel</Button>}
+              />
+              <Button
+                onClick={() => rollbackTarget && handleRollback(rollbackTarget)}
+                disabled={isRollingBack}
+                className="gap-1.5"
+              >
+                <RefreshIcon
+                  className={`h-4 w-4 ${isRollingBack ? "animate-spin" : ""}`}
+                />
+                {isRollingBack ? "Rolling back…" : "Confirm rollback"}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Folder Browser Modal */}
+        <Dialog open={showFolderBrowser} onOpenChange={setShowFolderBrowser}>
+          <DialogContent className="flex max-h-[70vh] flex-col sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-bold">
+                Select Root Directory
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Choose the directory containing your project files.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Breadcrumbs */}
+            <div className="flex items-center gap-1 overflow-x-auto px-6 pb-1 text-xs text-muted-foreground">
+              <button
+                className={`flex shrink-0 items-center gap-0.5 hover:text-foreground ${folderBrowserPath === "" ? "font-medium text-foreground" : ""}`}
+                onClick={() => navigateToBreadcrumb(-1)}
+              >
+                <NucleoIcon name="house" className="h-3 w-3" />
+                Root
+              </button>
+              {folderBrowserBreadcrumbs.map((crumb, i) => (
+                <React.Fragment key={i}>
+                  <ChevronRightIcon className="h-3 w-3 shrink-0" />
+                  <button
+                    className={`shrink-0 hover:text-foreground ${i === folderBrowserBreadcrumbs.length - 1 ? "font-medium text-foreground" : ""}`}
+                    onClick={() => navigateToBreadcrumb(i)}
+                  >
+                    {crumb}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Current selection indicator */}
+            {folderBrowserPath && (
+              <div className="mx-6 mb-2 rounded border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-medium text-primary">
+                Selected: ./{folderBrowserPath}
               </div>
             )}
-          </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between gap-3 border-t border-border/40 px-6 pt-3 pb-6">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setRootDir("")
-                setShowFolderBrowser(false)
-                if (rootDirDetectTimer.current)
-                  clearTimeout(rootDirDetectTimer.current)
-                redetectForRootDir("")
-              }}
-              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-            >
-              Clear selection
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => selectFolder(folderBrowserPath)}
-              title={`Select ${folderBrowserPath || "Root (./)"}`}
-              className="flex min-w-0 shrink items-center gap-1 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-            >
-              <span className="shrink-0">Select</span>
-              <span className="truncate font-mono">
-                {folderBrowserPath || "Root (./)"}
-              </span>
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            {/* Folder list */}
+            <div className="mx-6 mb-2 flex-1 overflow-y-auto rounded-md border border-border">
+              {folderBrowserLoading ? (
+                <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                  <RefreshIcon className="mr-2 h-4 w-4 animate-spin" />
+                  Loading folders…
+                </div>
+              ) : folderBrowserContents.filter((i) => i.type === "dir")
+                  .length === 0 ? (
+                <div className="py-12 text-center text-sm text-muted-foreground">
+                  No subdirectories found.
+                </div>
+              ) : (
+                <div className="divide-y divide-border/50">
+                  {folderBrowserContents
+                    .filter((item) => item.type === "dir")
+                    .map((item) => (
+                      <div
+                        key={item.path}
+                        className="group flex cursor-pointer items-center justify-between px-4 py-2.5 hover:bg-muted/30"
+                        onClick={() => navigateIntoFolder(item.name)}
+                      >
+                        <div className="flex items-center gap-2 text-sm text-foreground">
+                          <FolderIcon className="h-4 w-4 text-muted-foreground group-hover:text-amber-400" />
+                          {item.name}
+                        </div>
+                        <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between gap-3 border-t border-border/40 px-6 pt-3 pb-6">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRootDir("")
+                  setShowFolderBrowser(false)
+                  if (rootDirDetectTimer.current)
+                    clearTimeout(rootDirDetectTimer.current)
+                  redetectForRootDir("")
+                }}
+                className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear selection
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => selectFolder(folderBrowserPath)}
+                title={`Select ${folderBrowserPath || "Root (./)"}`}
+                className="flex min-w-0 shrink items-center gap-1 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+              >
+                <span className="shrink-0">Select</span>
+                <span className="truncate font-mono">
+                  {folderBrowserPath || "Root (./)"}
+                </span>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </AppShell>
   )
 }

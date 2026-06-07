@@ -27,6 +27,7 @@ type App struct {
 	StartCommand   string            `json:"startCommand"`
 	InstallCommand string            `json:"installCommand"`
 	PortOverride   int               `json:"portOverride"`
+	VulnerabilitiesCount int       `json:"vulnerabilitiesCount"`
 
 	// ── Build method ─────────────────────────────────────────────────────────
 	// How the image is produced from the repo:
