@@ -362,17 +362,41 @@ func handleVulnerabilitiesFix(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	overridesInjected := false
 	if err := injectDependencyOverrides(appPath, packageManager, pkgName, vulnerabilities); err != nil {
 		log.Printf("[vulnerabilities] failed to inject dependency overrides: %v", err)
+	} else {
+		overridesInjected = true
 	}
 
 	ensureValidPnpmWorkspace(appPath, nil)
+
+	// For pnpm: if we injected overrides, fully regenerate the lockfile.
+	// We must remove node_modules first — pnpm won't rewrite lockfile entries
+	// for parent packages (e.g. next's postcss dep) if node_modules already exists.
+	// Without this the Docker build fails with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH
+	// and pnpm audit still reports the old vulnerable transitive version.
+	if packageManager == "pnpm" && overridesInjected {
+		os.RemoveAll(filepath.Join(appPath, "node_modules"))
+		regenerateCmd := exec.Command("pnpm", "install", "--ignore-scripts")
+		regenerateCmd.Dir = appPath
+		if out, err := regenerateCmd.CombinedOutput(); err != nil {
+			log.Printf("[vulnerabilities] lockfile regeneration failed: %v\nOutput: %s", err, string(out))
+			// Non-fatal: fall through and try the original update command anyway
+		} else {
+			log.Printf("[vulnerabilities] lockfile regenerated with new overrides (node_modules rebuilt)")
+			// Skip the original update command — the install already updated the lockfile
+			goto deploy
+		}
+	}
 
 	updateCmd.Dir = appPath
 	if output, err := updateCmd.CombinedOutput(); err != nil {
 		jsonError(w, fmt.Sprintf("Failed to update package: %v\nOutput: %s", err, string(output)), http.StatusInternalServerError)
 		return
 	}
+
+deploy:
 
 	deployID := generateRandomID()
 	logFile := filepath.Join("data", "logs", app.ID, deployID+".log")
