@@ -321,8 +321,30 @@ echo "=== update started $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) → %[2]s ==="
 REPO="%[3]s"
 BACKEND="%[4]s"
 FRONTEND="%[5]s"
+FRONTEND_PREV_BUILD="$FRONTEND/.next.pre-update"
 HEALTH_URL="%[7]s"
 %[6]s
+
+prepare_frontend_build() {
+  cd "$FRONTEND" || exit 1
+  rm -rf "$FRONTEND_PREV_BUILD"
+  if [ -d ".next" ]; then
+    mv ".next" "$FRONTEND_PREV_BUILD"
+  fi
+}
+
+restore_frontend_build() {
+  cd "$FRONTEND" || exit 1
+  if [ -d "$FRONTEND_PREV_BUILD" ]; then
+    rm -rf ".next"
+    mv "$FRONTEND_PREV_BUILD" ".next"
+    echo "[updater] restored previous frontend build."
+  fi
+}
+
+discard_previous_frontend_build() {
+  rm -rf "$FRONTEND_PREV_BUILD"
+}
 
 # health_has_version: returns 0 when the backend is healthy and reports the expected version.
 health_has_version() {
@@ -381,8 +403,10 @@ if ! pnpm install --frozen-lockfile; then
   git -C "$REPO" checkout -f "$PREV_REF" || true
   exit 1
 fi
+prepare_frontend_build
 if ! pnpm build; then
   echo "[updater] frontend build failed; rolling back before restart"
+  restore_frontend_build
   cd "$BACKEND" || exit 1
   [ -f server.bak ] && mv -f server.bak server
   git -C "$REPO" checkout -f "$PREV_REF" || true
@@ -391,6 +415,7 @@ fi
 
 if ! restart_backend; then
   echo "[updater] backend restart failed; rolling back"
+  restore_frontend_build
   cd "$BACKEND" || exit 1
   [ -f server.bak ] && mv -f server.bak server
   git -C "$REPO" checkout -f "$PREV_REF" || true
@@ -398,6 +423,7 @@ if ! restart_backend; then
 fi
 if ! start_frontend; then
   echo "[updater] frontend restart failed; rolling back"
+  restore_frontend_build
   cd "$BACKEND" || exit 1
   [ -f server.bak ] && mv -f server.bak server
   git -C "$REPO" checkout -f "$PREV_REF" || true
@@ -408,6 +434,7 @@ fi
 echo "[updater] verifying health at $HEALTH_URL ..."
 if health_has_version "%[2]s"; then
   echo "[updater] new version is healthy."
+  discard_previous_frontend_build
   echo "=== update finished OK $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) ==="
   exit 0
 fi
@@ -419,6 +446,7 @@ if [ -f server.bak ]; then
   echo "[updater] restored previous server binary."
 fi
 git -C "$REPO" checkout -f "$PREV_REF" || echo "[updater] WARN: could not restore previous ref"
+restore_frontend_build
 restart_backend
 start_frontend
 if health_any; then

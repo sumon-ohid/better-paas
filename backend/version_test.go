@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestParseSemver(t *testing.T) {
 	cases := []struct {
@@ -125,5 +130,54 @@ func TestLocalHealthURL(t *testing.T) {
 	t.Setenv("LISTEN_ADDR", "127.0.0.1:9999")
 	if got := localHealthURL(); got != "http://127.0.0.1:9999/api/health" {
 		t.Errorf("custom port health URL = %q", got)
+	}
+}
+
+func TestUpdateScriptPreservesFrontendBuildOnRollback(t *testing.T) {
+	tmp := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("restore cwd: %v", err)
+		}
+	})
+
+	repo := filepath.Join(tmp, "repo")
+	for _, dir := range []string{
+		filepath.Join(repo, ".git"),
+		filepath.Join(repo, "backend", "data"),
+		filepath.Join(repo, "frontend"),
+	} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chdir(filepath.Join(repo, "backend")); err != nil {
+		t.Fatal(err)
+	}
+
+	scriptPath, err := writeUpdateScript("v9.9.9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script, err := os.ReadFile(scriptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(script)
+	for _, want := range []string{
+		`FRONTEND_PREV_BUILD="$FRONTEND/.next.pre-update"`,
+		"prepare_frontend_build",
+		"restore_frontend_build",
+		"discard_previous_frontend_build",
+		`mv ".next" "$FRONTEND_PREV_BUILD"`,
+		`mv "$FRONTEND_PREV_BUILD" ".next"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("generated update script missing %q", want)
+		}
 	}
 }
