@@ -177,9 +177,9 @@ func parseAuditOutput(data []byte, packageManager string) []VulnerabilityInfo {
 	// Try standard npm audit v2 format
 	var npmOutput struct {
 		Vulnerabilities map[string]struct {
-			Name     string `json:"name"`
-			Severity string `json:"severity"`
-			Range    string `json:"range"`
+			Name     string            `json:"name"`
+			Severity string            `json:"severity"`
+			Range    string            `json:"range"`
 			Via      []json.RawMessage `json:"via"`
 		} `json:"vulnerabilities"`
 	}
@@ -189,10 +189,10 @@ func parseAuditOutput(data []byte, packageManager string) []VulnerabilityInfo {
 			if name == "" {
 				name = pkgName
 			}
-			
+
 			title := "Vulnerability in " + name
 			url := ""
-			
+
 			for _, rawVia := range vul.Via {
 				var viaObj struct {
 					Title string `json:"title"`
@@ -333,9 +333,9 @@ func handleVulnerabilitiesFix(w http.ResponseWriter, r *http.Request) {
 	case "pnpm":
 		if pkgName != "" {
 			// Update the package and all its transitive usages recursively
-			updateCmd = exec.Command("pnpm", "update", pkgName, "--depth", "Infinity", "--ignore-scripts")
+			updateCmd = exec.Command("pnpm", "update", pkgName, "--depth", "Infinity", "--no-frozen-lockfile", "--ignore-scripts", "--config.confirmModulesPurge=false")
 		} else {
-			updateCmd = exec.Command("pnpm", "update", "--ignore-scripts")
+			updateCmd = exec.Command("pnpm", "update", "--no-frozen-lockfile", "--ignore-scripts", "--config.confirmModulesPurge=false")
 		}
 	case "yarn":
 		if pkgName != "" {
@@ -371,23 +371,16 @@ func handleVulnerabilitiesFix(w http.ResponseWriter, r *http.Request) {
 
 	ensureValidPnpmWorkspace(appPath, nil)
 
-	// For pnpm: if we injected overrides, fully regenerate the lockfile.
-	// We must remove node_modules first — pnpm won't rewrite lockfile entries
-	// for parent packages (e.g. next's postcss dep) if node_modules already exists.
-	// Without this the Docker build fails with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH
-	// and pnpm audit still reports the old vulnerable transitive version.
+	// For pnpm: if overrides changed, regenerate the lockfile before deploying.
+	// Docker/Nixpacks runs pnpm in CI, where bare `pnpm install` is frozen by
+	// default, so package metadata and pnpm-lock.yaml must agree exactly.
 	if packageManager == "pnpm" && overridesInjected {
-		os.RemoveAll(filepath.Join(appPath, "node_modules"))
-		regenerateCmd := exec.Command("pnpm", "install", "--ignore-scripts")
-		regenerateCmd.Dir = appPath
-		if out, err := regenerateCmd.CombinedOutput(); err != nil {
-			log.Printf("[vulnerabilities] lockfile regeneration failed: %v\nOutput: %s", err, string(out))
-			// Non-fatal: fall through and try the original update command anyway
-		} else {
-			log.Printf("[vulnerabilities] lockfile regenerated with new overrides (node_modules rebuilt)")
-			// Skip the original update command — the install already updated the lockfile
-			goto deploy
+		if err := regeneratePnpmLockfile(appPath); err != nil {
+			jsonError(w, fmt.Sprintf("Failed to regenerate pnpm lockfile: %v", err), http.StatusInternalServerError)
+			return
 		}
+		log.Printf("[vulnerabilities] pnpm lockfile regenerated with new overrides")
+		goto deploy
 	}
 
 	updateCmd.Dir = appPath
@@ -458,6 +451,11 @@ deploy:
 		triggerType = "local"
 	}
 
+	appForDeploy := *app
+	if triggerType == "local" && packageManager == "pnpm" {
+		appForDeploy.InstallCommand = "pnpm install --no-frozen-lockfile"
+	}
+
 	// Set status to building
 	appsLock.Lock()
 	for i := range apps {
@@ -471,12 +469,29 @@ deploy:
 	rebuildCaddyfile()
 
 	// Redeploy the app
-	go runDeployment(*app, normalizeGitURL(app.GitRepo), deployID, logFile, triggerType, "", false)
+	go runDeployment(appForDeploy, normalizeGitURL(app.GitRepo), deployID, logFile, triggerType, "", false)
 
 	jsonOK(w, map[string]interface{}{
 		"status":   "deploying",
 		"deployId": deployID,
 	})
+}
+
+func regeneratePnpmLockfile(appPath string) error {
+	cmd := exec.Command("pnpm", "install", "--lockfile-only", "--no-frozen-lockfile", "--ignore-scripts")
+	cmd.Dir = appPath
+	cmd.Env = append(os.Environ(), "CI=true")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v\nOutput: %s", err, string(output))
+	}
+
+	cmd = exec.Command("pnpm", "install", "--no-frozen-lockfile", "--ignore-scripts", "--config.confirmModulesPurge=false")
+	cmd.Dir = appPath
+	cmd.Env = append(os.Environ(), "CI=true")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v\nOutput: %s", err, string(output))
+	}
+	return nil
 }
 
 // getLatestNpmVersion queries npm registry for the latest version of a package.
@@ -670,4 +685,3 @@ func injectPnpmWorkspaceOverrides(appPath string, pkgVersions map[string]string)
 
 	return os.WriteFile(workspacePath, []byte(content), 0644)
 }
-
