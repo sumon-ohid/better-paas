@@ -233,6 +233,15 @@ func handleVulnerabilitiesScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if app.BuildMethod == "image" || app.CatalogID != "" {
+		saveVulnerabilityCount(app.ID, 0)
+		jsonOK(w, map[string]interface{}{
+			"vulnerabilities": []VulnerabilityInfo{},
+			"packageManager":  "container image",
+		})
+		return
+	}
+
 	buildDir := filepath.Join("builds", app.ID)
 	appPath := buildDir
 	if app.RootDir != "" && app.RootDir != "." && app.RootDir != "./" {
@@ -245,34 +254,53 @@ func handleVulnerabilitiesScan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := os.Stat(appPath); os.IsNotExist(err) {
-		jsonError(w, "Application has not been deployed yet. Deploy the app to compile and run vulnerability checks.", http.StatusBadRequest)
+		saveVulnerabilityCount(app.ID, 0)
+		jsonOK(w, map[string]interface{}{
+			"vulnerabilities": []VulnerabilityInfo{},
+			"packageManager":  "",
+		})
 		return
 	}
 
 	vulnerabilities, packageManager, err := runAuditForPath(appPath)
 	if err != nil {
+		if strings.Contains(err.Error(), "no package.json found") {
+			saveVulnerabilityCount(app.ID, 0)
+			jsonOK(w, map[string]interface{}{
+				"vulnerabilities": []VulnerabilityInfo{},
+				"packageManager":  "",
+			})
+			return
+		}
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Update local and DB count as a side effect
-	appsLock.Lock()
-	for i := range apps {
-		if apps[i].ID == app.ID {
-			apps[i].VulnerabilitiesCount = len(vulnerabilities)
-			break
-		}
-	}
-	appsLock.Unlock()
-
-	if err := dbSaveApp(*findApp(app.ID)); err != nil {
-		log.Printf("[db] failed to save app vulnerabilities count: %v", err)
-	}
+	saveVulnerabilityCount(app.ID, len(vulnerabilities))
 
 	jsonOK(w, map[string]interface{}{
 		"vulnerabilities": vulnerabilities,
 		"packageManager":  packageManager,
 	})
+}
+
+func saveVulnerabilityCount(appID string, count int) {
+	appsLock.Lock()
+	for i := range apps {
+		if apps[i].ID == appID {
+			apps[i].VulnerabilitiesCount = count
+			break
+		}
+	}
+	appsLock.Unlock()
+
+	app := findApp(appID)
+	if app == nil {
+		return
+	}
+	if err := dbSaveApp(*app); err != nil {
+		log.Printf("[db] failed to save app vulnerabilities count: %v", err)
+	}
 }
 
 // POST /api/apps/vulnerabilities/fix

@@ -72,6 +72,7 @@ import {
   type Framework,
 } from "@/lib/framework-detection"
 import dynamic from "next/dynamic"
+import { IconShield } from "nucleo-isometric"
 
 // xterm.js touches the DOM on import, so load the terminal client-side only.
 const ContainerTerminal = dynamic(
@@ -818,6 +819,9 @@ function AppDetailPage() {
         err instanceof Error
           ? err.message
           : "Failed to scan package vulnerabilities."
+      setVulnerabilities([])
+      setPackageManager("")
+      setVulScanRun(true)
       showToast(
         "Scan Failed",
         message,
@@ -2231,17 +2235,19 @@ function AppDetailPage() {
                   Click scan or wait for results to load.
                 </div>
               ) : vulnerabilities.length === 0 ? (
-                <Card className="border-emerald-500/20 bg-emerald-500/5 p-6 text-center">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
-                      <CheckIcon className="h-5 w-5" />
-                    </div>
-                    <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                      No Vulnerabilities Found
+                <Card className="relative overflow-hidden bg-card/72 p-8 text-center backdrop-blur-xl md:p-10">
+                  <div className="relative mx-auto flex max-w-xl flex-col items-center">
+                    <IconShield
+
+                      className="h-20 w-20"
+                    />
+                    <h3 className="mt-4 text-xl font-semibold tracking-tight text-foreground">
+                      No package vulnerabilities found
                     </h3>
-                    <p className="max-w-md text-xs text-emerald-700/80 dark:text-emerald-400/80">
-                      Great news! The audit scan ({packageManager}) reported 0
-                      security advisories for your project dependencies.
+                    <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                      {packageManager
+                        ? `The ${packageManager} audit found no vulnerable advisories for this deployment.`
+                        : "Package vulnerability scanning is not applicable for this deployment."}
                     </p>
                   </div>
                 </Card>
