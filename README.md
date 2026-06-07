@@ -7,7 +7,8 @@
 <h1 align="center">better-paas</h1>
 
 <p align="center">
-  Better-PaaS is an open source self-hostable lightweight PaaS: Altervative to Vercel/Render/Railway combined. Made for humans. </br>
+  Better-PaaS is an open source self-hostable lightweight Platform as a Service (PaaS) </br>
+  that simplifies the deployment and management of applications and databases. </br>
   You only need an SSH connection. You can manage VPS, Bare Metal, Raspberry PIs, and anything else. </br>
   It works with almost any frameworks and libraries. </br>
   You can also create databases like sqlite, postgres and redis and attach to deployed app with a single click. </br>
