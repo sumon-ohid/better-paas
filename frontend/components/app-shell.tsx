@@ -45,6 +45,24 @@ import {
   CommandFooter,
 } from "@/components/ui/command"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import {
+  IconAlarmClockFillDuo18,
+  IconArrowDoorOut3FillDuo18,
+  IconBoxArchiveFillDuo18,
+  IconChartBarTrendUpFillDuo18,
+  IconCloudFillDuo18,
+  IconDarkLightFillDuo18,
+  IconEarthFillDuo18,
+  IconGauge3FillDuo18,
+  IconGear2FillDuo18,
+  IconKeyboardFillDuo18,
+  IconLayers3FillDuo18,
+  IconMagnifierFillDuo18,
+  IconRocketFillDuo18,
+  IconUnorderedListFillDuo18,
+  IconVault3FillDuo18,
+  IconWindowExpandBottomRightFillDuo18,
+} from "nucleo-ui-essential-fill-duo-18"
 
 import { useActiveServer } from "@/components/server-context"
 import {
@@ -54,25 +72,26 @@ import {
   SelectItem,
 } from "@/components/ui/select"
 
-type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
-const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
-const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
-const ActivityIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
-const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
-const SettingsIcon = (props: IconProps) => <NucleoIcon {...props} name="settings" />
-const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
-const KeyboardIcon = (props: IconProps) => <NucleoIcon {...props} name="keyboard" />
-const SpinIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
-const ListIcon = (props: IconProps) => <NucleoIcon {...props} name="list" />
-const DatabaseIcon = (props: IconProps) => <NucleoIcon {...props} name="database" />
-const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="clock" />
-const ArchiveIcon = (props: IconProps) => <NucleoIcon {...props} name="archive" />
-const ChartIcon = (props: IconProps) => <NucleoIcon {...props} name="bar-chart" />
-const StoreIcon = (props: IconProps) => <NucleoIcon {...props} name="layers" />
-const MoonIcon = (props: IconProps) => <NucleoIcon {...props} name="moon" />
-const SunIcon = (props: IconProps) => <NucleoIcon {...props} name="sun" />
-const SignOutIcon = (props: IconProps) => <NucleoIcon {...props} name="logout" />
-const ServerStackIcon = (props: IconProps) => <NucleoIcon {...props} name="cloud" />
+type NucleoIconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
+const SpinIcon = (props: NucleoIconProps) => <NucleoIcon {...props} name="refresh" />
+
+type FillIconProps = React.ComponentProps<typeof IconRocketFillDuo18>
+const GlobeIcon = (props: FillIconProps) => <IconEarthFillDuo18 {...props} />
+const ActivityIcon = (props: FillIconProps) => <IconGauge3FillDuo18 {...props} />
+const TerminalIcon = (props: FillIconProps) => <IconWindowExpandBottomRightFillDuo18 {...props} />
+const SettingsIcon = (props: FillIconProps) => <IconGear2FillDuo18 {...props} />
+const SearchIcon = (props: FillIconProps) => <IconMagnifierFillDuo18 {...props} />
+const KeyboardIcon = (props: FillIconProps) => <IconKeyboardFillDuo18 {...props} />
+const ListIcon = (props: FillIconProps) => <IconUnorderedListFillDuo18 {...props} />
+const DatabaseIcon = (props: FillIconProps) => <IconVault3FillDuo18 {...props} />
+const ClockIcon = (props: FillIconProps) => <IconAlarmClockFillDuo18 {...props} />
+const ArchiveIcon = (props: FillIconProps) => <IconBoxArchiveFillDuo18 {...props} />
+const ChartIcon = (props: FillIconProps) => <IconChartBarTrendUpFillDuo18 {...props} />
+const DarkLightIcon = (props: FillIconProps) => <IconDarkLightFillDuo18 {...props} />
+const StoreIcon = (props: FillIconProps) => <IconLayers3FillDuo18 {...props} />
+const SignOutIcon = (props: FillIconProps) => <IconArrowDoorOut3FillDuo18 {...props} />
+const ServerStackIcon = (props: FillIconProps) => <IconCloudFillDuo18 {...props} />
+const RocketIcon = (props: FillIconProps) => <IconRocketFillDuo18 {...props} />
 
 // ── Server Selector ───────────────────────────────────────────────────────────
 
@@ -224,6 +243,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
+  const baseNavIconClass = "h-4 w-4 text-sidebar-foreground/70"
 
   const navSections: NavSection[] = [
     {
@@ -232,14 +252,14 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {
           id: "apps",
           label: "Applications",
-          icon: <GlobeIcon className="h-3.5 w-3.5 text-chart-1" />,
+          icon: <GlobeIcon className="h-4 w-4 text-primary" />,
           href: "/",
           badge: appCount,
         },
         {
           id: "catalog",
           label: "App Catalog",
-          icon: <StoreIcon className="h-3.5 w-3.5 text-chart-2" />,
+          icon: <StoreIcon className={baseNavIconClass} />,
           href: "/catalog",
         },
       ],
@@ -250,32 +270,32 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {
           id: "servers",
           label: "Servers",
-          icon: <ServerStackIcon className="h-3.5 w-3.5 text-chart-3" />,
+          icon: <ServerStackIcon className={baseNavIconClass} />,
           href: "/servers",
         },
         {
           id: "health",
           label: "Node Health",
-          icon: <ActivityIcon className="h-3.5 w-3.5 text-chart-3" />,
+          icon: <ActivityIcon className="h-4 w-4 text-success" />,
           href: "/health",
         },
         {
           id: "logs",
           label: "Live Logs",
-          icon: <ListIcon className="h-3.5 w-3.5 text-chart-2" />,
+          icon: <ListIcon className={baseNavIconClass} />,
           href: "/logs",
           badge: hasActiveLogs ? "●" : undefined,
         },
         {
           id: "terminal",
           label: "Server Terminal",
-          icon: <TerminalIcon className="h-3.5 w-3.5 text-chart-5" />,
+          icon: <TerminalIcon className={baseNavIconClass} />,
           href: "/terminal",
         },
         {
           id: "cron",
           label: "Scheduled Jobs",
-          icon: <ClockIcon className="h-3.5 w-3.5 text-chart-4" />,
+          icon: <ClockIcon className="h-4 w-4 text-warning" />,
           href: "/cron",
         },
       ],
@@ -286,13 +306,13 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {
           id: "addons",
           label: "Databases",
-          icon: <DatabaseIcon className="h-3.5 w-3.5 text-chart-4" />,
+          icon: <DatabaseIcon className="h-4 w-4 text-chart-3" />,
           href: "/addons",
         },
         {
           id: "backups",
           label: "Backups",
-          icon: <ArchiveIcon className="h-3.5 w-3.5 text-chart-2" />,
+          icon: <ArchiveIcon className={baseNavIconClass} />,
           href: "/backups",
         },
       ],
@@ -303,7 +323,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {
           id: "analytics",
           label: "Web Analytics",
-          icon: <ChartIcon className="h-3.5 w-3.5 text-chart-1" />,
+          icon: <ChartIcon className="h-4 w-4 text-primary" />,
           href: "/analytics",
         },
       ],
@@ -314,7 +334,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {
           id: "settings",
           label: "Settings",
-          icon: <SettingsIcon className="h-3.5 w-3.5 text-muted-foreground" />,
+          icon: <SettingsIcon className={baseNavIconClass} />,
           href: "/settings",
         },
       ],
@@ -339,19 +359,14 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             id: "deploy",
             label: "Deploy new service",
             shortcut: "N",
-            icon: <PlusIcon className="h-4 w-4 text-chart-1" />,
+            icon: <RocketIcon className="h-4 w-4 text-primary" />,
             action: () => router.push("/deploy"),
           },
           {
             id: "theme",
             label: "Toggle Dark/Light Mode",
             shortcut: "D",
-            icon:
-              resolvedTheme === "dark" ? (
-                <SunIcon className="h-4 w-4 text-chart-4" />
-              ) : (
-                <MoonIcon className="h-4 w-4 text-chart-1" />
-              ),
+            icon: <DarkLightIcon className="h-4 w-4 text-primary" />,
             action: () => setTheme(resolvedTheme === "dark" ? "light" : "dark"),
           },
           {
@@ -370,42 +385,42 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             id: "nav-apps",
             label: "Go to Applications",
             shortcut: "G A",
-            icon: <GlobeIcon className="h-4 w-4 text-chart-1" />,
+            icon: <GlobeIcon className="h-4 w-4 text-primary" />,
             action: () => router.push("/"),
           },
           {
             id: "nav-catalog",
             label: "Go to App Catalog",
             shortcut: "",
-            icon: <StoreIcon className="h-4 w-4 text-chart-2" />,
+            icon: <StoreIcon className="h-4 w-4 text-muted-foreground" />,
             action: () => router.push("/catalog"),
           },
           {
             id: "nav-health",
             label: "Go to Node Health",
             shortcut: "G M",
-            icon: <ActivityIcon className="h-4 w-4 text-chart-3" />,
+            icon: <ActivityIcon className="h-4 w-4 text-success" />,
             action: () => router.push("/health"),
           },
           {
             id: "nav-logs",
             label: "Go to Live Logs",
             shortcut: "G L",
-            icon: <TerminalIcon className="h-4 w-4 text-chart-2" />,
+            icon: <ListIcon className="h-4 w-4 text-muted-foreground" />,
             action: () => router.push("/logs"),
           },
           {
             id: "nav-terminal",
             label: "Go to Server Terminal",
             shortcut: "G T",
-            icon: <TerminalIcon className="h-4 w-4 text-chart-3" />,
+            icon: <TerminalIcon className="h-4 w-4 text-muted-foreground" />,
             action: () => router.push("/terminal"),
           },
           {
             id: "nav-analytics",
             label: "Go to Web Analytics",
             shortcut: "",
-            icon: <ChartIcon className="h-4 w-4 text-chart-1" />,
+            icon: <ChartIcon className="h-4 w-4 text-primary" />,
             action: () => router.push("/analytics"),
           },
           {
@@ -500,11 +515,10 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
 
   return (
     <SidebarProvider className="h-screen overflow-hidden">
-      <div className="relative flex h-screen w-full overflow-hidden bg-transparent text-foreground transition-colors duration-200 selection:bg-primary/20">
+      <div className="relative flex h-screen w-full overflow-hidden text-foreground transition-colors duration-200 selection:bg-primary/20">
         {/* Navigation Sidebar */}
-        <Sidebar variant="inset" className="bg-transparent">
+        <Sidebar variant="inset" className="">
           <SidebarHeader className="relative flex flex-row items-center justify-between overflow-hidden px-4 py-3">
-            <div className="pointer-events-none absolute inset-0 bg-pixel-grid opacity-60 mask-fade-b" />
             <div className="relative flex items-center gap-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
@@ -513,7 +527,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                   className="size-6"
               />
               <div className="flex items-center gap-2">
-                <span className="font-bold text-base leading-none text-foreground">
+                <span className="font-bold text-base leading-none text-sidebar-foreground">
                   Better-PaaS
                 </span>
                 {version && (
@@ -565,7 +579,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             <div className="pt-2">
               <button
                 onClick={() => setShowCommandPalette(true)}
-                className="flex w-full cursor-pointer items-center justify-between rounded-md border border-border/80 bg-muted/20 px-3 py-1.5 text-sm text-muted-foreground/80 transition-all duration-150 hover:border-primary/30 hover:bg-accent/50 hover:text-foreground"
+                className="flex w-full cursor-pointer items-center justify-between rounded-md border border-sidebar-border px-3 py-1.5 text-sm text-sidebar-foreground/75 transition-all duration-150 hover:border-primary/35 hover:bg-sidebar-accent hover:text-sidebar-foreground"
               >
                 <div className="flex items-center gap-1.5">
                   <SearchIcon className="h-3.5 w-3.5" />
@@ -581,7 +595,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             <div className="space-y-4">
               {navSections.map((section) => (
                 <div key={section.label} className="space-y-1.5">
-                  <div className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em]">
+                  <div className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/50">
                     {section.label}
                   </div>
                   <SidebarMenu className="space-y-0.5">
@@ -590,10 +604,10 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                         <SidebarMenuButton
                           isActive={isActive(item.href)}
                           onClick={() => router.push(item.href)}
-                          className={`flex items-center justify-between px-3 py-1.5 w-full rounded text-sm transition-all cursor-pointer ${
+                          className={`flex items-center justify-between px-3 py-1.5 w-full rounded-md text-sm transition-all cursor-pointer ${
                             isActive(item.href)
-                              ? "bg-accent text-foreground font-medium"
-                              : "text-foreground/75 hover:bg-muted/20 hover:text-foreground"
+                              ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold]"
+                              : "text-sidebar-foreground/80 hover:bg-sidebar-accent/65 hover:text-sidebar-foreground"
                           }`}
                         >
                           <div className="flex min-w-0 items-center gap-2">
@@ -601,7 +615,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                             <span className="truncate">{item.label}</span>
                           </div>
                           {item.badge !== undefined && (
-                            <span className="text-xs font-mono bg-muted/40 px-1 rounded-sm text-muted-foreground/80">
+                            <span className="text-xs font-mono bg-sidebar-accent px-1 rounded-sm text-sidebar-foreground/75">
                               {item.badge}
                             </span>
                           )}
@@ -618,20 +632,20 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
           <div className="mt-auto space-y-1 p-3">
             <button
               onClick={signOut}
-              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-foreground/75 transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive-foreground cursor-pointer"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/75 transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive-foreground cursor-pointer"
             >
               <SignOutIcon className="h-3.5 w-3.5" />
               <span>Sign out</span>
             </button>
-            <div className="flex items-center justify-between px-2 pt-1 text-sm text-muted-foreground/60">
+            <div className="flex items-center justify-between px-2 pt-1 text-sm text-sidebar-foreground/60">
               <button
                 onClick={() => setShowShortcuts(true)}
-                className="flex items-center gap-1.5 hover:text-foreground cursor-pointer transition-colors duration-150"
+                className="flex items-center gap-1.5 hover:text-sidebar-foreground cursor-pointer transition-colors duration-150"
               >
                 <KeyboardIcon className="h-3.5 w-3.5" />
                 <span>Keyboard shortcuts</span>
               </button>
-              <span className="font-mono text-xs bg-muted/40 px-1 rounded">?</span>
+              <span className="font-mono text-xs bg-sidebar-accent px-1 rounded">?</span>
             </div>
           </div>
         </Sidebar>
@@ -648,9 +662,9 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             <div className="flex items-center gap-2">
               <Button
                 onClick={() => router.push("/deploy")}
-                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-primary/30 bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-primary/35 bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
               >
-                <PlusIcon className="h-3.5 w-3.5 shrink-0" />
+                <RocketIcon className="h-3.5 w-3.5 shrink-0" />
                 <span>Deploy<span className="hidden sm:inline"> service</span></span>
                 <Kbd className="ml-1 h-4 py-2.5 rounded-sm border-0 bg-background/20 px-1 font-mono text-[11px] text-primary-foreground hidden md:inline-flex">
                   N
