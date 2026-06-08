@@ -481,7 +481,7 @@ deploy:
 
 	appForDeploy := *app
 	if triggerType == "local" && packageManager == "pnpm" {
-		appForDeploy.InstallCommand = "pnpm install --no-frozen-lockfile"
+		appForDeploy.InstallCommand = pnpmFrozenInstallCommand(appPath)
 	}
 
 	// Set status to building
@@ -506,20 +506,91 @@ deploy:
 }
 
 func regeneratePnpmLockfile(appPath string) error {
-	cmd := exec.Command("pnpm", "install", "--lockfile-only", "--no-frozen-lockfile", "--ignore-scripts")
-	cmd.Dir = appPath
-	cmd.Env = append(os.Environ(), "CI=true")
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if err := preparePinnedPnpm(appPath); err != nil {
+		return err
+	}
+
+	if output, err := runPnpm(appPath, "install", "--lockfile-only", "--no-frozen-lockfile", "--ignore-scripts"); err != nil {
 		return fmt.Errorf("%v\nOutput: %s", err, string(output))
 	}
 
-	cmd = exec.Command("pnpm", "install", "--no-frozen-lockfile", "--ignore-scripts", "--config.confirmModulesPurge=false")
-	cmd.Dir = appPath
-	cmd.Env = append(os.Environ(), "CI=true")
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if output, err := runPnpm(appPath, "install", "--frozen-lockfile", "--ignore-scripts", "--config.confirmModulesPurge=false"); err != nil {
 		return fmt.Errorf("%v\nOutput: %s", err, string(output))
 	}
 	return nil
+}
+
+func preparePinnedPnpm(appPath string) error {
+	version := pinnedPnpmVersion(appPath)
+	if version == "" {
+		return nil
+	}
+
+	cmd := exec.Command("corepack", "prepare", "pnpm@"+version, "--activate")
+	cmd.Dir = appPath
+	cmd.Env = append(os.Environ(), "CI=true")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to activate pnpm@%s via Corepack: %v\nOutput: %s", version, err, string(output))
+	}
+	return nil
+}
+
+func runPnpm(appPath string, args ...string) ([]byte, error) {
+	cmdName := "pnpm"
+	cmdArgs := args
+	if pinnedPnpmVersion(appPath) != "" {
+		cmdName = "corepack"
+		cmdArgs = append([]string{"pnpm"}, args...)
+	}
+
+	cmd := exec.Command(cmdName, cmdArgs...)
+	cmd.Dir = appPath
+	cmd.Env = append(os.Environ(), "CI=true")
+	return cmd.CombinedOutput()
+}
+
+func pinnedPnpmVersion(appPath string) string {
+	pkg := readPackageJSON(filepath.Join(appPath, "package.json"))
+	if pkg == nil {
+		return ""
+	}
+	pm, ok := pkg["packageManager"].(string)
+	if !ok || !strings.HasPrefix(pm, "pnpm@") {
+		return ""
+	}
+	version := strings.TrimSpace(strings.TrimPrefix(pm, "pnpm@"))
+	if version == "" || !isSafePackageManagerVersion(version) {
+		return ""
+	}
+	return version
+}
+
+func isSafePackageManagerVersion(version string) bool {
+	for _, r := range version {
+		if r >= '0' && r <= '9' {
+			continue
+		}
+		if r >= 'A' && r <= 'Z' {
+			continue
+		}
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		switch r {
+		case '.', '-', '_', '+':
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func pnpmFrozenInstallCommand(appPath string) string {
+	version := pinnedPnpmVersion(appPath)
+	if version == "" {
+		return "pnpm install --frozen-lockfile"
+	}
+	return fmt.Sprintf("corepack enable && corepack prepare pnpm@%s --activate && pnpm install --frozen-lockfile", version)
 }
 
 // getLatestNpmVersion queries npm registry for the latest version of a package.
@@ -605,8 +676,32 @@ func injectDependencyOverrides(appPath, packageManager, targetPkg string, vulner
 		if err := injectPnpmWorkspaceOverrides(appPath, pkgVersions); err != nil {
 			return err
 		}
-		// For pnpm the package.json write is not needed – return early.
-		return nil
+		var pnpmConfig map[string]interface{}
+		if val, exists := pkgMap["pnpm"]; exists {
+			if m, ok := val.(map[string]interface{}); ok {
+				pnpmConfig = m
+			}
+		}
+		if pnpmConfig == nil {
+			pnpmConfig = make(map[string]interface{})
+		}
+
+		var overrides map[string]interface{}
+		if val, exists := pnpmConfig["overrides"]; exists {
+			if m, ok := val.(map[string]interface{}); ok {
+				overrides = m
+			}
+		}
+		if overrides == nil {
+			overrides = make(map[string]interface{})
+		}
+
+		for pkg, ver := range pkgVersions {
+			overrides[pkg] = "^" + ver
+			log.Printf("[vulnerabilities] injecting pnpm package override: %s -> ^%s", pkg, ver)
+		}
+		pnpmConfig["overrides"] = overrides
+		pkgMap["pnpm"] = pnpmConfig
 
 	case "yarn":
 		var resolutions map[string]interface{}
