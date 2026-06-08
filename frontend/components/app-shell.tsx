@@ -106,11 +106,12 @@ function ServerSelector() {
   return (
     <Select value={activeServerId} onValueChange={(v) => v && setActiveServerId(v)}>
       <SelectTrigger
+        size="sm"
         aria-label="Filter by server"
-        className="h-9 w-32 sm:w-60 border bg-muted/10 px-2 sm:px-2.5 text-xs hover:bg-muted/20"
+        className="h-7 w-32 sm:w-60 border bg-muted/10 px-2 sm:px-2.5 text-xs hover:bg-muted/20"
       >
         <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
-          <ServerStackIcon className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+          <ServerStackIcon className="h-3.5 w-3.5 shrink-0 text-amber-400 opacity-100" />
           <span className="hidden sm:inline shrink-0 font-medium text-muted-foreground">Server</span>
           <span className="truncate text-foreground">{activeServerLabel}</span>
         </span>

@@ -338,13 +338,13 @@ export default function CatalogPage() {
         {/* Search + category filter */}
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,320px)_1fr] lg:items-start">
           <div className="relative min-w-0">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search apps..."
-              className="h-9 w-full pl-8 text-sm"
+              className="h-8 w-full pl-6 text-sm"
             />
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
           </div>
           <div className="flex min-w-0 flex-wrap gap-1.5">
             {categories.map((c) => (

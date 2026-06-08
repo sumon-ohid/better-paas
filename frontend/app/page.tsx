@@ -735,7 +735,7 @@ function ApplicationsDashboard() {
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
-          <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/25 px-2.5 py-1.5">
+          <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/25 px-2.5 py-1">
             <SearchIcon className="h-4 w-4 text-muted-foreground" />
             <input
               value={searchQuery}
