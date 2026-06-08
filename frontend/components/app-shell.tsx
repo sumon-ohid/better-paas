@@ -71,6 +71,7 @@ import {
   SelectPopup,
   SelectItem,
 } from "@/components/ui/select"
+import { Search } from "lucide-react";
 
 type NucleoIconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const SpinIcon = (props: NucleoIconProps) => <NucleoIcon {...props} name="refresh" />
@@ -80,7 +81,6 @@ const GlobeIcon = (props: FillIconProps) => <IconEarthFillDuo18 {...props} />
 const ActivityIcon = (props: FillIconProps) => <IconGauge3FillDuo18 {...props} />
 const TerminalIcon = (props: FillIconProps) => <IconWindowExpandBottomRightFillDuo18 {...props} />
 const SettingsIcon = (props: FillIconProps) => <IconGear2FillDuo18 {...props} />
-const SearchIcon = (props: FillIconProps) => <IconMagnifierFillDuo18 {...props} />
 const KeyboardIcon = (props: FillIconProps) => <IconKeyboardFillDuo18 {...props} />
 const ListIcon = (props: FillIconProps) => <IconUnorderedListFillDuo18 {...props} />
 const DatabaseIcon = (props: FillIconProps) => <IconVault3FillDuo18 {...props} />
@@ -582,7 +582,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                 className="flex w-full cursor-pointer items-center justify-between rounded-md border border-sidebar-border px-3 py-1.5 text-sm text-sidebar-foreground/75 transition-all duration-150 hover:border-primary/35 hover:bg-sidebar-accent hover:text-sidebar-foreground"
               >
                 <div className="flex items-center gap-1.5">
-                  <SearchIcon className="h-3.5 w-3.5" />
+                  <Search className="h-3.5 w-3.5" />
                   <span>Search commands...</span>
                 </div>
                 <Kbd className="flex items-center gap-0.5 text-xs font-mono text-muted-foreground bg-muted/40 px-1 rounded">
