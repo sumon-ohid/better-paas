@@ -116,7 +116,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
           {/* Heading */}
           <h1 className="mt-5 text-xl font-bold tracking-tight text-foreground">
-            Sign in to Better-PaaS
+            Welcome to Better-PaaS
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Enter your admin token to access your control plane.
@@ -154,7 +154,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               loading={submitting}
               className="w-full"
             >
-              {submitting ? "Verifying…" : "Sign In"}
+              {submitting ? "Verifying…" : "Let's start"}
             </Button>
           </form>
 

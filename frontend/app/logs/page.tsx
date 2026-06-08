@@ -16,6 +16,7 @@ import {
   SelectPopup,
   SelectItem,
 } from "@/components/ui/select"
+import { Button } from "@base-ui/react/button";
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
@@ -234,7 +235,7 @@ function LogsPage() {
       <div className="flex flex-col h-full overflow-hidden">
 
         {/* ── Top toolbar ──────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-transparent px-4 py-2 shrink-0 select-none">
+        <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-border bg-transparent px-4 py-2 shrink-0 select-none">
 
           {/* Back */}
           <button
@@ -262,7 +263,7 @@ function LogsPage() {
               window.history.replaceState({}, "", url.toString())
             }}
           >
-            <SelectTrigger className="h-8 text-xs w-48">
+            <SelectTrigger size={"sm"} className="h-7 text-xs w-48">
               <SelectValue placeholder="— Select app —">
                 {selectedApp ? selectedApp.name : undefined}
               </SelectValue>
@@ -306,9 +307,9 @@ function LogsPage() {
           <span className="h-4 w-px bg-border" />
 
           {/* Build / Runtime toggle */}
-          <div className="flex items-center overflow-hidden rounded border border-border bg-muted/15">
+          <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/15">
             {(["build", "runtime"] as LogMode[]).map((m, i) => (
-              <button
+              <Button
                 key={m}
                 onClick={() => setLogMode(m)}
                 className={`px-2.5 py-1 text-xs cursor-pointer transition-all ${
@@ -320,27 +321,27 @@ function LogsPage() {
                 }`}
               >
                 {m === "build" ? "Build Logs" : "Runtime Logs"}
-              </button>
+              </Button>
             ))}
           </div>
 
           {/* Reconnect */}
           {selectedAppId && (
-            <button
+            <Button
               onClick={() => connectStream(selectedAppId, logMode)}
-              className="flex items-center gap-1.5 rounded border border-border bg-muted/15 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-all"
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/15 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-all"
             >
               <RefreshIcon className="h-3 w-3" />
               Reconnect
-            </button>
+            </Button>
           )}
 
           {/* Redeploy */}
           {selectedAppId && (
-            <button
+            <Button
               onClick={handleRedeploy}
               disabled={isRedeploying || selectedApp?.status === "building"}
-              className="flex items-center gap-1.5 rounded border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary hover:bg-primary/15 cursor-pointer transition-all disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary hover:bg-primary/15 cursor-pointer transition-all disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isRedeploying || selectedApp?.status === "building" ? (
                 <LoaderIcon className="h-3 w-3 animate-spin" />
@@ -352,7 +353,7 @@ function LogsPage() {
                 : selectedApp?.status === "building"
                   ? "Building…"
                   : "Redeploy"}
-            </button>
+            </Button>
           )}
 
           {/* Clear */}
@@ -364,24 +365,10 @@ function LogsPage() {
               Clear
             </button>
           )}
-
-          {/* Connection dot — right side */}
-          <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-            <TerminalIcon className="h-3.5 w-3.5" />
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                connected ? "bg-success animate-pulse" : "bg-muted-foreground/30"
-              }`}
-            />
-            <span>{connected ? "Live" : "Disconnected"}</span>
-            {logs.length > 0 && (
-              <span className="font-mono text-muted-foreground/50">· {logs.length} lines</span>
-            )}
-          </div>
         </div>
 
         {/* ── Terminal — fills remaining height ────────────────────────── */}
-        <div className="flex-1 min-h-0 flex flex-col bg-transparent overflow-hidden bg-card font-mono text-xs leading-relaxed">
+        <div className="flex-1 min-h-0 flex flex-col bg-transparent overflow-hidden font-mono text-xs leading-relaxed">
           {/* Terminal body */}
           <div className="flex-1 overflow-y-auto bg-transparent">
           {logs.length === 0 ? (
