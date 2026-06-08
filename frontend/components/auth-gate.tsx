@@ -4,7 +4,8 @@ import React, { useEffect, useState, useCallback } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Shield, ChevronDown, ChevronUp } from "lucide-react"
+import { motion, AnimatePresence } from "motion/react"
 import OnboardCard from "@/components/ui/onboard-card"
 import { authApi } from "@/lib/api"
 import { getToken, setToken, clearToken } from "@/lib/auth"
@@ -35,6 +36,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [showToken, setShowToken] = useState(false)
   const [error, setError] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
 
   const verifyStored = useCallback(async () => {
     const stored = getToken()
@@ -109,15 +111,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <Image
             src="/logo.svg"
             alt="Better-PaaS Logo"
-            width={8340}
-            height={840}
+            width={40}
+            height={40}
             className="size-10"
           />
 
           {/* Heading */}
-          <h1 className="mt-5 text-xl font-bold tracking-tight text-foreground">
-            Welcome to Better-PaaS
-          </h1>
+          <div className="mt-5 flex items-center justify-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              Login to Better-PaaS
+            </h1>
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Enter your admin token to access your control plane.
           </p>
@@ -136,6 +140,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 className="h-10 pr-10 font-mono text-sm"
                 autoComplete="off"
                 autoFocus
+                disabled={submitting}
               />
               <button
                 type="button"
@@ -146,7 +151,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {error && <p className="text-xs text-destructive-foreground">{error}</p>}
+            {error && <p className="text-xs text-destructive">{error}</p>}
 
             <Button
               type="submit"
@@ -159,27 +164,57 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           </form>
 
           {/* Info */}
-          <div className="mt-8 w-full border-t border-border/50 pt-5">
-            <p className="text-xs leading-relaxed text-muted-foreground/70">
-              Your admin token was generated when the backend first started.
-              Retrieve it using one of these methods:
-            </p>
-            <div className="mt-3 space-y-3 text-left text-xs leading-relaxed text-muted-foreground/70">
-              <div>
-                <span className="font-semibold text-foreground">For Standard Installation:</span>
-                <ul className="mt-1 ml-4 list-disc space-y-0.5">
-                  <li>Check backend startup logs or systemd service logs.</li>
-                  <li>Run <code className="rounded bg-muted px-1 py-0.5">./server token</code> inside your backend directory.</li>
-                </ul>
-              </div>
-              <div>
-                <span className="font-semibold text-foreground">For Docker Installation:</span>
-                <ul className="mt-1 ml-4 list-disc space-y-0.5">
-                  <li>Run <code className="rounded bg-muted px-1 py-0.5">docker logs better-paas</code></li>
-                  <li>Run <code className="rounded bg-muted px-1 py-0.5">docker exec -it better-paas /app/server token</code></li>
-                </ul>
-              </div>
-            </div>
+          <div className="mt-6 w-full">
+            <button
+              type="button"
+              onClick={() => setShowHelp((s) => !s)}
+              aria-expanded={showHelp}
+              className="flex w-full items-center justify-between rounded-lg border border-border/50 px-3 py-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+            >
+              <span>Where do I find my token?</span>
+              {showHelp ? (
+                <motion.div animate={{ rotate: 180 }} transition={{ duration: 0.2 }}>
+                  <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+                </motion.div>
+              ) : (
+                <motion.div animate={{ rotate: 0 }} transition={{ duration: 0.2 }}>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                </motion.div>
+              )}
+            </button>
+            <AnimatePresence initial={false}>
+              {showHelp && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                  animate={{ height: "auto", opacity: 1, marginTop: 8 }}
+                  exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-3 rounded-lg border border-border/50 bg-card p-3 text-left text-xs leading-relaxed text-muted-foreground">
+                    <p>
+                      Your admin token was generated when the backend first started.
+                    </p>
+                    <div className="space-y-3">
+                      <div>
+                        <span className="font-semibold text-foreground">Standard Installation</span>
+                        <ul className="mt-1 ml-4 list-disc space-y-0.5">
+                          <li>Check backend startup logs or systemd service logs.</li>
+                          <li>Run <code className="rounded bg-muted px-1 py-0.5">./server token</code> inside your backend directory.</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-foreground">Docker Installation</span>
+                        <ul className="mt-1 ml-4 list-disc space-y-0.5">
+                          <li>Run <code className="rounded bg-muted px-1 py-0.5">docker logs better-paas</code></li>
+                          <li>Run <code className="rounded bg-muted px-1 py-0.5">docker exec -it better-paas /app/server token</code></li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
