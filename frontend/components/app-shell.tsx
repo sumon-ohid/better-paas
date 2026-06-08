@@ -653,7 +653,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {/* Main Content Frame */}
         <SidebarInset className="du-card relative z-10 m-0 md:m-2 md:ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs/5">
           {/* Header Bar — pinned, never scrolls */}
-          <header className="shrink-0 flex h-14 items-center justify-between border-b border-border bg-transparent px-4 select-none">
+          <header className="shrink-0 flex h-14 items-center justify-between bg-transparent px-4 select-none">
             <div className="flex items-center gap-2.5">
               <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer" />
               <div className="h-4 w-px bg-border" />
