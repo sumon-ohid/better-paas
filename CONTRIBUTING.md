@@ -56,6 +56,9 @@ go run .
 ```
 The API server will listen on `http://localhost:8080` by default.
 
+For a quick map of backend files and responsibilities, see
+[`backend/docs/architecture.md`](backend/docs/architecture.md).
+
 ### 3. Run the Frontend
 The frontend is a Next.js single-page application.
 ```bash

@@ -1,4 +1,4 @@
-module baas
+module paas
 
 go 1.25.0
 

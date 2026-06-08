@@ -197,7 +197,7 @@ git tag v1.3.0
 git push origin v1.3.0   # builds and publishes the release
 ```
 
-Each release cross-compiles the Go backend for `linux/amd64`, `linux/arm64`, `darwin/amd64`, and `darwin/arm64`, embeds the version tag via `-ldflags "-X main.version=<tag>"`, and attaches the compiled binaries along with a `SHA256SUMS` verification manifest to the GitHub Release.
+Each release cross-compiles the Go backend for `linux/amd64`, `linux/arm64`, `darwin/amd64`, and `darwin/arm64`, embeds the version tag via `-ldflags "-X paas/internal/paas.version=<tag>"`, and attaches the compiled binaries along with a `SHA256SUMS` verification manifest to the GitHub Release.
 
 ### How the In-App Updater Works
 1.  **Version Checking**: The current running version is baked into the server binary. Updates check the GitHub Releases API for the repository slug defined in `UPDATE_REPO` (resolved from environment, database, or git remote origin).

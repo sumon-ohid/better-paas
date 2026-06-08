@@ -390,7 +390,7 @@ build_backend() {
   # Bake the version (latest git tag, or short commit) into the binary so the
   # dashboard's updater can compare against published releases.
   VERSION="$(git -C "$REPO_DIR" describe --tags --always 2>/dev/null || echo dev)"
-  go build -ldflags="-s -w -X main.version=${VERSION}" -o server .
+  go build -ldflags="-s -w -X paas/internal/paas.version=${VERSION}" -o server .
   success "Backend binary compiled (${VERSION})."
 }
 
