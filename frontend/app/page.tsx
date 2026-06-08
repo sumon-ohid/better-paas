@@ -720,8 +720,19 @@ function ApplicationsDashboard() {
 
   return (
     <AppShell appCount={apps.length}>
+      <div className="space-y-1 m-4 md:mx-6">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
+            Deployed Services
+          </h2>
+        </div>
+        <p className="text-xs text-muted-foreground sm:text-sm">
+          Manage your deployed services. You can filter by what's running, building, paused or failed to deploy.
+        </p>
+      </div>
       {/* Subheader toolbar */}
-      <div className="flex flex-col justify-between gap-2 border-b border-border px-4 py-2.5 backdrop-blur-xl sm:flex-row sm:items-center select-none">
+      <div className="flex flex-col justify-between gap-2 border-b border-border px-4 md:px-6 py-2.5 backdrop-blur-xl sm:flex-row sm:items-center select-none">
+
         <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
           <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/25 px-2.5 py-1.5">
