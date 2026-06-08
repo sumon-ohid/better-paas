@@ -147,7 +147,7 @@
     --warning-foreground: #986b22;
     --accent: rgba(94, 106, 210, 0.08);
     --accent-foreground: #20212b;
-    --background: #fafafa;
+    --background: #ffffff;
     --border: rgba(20, 21, 31, 0.08);
     --bg-sidebar: #fafafa;
     --card: #ffffff;
@@ -174,10 +174,10 @@
     --code-highlight: rgba(94, 106, 210, 0.08);
     --radius: 8px;
     --sidebar: #fafafa;
-    --sidebar-accent: rgba(94, 106, 210, 0.08);
-    --sidebar-accent-foreground: #20212b;
-    --sidebar-border: rgba(20, 21, 31, 0.07);
-    --sidebar-foreground: #171820;
+    --sidebar-accent: rgba(20, 21, 31, 0.07);
+    --sidebar-accent-foreground: #08090d;
+    --sidebar-border: rgba(8, 9, 13, 0.08);
+    --sidebar-foreground: #08090d;
     --sidebar-primary: #5e6ad2;
     --sidebar-primary-foreground: #ffffff;
     --sidebar-ring: rgba(94, 106, 210, 0.38);
@@ -199,12 +199,12 @@
     --warning-foreground: #f8dd7e;
     --accent: rgba(255, 255, 255, 0.06);
     --accent-foreground: #ededed;
-    --background: #0c0d0e;
+    --background: #0b0c0e;
     --border: rgba(255, 255, 255, 0.07);
-    --card: #121214;
+    --card: #121315;
     --card-foreground: #ededed;
     --destructive: #ff0b0b;
-    --foreground: #ededed;
+    --foreground: #f6f6f7;
     --input: rgba(255, 255, 255, 0.1);
     --muted: rgba(255, 255, 255, 0.05);
     --muted-foreground: rgba(255, 255, 255, 0.46);
@@ -223,11 +223,11 @@
     --code: #0a0a0b;
     --code-foreground: var(--foreground);
     --code-highlight: rgba(139, 127, 246, 0.12);
-    --sidebar: #0c0d0e;
-    --sidebar-accent: rgba(255, 255, 255, 0.06);
-    --sidebar-accent-foreground: #ededed;
-    --sidebar-border: rgba(255, 255, 255, 0.07);
-    --sidebar-foreground: rgba(255, 255, 255, 0.75);
+    --sidebar: #0c0e0f;
+    --sidebar-accent: rgba(255, 255, 255, 0.075);
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: rgba(255, 255, 255, 0.08);
+    --sidebar-foreground: #ffffff;
     --sidebar-primary: #8b7ff6;
     --sidebar-primary-foreground: #0a0a0b;
     --sidebar-ring: rgba(139, 127, 246, 0.5);
@@ -272,13 +272,6 @@
     overflow: hidden;
     overscroll-behavior: none;
     letter-spacing: -0.006em;
-    /* Pixel-grid pattern + ambient color glow, layered over the base color. */
-    background:
-      radial-gradient(circle at 50% -16%, color-mix(in oklab, var(--primary) 20%, transparent) 0, transparent 48rem),
-      radial-gradient(circle at 92% 8%, color-mix(in oklab, var(--chart-2) 12%, transparent), transparent 36rem),
-      linear-gradient(to right, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size) var(--grid-size),
-      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size) var(--grid-size),
-      var(--background);
   }
 
   h1 {

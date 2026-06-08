@@ -291,7 +291,7 @@ export function ProductDemo() {
         </aside>
 
         <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl m-2 sm:m-3 bp-card !bg-fd-background/30">
-          <header className="flex h-13 shrink-0 items-center justify-between border-b border-fd-border/55 px-4">
+          <header className="flex h-13 shrink-0 items-center justify-between px-4">
             <div className="flex items-center gap-2 text-fd-muted-foreground/65">
               <PanelLeft className="size-4" />
             </div>
