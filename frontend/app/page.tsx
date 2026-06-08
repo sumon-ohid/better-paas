@@ -727,7 +727,7 @@ function ApplicationsDashboard() {
           </h2>
         </div>
         <p className="text-xs text-muted-foreground sm:text-sm">
-          Manage your deployed services. You can filter by what's running, building, paused or failed to deploy.
+          Manage your deployed services. You can filter by what&apos;s running, building, paused or failed to deploy.
         </p>
       </div>
       {/* Subheader toolbar */}

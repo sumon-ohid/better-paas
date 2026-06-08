@@ -57,7 +57,6 @@ import {
   IconGear2FillDuo18,
   IconKeyboardFillDuo18,
   IconLayers3FillDuo18,
-  IconMagnifierFillDuo18,
   IconRocketFillDuo18,
   IconUnorderedListFillDuo18,
   IconVault3FillDuo18,
