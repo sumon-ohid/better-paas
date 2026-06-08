@@ -61,6 +61,7 @@ import type { App } from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
+import { Card } from "@/components/ui/card";
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
@@ -132,7 +133,7 @@ function RepoLink({ gitRepo, image }: { gitRepo: string; image?: string }) {
       return (
         <span
           title={image}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/30 px-2.5 py-1 text-xs font-mono text-muted-foreground"
+          className="inline-flex mt-1 max-w-full items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2.5 py-1 text-xs font-mono text-muted-foreground"
         >
           <Docker className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{image}</span>
@@ -140,7 +141,7 @@ function RepoLink({ gitRepo, image }: { gitRepo: string; image?: string }) {
       )
     }
     return (
-      <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-dashed border-border bg-muted/20 px-2.5 py-1 text-xs font-mono text-muted-foreground/70">
+      <span className="inline-flex max-w-full mt-1 items-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/20 px-2.5 py-1 text-xs font-mono text-muted-foreground/70">
         <GitBranchIcon className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">No repository</span>
       </span>
@@ -153,7 +154,7 @@ function RepoLink({ gitRepo, image }: { gitRepo: string; image?: string }) {
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
       title={gitRepo}
-      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/30 px-2.5 py-1 text-xs font-mono text-muted-foreground transition-colors hover:border-primary/30 hover:bg-muted/50 hover:text-primary"
+      className="inline-flex max-w-full mt-1 items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2.5 py-1 text-xs font-mono text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >
       {isGitHubRepo(gitRepo) ? (
         <>
@@ -173,7 +174,7 @@ function RepoLink({ gitRepo, image }: { gitRepo: string; image?: string }) {
 function BranchBadge({ branch }: { branch: string }) {
   if (!branch) return null
   return (
-    <Badge variant="outline" size="sm" className="gap-1 font-mono py-2.5 px-1">
+    <Badge variant="outline" size="sm" className="gap-1 rounded-lg font-mono py-2.5 px-1.5">
       <GitBranchIcon className="h-3 w-3" />
       {branch}
     </Badge>
@@ -190,7 +191,7 @@ function UrlLink({ url }: { url: string | undefined }) {
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
       title={displayUrl}
-      className="flex min-w-0 items-center gap-1 text-sm font-mono text-primary hover:underline transition-colors"
+      className="flex min-w-0 items-center gap-1 text-sm font-mono hover:underline transition-colors"
     >
       <LinkIcon className="h-3 w-3 shrink-0 opacity-60" />
       <span className="truncate">{displayUrl}</span>
@@ -482,15 +483,15 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
   const { toggle, redeploy } = useAppActions()
 
   return (
-    <div
+    <Card
       onClick={() => router.push(`/app/${app.id}`)}
-      className="du-card group flex cursor-pointer flex-col rounded-xl p-4 transition-colors hover:border-primary/30"
+      className="group flex cursor-pointer flex-col rounded-xl p-4 transition-colors"
     >
       {/* Header: name + actions */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <StatusDot status={app.status} />
-          <span className="truncate font-semibold text-base text-foreground group-hover:text-primary transition-colors">
+          <span className="truncate font-semibold text-base text-foreground transition-colors">
             {app.name}
           </span>
           {app.composeService && (
@@ -514,7 +515,7 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
       </div>
 
       {/* Status + branch */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <StatusBadge status={app.status} />
         <BranchBadge branch={app.branch} />
         {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
@@ -549,7 +550,7 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
 
       {/* URL + repo */}
       <div
-        className="mt-3 space-y-1.5 border-t border-border/50 pt-3"
+        className="mt-3 space-y-1.5 pt-1"
         onClick={(e) => e.stopPropagation()}
       >
         {getAppUrl(app) ? (
@@ -596,7 +597,7 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
           {formatRelativeTime(app.createdAt)}
         </span>
       </div>
-    </div>
+    </Card>
   )
 }
 

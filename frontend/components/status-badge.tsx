@@ -28,7 +28,7 @@ export function StatusBadge({
 }: StatusBadgeProps) {
   const meta = getStatusMeta(status)
   return (
-    <Badge variant={meta.variant} size={size} className={cn("rounded-full py-2.5 px-2", className)}>
+    <Badge variant={meta.variant} size={size} className={cn("rounded-lg py-2.5 px-1.5 border-input", className)}>
       <NucleoIcon name={meta.icon} className={cn(meta.pulse && "animate-spin")} />
       {showLabel && meta.label}
     </Badge>

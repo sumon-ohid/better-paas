@@ -514,10 +514,10 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
   }
 
   return (
-    <SidebarProvider className="h-screen overflow-hidden">
-      <div className="relative flex h-screen w-full overflow-hidden text-foreground transition-colors duration-200 selection:bg-primary/20">
+    <SidebarProvider className="h-screen overflow-hidden bg-sidebar">
+      <div className="relative flex h-screen w-full overflow-hidden bg-sidebar text-foreground transition-colors duration-200 selection:bg-primary/20">
         {/* Navigation Sidebar */}
-        <Sidebar variant="inset" className="">
+        <Sidebar variant="inset" className="bg-sidebar">
           <SidebarHeader className="relative flex flex-row items-center justify-between overflow-hidden px-4 py-3">
             <div className="relative flex items-center gap-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -651,7 +651,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         </Sidebar>
 
         {/* Main Content Frame */}
-        <SidebarInset className="du-card relative z-10 m-0 md:m-2 md:ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs/5">
+        <SidebarInset className="du-card relative z-10 m-0 md:m-2 md:ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background text-card-foreground shadow-xs/5">
           {/* Header Bar — pinned, never scrolls */}
           <header className="shrink-0 flex h-14 items-center justify-between bg-transparent px-4 select-none">
             <div className="flex items-center gap-2.5">
