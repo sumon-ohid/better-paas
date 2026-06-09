@@ -61,7 +61,16 @@ import type { App } from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
-import { Card, CardFrame, CardFrameFooter } from "@/components/ui/card"
+import {
+  Card,
+  CardAction,
+  CardFrame,
+  CardFrameFooter,
+  CardHeader,
+  CardTitle,
+  CardPanel,
+} from "@/components/ui/card"
+import { Frame, FrameFooter } from "@/components/ui/frame"
 import {
   type ColumnDef,
   flexRender,
@@ -558,82 +567,88 @@ function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) 
   const { toggle, redeploy } = useAppActions()
 
   return (
-    <div
+    <Frame
       onClick={() => router.push(`/app/${app.id}`)}
-      className="du-card cursor-pointer rounded-xl p-4 transition-colors hover:border-primary/30"
+      className="cursor-pointer border border-transparent transition-colors"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <StatusDot status={app.status} />
-          <span className="font-semibold text-base text-foreground truncate">{app.name}</span>
-          {app.composeService && (
-            <span
-              title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
-              className="inline-flex shrink-0 items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
-            >
-              <Docker className="h-3 w-3" />
-              {app.composeService}
-            </span>
-          )}
-        </div>
-        <div onClick={(e) => e.stopPropagation()}>
-          <AppActionsMenu
-            app={app}
-            onDelete={onDelete}
-            onToggle={(action) => toggle(app, action)}
-            onRedeploy={(noCache) => redeploy(app, noCache)}
-          />
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <StatusBadge status={app.status} />
-        <BranchBadge branch={app.branch} />
-        {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    router.push(`/app/${app.id}?tab=vulnerabilities`)
-                  }}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
-                >
-                  <NucleoIcon name="circle-alert" className="h-3 w-3 animate-pulse" />
-                  <span>
-                    {app.vulnerabilitiesCount}{" "}
-                    {app.vulnerabilitiesCount === 1
-                      ? "vulnerability"
-                      : "vulnerabilities"}
-                  </span>
-                </span>
-              }
+      <Card className="before:hidden shadow-none">
+        <CardHeader>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <StatusDot status={app.status} />
+            <CardTitle className="truncate text-base">{app.name}</CardTitle>
+            {app.composeService && (
+              <span
+                title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
+                className="inline-flex shrink-0 items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
+              >
+                <Docker className="h-3 w-3" />
+                {app.composeService}
+              </span>
+            )}
+          </div>
+          <CardAction onClick={(e) => e.stopPropagation()}>
+            <AppActionsMenu
+              app={app}
+              onDelete={onDelete}
+              onToggle={(action) => toggle(app, action)}
+              onRedeploy={(noCache) => redeploy(app, noCache)}
             />
-            <TooltipContent>
-              {app.vulnerabilitiesCount} package{" "}
-              {app.vulnerabilitiesCount === 1 ? "vulnerability" : "vulnerabilities"}{" "}
-              detected. Click card to view details.
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
-        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+          </CardAction>
+        </CardHeader>
+        <CardPanel>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={app.status} />
+            <BranchBadge branch={app.branch} />
+            {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/app/${app.id}?tab=vulnerabilities`)
+                      }}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                    >
+                      <NucleoIcon name="circle-alert" className="h-3 w-3 animate-pulse" />
+                      <span>
+                        {app.vulnerabilitiesCount}{" "}
+                        {app.vulnerabilitiesCount === 1
+                          ? "vulnerability"
+                          : "vulnerabilities"}
+                      </span>
+                    </span>
+                  }
+                />
+                <TooltipContent>
+                  {app.vulnerabilitiesCount} package{" "}
+                  {app.vulnerabilitiesCount === 1 ? "vulnerability" : "vulnerabilities"}{" "}
+                  detected. Click card to view details.
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+          </div>
+
+          <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3" onClick={(e) => e.stopPropagation()}>
+            {getAppUrl(app) ? (
+              <UrlLink url={getAppUrl(app)} />
+            ) : (
+              <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
+                <NoUrlIcon className="h-3 w-3 shrink-0 opacity-60" />
+                No URL assigned
+              </span>
+            )}
+            <RepoLink gitRepo={app.gitRepo} image={app.image} />
+          </div>
+        </CardPanel>
+      </Card>
+      <FrameFooter className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">Deployed</span>
+        <span className="text-xs text-muted-foreground tabular-nums">
           {formatRelativeTime(app.createdAt)}
         </span>
-      </div>
-
-      <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3" onClick={(e) => e.stopPropagation()}>
-        {getAppUrl(app) ? (
-          <UrlLink url={getAppUrl(app)} />
-        ) : (
-          <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
-            <NoUrlIcon className="h-3 w-3 shrink-0 opacity-60" />
-            No URL assigned
-          </span>
-        )}
-        <RepoLink gitRepo={app.gitRepo} image={app.image} />
-      </div>
-    </div>
+      </FrameFooter>
+    </Frame>
   )
 }
 
@@ -644,121 +659,111 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
   const { toggle, redeploy } = useAppActions()
 
   return (
-    <Card
+    <Frame
       onClick={() => router.push(`/app/${app.id}`)}
-      className="group flex cursor-pointer flex-col rounded-xl p-4 transition-colors"
+      className="group cursor-pointer border border-transparent transition-colors"
     >
-      {/* Header: name + actions */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <StatusDot status={app.status} />
-          <span className="truncate font-semibold text-base text-foreground transition-colors">
-            {app.name}
-          </span>
-          {app.composeService && (
-            <span
-              title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
-              className="inline-flex shrink-0 items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
-            >
-              <Docker className="h-3 w-3" />
-              {app.composeService}
-            </span>
-          )}
-        </div>
-        <div onClick={(e) => e.stopPropagation()}>
-          <AppActionsMenu
-            app={app}
-            onDelete={onDelete}
-            onToggle={(action) => toggle(app, action)}
-            onRedeploy={() => redeploy(app)}
-          />
-        </div>
-      </div>
-
-      {/* Status + branch */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <StatusBadge status={app.status} />
-        <BranchBadge branch={app.branch} />
-        {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    router.push(`/app/${app.id}?tab=vulnerabilities`)
-                  }}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
-                >
-                  <NucleoIcon name="circle-alert" className="h-3 w-3 animate-pulse" />
-                  <span>
-                    {app.vulnerabilitiesCount}{" "}
-                    {app.vulnerabilitiesCount === 1
-                      ? "vulnerability"
-                      : "vulnerabilities"}
-                  </span>
-                </span>
-              }
+      <Card className="before:hidden shadow-none">
+        <CardHeader>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <StatusDot status={app.status} />
+            <CardTitle className="truncate text-base">{app.name}</CardTitle>
+            {app.composeService && (
+              <span
+                title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
+                className="inline-flex shrink-0 items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
+              >
+                <Docker className="h-3 w-3" />
+                {app.composeService}
+              </span>
+            )}
+          </div>
+          <CardAction onClick={(e) => e.stopPropagation()}>
+            <AppActionsMenu
+              app={app}
+              onDelete={onDelete}
+              onToggle={(action) => toggle(app, action)}
+              onRedeploy={() => redeploy(app)}
             />
-            <TooltipContent>
-              {app.vulnerabilitiesCount} package{" "}
-              {app.vulnerabilitiesCount === 1 ? "vulnerability" : "vulnerabilities"}{" "}
-              detected. Click card to view details.
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
-      </div>
+          </CardAction>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <StatusBadge status={app.status} />
+            <BranchBadge branch={app.branch} />
+            {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/app/${app.id}?tab=vulnerabilities`)
+                      }}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                    >
+                      <NucleoIcon name="circle-alert" className="h-3 w-3 animate-pulse" />
+                      <span>
+                        {app.vulnerabilitiesCount}{" "}
+                        {app.vulnerabilitiesCount === 1
+                          ? "vulnerability"
+                          : "vulnerabilities"}
+                      </span>
+                    </span>
+                  }
+                />
+                <TooltipContent>
+                  {app.vulnerabilitiesCount} package{" "}
+                  {app.vulnerabilitiesCount === 1 ? "vulnerability" : "vulnerabilities"}{" "}
+                  detected. Click card to view details.
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+          </div>
+        </CardHeader>
+        <CardPanel>
+          <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
+            {getAppUrl(app) ? (
+              <UrlLink url={getAppUrl(app)} />
+            ) : (
+              <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
+                <NoUrlIcon className="h-3 w-3 shrink-0 opacity-60" />
+                No URL assigned
+              </span>
+            )}
+            <RepoLink gitRepo={app.gitRepo} image={app.image} />
+          </div>
 
-      {/* URL + repo */}
-      <div
-        className="mt-3 space-y-1.5 pt-1"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {getAppUrl(app) ? (
-          <UrlLink url={getAppUrl(app)} />
-        ) : (
-          <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
-            <NoUrlIcon className="h-3 w-3 shrink-0 opacity-60" />
-            No URL assigned
-          </span>
-        )}
-        <RepoLink gitRepo={app.gitRepo} image={app.image} />
-      </div>
-
-      {/* Latest deployed commit (git apps) or source note (image/compose apps)
-          — keeps card heights aligned regardless of deploy source. */}
-      {app.composeService ? (
-        <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
-          <Docker className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-          <span className="line-clamp-1 min-w-0">
-            Compose service{app.composeWeb ? "" : " · internal"}
-          </span>
-        </div>
-      ) : app.activeCommitMsg ? (
-        <div
-          className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground"
-          title={app.activeCommitMsg}
-        >
-          <GitCommitIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-          <span className="line-clamp-1 min-w-0">{app.activeCommitMsg}</span>
-        </div>
-      ) : !app.gitRepo ? (
-        <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
-          <LayersIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-          <span className="line-clamp-1 min-w-0">
-            {app.catalogId ? "Deployed from catalog" : "Prebuilt image deployment"}
-          </span>
-        </div>
-      ) : null}
-
-      {/* Footer: deployed time */}
-      <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-3">
+          {app.composeService ? (
+            <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
+              <Docker className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+              <span className="line-clamp-1 min-w-0">
+                Compose service{app.composeWeb ? "" : " · internal"}
+              </span>
+            </div>
+          ) : app.activeCommitMsg ? (
+            <div
+              className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground"
+              title={app.activeCommitMsg}
+            >
+              <GitCommitIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+              <span className="line-clamp-1 min-w-0">{app.activeCommitMsg}</span>
+            </div>
+          ) : !app.gitRepo ? (
+            <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
+              <LayersIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+              <span className="line-clamp-1 min-w-0">
+                {app.catalogId ? "Deployed from catalog" : "Prebuilt image deployment"}
+              </span>
+            </div>
+          ) : null}
+        </CardPanel>
+      </Card>
+      <FrameFooter className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Deployed</span>
         <span className="text-xs text-muted-foreground tabular-nums">
           {formatRelativeTime(app.createdAt)}
         </span>
-      </div>
-    </Card>
+      </FrameFooter>
+    </Frame>
   )
 }
 
