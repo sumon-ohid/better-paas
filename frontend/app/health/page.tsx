@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from "react"
-import { Card, CardPanel } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { AppShell, Sparkline } from "@/components/app-shell"
@@ -228,23 +227,21 @@ export default function HealthPage() {
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {statCards.map((card) => (
               <Frame key={card.label}>
-                <Card className="before:hidden shadow-none">
-                  <CardPanel className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
-                      {card.icon}
-                    </div>
-                    <div className="flex min-w-0 items-center justify-between gap-2">
-                      <span className="shrink-0 font-mono text-2xl font-bold tabular-nums sm:text-3xl">
-                        {card.value}
-                      </span>
-                      <div className="flex min-w-0 max-w-[120px] flex-1 justify-end">{card.aside}</div>
-                    </div>
-                    <Progress value={card.progress} className="h-1.5 bg-muted">
-                      <ProgressIndicator className={indicatorColor(card.variant)} />
-                    </Progress>
-                  </CardPanel>
-                </Card>
+                <FramePanel className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
+                    {card.icon}
+                  </div>
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <span className="shrink-0 font-mono text-2xl font-bold tabular-nums sm:text-3xl">
+                      {card.value}
+                    </span>
+                    <div className="flex min-w-0 max-w-[120px] flex-1 justify-end">{card.aside}</div>
+                  </div>
+                  <Progress value={card.progress} className="h-1.5 bg-muted">
+                    <ProgressIndicator className={indicatorColor(card.variant)} />
+                  </Progress>
+                </FramePanel>
               </Frame>
             ))}
           </section>
@@ -257,7 +254,7 @@ export default function HealthPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <FrameTitle>Service Health Summary</FrameTitle>
-                    <FrameDescription>
+                    <FrameDescription className="text-xs sm:text-sm">
                       Per-container status overview for {selectedServerName}.
                     </FrameDescription>
                   </div>
@@ -329,27 +326,27 @@ export default function HealthPage() {
 
             {/* System information */}
             <Frame className="w-full">
-              <FramePanel className="shrink-0 mb-2">
+              <FramePanel className="shrink-0">
                 <FrameTitle>System Information</FrameTitle>
-                <FrameDescription>Node environment and runtime details.</FrameDescription>
+                <FrameDescription className="text-xs sm:text-sm">
+                  Node environment and runtime details.
+                </FrameDescription>
               </FramePanel>
-              <Card>
-                <CardPanel>
-                  <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
-                    {systemFields.map((field) => (
-                      <div key={field.label} className="space-y-1.5">
-                        <span className="block text-xs font-medium text-muted-foreground">
-                          {field.label}
-                        </span>
-                        <div className="flex min-w-0 items-center gap-1.5 text-sm text-foreground">
-                          {field.icon}
-                          <span className="truncate font-mono font-medium tabular-nums">{field.value}</span>
-                        </div>
+              <FramePanel>
+                <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+                  {systemFields.map((field) => (
+                    <div key={field.label} className="space-y-1.5">
+                      <span className="block text-xs font-medium text-muted-foreground">
+                        {field.label}
+                      </span>
+                      <div className="flex min-w-0 items-center gap-1.5 text-sm text-foreground">
+                        {field.icon}
+                        <span className="truncate font-mono font-medium tabular-nums">{field.value}</span>
                       </div>
-                    ))}
-                  </div>
-                </CardPanel>
-              </Card>
+                    </div>
+                  ))}
+                </div>
+              </FramePanel>
               <FrameFooter>
                 <div className="flex gap-1.5 text-xs text-muted-foreground">
                   <NucleoIcon name="server" className="mt-0.5 size-3 shrink-0" />
