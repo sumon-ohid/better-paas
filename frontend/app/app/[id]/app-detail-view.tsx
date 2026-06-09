@@ -9,7 +9,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/menu"
-import { Card, CardFrame } from "@/components/ui/card"
+import {
+  Card,
+  CardFrame,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardPanel,
+} from "@/components/ui/card"
+import { Frame, FrameFooter } from "@/components/ui/frame"
 import {
   Table,
   TableBody,
@@ -416,240 +424,263 @@ export function AppDetailView() {
           <TabsPanel value="overview">
             <div className="h-full overflow-y-auto p-4 md:p-6">
               <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-6 duration-200">
-                {/* Vercel-style hero: live site preview and deployment summary in one card */}
-                <Card className="border-border bg-card/72 p-5 backdrop-blur-xl">
-                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                    {/* Live site preview (web-facing rows only). Non-web compose
-                      services (workers, databases) have no URL to preview. */}
-                    <SitePreview url={getAppUrl(app)} status={app.status} />
-
-                    {/* Deployment summary — snapshot of the live release */}
-                    <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-                      {/* Created */}
-                      <div className="space-y-1.5">
-                        <span className="block text-xs font-medium text-muted-foreground">
-                          Created
-                        </span>
-                        <div className="flex items-center gap-1.5 text-sm text-foreground">
-                          <NucleoIcon
-                            name="cloud"
-                            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                {/* Overview card: Frame + Card with sticky preview and lighter metadata */}
+                <Frame className="w-full">
+                  <Card>
+                    <CardPanel>
+                      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-0">
+                        {/* Left: Live site preview — pinned on desktop */}
+                        <div className="lg:sticky lg:top-4 lg:self-start">
+                          <SitePreview
+                            url={getAppUrl(app)}
+                            status={app.status}
+                            className="border-0 shadow-none lg:rounded-r-none"
                           />
-                          <span className="font-medium">
-                            {new Date(app.createdAt).toLocaleDateString(
-                              undefined,
-                              { month: "short", day: "numeric" }
-                            )}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {timeAgo(app.createdAt)}
-                          </span>
                         </div>
-                      </div>
 
-                      {/* Status */}
-                      <div className="space-y-1.5">
-                        <span className="block text-xs font-medium text-muted-foreground">
-                          Status
-                        </span>
-                        <StatusBadge status={app.status} />
-                      </div>
-
-                      {/* Duration */}
-                      <div className="space-y-1.5">
-                        <span className="block text-xs font-medium text-muted-foreground">
-                          Duration
-                        </span>
-                        <div className="flex items-center gap-1.5 text-sm text-foreground">
-                          <NucleoIcon
-                            name="activity"
-                            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                          />
-                          <span className="font-medium tabular-nums">
-                            {activeDeployment?.duration || "—"}
-                          </span>
-                          {activeDeployment?.createdAt && (
-                            <span className="text-muted-foreground">
-                              {timeAgo(activeDeployment.createdAt)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Port Routing */}
-                      <div className="space-y-1.5">
-                        <span className="block text-xs font-medium text-muted-foreground">
-                          Port Routing
-                        </span>
-                        <div className="flex items-center gap-1.5 text-sm text-foreground">
-                          <NucleoIcon
-                            name="server"
-                            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                          />
-                          <span className="font-mono font-medium tabular-nums">
-                            {app.port}
-                            {app.portOverride ? ` → ${app.portOverride}` : ""}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Domains */}
-                      <div className="space-y-1.5">
-                        <span className="block text-xs font-medium text-muted-foreground">
-                          Domains
-                        </span>
-                        <div className="space-y-1">
-                          {overviewDomains.length === 0 ? (
-                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                              <NucleoIcon
-                                name="web"
-                                className="h-3.5 w-3.5 shrink-0"
-                              />
-                              <span>
-                                {app.composeService
-                                  ? "Internal service — no public URL"
-                                  : "No public URL"}
+                        {/* Right: Deployment summary — lighter background */}
+                        <div className="rounded-xl lg:rounded-l-none lg:border-l-0 lg:px-6">
+                          <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+                            {/* Created */}
+                            <div className="space-y-1.5">
+                              <span className="block text-xs font-medium text-muted-foreground">
+                                Created
                               </span>
+                              <div className="flex items-center gap-1.5 text-sm text-foreground">
+                                <NucleoIcon
+                                  name="cloud"
+                                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                                />
+                                <span className="font-medium">
+                                  {new Date(app.createdAt).toLocaleDateString(
+                                    undefined,
+                                    { month: "short", day: "numeric" }
+                                  )}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {timeAgo(app.createdAt)}
+                                </span>
+                              </div>
                             </div>
-                          ) : (
-                            <>
-                              <div className="flex items-center gap-1.5">
+
+                            {/* Status */}
+                            <div className="space-y-1.5">
+                              <span className="block text-xs font-medium text-muted-foreground">
+                                Status
+                              </span>
+                              <StatusBadge status={app.status} />
+                            </div>
+
+                            {/* Duration */}
+                            <div className="space-y-1.5">
+                              <span className="block text-xs font-medium text-muted-foreground">
+                                Duration
+                              </span>
+                              <div className="flex items-center gap-1.5 text-sm text-foreground">
+                                <NucleoIcon
+                                  name="activity"
+                                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                                />
+                                <span className="font-medium tabular-nums">
+                                  {activeDeployment?.duration || "—"}
+                                </span>
+                                {activeDeployment?.createdAt && (
+                                  <span className="text-muted-foreground">
+                                    {timeAgo(activeDeployment.createdAt)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Port Routing */}
+                            <div className="space-y-1.5">
+                              <span className="block text-xs font-medium text-muted-foreground">
+                                Port Routing
+                              </span>
+                              <div className="flex items-center gap-1.5 text-sm text-foreground">
+                                <NucleoIcon
+                                  name="server"
+                                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                                />
+                                <span className="font-mono font-medium tabular-nums">
+                                  {app.port}
+                                  {app.portOverride ? ` → ${app.portOverride}` : ""}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Domains */}
+                            <div className="space-y-1.5">
+                              <span className="block text-xs font-medium text-muted-foreground">
+                                Domains
+                              </span>
+                              <div className="space-y-1">
+                                {overviewDomains.length === 0 ? (
+                                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                    <NucleoIcon
+                                      name="web"
+                                      className="h-3.5 w-3.5 shrink-0"
+                                    />
+                                    <span>
+                                      {app.composeService
+                                        ? "Internal service — no public URL"
+                                        : "No public URL"}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center gap-1.5">
+                                      <a
+                                        href={getAppUrl(app)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary"
+                                      >
+                                        <NucleoIcon
+                                          name="web"
+                                          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                                        />
+                                        <span className="truncate">
+                                          {overviewDomains[0].replace(
+                                            /^https?:\/\//,
+                                            ""
+                                          )}
+                                        </span>
+                                        {overviewDomains.length > 1 && (
+                                          <Badge
+                                            variant="secondary"
+                                            size="sm"
+                                            className="shrink-0"
+                                          >
+                                            +{overviewDomains.length - 1}
+                                          </Badge>
+                                        )}
+                                      </a>
+                                      <button
+                                        onClick={handleCopyUrl}
+                                        title="Copy URL"
+                                        className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded border-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                      >
+                                        {copied ? (
+                                          <CheckIcon className="h-3 w-3 text-success" />
+                                        ) : (
+                                          <CopyIcon className="h-3 w-3" />
+                                        )}
+                                      </button>
+                                    </div>
+                                    {overviewDomains.slice(1, 3).map((d) => (
+                                      <a
+                                        key={d}
+                                        href={
+                                          d.startsWith("http") ? d : `https://${d}`
+                                        }
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
+                                      >
+                                        <NucleoIcon
+                                          name="link"
+                                          className="h-3 w-3 shrink-0"
+                                        />
+                                        <span className="truncate">
+                                          {d.replace(/^https?:\/\//, "")}
+                                        </span>
+                                      </a>
+                                    ))}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Source */}
+                            <div className="space-y-1.5 sm:col-span-2">
+                              <span className="block text-xs font-medium text-muted-foreground">
+                                Source
+                              </span>
+                              <div className="space-y-1">
                                 <a
-                                  href={getAppUrl(app)}
+                                  href={app.gitRepo}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary"
                                 >
-                                  <NucleoIcon
-                                    name="web"
-                                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                                  />
-                                  <span className="truncate">
-                                    {overviewDomains[0].replace(
-                                      /^https?:\/\//,
-                                      ""
-                                    )}
-                                  </span>
-                                  {overviewDomains.length > 1 && (
-                                    <Badge
-                                      variant="secondary"
-                                      size="sm"
-                                      className="shrink-0"
-                                    >
-                                      +{overviewDomains.length - 1}
-                                    </Badge>
-                                  )}
-                                </a>
-                                <button
-                                  onClick={handleCopyUrl}
-                                  title="Copy URL"
-                                  className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded border-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                >
-                                  {copied ? (
-                                    <CheckIcon className="h-3 w-3 text-success" />
+                                  {app.gitRepo.includes("github.com") ? (
+                                    <>
+                                      <GithubLight className="h-3.5 w-3.5 shrink-0 dark:hidden" />
+                                      <GithubDark className="hidden h-3.5 w-3.5 shrink-0 dark:block" />
+                                    </>
                                   ) : (
-                                    <CopyIcon className="h-3 w-3" />
+                                    <NucleoIcon
+                                      name="branch"
+                                      className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                                    />
                                   )}
-                                </button>
-                              </div>
-                              {overviewDomains.slice(1, 3).map((d) => (
-                                <a
-                                  key={d}
-                                  href={
-                                    d.startsWith("http") ? d : `https://${d}`
-                                  }
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
-                                >
-                                  <NucleoIcon
-                                    name="link"
-                                    className="h-3 w-3 shrink-0"
-                                  />
-                                  <span className="truncate">
-                                    {d.replace(/^https?:\/\//, "")}
+                                  <span className="truncate font-mono">
+                                    {app.gitRepo.replace(/^https?:\/\//, "")}
                                   </span>
+                                  <ExternalIcon className="h-3 w-3 shrink-0 opacity-60" />
                                 </a>
-                              ))}
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Source */}
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <span className="block text-xs font-medium text-muted-foreground">
-                          Source
-                        </span>
-                        <div className="space-y-1">
-                          <a
-                            href={app.gitRepo}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary"
-                          >
-                            {app.gitRepo.includes("github.com") ? (
-                              <>
-                                <GithubLight className="h-3.5 w-3.5 shrink-0 dark:hidden" />
-                                <GithubDark className="hidden h-3.5 w-3.5 shrink-0 dark:block" />
-                              </>
-                            ) : (
-                              <NucleoIcon
-                                name="branch"
-                                className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                              />
-                            )}
-                            <span className="truncate font-mono">
-                              {app.gitRepo.replace(/^https?:\/\//, "")}
-                            </span>
-                            <ExternalIcon className="h-3 w-3 shrink-0 opacity-60" />
-                          </a>
-                          {app.branch && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <GitBranchIcon className="h-3 w-3 shrink-0" />
-                              <span className="truncate font-mono">
-                                {app.branch}
-                              </span>
-                            </div>
-                          )}
-                          {overviewCommit ? (
-                            overviewCommitUrl ? (
-                              <a
-                                href={overviewCommitUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
-                                title={overviewCommitMsg || undefined}
-                              >
-                                <GitCommitIcon className="h-3 w-3 shrink-0" />
-                                <span className="font-mono">
-                                  {overviewCommit.slice(0, 7)}
-                                </span>
-                                {overviewCommitMsg && (
-                                  <span className="truncate">
-                                    {overviewCommitMsg}
-                                  </span>
+                                {app.branch && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <GitBranchIcon className="h-3 w-3 shrink-0" />
+                                    <span className="truncate font-mono">
+                                      {app.branch}
+                                    </span>
+                                  </div>
                                 )}
-                              </a>
-                            ) : (
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <GitCommitIcon className="h-3 w-3 shrink-0" />
-                                <span className="font-mono">
-                                  {overviewCommit.slice(0, 7)}
-                                </span>
-                                {overviewCommitMsg && (
-                                  <span className="truncate">
-                                    {overviewCommitMsg}
-                                  </span>
-                                )}
+                                {overviewCommit ? (
+                                  overviewCommitUrl ? (
+                                    <a
+                                      href={overviewCommitUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
+                                      title={overviewCommitMsg || undefined}
+                                    >
+                                      <GitCommitIcon className="h-3 w-3 shrink-0" />
+                                      <span className="font-mono">
+                                        {overviewCommit.slice(0, 7)}
+                                      </span>
+                                      {overviewCommitMsg && (
+                                        <span className="truncate">
+                                          {overviewCommitMsg}
+                                        </span>
+                                      )}
+                                    </a>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      <GitCommitIcon className="h-3 w-3 shrink-0" />
+                                      <span className="font-mono">
+                                        {overviewCommit.slice(0, 7)}
+                                      </span>
+                                      {overviewCommitMsg && (
+                                        <span className="truncate">
+                                          {overviewCommitMsg}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )
+                                ) : null}
                               </div>
-                            )
-                          ) : null}
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    </CardPanel>
+                  </Card>
+                  <FrameFooter>
+                    <div className="flex gap-1.5 text-muted-foreground text-xs">
+                      <CircleAlertIcon className="size-3 shrink-0 mt-0.5" />
+                      <p>
+                        {app.composeService
+                          ? "This is a Docker Compose service. Build settings are controlled by the compose file."
+                          : activeDeployment
+                            ? `Last deployment ${timeAgo(activeDeployment.createdAt)} · ${activeDeployment.status}.`
+                            : "No deployments yet."}
+                      </p>
                     </div>
-                  </div>
-                </Card>
+                  </FrameFooter>
+                </Frame>
 
                 {app.envVars && Object.keys(app.envVars).length > 0 && (
                   <EnvVarsCard

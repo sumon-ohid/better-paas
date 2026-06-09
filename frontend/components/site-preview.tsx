@@ -58,39 +58,12 @@ export function SitePreview({ url, status, className }: SitePreviewProps) {
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-border bg-card/72 backdrop-blur-xl",
+        "overflow-hidden rounded-xl backdrop-blur-xl",
         className,
       )}
     >
-      {/* Browser chrome */}
-      <div className="flex items-center gap-2 bg-muted/30 px-3 py-2">
-        <div className="ml-1 flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border/60 bg-background/60 px-2 py-1">
-          <NucleoIcon name="lock" className="h-3 w-3 shrink-0 text-muted-foreground" />
-          <span className="truncate text-[11px] font-mono text-muted-foreground">{displayUrl}</span>
-        </div>
-        <button
-          onClick={() => setReloadToken((t) => t + 1)}
-          disabled={!isRunning || !url}
-          title="Reload preview"
-          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:pointer-events-none"
-        >
-          <NucleoIcon name="refresh" className="h-3 w-3" />
-        </button>
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Open in new tab"
-            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <NucleoIcon name="external" className="h-3 w-3" />
-          </a>
-        )}
-      </div>
-
       {/* Viewport */}
-      <div ref={containerRef} className="relative rounded-2xl border-y aspect-16/10 w-full overflow-hidden bg-muted/10">
+      <div ref={containerRef} className="relative rounded-2xl aspect-16/10 w-full overflow-hidden bg-muted/10">
         {isRunning ? (
           !url ? (
             /* No URL configured (Empty preview) */
