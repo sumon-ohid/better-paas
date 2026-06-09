@@ -17,7 +17,8 @@ import {
   CardDescription,
   CardPanel,
 } from "@/components/ui/card"
-import { Frame, FrameFooter } from "@/components/ui/frame"
+import { Frame, FrameFooter, FramePanel } from "@/components/ui/frame"
+import { Field, FieldLabel, FieldDescription } from "@/components/ui/field"
 import {
   Table,
   TableBody,
@@ -27,6 +28,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupTextarea,
+} from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -714,403 +720,335 @@ export function AppDetailView() {
           {/* ── Configuration ──────────────────────────────────────────── */}
           <TabsPanel value="config">
             <div className="h-full overflow-y-auto p-4 md:p-6">
-              <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-5 duration-200">
-                {app.composeService && (
-                  <Alert>
-                    <Docker className="h-4 w-4" />
-                    <AlertDescription>
-                      This is the{" "}
-                      <span className="font-mono font-semibold">
-                        {app.composeService}
-                      </span>{" "}
-                      service of a Docker Compose project. Build settings are
-                      controlled by the compose file in the repo, not here.
-                      Redeploy rebuilds the whole project; deleting any service
-                      removes the entire group.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                    Git Repository URL
-                  </Label>
-                  <div className="relative flex items-center gap-2">
-                    <div className="relative flex-1">
-                      {app?.gitRepo?.includes("github.com") && (
-                        <div className="pointer-events-none absolute top-1/2 left-2.5 z-10 -translate-y-1/2">
-                          <GithubLight className="h-4 w-4 dark:hidden" />
-                          <GithubDark className="hidden h-4 w-4 dark:block" />
+              <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-4 duration-200">
+                <Frame className="w-full">
+                  {/* Compose notice */}
+                  {app.composeService && (
+                    <FramePanel className="border-amber-500/20 bg-amber-500/5">
+                      <div className="flex items-start gap-2.5">
+                        <Docker className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-foreground">
+                            Docker Compose Service
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            This is the{" "}
+                            <span className="font-mono font-semibold">
+                              {app.composeService}
+                            </span>{" "}
+                            service of a Docker Compose project. Build settings
+                            are controlled by the compose file in the repo, not
+                            here. Redeploy rebuilds the whole project; deleting
+                            any service removes the entire group.
+                          </p>
+                        </div>
+                      </div>
+                    </FramePanel>
+                  )}
+
+                  {/* Source + Build (combined card) */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Build &amp; Deploy</CardTitle>
+                      <CardDescription>
+                        Where your code lives and how it gets built.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardPanel className="space-y-4">
+                      {/* Git Repository */}
+                      <Field>
+                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Git Repository URL
+                        </FieldLabel>
+                        <div className="relative flex items-center gap-2 min-w-full">
+                          <div className="relative flex-1">
+                            {app?.gitRepo?.includes("github.com") && (
+                              <div className="pointer-events-none absolute top-1/2 left-2.5 z-10 -translate-y-1/2">
+                                <GithubLight className="h-4 w-4 dark:hidden" />
+                                <GithubDark className="hidden h-4 w-4 dark:block" />
+                              </div>
+                            )}
+                            <Input
+                              value={gitRepo}
+                              onChange={(e) => setGitRepo(e.target.value)}
+                              className={`h-9 text-sm ${app?.gitRepo?.includes("github.com") ? "pl-8" : ""}`}
+                            />
+                          </div>
+                          <a
+                            href={app.gitRepo}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/20 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                            title="Open repository"
+                          >
+                            <ExternalIcon className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
+                      </Field>
+
+                      {/* Branch + Root Directory */}
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field>
+                          <FieldLabel className="text-xs mb-2 font-bold tracking-wider text-muted-foreground uppercase">
+                            Branch
+                          </FieldLabel>
+                          {isFetchingBranches ? (
+                            <div className="flex h-9 items-center gap-2 text-xs text-muted-foreground">
+                              <RefreshIcon className="h-3 w-3 animate-spin" />
+                              Fetching branches...
+                            </div>
+                          ) : branches.length > 0 ? (
+                            <Select
+                              value={branch}
+                              onValueChange={(v) => setBranch(v ?? "")}
+                            >
+                              <SelectTrigger className="h-9 w-full text-sm">
+                                <SelectValue placeholder="Select branch..." />
+                              </SelectTrigger>
+                              <SelectPopup>
+                                {branches.map((b) => (
+                                  <SelectItem key={b} value={b}>
+                                    {b}
+                                  </SelectItem>
+                                ))}
+                              </SelectPopup>
+                            </Select>
+                          ) : (
+                            <Input
+                              value={branch}
+                              onChange={(e) => setBranch(e.target.value)}
+                              placeholder="main"
+                              className="h-9 text-sm"
+                            />
+                          )}
+                        </Field>
+
+                        <Field>
+                          <div className="flex items-center justify-between">
+                            <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                              Root Directory
+                            </FieldLabel>
+                            <Button
+                              size="xs"
+                              variant="link"
+                              onClick={openFolderBrowser}
+                              disabled={!gitRepo || !branch}
+                              className="h-auto px-0 ml-2 py-0 text-[10px] text-primary"
+                            >
+                              Browse…
+                            </Button>
+                          </div>
+                          <Input
+                            value={rootDir}
+                            onChange={(e) =>
+                              handleRootDirChange(e.target.value)
+                            }
+                            placeholder="./"
+                            className="h-9 text-sm"
+                          />
+                        </Field>
+                      </div>
+
+                      {/* Framework detection */}
+                      {(isDetectingFramework || detectedFramework) && (
+                        <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                          {isDetectingFramework ? (
+                            <>
+                              <RefreshIcon className="h-4 w-4 animate-spin text-muted-foreground" />
+                              <p className="text-xs text-muted-foreground">
+                                Scanning directory for a framework…
+                              </p>
+                            </>
+                          ) : detectedFramework ? (
+                            <>
+                              {detectedFramework.icon ? (
+                                <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                              ) : null}
+                              <p className="text-xs text-foreground">
+                                {detectedFramework.name} detected{" "}
+                                <span className="text-muted-foreground">
+                                  — commands updated below
+                                </span>
+                              </p>
+                            </>
+                          ) : null}
                         </div>
                       )}
-                      <Input
-                        value={gitRepo}
-                        onChange={(e) => setGitRepo(e.target.value)}
-                        className={`h-9 text-sm ${app?.gitRepo?.includes("github.com") ? "pl-7" : ""}`}
-                      />
-                    </div>
-                    <a
-                      href={app.gitRepo}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/20 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-                      title="Open repository"
-                    >
-                      <ExternalIcon className="h-3.5 w-3.5" />
-                    </a>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                      Branch
-                    </Label>
-                    {isFetchingBranches ? (
-                      <div className="flex h-9 items-center gap-2 text-xs text-muted-foreground">
-                        <RefreshIcon className="h-3 w-3 animate-spin" />
-                        Fetching branches...
-                      </div>
-                    ) : branches.length > 0 ? (
-                      <Select
-                        value={branch}
-                        onValueChange={(v) => setBranch(v ?? "")}
-                      >
-                        <SelectTrigger className="h-9 w-full text-sm">
-                          <SelectValue placeholder="Select branch..." />
-                        </SelectTrigger>
-                        <SelectPopup>
-                          {branches.map((b) => (
-                            <SelectItem key={b} value={b}>
-                              {b}
-                            </SelectItem>
-                          ))}
-                        </SelectPopup>
-                      </Select>
-                    ) : (
-                      <Input
-                        value={branch}
-                        onChange={(e) => setBranch(e.target.value)}
-                        placeholder="main"
-                        className="h-9 text-sm"
-                      />
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                        Root Directory
-                      </Label>
-                      <button
-                        type="button"
-                        onClick={openFolderBrowser}
-                        disabled={!gitRepo || !branch}
-                        className="text-[10px] text-primary hover:underline disabled:pointer-events-none disabled:opacity-40"
-                      >
-                        Browse…
-                      </button>
-                    </div>
-                    <Input
-                      value={rootDir}
-                      onChange={(e) => handleRootDirChange(e.target.value)}
-                      placeholder="./"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                </div>
+                      {/* Divider */}
+                      <div className="h-px bg-border" />
 
-                {(isDetectingFramework || detectedFramework) && (
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                    {isDetectingFramework ? (
-                      <>
-                        <RefreshIcon className="h-4 w-4 animate-spin text-muted-foreground" />
-                        <p className="text-xs text-muted-foreground">
-                          Scanning directory for a framework…
-                        </p>
-                      </>
-                    ) : detectedFramework ? (
-                      <>
-                        {detectedFramework.icon ? (
-                          <detectedFramework.icon className="h-5 w-5 shrink-0" />
-                        ) : null}
-                        <p className="text-xs text-foreground">
-                          {detectedFramework.name} detected{" "}
-                          <span className="text-muted-foreground">
-                            — commands updated below
-                          </span>
-                        </p>
-                      </>
-                    ) : null}
-                  </div>
-                )}
-
-                {/* Build method selector — only when a Dockerfile exists in the
-                  chosen directory; otherwise Nixpacks is used. */}
-                {dockerfileAvailable && (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                      Build Method
-                    </Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        {
-                          id: "nixpacks" as const,
-                          label: "Nixpacks",
-                          desc: "Auto-detect",
-                          icon: <Nix className="h-5 w-5 text-foreground" />,
-                        },
-                        {
-                          id: "dockerfile" as const,
-                          label: "Dockerfile",
-                          desc: "Use Dockerfile",
-                          icon: <Docker className="h-5 w-5" />,
-                        },
-                      ].map((opt) => {
-                        const active = buildMethod === opt.id
-                        return (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => setBuildMethod(opt.id)}
-                            className={`flex flex-col items-start gap-1.5 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                              active
-                                ? "border-primary bg-primary/5"
-                                : "border-border hover:border-primary/40 hover:bg-muted/30"
-                            }`}
-                          >
-                            {opt.icon}
-                            <span className="flex flex-col">
-                              <span className="text-sm font-semibold text-foreground">
-                                {opt.label}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {opt.desc}
-                              </span>
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {dockerfileAvailable && buildMethod === "dockerfile" && (
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                      Dockerfile Path
-                    </Label>
-                    <Input
-                      value={dockerfilePath}
-                      onChange={(e) => setDockerfilePath(e.target.value)}
-                      placeholder="Dockerfile"
-                      className="h-9 font-mono text-sm"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      Relative to the root directory. Install/build/start
-                      commands are ignored — your Dockerfile controls the build.
-                      Make sure it exposes the app on the port above.
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                      Port Override
-                    </Label>
-                    <Input
-                      value={portOverride}
-                      onChange={(e) =>
-                        setPortOverride(e.target.value.replace(/\D/g, ""))
-                      }
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  {buildMethod === "nixpacks" && (
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                        Install Command
-                      </Label>
-                      <Input
-                        value={installCommand}
-                        onChange={(e) => setInstallCommand(e.target.value)}
-                        className="h-9 text-sm"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {buildMethod === "nixpacks" && (
-                  <>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          Build Command
-                        </Label>
-                        <Input
-                          value={buildCommand}
-                          onChange={(e) => setBuildCommand(e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          Start Command
-                        </Label>
-                        <Input
-                          value={startCommand}
-                          onChange={(e) => setStartCommand(e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <div className="space-y-3 border-t border-border pt-2">
-                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                      Environment Variables
-                    </Label>
-                    <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
-                      {envMode === "list" && (
-                        <Button
-                          type="button"
-                          onClick={() =>
-                            setEnvVars((prev) => [
-                              ...prev,
-                              { key: "", value: "" },
-                            ])
-                          }
-                          className="flex h-7 cursor-pointer items-center gap-1 rounded border-0 bg-secondary px-2.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/85"
-                        >
-                          <PlusIcon className="h-3 w-3 text-white dark:text-black" />
-                          <span className="text-white dark:text-black">
-                            Add Variables
-                          </span>
-                        </Button>
+                      {/* Build method */}
+                      {dockerfileAvailable && (
+                        <Field>
+                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                            Build Method
+                          </FieldLabel>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {[
+                              {
+                                id: "nixpacks" as const,
+                                label: "Nixpacks",
+                                desc: "Auto-detect framework and build",
+                                icon: <Nix className="h-5 w-5 text-foreground" />,
+                              },
+                              {
+                                id: "dockerfile" as const,
+                                label: "Dockerfile",
+                                desc: "Use a custom Dockerfile",
+                                icon: <Docker className="h-5 w-5" />,
+                              },
+                            ].map((opt) => {
+                              const active = buildMethod === opt.id
+                              return (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() => setBuildMethod(opt.id)}
+                                  className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                                    active
+                                      ? "border-primary bg-primary/5"
+                                      : "border-border hover:border-primary/40 hover:bg-muted/30"
+                                  }`}
+                                >
+                                  {opt.icon}
+                                  <span className="flex flex-col">
+                                    <span className="text-sm font-semibold text-foreground">
+                                      {opt.label}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {opt.desc}
+                                    </span>
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </Field>
                       )}
 
-                      {/* List/Developer toggle group */}
-                      <div className="flex h-7 items-center rounded-md border border-border bg-muted/20 p-0.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (envMode === "raw") {
-                              const parsed = parseEnvBlock(rawEnvText)
-                              setEnvVars(
-                                parsed.length > 0
-                                  ? parsed
-                                  : [{ key: "", value: "" }]
+                      {dockerfileAvailable &&
+                        buildMethod === "dockerfile" && (
+                          <Field>
+                            <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                              Dockerfile Path
+                            </FieldLabel>
+                            <Input
+                              value={dockerfilePath}
+                              onChange={(e) =>
+                                setDockerfilePath(e.target.value)
+                              }
+                              placeholder="Dockerfile"
+                              className="h-9 font-mono text-sm"
+                            />
+                            <FieldDescription>
+                              Relative to the root directory. Install/build/start
+                              commands are ignored — your Dockerfile controls the
+                              build. Make sure it exposes the app on the port
+                              above.
+                            </FieldDescription>
+                          </Field>
+                        )}
+
+                      {/* Port + Install */}
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field>
+                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                            Port Override
+                          </FieldLabel>
+                          <Input
+                            value={portOverride}
+                            onChange={(e) =>
+                              setPortOverride(
+                                e.target.value.replace(/\D/g, "")
                               )
                             }
-                            setEnvMode("list")
-                          }}
-                          className={`flex h-full cursor-pointer items-center justify-center rounded-md px-3.5 text-xs font-semibold transition-colors ${
-                            envMode === "list"
-                              ? "bg-primary font-bold text-primary-foreground"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          List
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (envMode === "list") {
-                              setRawEnvText(serializeEnvVars(envVars))
-                            }
-                            setEnvMode("raw")
-                          }}
-                          className={`flex h-full cursor-pointer items-center justify-center rounded-md px-3.5 text-xs font-semibold transition-colors ${
-                            envMode === "raw"
-                              ? "bg-primary font-bold text-primary-foreground"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          Developer
-                        </button>
+                            placeholder="3000"
+                            className="h-9 text-sm"
+                          />
+                        </Field>
+                        {buildMethod === "nixpacks" && (
+                          <Field>
+                            <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                              Install Command
+                            </FieldLabel>
+                            <Input
+                              value={installCommand}
+                              onChange={(e) =>
+                                setInstallCommand(e.target.value)
+                              }
+                              placeholder="npm install"
+                              className="h-9 text-sm"
+                            />
+                          </Field>
+                        )}
                       </div>
-                    </div>
-                  </div>
 
-                  {envMode === "raw" ? (
-                    <div className="animate-in fade-in-50 space-y-2">
-                      <Textarea
-                        value={rawEnvText}
-                        onChange={(e) => setRawEnvText(e.target.value)}
-                        placeholder={`KEY=value\nDATABASE_URL="postgres://..."\n# comments are ignored\nexport API_KEY=secret`}
-                        className="h-48 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none"
-                      />
-                      <p className="text-[10px] text-muted-foreground">
-                        Variables here are in standard `.env` format. Switching
-                        to List or saving will parse this text back to
-                        individual entries.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {envVars.map((env, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <Input
-                            value={env.key}
-                            onChange={(e) => {
-                              const updated = [...envVars]
-                              updated[index].key = e.target.value
-                                .toUpperCase()
-                                .replace(/[^A-Z0-9_]/g, "")
-                              setEnvVars(updated)
-                            }}
-                            placeholder="NAME"
-                            className="h-8 w-[100px] shrink-0 font-mono text-xs sm:w-[150px]"
-                          />
-                          <Input
-                            value={env.value}
-                            onChange={(e) => {
-                              const updated = [...envVars]
-                              updated[index].value = e.target.value
-                              setEnvVars(updated)
-                            }}
-                            placeholder="value"
-                            className="h-8 min-w-0 flex-1 font-mono text-xs"
-                          />
-                          <Button
-                            type="button"
-                            onClick={() =>
-                              setEnvVars((prev) =>
-                                prev.filter((_, i) => i !== index)
-                              )
-                            }
-                            variant="ghost"
-                            className="h-7 w-7 shrink-0 border-0 p-0 text-rose-400 hover:bg-rose-500/10"
-                          >
-                            <XIcon className="h-3.5 w-3.5" />
-                          </Button>
+                      {/* Build + Start */}
+                      {buildMethod === "nixpacks" && (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <Field>
+                            <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                              Build Command
+                            </FieldLabel>
+                            <Input
+                              value={buildCommand}
+                              onChange={(e) =>
+                                setBuildCommand(e.target.value)
+                              }
+                              placeholder="npm run build"
+                              className="h-9 text-sm"
+                            />
+                          </Field>
+                          <Field>
+                            <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                              Start Command
+                            </FieldLabel>
+                            <Input
+                              value={startCommand}
+                              onChange={(e) =>
+                                setStartCommand(e.target.value)
+                              }
+                              placeholder="npm start"
+                              className="h-9 text-sm"
+                            />
+                          </Field>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      )}
+                    </CardPanel>
+                  </Card>
 
-                <div className="flex items-center gap-2 pt-2">
-                  <Button
-                    onClick={() => {
-                      setTab("overview")
-                      setEnvMode("list")
-                      setRawEnvText("")
-                    }}
-                    variant="outline"
-                    className="h-8 border-border text-xs"
-                  >
-                    Discard
-                  </Button>
-                  <Button
-                    onClick={handleSaveConfig}
-                    disabled={isSaving}
-                    className="h-8 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
-                  >
-                    {isSaving ? "Saving..." : "Save Configuration"}
-                  </Button>
-                </div>
+                  {/* Actions */}
+                  <FrameFooter>
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                      <Button
+                        onClick={() => {
+                          setTab("overview")
+                          setEnvMode("list")
+                          setRawEnvText("")
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Discard
+                      </Button>
+                      <Button
+                        onClick={handleSaveConfig}
+                        disabled={isSaving}
+                        size="sm"
+                      >
+                        {isSaving ? (
+                          <>
+                            <LoaderIcon className="mr-1 h-3 w-3 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save Configuration"
+                        )}
+                      </Button>
+                    </div>
+                  </FrameFooter>
+                </Frame>
               </div>
             </div>
           </TabsPanel>
