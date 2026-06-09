@@ -8,11 +8,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Card,
-  CardContent,
+  CardAction,
   CardHeader,
   CardTitle,
   CardDescription,
+  CardPanel,
 } from "@/components/ui/card"
+import { Field, FieldLabel } from "@/components/ui/field"
+import { Frame, FrameFooter } from "@/components/ui/frame"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -967,19 +970,23 @@ function ServerCard({
   onTerminal,
   testing,
 }: ServerCardProps) {
+  const lastCheckedLabel =
+    server.lastChecked && server.lastChecked !== "0001-01-01T00:00:00Z"
+      ? new Date(server.lastChecked).toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Never checked"
+
   return (
-    <Card
-      className={`group flex h-[210px] min-w-0 flex-col overflow-hidden border transition-colors ${
-        server.isLocal
-          ? "border-primary/20 bg-card"
-          : "border-border bg-card hover:border-primary/25"
-      }`}
-    >
-      <CardHeader className="border-b border-border/40 p-5 pb-3">
-        <div className="flex w-full min-w-0 items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-start gap-3">
+    <Frame className="group min-w-0 transition-colors">
+      <Card className="border-0 before:hidden shadow-none">
+        <CardHeader>
+          <div className="flex min-w-0 items-start gap-2.5">
             <div
-              className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                 server.status === "connected"
                   ? "bg-success/15 text-success"
                   : server.status === "error"
@@ -988,15 +995,15 @@ function ServerCard({
               }`}
             >
               {server.isLocal ? (
-                <IconMonitor className="h-6 w-6" />
+                <IconMonitor className="h-5 w-5" />
               ) : (
-                <IconServer2 className="h-6 w-6" />
+                <IconServer2 className="h-5 w-5" />
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex w-full min-w-0 items-center gap-2">
+              <div className="flex min-w-0 items-center gap-2">
                 <CardTitle
-                  className="min-w-0 flex-1 truncate text-base font-semibold"
+                  className="min-w-0 flex-1 truncate text-base"
                   title={server.name}
                 >
                   {server.name}
@@ -1006,28 +1013,18 @@ function ServerCard({
                     local
                   </span>
                 )}
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <StatusBadge status={server.status} />
-                </div>
               </div>
-              <div className="mt-1 h-4 w-full min-w-0 overflow-hidden">
-                {server.description ? (
-                  <CardDescription
-                    className="block truncate text-xs leading-none text-muted-foreground"
-                    title={server.description}
-                  >
-                    {server.description}
-                  </CardDescription>
-                ) : (
-                  <span className="block text-xs leading-none text-muted-foreground/0 select-none">
-                    —
-                  </span>
-                )}
-              </div>
+              {server.description ? (
+                <CardDescription
+                  className="mt-0.5 truncate"
+                  title={server.description}
+                >
+                  {server.description}
+                </CardDescription>
+              ) : null}
             </div>
           </div>
-
-          <div className="flex shrink-0 items-center">
+          <CardAction>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -1070,65 +1067,57 @@ function ServerCard({
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+          </CardAction>
+          <div className="mt-2">
+            <StatusBadge status={server.status} />
           </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col justify-between p-5 pt-3">
-        <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-2 rounded-lg border border-border/50 bg-muted/10 p-3 text-xs">
-            <div className="min-w-0">
-              <span className="block text-[10px] font-medium tracking-wider text-muted-foreground/70 uppercase">
+        <CardPanel>
+          <div className="grid grid-cols-3 gap-3">
+            <Field className="min-w-0 gap-1">
+              <FieldLabel className="text-xs text-muted-foreground">
                 Host
-              </span>
+              </FieldLabel>
               <span
-                className="block truncate font-mono text-foreground"
+                className="block truncate font-mono text-sm"
                 title={server.isLocal ? "localhost" : server.ip}
               >
                 {server.isLocal ? "localhost" : server.ip}
               </span>
-            </div>
-            <div className="min-w-0">
-              <span className="block text-[10px] font-medium tracking-wider text-muted-foreground/70 uppercase">
+            </Field>
+            <Field className="gap-1">
+              <FieldLabel className="text-xs text-muted-foreground">
                 SSH Port
+              </FieldLabel>
+              <span className="font-mono text-sm tabular-nums">
+                {server.port}
               </span>
-              <span className="font-mono text-foreground">{server.port}</span>
-            </div>
-            <div className="min-w-0">
-              <span className="block text-[10px] font-medium tracking-wider text-muted-foreground/70 uppercase">
+            </Field>
+            <Field className="min-w-0 gap-1">
+              <FieldLabel className="text-xs text-muted-foreground">
                 User
-              </span>
+              </FieldLabel>
               <span
-                className="block truncate font-mono text-foreground"
+                className="block truncate font-mono text-sm"
                 title={server.isLocal ? "—" : server.sshUser}
               >
                 {server.isLocal ? "—" : server.sshUser}
               </span>
-            </div>
+            </Field>
           </div>
-
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <ClockIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-            <span>
-              {server.lastChecked &&
-              server.lastChecked !== "0001-01-01T00:00:00Z" ? (
-                <>
-                  Last checked:{" "}
-                  {new Date(server.lastChecked).toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </>
-              ) : (
-                "Never checked"
-              )}
-            </span>
-          </div>
+        </CardPanel>
+      </Card>
+      <FrameFooter className="flex items-center justify-between">
+        <div className="flex gap-1 text-muted-foreground text-xs">
+          <ClockIcon className="size-3 h-lh shrink-0" />
+          <span>Last checked</span>
         </div>
-      </CardContent>
-    </Card>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {lastCheckedLabel}
+        </span>
+      </FrameFooter>
+    </Frame>
   )
 }
 
@@ -1391,10 +1380,12 @@ export default function ServersPage() {
         {loading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(2)].map((_, i) => (
-              <div
-                key={i}
-                className="h-48 animate-pulse rounded-xl border border-border bg-muted/20"
-              />
+              <Frame key={i}>
+                <div className="h-36 animate-pulse rounded-xl bg-muted/30" />
+                <FrameFooter>
+                  <div className="h-3 w-24 animate-pulse rounded bg-muted/40" />
+                </FrameFooter>
+              </Frame>
             ))}
           </div>
         ) : servers.length === 0 ? (
