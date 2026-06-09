@@ -253,7 +253,7 @@ export function AppDetailView() {
     <AppShell>
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="shrink-0 border-b border-border bg-transparent px-4 py-3">
+        <div className="shrink-0 bg-transparent px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Button
