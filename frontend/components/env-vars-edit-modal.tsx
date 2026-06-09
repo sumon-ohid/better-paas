@@ -13,13 +13,33 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { InputGroup, InputGroupAddon, InputGroupText, InputGroupTextarea } from "@/components/ui/input-group"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupText,
+  InputGroupTextarea,
+} from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { parseEnvBlock, serializeEnvVars } from "@/app/app/[id]/app-detail-utils"
 
 type EnvVarItem = { key: string; value: string; isSecret: boolean }
+
+function buildInitialItems(
+  envVars: Record<string, string>,
+  secretKeys: string[]
+): EnvVarItem[] {
+  const secretSet = new Set(secretKeys)
+  const loaded = Object.entries(envVars)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => ({
+      key,
+      value,
+      isSecret: secretSet.has(key),
+    }))
+  return loaded.length > 0 ? loaded : [{ key: "", value: "", isSecret: false }]
+}
 
 interface EnvVarsEditModalProps {
   isOpen: boolean
@@ -43,21 +63,17 @@ export function EnvVarsEditModal({
   const [bulkText, setBulkText] = useState("")
   const secretSetRef = useRef(new Set<string>())
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isOpen) return
     const secretSet = new Set(secretKeys)
     secretSetRef.current = secretSet
-    const loaded: EnvVarItem[] = Object.entries(envVars)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => ({
-        key,
-        value,
-        isSecret: secretSet.has(key),
-      }))
-    setItems(loaded.length > 0 ? loaded : [{ key: "", value: "", isSecret: false }])
+    const loaded = buildInitialItems(envVars, secretKeys)
+    setItems(loaded)
     setShowBulk(false)
     setBulkText("")
   }, [isOpen, envVars, secretKeys])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const addItem = () =>
     setItems((prev) => [...prev, { key: "", value: "", isSecret: false }])
@@ -77,10 +93,7 @@ export function EnvVarsEditModal({
     setShowBulk((prev) => {
       const next = !prev
       if (next) {
-        // Open bulk mode — seed textarea with current items
-        const text = serializeEnvVars(
-          items.filter((i) => i.key.trim())
-        )
+        const text = serializeEnvVars(items.filter((i) => i.key.trim()))
         setBulkText(text)
       } else {
         setBulkText("")
@@ -99,9 +112,11 @@ export function EnvVarsEditModal({
       isSecret: secrets.has(p.key),
     }))
 
-    // If bulk textarea is empty or only has invalid lines,
-    // fall back to a single blank row so the list isn't completely gone.
-    setItems(nextItems.length > 0 ? nextItems : [{ key: "", value: "", isSecret: false }])
+    setItems(
+      nextItems.length > 0
+        ? nextItems
+        : [{ key: "", value: "", isSecret: false }]
+    )
     setShowBulk(false)
     setBulkText("")
   }
@@ -123,7 +138,9 @@ export function EnvVarsEditModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogPopup className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-base">Edit Environment Variables</DialogTitle>
+          <DialogTitle className="text-base">
+            Edit Environment Variables
+          </DialogTitle>
           <DialogDescription className="text-xs">
             Update key-value pairs for this application. Empty keys are ignored.
           </DialogDescription>
@@ -149,6 +166,7 @@ export function EnvVarsEditModal({
                     </>
                   ) : (
                     <>
+                      <NucleoIcon name="copy" className="h-3 w-3" />
                       Bulk .env
                     </>
                   )}

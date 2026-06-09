@@ -28,13 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupTextarea,
-} from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectTrigger,
@@ -79,15 +73,12 @@ import type {
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Nix } from "@/components/ui/svgs/nix"
 import { IconShield } from "nucleo-isometric"
 import { useAppDetail } from "./app-detail-context"
 import {
   githubCommitUrl,
   lineColor,
-  parseEnvBlock,
-  serializeEnvVars,
   timeAgo,
 } from "./app-detail-utils"
 import type { AppTab } from "./app-detail-types"
@@ -105,15 +96,12 @@ import {
   GitCommitIcon,
   LoaderIcon,
   PlayIcon,
-  PlusIcon,
   RefreshIcon,
   SquareIcon,
   TerminalIcon,
   Trash2Icon,
   XIcon,
 } from "./app-detail-icons"
-
-type EnvVar = { key: string; value: string }
 
 // The context is intentionally assembled in page.tsx; this view narrows the
 // collections whose callbacks need concrete types.
@@ -123,8 +111,6 @@ type ViewContext = Record<string, any> & {
   setApp: React.Dispatch<React.SetStateAction<App | null>>
   deployments: DeploymentRecord[]
   branches: string[]
-  envVars: EnvVar[]
-  setEnvVars: React.Dispatch<React.SetStateAction<EnvVar[]>>
   logs: LogEntry[]
   setLogs: React.Dispatch<React.SetStateAction<LogEntry[]>>
   termReconnectToken: number
@@ -199,12 +185,6 @@ export function AppDetailView() {
     setBuildCommand,
     startCommand,
     setStartCommand,
-    envMode,
-    setEnvMode,
-    rawEnvText,
-    setRawEnvText,
-    envVars,
-    setEnvVars,
     isSaving,
     handleSaveConfig,
     logsConnected,
@@ -1026,11 +1006,7 @@ export function AppDetailView() {
                   <FrameFooter>
                     <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                       <Button
-                        onClick={() => {
-                          setTab("overview")
-                          setEnvMode("list")
-                          setRawEnvText("")
-                        }}
+                        onClick={() => setTab("overview")}
                         variant="outline"
                         size="sm"
                       >

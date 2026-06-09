@@ -22,7 +22,7 @@ const PREVIEW_VIEWPORT_HEIGHT = 800
 export function SitePreview({ url, status, className }: SitePreviewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState(0)
-  const [reloadToken, setReloadToken] = useState(0)
+  const [reloadToken] = useState(0)
   // Track which url/reload combination has finished loading, so the spinner
   // clears only for the frame that's actually shown — no effect needed to reset.
   const [loadedKey, setLoadedKey] = useState("")
@@ -30,7 +30,6 @@ export function SitePreview({ url, status, className }: SitePreviewProps) {
 
   const isRunning = status === "running"
   const isBuilding = status === "building"
-  const displayUrl = url ? url.replace(/^https?:\/\//, "").replace(/\/$/, "") : "no-public-url"
   const frameKey = `${url || ""}#${reloadToken}`
   const loaded = loadedKey === frameKey
 

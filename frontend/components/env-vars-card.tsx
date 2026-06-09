@@ -3,7 +3,6 @@
 import React, { useMemo, useState } from "react"
 import {
   Frame,
-  FrameFooter,
   FramePanel,
   FrameTitle,
   FrameDescription,
@@ -12,7 +11,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,

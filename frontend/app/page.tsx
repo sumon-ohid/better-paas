@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback, Suspense } from "react"
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
@@ -328,107 +328,111 @@ function useAppActions() {
 
 // ── Columns for list view ─────────────────────────────────────────────────────
 
-const appColumns: ColumnDef<App>[] = [
-  {
-    accessorKey: "name",
-    header: "Project",
-    size: 220,
-    cell: ({ row }) => {
-      const app = row.original
-      const router = useRouter()
-      return (
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="font-semibold text-sm text-foreground truncate">
-            {app.name}
-          </span>
-          {app.vulnerabilitiesCount ? (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      router.push(`/app/${app.id}?tab=vulnerabilities`)
-                    }}
-                    className="flex cursor-pointer items-center text-amber-500 hover:text-amber-600 transition-colors shrink-0"
-                  >
-                    <NucleoIcon name="circle-alert" className="h-4 w-4" />
-                  </span>
-                }
-              />
-              <TooltipContent>{app.vulnerabilitiesCount} package vulnerabilities detected. Click to view.</TooltipContent>
-            </Tooltip>
-          ) : null}
-          {app.composeService && (
-            <span
-              title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
-              className="inline-flex items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
-            >
-              <Docker className="h-3 w-3" />
-              {app.composeService}
+function createAppColumns(
+  router: ReturnType<typeof useRouter>,
+  actions: ReturnType<typeof useAppActions>
+): ColumnDef<App>[] {
+  return [
+    {
+      accessorKey: "name",
+      header: "Project",
+      size: 220,
+      cell: ({ row }) => {
+        const app = row.original
+        return (
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="font-semibold text-sm text-foreground truncate">
+              {app.name}
             </span>
-          )}
-        </div>
-      )
+            {app.vulnerabilitiesCount ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/app/${app.id}?tab=vulnerabilities`)
+                      }}
+                      className="flex cursor-pointer items-center text-amber-500 hover:text-amber-600 transition-colors shrink-0"
+                    >
+                      <NucleoIcon name="circle-alert" className="h-4 w-4" />
+                    </span>
+                  }
+                />
+                <TooltipContent>{app.vulnerabilitiesCount} package vulnerabilities detected. Click to view.</TooltipContent>
+              </Tooltip>
+            ) : null}
+            {app.composeService && (
+              <span
+                title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
+                className="inline-flex items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
+              >
+                <Docker className="h-3 w-3" />
+                {app.composeService}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    size: 110,
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
-  },
-  {
-    accessorKey: "url",
-    header: "URL",
-    size: 200,
-    cell: ({ row }) => <UrlLink url={getAppUrl(row.original)} />,
-  },
-  {
-    accessorKey: "gitRepo",
-    header: "Repository",
-    size: 220,
-    cell: ({ row }) => (
-      <RepoLink gitRepo={row.original.gitRepo} image={row.original.image} />
-    ),
-  },
-  {
-    accessorKey: "branch",
-    header: "Branch",
-    size: 120,
-    cell: ({ row }) => <BranchBadge branch={row.original.branch} />,
-  },
-  {
-    accessorKey: "createdAt",
-    header: "Deployed",
-    size: 110,
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground tabular-nums">
-        {formatRelativeTime(row.original.createdAt)}
-      </span>
-    ),
-  },
-  {
-    id: "actions",
-    header: () => <span className="sr-only">Actions</span>,
-    size: 60,
-    enableSorting: false,
-    cell: ({ row }) => {
-      const app = row.original
-      const { toggle, redeploy } = useAppActions()
-      return (
-        <div className="text-right">
-          <AppActionsMenu
-            app={app}
-            onDelete={() => {}}
-            onToggle={(action) => toggle(app, action)}
-            onRedeploy={(noCache) => redeploy(app, noCache)}
-          />
-        </div>
-      )
+    {
+      accessorKey: "status",
+      header: "Status",
+      size: 110,
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
-  },
-]
+    {
+      accessorKey: "url",
+      header: "URL",
+      size: 200,
+      cell: ({ row }) => <UrlLink url={getAppUrl(row.original)} />,
+    },
+    {
+      accessorKey: "gitRepo",
+      header: "Repository",
+      size: 220,
+      cell: ({ row }) => (
+        <RepoLink gitRepo={row.original.gitRepo} image={row.original.image} />
+      ),
+    },
+    {
+      accessorKey: "branch",
+      header: "Branch",
+      size: 120,
+      cell: ({ row }) => <BranchBadge branch={row.original.branch} />,
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Deployed",
+      size: 110,
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground tabular-nums">
+          {formatRelativeTime(row.original.createdAt)}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      size: 60,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const app = row.original
+        const { toggle, redeploy } = actions
+        return (
+          <div className="text-right">
+            <AppActionsMenu
+              app={app}
+              onDelete={() => {}}
+              onToggle={(action) => toggle(app, action)}
+              onRedeploy={(noCache) => redeploy(app, noCache)}
+            />
+          </div>
+        )
+      },
+    },
+  ]
+}
 
 function AppTable({
   apps,
@@ -445,16 +449,24 @@ function AppTable({
 }) {
   const router = useRouter()
   const [sorting, setSorting] = useState<SortingState>([])
+  const actions = useAppActions()
 
+  const columns = useMemo(
+    () => createAppColumns(router, actions),
+    [router, actions]
+  )
+
+  /* eslint-disable react-hooks/incompatible-library */
   const table = useReactTable({
     data: apps,
-    columns: appColumns,
+    columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     enableSortingRemoval: false,
     onSortingChange: setSorting,
     state: { sorting },
   })
+  /* eslint-enable react-hooks/incompatible-library */
 
   const rows = table.getRowModel().rows
 
@@ -520,7 +532,7 @@ function AppTable({
             <LoadingRows />
           ) : isEmpty ? (
             <TableRow>
-              <TableCell className="h-24 text-center" colSpan={appColumns.length}>
+                <TableCell className="h-24 text-center" colSpan={columns.length}>
                 <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
               </TableCell>
             </TableRow>
