@@ -35,6 +35,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -251,7 +252,7 @@ export function AppDetailView() {
 
   return (
     <AppShell>
-      <div className="flex h-full flex-col">
+      <Tabs value={currentTab} onValueChange={(value) => setTab(value as AppTab)} className="flex h-full flex-col">
         {/* Header */}
         <div className="shrink-0 bg-transparent px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -390,27 +391,21 @@ export function AppDetailView() {
           </div>
 
           {/* Tabs */}
-          <div className="-mx-4 mt-3 flex scrollbar-none items-center gap-1 overflow-x-auto border-b border-border/50 px-4">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`-mb-px shrink-0 cursor-pointer rounded-t-md border-b-2 px-3 py-2 text-sm transition-all ${
-                  currentTab === t.id
-                    ? "border-primary bg-muted/40 font-semibold text-foreground"
-                    : "border-transparent font-medium text-muted-foreground hover:bg-muted/20 hover:text-foreground"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+          <div className="-mx-4 mt-3 border-b border-border/50 px-4 overflow-x-auto scrollbar-none">
+            <TabsList variant="underline">
+              {tabs.map((t) => (
+                <TabsTab key={t.id} value={t.id}>
+                  {t.label}
+                </TabsTab>
+              ))}
+            </TabsList>
           </div>
         </div>
 
         {/* Content */}
         <div className="flex min-h-0 flex-1 flex-col">
           {/* ── Overview ───────────────────────────────────────────────── */}
-          {currentTab === "overview" && (
+          <TabsPanel value="overview">
             <div className="h-full overflow-y-auto p-4 md:p-6">
               <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-6 duration-200">
                 {/* Vercel-style hero: live site preview and deployment summary in one card */}
@@ -675,10 +670,10 @@ export function AppDetailView() {
                 </div>
               </div>
             </div>
-          )}
+          </TabsPanel>
 
           {/* ── Configuration ──────────────────────────────────────────── */}
-          {currentTab === "config" && (
+          <TabsPanel value="config">
             <div className="h-full overflow-y-auto p-4 md:p-6">
               <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-5 duration-200">
                 {app.composeService && (
@@ -1079,15 +1074,15 @@ export function AppDetailView() {
                 </div>
               </div>
             </div>
-          )}
+          </TabsPanel>
 
           {/* ── Domains ────────────────────────────────────────────────── */}
-          {currentTab === "domains" && (
+          <TabsPanel value="domains">
             <AppDomains app={app} onChange={(updated) => setApp(updated)} />
-          )}
+          </TabsPanel>
 
           {/* ── Logs ───────────────────────────────────────────────────── */}
-          {currentTab === "logs" && (
+          <TabsPanel value="logs">
             <div className="animate-in fade-in-50 flex min-h-0 flex-1 flex-col p-4 duration-200 md:p-6">
               <div className="flex shrink-0 items-center justify-between">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1171,10 +1166,10 @@ export function AppDetailView() {
                 </div>
               </div>
             </div>
-          )}
+          </TabsPanel>
 
           {/* ── Terminal ───────────────────────────────────────────────── */}
-          {currentTab === "terminal" && (
+          <TabsPanel value="terminal">
             <div className="animate-in fade-in-50 flex min-h-0 flex-1 flex-col p-4 duration-200 md:p-6">
               <div className="flex shrink-0 items-center justify-between">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1220,10 +1215,10 @@ export function AppDetailView() {
                 </div>
               )}
             </div>
-          )}
+          </TabsPanel>
 
           {/* ── Deployments ────────────────────────────────────────────── */}
-          {currentTab === "deployments" && (
+          <TabsPanel value="deployments">
             <div className="animate-in fade-in-50 h-full space-y-4 overflow-y-auto p-4 duration-200 md:p-6">
               <div>
                 <h2 className="text-sm font-bold text-foreground">
@@ -1464,10 +1459,10 @@ export function AppDetailView() {
                 </div>
               )}
             </div>
-          )}
+          </TabsPanel>
 
           {/* ── Vulnerabilities ─────────────────────────────────────────── */}
-          {currentTab === "vulnerabilities" && (
+          <TabsPanel value="vulnerabilities">
             <div className="animate-in fade-in-50 h-full space-y-6 overflow-y-auto p-4 duration-200 md:p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
@@ -1669,8 +1664,10 @@ export function AppDetailView() {
                 </div>
               )}
             </div>
-          )}
+          </TabsPanel>
         </div>
+
+      </Tabs>
 
         <DeleteConfirmModal
           isOpen={showDeleteModal}
@@ -1832,7 +1829,6 @@ export function AppDetailView() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
     </AppShell>
   )
 }
