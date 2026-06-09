@@ -392,7 +392,7 @@ export function AppDetailView() {
 
           {/* Tabs */}
           <div className="-mx-4 mt-3 border-b border-border/50 px-4 overflow-x-auto scrollbar-none">
-            <TabsList variant="underline">
+            <TabsList variant="underline" className="w-auto [&>[data-slot=tabs-tab]]:grow-0">
               {tabs.map((t) => (
                 <TabsTab key={t.id} value={t.id}>
                   {t.label}
