@@ -2,8 +2,13 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent } from "@/components/ui/card"
+import { Frame, FramePanel } from "@/components/ui/frame"
 import { Button } from "@/components/ui/button"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
@@ -32,7 +37,6 @@ import { Docker } from "@/components/ui/svgs/docker"
 import { useActiveServer } from "@/components/server-context"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
-const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const ExternalIcon = (props: IconProps) => (
   <NucleoIcon {...props} name="external" />
@@ -276,7 +280,7 @@ export default function CatalogPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl space-y-6 p-3 md:p-6">
+      <div className="animate-in fade-in-50 mx-auto max-w-6xl space-y-6 p-4 duration-200 md:p-6">
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
@@ -337,21 +341,26 @@ export default function CatalogPage() {
 
         {/* Search + category filter */}
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,320px)_1fr] lg:items-start">
-          <div className="relative min-w-0">
-            <Input
+          <InputGroup className="min-w-0">
+            <InputGroupInput
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search apps..."
-              className="h-8 w-full pl-6 text-sm"
+              type="search"
             />
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
-          </div>
-          <div className="flex min-w-0 flex-wrap gap-1.5">
+            <InputGroupAddon align="inline-end">
+              <Button size="xs" variant="secondary">
+                Search
+              </Button>
+            </InputGroupAddon>
+          </InputGroup>
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 lg:min-h-9">
             {categories.map((c) => (
               <button
                 key={c}
                 onClick={() => setCategory(c)}
-                className={`cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                aria-pressed={category === c}
+                className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                   category === c
                     ? "border-primary/50 bg-primary/10 text-primary"
                     : "border-border bg-card/40 text-muted-foreground hover:text-foreground"
@@ -365,37 +374,51 @@ export default function CatalogPage() {
 
         {/* Grid */}
         {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">
-            <RefreshIcon className="mx-auto mb-2 h-5 w-5 animate-spin opacity-50" />
-            Loading catalog...
-          </div>
+          <Frame className="w-full">
+            <FramePanel className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+              <RefreshIcon className="h-5 w-5 animate-spin text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">Loading catalog...</p>
+            </FramePanel>
+          </Frame>
         ) : filtered.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border py-16 text-center">
-            <StoreIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
-            <p className="text-sm font-medium">No apps match your search</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Try a different term or category.
-            </p>
-          </div>
+          <Frame className="w-full">
+            <FramePanel className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+              <StoreIcon className="h-6 w-6 text-muted-foreground/30" />
+              <p className="text-sm font-medium text-foreground">
+                No apps match your search
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Try a different term or category.
+              </p>
+              {(search || category !== "All") && (
+                <button
+                  onClick={() => {
+                    setSearch("")
+                    setCategory("All")
+                  }}
+                  className="mt-1 cursor-pointer text-xs text-primary underline-offset-2 hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
+            </FramePanel>
+          </Frame>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((tpl) => (
-              <Card
-                key={tpl.id}
-                className="group relative flex flex-col transition-colors hover:border-primary/30"
-              >
-                {/* Image size badge — top-right corner. Always rendered so
-                    the card height is stable; fades in once the backend
-                    background-fetch has populated the size. */}
-                <span
-                  className={`absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full border border-border bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm transition-opacity duration-500 ${
-                    tpl.imageSize ? "opacity-100" : "opacity-0 pointer-events-none"
-                  }`}
-                >
-                  <Docker className="h-2.5 w-2.5 opacity-60" />
-                  {tpl.imageSize ?? ""}
-                </span>
-                <CardContent className="flex flex-1 flex-col gap-3 p-4">
+              <Frame key={tpl.id}>
+                <FramePanel className="relative flex flex-1 flex-col gap-3">
+                  {/* Image size badge — top-right corner. Always rendered so
+                      the card height is stable; fades in once the backend
+                      background-fetch has populated the size. */}
+                  <span
+                    className={`absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full border border-border bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm transition-opacity duration-500 ${
+                      tpl.imageSize ? "opacity-100" : "opacity-0 pointer-events-none"
+                    }`}
+                  >
+                    <Docker className="h-2.5 w-2.5 opacity-60" />
+                    {tpl.imageSize ?? ""}
+                  </span>
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-white p-1.5">
                       <AppLogo
@@ -404,11 +427,9 @@ export default function CatalogPage() {
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate text-sm font-semibold text-foreground">
-                          {tpl.name}
-                        </h3>
-                      </div>
+                      <h3 className="truncate text-sm font-semibold text-foreground">
+                        {tpl.name}
+                      </h3>
                       <Badge variant="info" size="sm" className="mt-0.5">
                         {tpl.category}
                       </Badge>
@@ -438,8 +459,8 @@ export default function CatalogPage() {
                       </a>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </FramePanel>
+              </Frame>
             ))}
           </div>
         )}
