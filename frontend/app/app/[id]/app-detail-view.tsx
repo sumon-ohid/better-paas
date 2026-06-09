@@ -1245,50 +1245,79 @@ export function AppDetailView() {
 
           {/* ── Terminal ───────────────────────────────────────────────── */}
           <TabsPanel value="terminal">
-            <div className="animate-in fade-in-50 flex min-h-0 flex-1 flex-col p-4 duration-200 md:p-6">
-              <div className="flex shrink-0 items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <TerminalIcon className="h-3.5 w-3.5" />
-                  <span>Container Shell</span>
-                </div>
-                {app.status === "running" && (
-                  <button
-                    onClick={() => setTermReconnectToken((t) => t + 1)}
-                    className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <RefreshIcon className="h-3 w-3" />
-                    Reconnect
-                  </button>
-                )}
-              </div>
+            <div className="animate-in fade-in-50 flex h-full min-h-0 flex-1 flex-col p-4 duration-200 md:p-6">
+              <Frame className="h-full w-full">
+                <FramePanel className="shrink-0">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <FrameTitle>Container Shell</FrameTitle>
+                      <FrameDescription className="flex items-center gap-1.5">
+                        <span
+                          className={`inline-block h-1.5 w-1.5 rounded-full ${app.status === "running" ? "bg-success" : app.status === "stopped" ? "bg-muted-foreground/30" : "bg-warning animate-pulse"}`}
+                        />
+                        {app.status === "running"
+                          ? "Container is running — shell ready"
+                          : app.status === "stopped"
+                            ? "Container is stopped"
+                            : app.status === "building"
+                              ? "Build in progress…"
+                              : `Status: ${app.status}`}
+                      </FrameDescription>
+                    </div>
+                    {app.status === "running" && (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setTermReconnectToken((t) => t + 1)
+                          }
+                          className="h-7 gap-1.5 text-xs"
+                        >
+                          <RefreshIcon className="h-3.5 w-3.5" />
+                          Reconnect
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </FramePanel>
 
-              {app.status !== "running" ? (
-                <div className="mt-4 flex min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-border/80 bg-card text-muted-foreground/60 select-none">
-                  <TerminalIcon className="h-8 w-8 opacity-25" />
-                  <span className="text-sm">
-                    The container must be running to open a terminal.
-                  </span>
-                  {app.status === "stopped" && (
-                    <Button
-                      onClick={() => handleToggle("start")}
-                      disabled={isToggling}
-                      variant="outline"
-                      className="h-7 gap-1.5 border-emerald-500/30 text-xs text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
-                    >
-                      <PlayIcon className="h-3 w-3" />
-                      Start container
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-4 min-h-0 flex-1">
-                  <ContainerTerminal
-                    appId={appId}
-                    appName={app.name}
-                    reconnectToken={termReconnectToken}
-                  />
-                </div>
-              )}
+                {app.status !== "running" ? (
+                  <FramePanel className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                      <TerminalIcon className="h-5 w-5 opacity-50" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium text-foreground">
+                        Container not running
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        The shell needs a running container.
+                      </p>
+                    </div>
+                    {app.status === "stopped" && (
+                      <Button
+                        onClick={() => handleToggle("start")}
+                        disabled={isToggling}
+                        variant="outline"
+                        size="sm"
+                        className="mt-1 h-8 gap-1.5 border-emerald-500/30 text-xs text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
+                      >
+                        <PlayIcon className="h-3.5 w-3.5" />
+                        Start container
+                      </Button>
+                    )}
+                  </FramePanel>
+                ) : (
+                  <FramePanel className="relative flex min-h-0 flex-1 flex-col overflow-hidden !p-0">
+                    <ContainerTerminal
+                      appId={appId}
+                      appName={app.name}
+                      reconnectToken={termReconnectToken}
+                    />
+                  </FramePanel>
+                )}
+              </Frame>
             </div>
           </TabsPanel>
 
