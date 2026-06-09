@@ -57,3 +57,6 @@ export const ChevronRightIcon = (props: IconProps) => (
 export const CircleAlertIcon = (props: IconProps) => (
   <NucleoIcon {...props} name="circle-alert" />
 )
+export const SearchIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="search" />
+)

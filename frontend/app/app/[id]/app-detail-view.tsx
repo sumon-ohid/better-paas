@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,7 +17,7 @@ import {
   CardDescription,
   CardPanel,
 } from "@/components/ui/card"
-import { Frame, FrameFooter, FramePanel } from "@/components/ui/frame"
+import { Frame, FrameFooter, FramePanel, FrameTitle, FrameDescription } from "@/components/ui/frame"
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field"
 import {
   Table,
@@ -97,6 +97,7 @@ import {
   LoaderIcon,
   PlayIcon,
   RefreshIcon,
+  SearchIcon,
   SquareIcon,
   TerminalIcon,
   Trash2Icon,
@@ -226,6 +227,27 @@ export function AppDetailView() {
     redetectForRootDir,
     selectFolder,
   } = useAppDetail() as ViewContext
+
+  const [logQuery, setLogQuery] = useState("")
+  const [logCopied, setLogCopied] = useState(false)
+
+  const filteredLogs = logQuery.trim()
+    ? logs.filter((l) =>
+        l.message.toLowerCase().includes(logQuery.trim().toLowerCase()),
+      )
+    : logs
+
+  const handleCopyLogs = () => {
+    const text = logs
+      .map(
+        (l) =>
+          `[${new Date(l.timestamp).toLocaleTimeString()}] ${l.message}`,
+      )
+      .join("\n")
+    navigator.clipboard.writeText(text)
+    setLogCopied(true)
+    setTimeout(() => setLogCopied(false), 1500)
+  }
 
   // The deployment currently serving traffic: prefer the one that produced the
   // live image, otherwise fall back to the most recent successful build.
@@ -1052,88 +1074,172 @@ export function AppDetailView() {
 
           {/* ── Logs ───────────────────────────────────────────────────── */}
           <TabsPanel value="logs">
-            <div className="animate-in fade-in-50 flex min-h-0 flex-1 flex-col p-4 duration-200 md:p-6">
-              <div className="flex shrink-0 items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <TerminalIcon className="h-3.5 w-3.5" />
-                  <span>Runtime Logs</span>
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${logsConnected ? "animate-pulse bg-success" : "bg-muted-foreground/30"}`}
-                  />
-                  <span>{logsConnected ? "Live" : "Disconnected"}</span>
-                  {logs.length > 0 && (
-                    <span className="font-mono text-muted-foreground/50">
-                      · {logs.length} lines
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => connectLogs()}
-                    className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    Reconnect
-                  </button>
-                  {logs.length > 0 && (
-                    <button
-                      onClick={() => setLogs([])}
-                      className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/80 bg-transparent font-mono text-xs leading-relaxed">
-                <div className="flex shrink-0 items-center gap-2 px-4 py-2 select-none">
-                  {logsConnected && (
-                    <span className="ml-auto flex items-center gap-1.5 text-[10px] tracking-wider text-success uppercase">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
-                      Live
-                    </span>
-                  )}
-                </div>
-                <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-4">
-                  {logs.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 select-none dark:text-slate-500">
-                      <TerminalIcon
-                        className={`h-8 w-8 opacity-25 ${logsConnected ? "animate-pulse" : ""}`}
-                      />
-                      {logsConnected ? (
-                        <span>Connected — waiting for output…</span>
-                      ) : (
-                        <span className="flex items-center gap-2">
-                          <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
-                          Connecting to runtime log stream…
-                        </span>
+            <div className="animate-in fade-in-50 flex h-full min-h-0 flex-1 flex-col p-4 duration-200 md:p-6">
+              <Frame className="h-full w-full">
+                {/* Header */}
+                <FramePanel className="shrink-0">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <FrameTitle>Runtime Logs</FrameTitle>
+                      <FrameDescription className="flex items-center gap-1.5">
+                        <span
+                          className={`inline-block h-1.5 w-1.5 rounded-full ${logsConnected ? "bg-success" : "bg-muted-foreground/30"}`}
+                        />
+                        {logsConnected
+                          ? "Live stream connected"
+                          : "Disconnected"}
+                        {logs.length > 0 && (
+                          <span className="text-muted-foreground/60">
+                            · {logs.length.toLocaleString()} lines
+                          </span>
+                        )}
+                      </FrameDescription>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                      {logs.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCopyLogs}
+                          className="h-7 gap-1.5 text-xs"
+                        >
+                          {logCopied ? (
+                            <CheckIcon className="h-3.5 w-3.5 text-success" />
+                          ) : (
+                            <CopyIcon className="h-3.5 w-3.5" />
+                          )}
+                          {logCopied ? "Copied" : "Copy all"}
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => connectLogs()}
+                        className="h-7 gap-1.5 text-xs"
+                      >
+                        <RefreshIcon className="h-3.5 w-3.5" />
+                        Reconnect
+                      </Button>
+                      {logs.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setLogs([])
+                            setLogQuery("")
+                          }}
+                          className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <Trash2Icon className="h-3.5 w-3.5" />
+                          Clear
+                        </Button>
+                      )}
+                      {logs.length > 0 && (
+                        <div className="relative mt-2 w-full sm:mt-0 sm:w-44">
+                          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            value={logQuery}
+                            onChange={(e) => setLogQuery(e.target.value)}
+                            placeholder="Filter logs…"
+                            className="h-7 w-full pl-7 text-xs"
+                          />
+                        </div>
                       )}
                     </div>
-                  ) : (
-                    <>
-                      {logs.map((log, i) => (
-                        <div
-                          key={i}
-                          className="group -mx-1 flex gap-4 rounded px-1 hover:bg-foreground/2 dark:hover:bg-white/2"
-                        >
-                          <span className="w-10 shrink-0 text-right text-muted-foreground/40 transition-colors select-none group-hover:text-muted-foreground/60 dark:text-slate-600 dark:group-hover:text-slate-500">
-                            {i + 1}
+                  </div>
+                </FramePanel>
+
+                {/* Log viewport */}
+                <FramePanel className="relative flex min-h-0 flex-1 flex-col overflow-hidden !p-0">
+                  <div className="min-h-0 flex-1 overflow-y-auto p-4 font-mono text-xs leading-relaxed">
+                    {logs.length === 0 ? (
+                      <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 select-none">
+                        <TerminalIcon
+                          className={`h-8 w-8 opacity-25 ${logsConnected ? "animate-pulse" : ""}`}
+                        />
+                        {logsConnected ? (
+                          <span>Connected — waiting for output…</span>
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
+                            Connecting to runtime log stream…
                           </span>
-                          <span className="shrink-0 text-muted-foreground/40 select-none dark:text-slate-600">
-                            {new Date(log.timestamp).toLocaleTimeString()}
-                          </span>
-                          <span
-                            className={`${lineColor(log.message)} break-all`}
+                        )}
+                      </div>
+                    ) : filteredLogs.length === 0 ? (
+                      <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground/50 select-none">
+                        <SearchIcon className="h-6 w-6 opacity-25" />
+                        <span>
+                          No logs match &ldquo;{logQuery.trim()}&rdquo;
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        {filteredLogs.map((log, i) => {
+                          const lineNum =
+                            logQuery.trim()
+                              ? logs.indexOf(log) + 1
+                              : i + 1
+                          return (
+                            <div
+                              key={`${lineNum}-${log.timestamp}`}
+                              className="group -mx-1 flex gap-3 rounded px-1 transition-colors hover:bg-foreground/[0.03] dark:hover:bg-white/[0.03]"
+                            >
+                              <span className="w-8 shrink-0 select-none text-right text-[10px] leading-loose text-muted-foreground/30 transition-colors group-hover:text-muted-foreground/50">
+                                {lineNum}
+                              </span>
+                              <span className="mt-px shrink-0 select-none text-[10px] leading-loose text-muted-foreground/30 transition-colors group-hover:text-muted-foreground/50">
+                                {new Date(
+                                  log.timestamp,
+                                ).toLocaleTimeString(undefined, {
+                                  hour12: false,
+                                })}
+                              </span>
+                              <span
+                                className={`${lineColor(log.message)} break-all leading-loose`}
+                              >
+                                {log.message}
+                              </span>
+                            </div>
+                          )
+                        })}
+                        <div ref={logEndRef} />
+                      </>
+                    )}
+                  </div>
+                </FramePanel>
+
+                {/* Footer */}
+                {logs.length > 0 && (
+                  <FrameFooter className="shrink-0">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      {logsConnected && (
+                        <span className="flex items-center gap-1.5 text-success">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
+                          Live
+                        </span>
+                      )}
+                      <span>
+                        {filteredLogs.length.toLocaleString()}
+                        {logQuery.trim() &&
+                        filteredLogs.length !== logs.length
+                          ? ` of ${logs.length.toLocaleString()}`
+                          : ""}{" "}
+                        lines
+                      </span>
+                      {logQuery.trim() &&
+                        filteredLogs.length !== logs.length && (
+                          <button
+                            onClick={() => setLogQuery("")}
+                            className="cursor-pointer text-primary underline-offset-2 hover:underline"
                           >
-                            {log.message}
-                          </span>
-                        </div>
-                      ))}
-                      <div ref={logEndRef} />
-                    </>
-                  )}
-                </div>
-              </div>
+                            Clear filter
+                          </button>
+                        )}
+                    </div>
+                  </FrameFooter>
+                )}
+              </Frame>
             </div>
           </TabsPanel>
 
