@@ -1579,84 +1579,107 @@ export function AppDetailView() {
 
           {/* ── Vulnerabilities ─────────────────────────────────────────── */}
           <TabsPanel value="vulnerabilities">
-            <div className="animate-in fade-in-50 h-full space-y-6 overflow-y-auto p-4 duration-200 md:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-sm font-bold text-foreground">
-                    Security Vulnerabilities
-                  </h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Scan and update package dependencies for your application.
-                  </p>
-                </div>
-                <Button
-                  onClick={scanVulnerabilities}
-                  disabled={loadingVul}
-                  variant="outline"
-                  className="h-8 gap-1.5 text-xs"
-                >
-                  <RefreshIcon
-                    className={`h-3 w-3 ${loadingVul ? "animate-spin" : ""}`}
-                  />
-                  {loadingVul ? "Scanning..." : "Rescan"}
-                </Button>
-              </div>
-
-              {loadingVul ? (
-                <div className="flex flex-col items-center justify-center space-y-3 py-12">
-                  <LoaderIcon className="h-6 w-6 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">
-                    Running package audit scan...
-                  </span>
-                </div>
-              ) : !vulScanRun ? (
-                <div className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
-                  <CircleAlertIcon className="mx-auto mb-3 h-6 w-6 opacity-20" />
-                  Click scan or wait for results to load.
-                </div>
-              ) : vulnerabilities.length === 0 ? (
-                <Card className="relative overflow-hidden bg-card/72 p-8 text-center backdrop-blur-xl md:p-10">
-                  <div className="relative mx-auto flex max-w-xl flex-col items-center">
-                    <IconShield className="h-20 w-20" />
-                    <h3 className="mt-4 text-xl font-semibold tracking-tight text-foreground">
-                      No package vulnerabilities found
-                    </h3>
-                    <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                      {packageManager
-                        ? `The ${packageManager} audit found no vulnerable advisories for this deployment.`
-                        : "Package vulnerability scanning is not applicable for this deployment."}
-                    </p>
-                  </div>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-                  {/* Vulnerabilities List */}
-                  <div className="space-y-4">
-                    <Card className="flex h-full flex-col border-border bg-card/72 p-5 backdrop-blur-xl">
-                      <div className="mb-4 flex items-center justify-between border-b border-border/40 pb-4">
-                        <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          Detected Advisories ({vulnerabilities.length})
-                        </span>
-                        <Button
-                          onClick={() => fixVulnerability("")}
-                          disabled={fixingVul || app.status === "building"}
-                          variant="outline"
-                          size="sm"
-                          className="h-7 gap-1 border-amber-500/20 px-2.5 text-xs text-amber-500 hover:bg-amber-500/10"
-                        >
-                          <RefreshIcon className="h-3 w-3" />
-                          Update All
-                        </Button>
+            <div className="animate-in fade-in-50 h-full overflow-y-auto p-4 duration-200 md:p-6">
+              <div className="mx-auto max-w-4xl space-y-4">
+                <Frame className="w-full">
+                  {/* Header */}
+                  <FramePanel className="shrink-0">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <FrameTitle>Security Vulnerabilities</FrameTitle>
+                        <FrameDescription>
+                          {vulScanRun
+                            ? vulnerabilities.length === 0
+                              ? "No vulnerabilities detected."
+                              : `${vulnerabilities.length} advisories found`
+                            : "Scan package dependencies for security issues."}
+                        </FrameDescription>
                       </div>
+                      <Button
+                        onClick={scanVulnerabilities}
+                        disabled={loadingVul}
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs"
+                      >
+                        <RefreshIcon
+                          className={`h-3.5 w-3.5 ${loadingVul ? "animate-spin" : ""}`}
+                        />
+                        {loadingVul ? "Scanning..." : "Rescan"}
+                      </Button>
+                    </div>
 
-                      <div className="max-h-[50vh] divide-y divide-border/40 overflow-y-auto pr-1">
-                        {vulnerabilities.map((vul, idx) => (
-                          <div
-                            key={idx}
-                            className="flex flex-col justify-between gap-4 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start"
-                          >
-                            <div className="min-w-0 space-y-2">
-                              <div className="flex flex-wrap items-center gap-2">
+                    {vulScanRun && vulnerabilities.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {(
+                          [
+                            ["critical", "error"],
+                            ["high", "error"],
+                            ["moderate", "warning"],
+                            ["low", "secondary"],
+                          ] as const
+                        ).map(([sev, variant]) => {
+                          const count = vulnerabilities.filter(
+                            (v) => v.severity === sev,
+                          ).length
+                          if (!count) return null
+                          return (
+                            <Badge key={sev} variant={variant} size="sm">
+                              {count} {sev}
+                            </Badge>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </FramePanel>
+
+                  {loadingVul ? (
+                    <FramePanel className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+                      <RefreshIcon className="h-5 w-5 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">
+                        Running package audit scan...
+                      </p>
+                    </FramePanel>
+                  ) : !vulScanRun ? (
+                    <FramePanel className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+                      <CircleAlertIcon className="h-6 w-6 text-muted-foreground/30" />
+                      <p className="text-sm text-muted-foreground">
+                        Click scan to check for vulnerabilities.
+                      </p>
+                    </FramePanel>
+                  ) : vulnerabilities.length === 0 ? (
+                    <FramePanel className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
+                        <IconShield className="h-7 w-7" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium text-foreground">
+                          No vulnerabilities found
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {packageManager
+                            ? `The ${packageManager} audit passed cleanly.`
+                            : "Package scanning is not applicable for this deployment."}
+                        </p>
+                      </div>
+                    </FramePanel>
+                  ) : (
+                    <>
+                      <Table variant="card">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[12%]">Severity</TableHead>
+                            <TableHead className="w-[22%]">Package</TableHead>
+                            <TableHead>Vulnerability</TableHead>
+                            <TableHead className="w-[12%] text-right">
+                              Action
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {vulnerabilities.map((vul, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell>
                                 <Badge
                                   variant={
                                     vul.severity === "critical" ||
@@ -1671,114 +1694,146 @@ export function AppDetailView() {
                                 >
                                   {vul.severity}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
                                 <span className="font-mono text-sm font-semibold text-foreground">
                                   {vul.package}
                                 </span>
                                 {vul.range && (
-                                  <span className="font-mono text-xs text-muted-foreground">
-                                    ({vul.range})
+                                  <span className="ml-1 block font-mono text-[10px] text-muted-foreground">
+                                    {vul.range}
                                   </span>
                                 )}
-                              </div>
-                              <h4 className="text-sm leading-relaxed font-medium text-foreground">
-                                {vul.title}
-                              </h4>
-                              {vul.url && (
-                                <a
-                                  href={vul.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                                >
-                                  More details
-                                  <ExternalIcon className="h-3 w-3" />
-                                </a>
-                              )}
-                            </div>
-                            <Button
-                              onClick={() => {
-                                setFixPackage(vul.package)
-                                void fixVulnerability(vul.package)
-                              }}
-                              variant="outline"
-                              size="sm"
-                              className="h-7 self-start border-border text-xs hover:bg-muted/50 sm:self-center"
-                            >
-                              Update
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  </div>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm leading-relaxed text-foreground">
+                                  {vul.title}
+                                </p>
+                                {vul.url && (
+                                  <a
+                                    href={vul.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-0.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                  >
+                                    <ExternalIcon className="h-3 w-3" />
+                                    More details
+                                  </a>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex justify-end">
+                                  <Button
+                                    onClick={() => {
+                                      setFixPackage(vul.package)
+                                      void fixVulnerability(vul.package)
+                                    }}
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={
+                                      fixingVul || app.status === "building"
+                                    }
+                                    className="h-7 text-xs"
+                                  >
+                                    Update
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
 
-                  {/* Manual Fix Panel */}
-                  <div className="space-y-4">
-                    <Card className="border-border bg-card/72 p-5 backdrop-blur-xl">
-                      <h3 className="mb-4 text-sm font-bold text-foreground">
-                        Manual Package Update
-                      </h3>
-                      <div className="space-y-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-muted-foreground uppercase">
-                            Package Name
-                          </Label>
-                          <Input
-                            value={fixPackage}
-                            onChange={(e) => setFixPackage(e.target.value)}
-                            placeholder="e.g., lodash (leave blank for general audit fix)"
-                            className="h-9 text-sm"
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-muted-foreground uppercase">
-                            Update Option
-                          </Label>
-                          <Select
-                            value={fixOption}
-                            onValueChange={(val) =>
-                              setFixOption(val as "git" | "local")
+                      <FrameFooter className="shrink-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {vulnerabilities.length} advisory
+                            {vulnerabilities.length !== 1 ? "ies" : "y"}{" "}
+                            detected
+                          </span>
+                          <Button
+                            onClick={() => fixVulnerability("")}
+                            disabled={
+                              fixingVul || app.status === "building"
                             }
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1.5 border-amber-500/20 text-xs text-amber-500 hover:bg-amber-500/10"
                           >
-                            <SelectTrigger className="h-9 w-full text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectPopup>
-                              <SelectItem value="local">
-                                Option 2: Keep update locally and redeploy
-                              </SelectItem>
-                              <SelectItem value="git">
-                                Option 1: Push update to Git and redeploy
-                              </SelectItem>
-                            </SelectPopup>
-                          </Select>
-                          <p className="text-[10px] text-muted-foreground">
-                            {fixOption === "git"
-                              ? "Updates files, commits, and pushes back to your repository branch before triggering a deployment."
-                              : "Updates packages directly in the server's build directory and deploys. The Git remote is not modified."}
-                          </p>
+                            <RefreshIcon className="h-3.5 w-3.5" />
+                            Update All
+                          </Button>
                         </div>
+                      </FrameFooter>
+                    </>
+                  )}
+                </Frame>
 
-                        <Button
-                          onClick={() => fixVulnerability()}
-                          disabled={fixingVul || app.status === "building"}
-                          className="h-9 w-full text-xs"
+                {/* Manual fix panel — only when vulnerabilities were found */}
+                {vulScanRun && vulnerabilities.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Manual Package Update</CardTitle>
+                      <CardDescription>
+                        Update a specific package or run a general audit fix.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardPanel className="space-y-4">
+                      <Field>
+                        <FieldLabel>Package Name</FieldLabel>
+                        <Input
+                          value={fixPackage}
+                          onChange={(e) => setFixPackage(e.target.value)}
+                          placeholder="e.g., lodash (leave blank for general audit fix)"
+                          className="h-9 text-sm"
+                        />
+                      </Field>
+
+                      <Field>
+                        <FieldLabel>Update Option</FieldLabel>
+                        <Select
+                          value={fixOption}
+                          onValueChange={(val) =>
+                            setFixOption(val as "git" | "local")
+                          }
                         >
-                          {fixingVul ? (
-                            <>
-                              <LoaderIcon className="mr-2 h-3 w-3 animate-spin" />
-                              Updating...
-                            </>
-                          ) : (
-                            "Update and Redeploy"
-                          )}
-                        </Button>
-                      </div>
-                    </Card>
-                  </div>
-                </div>
-              )}
+                          <SelectTrigger className="h-9 w-full text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectPopup>
+                            <SelectItem value="local">
+                              Keep locally and redeploy
+                            </SelectItem>
+                            <SelectItem value="git">
+                              Push update to Git and redeploy
+                            </SelectItem>
+                          </SelectPopup>
+                        </Select>
+                        <FieldDescription>
+                          {fixOption === "git"
+                            ? "Commits and pushes back to your repository branch before triggering a deployment."
+                            : "Updates packages directly in the server's build directory. The Git remote is not modified."}
+                        </FieldDescription>
+                      </Field>
+
+                      <Button
+                        onClick={() => fixVulnerability()}
+                        disabled={fixingVul || app.status === "building"}
+                        className="h-9 w-full text-xs"
+                      >
+                        {fixingVul ? (
+                          <>
+                            <LoaderIcon className="mr-2 h-3.5 w-3.5 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          "Update and Redeploy"
+                        )}
+                      </Button>
+                    </CardPanel>
+                  </Card>
+                )}
+              </div>
             </div>
           </TabsPanel>
         </div>
