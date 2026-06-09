@@ -2,12 +2,12 @@
 
 import React, { useEffect, useState, useCallback } from "react"
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card"
+  Frame,
+  FramePanel,
+  FrameTitle,
+  FrameDescription,
+  FrameFooter,
+} from "@/components/ui/frame"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -72,25 +72,34 @@ const ExploreIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
 // Per-type metadata so the UI can explain exactly what each database gives an app.
 const TYPE_META: Record<
   string,
-  { label: string; short: string; primaryVar: string; blurb: string }
+  {
+    label: string
+    short: string
+    primaryVar: string
+    blurb: string
+    accent: string
+  }
 > = {
   postgres: {
     label: "PostgreSQL 16",
     short: "Postgres",
     primaryVar: "DATABASE_URL",
     blurb: "Your app reads DATABASE_URL (plus PGHOST, PGUSER, PGPASSWORD…).",
+    accent: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
   },
   mysql: {
     label: "MySQL 8",
     short: "MySQL",
     primaryVar: "DATABASE_URL",
     blurb: "Your app reads DATABASE_URL (plus MYSQL_HOST, MYSQL_USER…).",
+    accent: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   },
   redis: {
     label: "Redis 7",
     short: "Redis",
     primaryVar: "REDIS_URL",
     blurb: "Your app reads REDIS_URL (plus REDIS_HOST, REDIS_PASSWORD…).",
+    accent: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
   },
 }
 
@@ -101,7 +110,13 @@ const ADDON_TYPES = Object.entries(TYPE_META).map(([id, m]) => ({
 
 function typeMeta(type: string) {
   return (
-    TYPE_META[type] ?? { label: type, short: type, primaryVar: "", blurb: "" }
+    TYPE_META[type] ?? {
+      label: type,
+      short: type,
+      primaryVar: "",
+      blurb: "",
+      accent: "bg-muted/50 text-muted-foreground",
+    }
   )
 }
 
@@ -366,7 +381,7 @@ export default function AddonsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl space-y-6 p-3 md:p-6">
+      <div className="animate-in fade-in-50 mx-auto max-w-6xl space-y-6 p-4 duration-200 md:p-6">
         {/* Header */}
         <div className="space-y-1">
           <h2 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
@@ -383,130 +398,148 @@ export default function AddonsPage() {
           {/* Main column */}
           <div className="min-w-0 space-y-6">
             {/* Create */}
-            <Card>
-              <CardHeader className="border-b border-border/40 max-sm:p-4">
-                <CardTitle className="text-base">Create a database</CardTitle>
-                <CardDescription>{typeMeta(type).blurb}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-wrap items-end gap-3 pt-4 max-sm:px-4 max-sm:pb-4">
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">
-                    Type
-                  </Label>
-                  <Select value={type} onValueChange={(v) => v && setType(v)}>
-                    <SelectTrigger className="w-44">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectPopup alignItemWithTrigger={false}>
-                      {ADDON_TYPES.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.label}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">
-                    Target Server
-                  </Label>
-                  <Select
-                    value={targetServer}
-                    onValueChange={(v) => v && setTargetServer(v)}
-                    disabled={activeServerId !== "all"}
-                  >
-                    <SelectTrigger className="w-44">
-                      <span className="truncate">{targetServerLabel}</span>
-                    </SelectTrigger>
-                    <SelectPopup alignItemWithTrigger={false}>
-                      <SelectItem value="localhost">Localhost</SelectItem>
-                      {servers
-                        .filter((s) => s.id !== "localhost")
-                        .map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}
+            <Frame className="w-full">
+              <FramePanel>
+                <FrameTitle>Create a database</FrameTitle>
+                <FrameDescription className="text-xs sm:text-sm">
+                  {typeMeta(type).blurb}
+                </FrameDescription>
+                <div className="mt-4 flex flex-wrap items-end gap-3">
+                  <div className="flex flex-col gap-1.5 max-sm:w-full">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Type
+                    </Label>
+                    <Select value={type} onValueChange={(v) => v && setType(v)}>
+                      <SelectTrigger className="w-44 max-sm:w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectPopup alignItemWithTrigger={false}>
+                        {ADDON_TYPES.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.label}
                           </SelectItem>
                         ))}
-                    </SelectPopup>
-                  </Select>
-                </div>
-                <div className="flex min-w-[180px] flex-1 flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">
-                    Name
-                  </Label>
-                  <Input
-                    value={name}
-                    onChange={(e) =>
-                      setName(
-                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")
-                      )
-                    }
-                    placeholder="my-database"
-                    className="h-9 text-sm sm:h-8"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
+                      </SelectPopup>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5 max-sm:w-full">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Target Server
+                    </Label>
+                    <Select
+                      value={targetServer}
+                      onValueChange={(v) => v && setTargetServer(v)}
+                      disabled={activeServerId !== "all"}
+                    >
+                      <SelectTrigger className="w-44 max-sm:w-full">
+                        <span className="truncate">{targetServerLabel}</span>
+                      </SelectTrigger>
+                      <SelectPopup alignItemWithTrigger={false}>
+                        <SelectItem value="localhost">Localhost</SelectItem>
+                        {servers
+                          .filter((s) => s.id !== "localhost")
+                          .map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
+                      </SelectPopup>
+                    </Select>
+                  </div>
+                  <div className="flex min-w-[180px] flex-1 flex-col gap-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Name
+                    </Label>
+                    <Input
+                      value={name}
+                      onChange={(e) =>
+                        setName(
+                          e.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-]/g, "")
+                        )
+                      }
+                      placeholder="my-database"
+                      className="h-9 text-sm sm:h-8"
+                    />
+                  </div>
                   <Button
                     onClick={handleCreate}
                     loading={creating}
-                    className="gap-1.5"
+                    className="gap-1.5 max-sm:w-full"
                   >
                     <PlusIcon className="h-3.5 w-3.5" />
                     Create
                   </Button>
                 </div>
-                <p className="mt-1.5 w-full text-xs text-muted-foreground">
-                  Databases are created on the selected server and can attach to
-                  apps on the same server.
-                </p>
-              </CardContent>
-            </Card>
+              </FramePanel>
+              <FrameFooter>
+                <div className="flex gap-1.5 text-xs text-muted-foreground">
+                  <InfoIcon className="mt-0.5 size-3 shrink-0" />
+                  <p>
+                    Databases are created on the selected server and can attach
+                    to apps on the same server.
+                  </p>
+                </div>
+              </FrameFooter>
+            </Frame>
 
             {/* List */}
-            <Card>
-              <CardHeader className="border-b border-border/40 max-sm:p-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  Your databases
-                  <button
+            <Frame className="w-full">
+              <FramePanel className="shrink-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <FrameTitle>Your databases</FrameTitle>
+                    <FrameDescription className="text-xs sm:text-sm">
+                      {loading
+                        ? "Loading databases…"
+                        : filteredAddons.length === 0
+                          ? "No databases provisioned yet."
+                          : `${filteredAddons.length} database${filteredAddons.length !== 1 ? "s" : ""} provisioned`}
+                    </FrameDescription>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={load}
-                    className="text-muted-foreground hover:text-foreground"
-                    aria-label="Refresh"
+                    className="h-7 shrink-0 gap-1.5 text-xs"
                   >
                     <RefreshIcon
                       className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
                     />
-                  </button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 max-sm:px-3 max-sm:pb-3">
-                {filteredAddons.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border py-10 text-center">
-                    <DatabaseIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
-                    <p className="text-sm font-medium">No databases yet</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Create one above, then attach it to an app to start using
-                      it.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredAddons.map((addon) => {
-                      const meta = typeMeta(addon.type)
-                      const sb = statusBadge(addon.status)
-                      const attached = attachedAppsFor(addon)
-                      const envEntries = Object.entries(addon.connEnv || {})
-                      const composeBacked = isComposeBackedAddon(addon)
-                      return (
-                        <div
-                          key={addon.id}
-                          className="space-y-3 rounded-lg border border-border bg-card/40 p-3.5 max-sm:p-3"
-                        >
-                          {/* Top row */}
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="flex min-w-0 items-center gap-2.5">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50">
-                                <DatabaseIcon className="h-4 w-4 text-muted-foreground" />
-                              </div>
+                    <span className="hidden sm:inline">Refresh</span>
+                  </Button>
+                </div>
+              </FramePanel>
+
+              {filteredAddons.length === 0 ? (
+                <FramePanel className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+                  <DatabaseIcon className="h-6 w-6 text-muted-foreground/30" />
+                  <p className="text-sm font-medium text-foreground">
+                    No databases yet
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Create one above, then attach it to an app to start using
+                    it.
+                  </p>
+                </FramePanel>
+              ) : (
+                filteredAddons.map((addon) => {
+                  const meta = typeMeta(addon.type)
+                  const sb = statusBadge(addon.status)
+                  const attached = attachedAppsFor(addon)
+                  const envEntries = Object.entries(addon.connEnv || {})
+                  const composeBacked = isComposeBackedAddon(addon)
+                  return (
+                    <FramePanel key={addon.id} className="space-y-3">
+                      {/* Top row */}
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <div
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${meta.accent}`}
+                          >
+                            <DatabaseIcon className="h-4 w-4" />
+                          </div>
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className="truncate text-sm font-semibold text-foreground">
@@ -654,21 +687,19 @@ export default function AddonsPage() {
                               </CollapsibleContent>
                             </Collapsible>
                           )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    </FramePanel>
+                  )
+                })
+              )}
+            </Frame>
           </div>
 
           {/* Right rail: informative, secondary reference content. Stacks below
               the main column on small screens, so nothing important is hidden. */}
-          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-            {/* How it works */}
-            <Card className="border-primary/20 bg-primary/3">
-              <CardContent className="p-4">
+          <aside className="lg:sticky lg:top-6 lg:self-start">
+            <Frame className="w-full">
+              {/* How it works */}
+              <FramePanel>
                 <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
                   <InfoIcon className="h-4 w-4 text-primary" />
                   How it works
@@ -706,12 +737,10 @@ export default function AddonsPage() {
                     </li>
                   ))}
                 </ol>
-              </CardContent>
-            </Card>
+              </FramePanel>
 
-            {/* Good to know */}
-            <Card>
-              <CardContent className="space-y-2.5 p-4 text-[11px] leading-snug text-muted-foreground">
+              {/* Good to know */}
+              <FramePanel className="space-y-2.5 text-[11px] leading-snug text-muted-foreground">
                 <p className="text-sm font-semibold text-foreground">
                   Good to know
                 </p>
@@ -727,8 +756,8 @@ export default function AddonsPage() {
                   One database can be attached to multiple apps. They&apos;ll
                   all share the same connection.
                 </p>
-              </CardContent>
-            </Card>
+              </FramePanel>
+            </Frame>
           </aside>
         </div>
       </div>
