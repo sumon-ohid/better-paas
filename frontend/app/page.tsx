@@ -328,9 +328,8 @@ const appColumns: ColumnDef<App>[] = [
       const app = row.original
       const router = useRouter()
       return (
-        <div className="flex items-center gap-2.5">
-          <StatusDot status={app.status} />
-          <span className="font-semibold text-base text-foreground">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="font-semibold text-sm text-foreground truncate">
             {app.name}
           </span>
           {app.vulnerabilitiesCount ? (
