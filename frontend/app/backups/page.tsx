@@ -1,7 +1,13 @@
 "use client"
 
 import React, { useEffect, useState, useCallback } from "react"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import {
+  Frame,
+  FramePanel,
+  FrameTitle,
+  FrameDescription,
+  FrameFooter,
+} from "@/components/ui/frame"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -182,7 +188,7 @@ export default function BackupsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
+      <div className="animate-in fade-in-50 mx-auto max-w-6xl space-y-6 p-4 duration-200 md:p-6">
         <div className="space-y-1">
           <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Backups</h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
@@ -203,19 +209,32 @@ export default function BackupsPage() {
           {/* Main column */}
           <div className="min-w-0 space-y-6">
             {/* Snapshots */}
-            <Card>
-              <CardHeader className="flex-row items-center justify-between border-b border-border/40">
-                <div>
-                  <CardTitle className="text-base">Snapshots</CardTitle>
-                  <CardDescription>The {cfg.retention} most recent backups are kept.</CardDescription>
+            <Frame className="w-full">
+              <FramePanel className="shrink-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <FrameTitle>Snapshots</FrameTitle>
+                    <FrameDescription className="text-xs sm:text-sm">
+                      {backups.length === 0
+                        ? "No backups recorded yet."
+                        : `${backups.length} snapshot${backups.length !== 1 ? "s" : ""} stored · keeping the latest ${cfg.retention}`}
+                    </FrameDescription>
+                  </div>
+                  <Button
+                    onClick={handleCreate}
+                    loading={creating}
+                    size="sm"
+                    className="h-7 shrink-0 gap-1.5 text-xs"
+                  >
+                    <PlusIcon className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Create backup</span>
+                    <span className="sm:hidden">Create</span>
+                  </Button>
                 </div>
-                <Button onClick={handleCreate} loading={creating} className="gap-1.5">
-                  <PlusIcon className="h-3.5 w-3.5" />
-                  Create backup
-                </Button>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 p-3">
+              </FramePanel>
+
+              <FramePanel>
+                <label className="flex cursor-pointer items-center justify-between gap-3">
                   <span className="space-y-0.5">
                     <span className="block text-sm font-medium">Include database contents</span>
                     <span className="block text-xs text-muted-foreground">
@@ -228,46 +247,68 @@ export default function BackupsPage() {
                     onCheckedChange={(v) => set("includeDatabases", v === true)}
                   />
                 </label>
-                {backups.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
-                    No backups yet.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
+              </FramePanel>
+
+              {backups.length === 0 ? (
+                <FramePanel className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+                  <CloudIcon className="h-6 w-6 text-muted-foreground/30" />
+                  <p className="text-sm font-medium text-foreground">No backups yet</p>
+                  <p className="text-xs text-muted-foreground">
+                    Create one above — it only takes a moment.
+                  </p>
+                </FramePanel>
+              ) : (
+                <FramePanel className="!p-0">
+                  <div className="divide-y divide-border/50">
                     {backups.map((b) => (
-                      <div key={b.name} className="flex items-center justify-between rounded-lg border border-border bg-card/40 p-3">
+                      <div
+                        key={b.name}
+                        className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
                         <div className="min-w-0">
                           <p className="truncate font-mono text-sm text-foreground">{b.name}</p>
-                          <p className="text-[11px] text-muted-foreground">
+                          <p className="text-[11px] text-muted-foreground tabular-nums">
                             {formatSize(b.sizeBytes)} · {new Date(b.createdAt).toLocaleString()}
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <Button variant="outline" onClick={() => handleDownload(b.name)} className="h-8 gap-1.5">
+                          <Button
+                            variant="outline"
+                            onClick={() => handleDownload(b.name)}
+                            className="h-8 gap-1.5 max-sm:flex-1"
+                          >
                             <DownloadIcon className="h-3.5 w-3.5" />
                             Download
                           </Button>
-                          <Button variant="destructive-outline" onClick={() => setDeleteTarget(b.name)} className="h-8 w-8 p-0">
+                          <Button
+                            variant="destructive-outline"
+                            onClick={() => setDeleteTarget(b.name)}
+                            className="h-8 w-8 p-0"
+                            aria-label="Delete backup"
+                          >
                             <TrashIcon className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </FramePanel>
+              )}
+            </Frame>
 
-            {/* Automatic backups */}
-            <Card>
-              <CardHeader className="border-b border-border/40">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ClockIcon className="h-4 w-4 text-muted-foreground" />
-                  Automatic backups
-                </CardTitle>
-                <CardDescription>Take a snapshot on a schedule, without you having to remember.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-4">
+            {/* Backup settings: schedule + offsite storage, saved together */}
+            <Frame className="w-full">
+              {/* Automatic backups */}
+              <FramePanel className="space-y-4">
+                <div>
+                  <FrameTitle className="flex items-center gap-2">
+                    <ClockIcon className="h-4 w-4 text-muted-foreground" />
+                    Automatic backups
+                  </FrameTitle>
+                  <FrameDescription className="text-xs sm:text-sm">
+                    Take a snapshot on a schedule, without you having to remember.
+                  </FrameDescription>
+                </div>
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 p-3">
                   <span className="space-y-0.5">
                     <span className="block text-sm font-medium">Run backups automatically</span>
@@ -301,27 +342,25 @@ export default function BackupsPage() {
                     />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </FramePanel>
 
-            {/* Offsite storage (S3/R2) */}
-            <Card>
-              <CardHeader className="border-b border-border/40">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <CloudIcon className="h-4 w-4 text-muted-foreground" />
-                  Offsite storage
-                  {cfg.s3SecretKeySet && (
-                    <Badge variant="success" size="sm" className="ml-1 gap-1">
-                      <CheckIcon className="h-3 w-3" />
-                      Configured
-                    </Badge>
-                  )}
-                </CardTitle>
-                <CardDescription>
-                  Upload each backup to an S3-compatible bucket (AWS S3, Cloudflare R2, MinIO).
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-4">
+              {/* Offsite storage (S3/R2) */}
+              <FramePanel className="space-y-4">
+                <div>
+                  <FrameTitle className="flex flex-wrap items-center gap-2">
+                    <CloudIcon className="h-4 w-4 text-muted-foreground" />
+                    Offsite storage
+                    {cfg.s3SecretKeySet && (
+                      <Badge variant="success" size="sm" className="ml-1 gap-1">
+                        <CheckIcon className="h-3 w-3" />
+                        Configured
+                      </Badge>
+                    )}
+                  </FrameTitle>
+                  <FrameDescription className="text-xs sm:text-sm">
+                    Upload each backup to an S3-compatible bucket (AWS S3, Cloudflare R2, MinIO).
+                  </FrameDescription>
+                </div>
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 p-3">
                   <span className="space-y-0.5">
                     <span className="block text-sm font-medium">Upload backups offsite</span>
@@ -419,20 +458,25 @@ export default function BackupsPage() {
                     Test connection
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </FramePanel>
 
-            <div className="flex justify-end">
-              <Button onClick={handleSaveConfig} loading={savingCfg} className="gap-1.5">
-                Save settings
-              </Button>
-            </div>
+              <FrameFooter>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    Applies to scheduled and manual backups.
+                  </p>
+                  <Button onClick={handleSaveConfig} loading={savingCfg} size="sm">
+                    Save settings
+                  </Button>
+                </div>
+              </FrameFooter>
+            </Frame>
           </div>
 
           {/* Right rail */}
-          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-            <Card className="border-primary/20 bg-primary/3">
-              <CardContent className="space-y-2.5 p-4 text-[11px] leading-snug text-muted-foreground">
+          <aside className="lg:sticky lg:top-6 lg:self-start">
+            <Frame className="w-full">
+              <FramePanel className="space-y-2.5 text-[11px] leading-snug text-muted-foreground">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <InfoIcon className="h-4 w-4 text-primary" />
                   About backups
@@ -441,11 +485,9 @@ export default function BackupsPage() {
                 <p>With &ldquo;include database contents&rdquo; on, managed databases are also dumped (Postgres/MySQL via logical dump, Redis as an RDB snapshot) under <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">databases/</code>.</p>
                 <p>Local snapshots are pruned to the &ldquo;keep latest&rdquo; count. Offsite uploads are not pruned automatically.</p>
                 <p>Restoring is manual: stop the server, unpack the archive into <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">data/</code>, and restart.</p>
-              </CardContent>
-            </Card>
+              </FramePanel>
 
-            <Card>
-              <CardContent className="p-4">
+              <FramePanel>
                 <p className="mb-2 text-sm font-semibold">Cloudflare R2</p>
                 <p className="text-[11px] leading-snug text-muted-foreground">
                   Set the endpoint to{" "}
@@ -455,11 +497,9 @@ export default function BackupsPage() {
                   and region to <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">auto</code>.
                   Use an R2 API token&apos;s Access Key ID and Secret.
                 </p>
-              </CardContent>
-            </Card>
+              </FramePanel>
 
-            <Card>
-              <CardContent className="p-4">
+              <FramePanel>
                 <p className="mb-2 text-sm font-semibold">AWS S3</p>
                 <p className="text-[11px] leading-snug text-muted-foreground">
                   Leave the endpoint blank and set the region (e.g.{" "}
@@ -467,8 +507,8 @@ export default function BackupsPage() {
                   IAM user needs <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">s3:PutObject</code>{" "}
                   and <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">s3:ListBucket</code>.
                 </p>
-              </CardContent>
-            </Card>
+              </FramePanel>
+            </Frame>
           </aside>
         </div>
       </div>
