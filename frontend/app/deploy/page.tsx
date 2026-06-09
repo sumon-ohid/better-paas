@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { AnimatePresence, motion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -63,12 +64,52 @@ const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" 
 const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
 
+// Smoothly animates its own height whenever the content inside grows or
+// shrinks (step changes, expanding sections, added env vars, etc.).
+function AnimatedHeight({ children }: { children: React.ReactNode }) {
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState<number | "auto">("auto")
+
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    const observer = new ResizeObserver(() => {
+      setHeight(el.offsetHeight)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <motion.div
+      animate={{ height }}
+      transition={{ duration: 0.35, ease: [0.25, 1, 0.3, 1] }}
+      // `relative` anchors popLayout's absolutely-positioned exiting steps so
+      // they stay inside (and get clipped by) this wrapper instead of escaping
+      // to the page-level positioned ancestor.
+      className="relative overflow-hidden"
+    >
+      <div ref={contentRef} className="relative">{children}</div>
+    </motion.div>
+  )
+}
+
+// Directional slide for wizard steps: forward slides in from the right,
+// back slides in from the left.
+const stepVariants = {
+  enter: (direction: number) => ({ x: direction * 48, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (direction: number) => ({ x: direction * -48, opacity: 0 }),
+}
+
 export default function DeployPage() {
   const router = useRouter()
   const { activeServerId } = useActiveServer()
 
   // ── Wizard step ────────────────────────────────────────────────────────────
   const [step, setStep] = useState(1)
+  // 1 = navigating forward, -1 = navigating back (drives the slide direction)
+  const [stepDirection, setStepDirection] = useState(1)
 
   // ── GitHub connection ──────────────────────────────────────────────────────
   const [gitHubConnected, setGitHubConnected] = useState(false)
@@ -519,17 +560,20 @@ export default function DeployPage() {
       return
     }
     setErrorMsg("")
+    setStepDirection(1)
     setStep((prev) => Math.min(prev + 1, 3))
   }
 
   const handleBack = () => {
     setErrorMsg("")
+    setStepDirection(-1)
     setStep((prev) => Math.max(prev - 1, 1))
   }
 
   const handleDeploy = async () => {
     if (!deployName || !selectedRepo) {
       setErrorMsg("Validation failed. Please verify Step 1 fields.")
+      setStepDirection(-1)
       setStep(1)
       return
     }
@@ -635,6 +679,7 @@ export default function DeployPage() {
           </CardHeader>
 
           <CardContent className="pt-4 min-h-[320px]">
+            <AnimatedHeight>
             {errorMsg && (
               <Alert variant="error" className="mb-4">
                 <NucleoIcon name="triangle-alert" />
@@ -642,9 +687,20 @@ export default function DeployPage() {
               </Alert>
             )}
 
+            <AnimatePresence mode="popLayout" custom={stepDirection} initial={false}>
+            <motion.div
+              key={step}
+              custom={stepDirection}
+              variants={stepVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="w-full"
+            >
             {/* ── STEP 1: Repository Selection ─────────────────────────────── */}
             {step === 1 && (
-              <div className="space-y-5 animate-in fade-in-50 duration-200 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
+              <div className="space-y-5 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
                 {/* When no repo selected and not connected: show CTA */}
                 {!gitHubConnected && !selectedRepo && (
                   <div className="py-8 space-y-4 text-center">
@@ -929,7 +985,7 @@ export default function DeployPage() {
 
             {/* ── STEP 2: Build Config ─────────────────────────────────────── */}
             {step === 2 && (
-              <div className="space-y-4 animate-in fade-in-50 duration-200 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
+              <div className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
                 {isDetectingFramework ? (
                   <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
                     <RefreshIcon className="h-4 w-4 animate-spin text-primary" />
@@ -1203,7 +1259,7 @@ export default function DeployPage() {
 
             {/* ── STEP 3: Environment ──────────────────────────────────────── */}
             {step === 3 && (
-              <div className="space-y-4 animate-in fade-in-50 duration-200 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
+              <div className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
                 <div className="flex justify-between items-center">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Environment Variables
@@ -1310,6 +1366,9 @@ export default function DeployPage() {
                 </div>
               </div>
             )}
+            </motion.div>
+            </AnimatePresence>
+            </AnimatedHeight>
           </CardContent>
 
           {/* Wizard Footer */}

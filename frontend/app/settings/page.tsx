@@ -1,7 +1,14 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardPanel,
+  CardFooter,
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -396,10 +403,11 @@ export default function SettingsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
+      <div className="animate-in fade-in-50 p-4 duration-200 md:p-6">
+        <div className="mx-auto max-w-6xl space-y-6">
         <div className="space-y-1">
-          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Node Settings</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">
+          <h2 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">Node Settings</h2>
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Configure the worker node environment and maintenance tools.
           </p>
         </div>
@@ -445,7 +453,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="border-b border-border/40">
             <CardTitle className="flex items-center gap-2 text-base">
-              <RefreshIcon className="h-4 w-4 text-muted-foreground" />
+              <RefreshIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               Software Updates
               {updateStatus?.hasUpdate && (
                 <Badge variant="warning" size="sm" className="ml-1">
@@ -458,7 +466,7 @@ export default function SettingsPage() {
               updating, and the services restart briefly.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 pt-4">
+          <CardPanel className="space-y-4 pt-4">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Current version</span>
@@ -534,17 +542,23 @@ export default function SettingsPage() {
                 </Button>
               )}
             </div>
-          </CardContent>
+          </CardPanel>
+          <CardFooter className="border-t border-border/40 py-3">
+            <div className="flex gap-1.5 text-xs text-muted-foreground">
+              <NucleoIcon name="refresh" className="mt-0.5 size-3 shrink-0" />
+              <p>Updates pull the latest release from the configured update source.</p>
+            </div>
+          </CardFooter>
         </Card>
 
         {updateProgress && updateProgress.state !== "idle" && (
-          <Card className="mt-6 border-border/60 bg-card/40 backdrop-blur-md">
-            <CardHeader className="border-b border-border/30 pb-3">
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-border/40">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <TerminalIcon className="h-4 w-4 text-muted-foreground" />
-                  <CardTitle className="text-base font-semibold text-foreground">Update Progress & Logs</CardTitle>
-                </div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <TerminalIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  Update Progress &amp; Logs
+                </CardTitle>
                 {updateProgress.inProgress ? (
                   <Badge variant="warning" size="sm" className="animate-pulse">
                     In Progress
@@ -559,11 +573,11 @@ export default function SettingsPage() {
                   </Badge>
                 ) : null}
               </div>
-              <CardDescription className="text-xs text-muted-foreground mt-1">
+              <CardDescription>
                 Status: <span className="font-mono font-medium">{updateProgress.state}</span>. Real-time build and deployment logs from the self-update script.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardPanel className="p-0">
               <div className="relative flex flex-col font-mono text-xs h-80 bg-muted/5">
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 bg-muted/10 text-[10px] uppercase font-bold tracking-wider text-muted-foreground select-none">
                   <span>Update Script Output</span>
@@ -586,7 +600,7 @@ export default function SettingsPage() {
                   <div ref={updateLogEndRef} />
                 </div>
               </div>
-            </CardContent>
+            </CardPanel>
           </Card>
         )}
               </>
@@ -598,14 +612,14 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="border-b border-border/40">
             <CardTitle className="flex items-center gap-2 text-base">
-              <TrashIcon className="h-4 w-4 text-muted-foreground" />
+              <TrashIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               Docker Maintenance
             </CardTitle>
             <CardDescription>
               Remove unused Docker containers, images, volumes, and build cache.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 pt-4">
+          <CardPanel className="space-y-4 pt-4">
             <Alert variant="warning">
               <AlertTriangleIcon />
               <AlertTitle>This action cannot be undone</AlertTitle>
@@ -630,7 +644,13 @@ export default function SettingsPage() {
                 {pruneOutput}
               </div>
             )}
-          </CardContent>
+          </CardPanel>
+          <CardFooter className="border-t border-border/40 py-3">
+            <div className="flex gap-1.5 text-xs text-muted-foreground">
+              <NucleoIcon name="info" className="mt-0.5 size-3 shrink-0" />
+              <p>Running containers and named volumes are never touched by the prune.</p>
+            </div>
+          </CardFooter>
         </Card>
               </>
             )}
@@ -641,14 +661,14 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="border-b border-border/40">
             <CardTitle className="flex items-center gap-2 text-base">
-              <BellIcon className="h-4 w-4 text-muted-foreground" />
+              <BellIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               Deploy Notifications
             </CardTitle>
             <CardDescription>
               Get notified on Slack or a custom webhook when deployments succeed or fail.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 pt-4">
+          <CardPanel className="space-y-4 pt-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-muted-foreground">Slack Incoming Webhook URL</Label>
               <Input
@@ -691,7 +711,13 @@ export default function SettingsPage() {
                 Send test
               </Button>
             </div>
-          </CardContent>
+          </CardPanel>
+          <CardFooter className="border-t border-border/40 py-3">
+            <div className="flex gap-1.5 text-xs text-muted-foreground">
+              <NucleoIcon name="activity" className="mt-0.5 size-3 shrink-0" />
+              <p>Use &quot;Send test&quot; to verify your webhook endpoint before relying on it.</p>
+            </div>
+          </CardFooter>
         </Card>
               </>
             )}
@@ -702,8 +728,8 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="border-b border-border/40">
             <CardTitle className="flex items-center gap-2 text-base">
-              <GithubLight className="h-4 w-4 dark:hidden" />
-              <GithubDark className="hidden h-4 w-4 dark:block" />
+              <GithubLight className="h-4 w-4 shrink-0 dark:hidden" />
+              <GithubDark className="hidden h-4 w-4 shrink-0 dark:block" />
               GitHub
               {ghConnected && (
                 <Badge variant="success" size="sm" className="ml-1 gap-1">
@@ -717,7 +743,7 @@ export default function SettingsPage() {
               auto-deploy webhooks.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 pt-4">
+          <CardPanel className="space-y-4 pt-4">
             {ghConnected ? (
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -750,14 +776,20 @@ export default function SettingsPage() {
                 </Button>
               </>
             )}
-          </CardContent>
+          </CardPanel>
+          <CardFooter className="border-t border-border/40 py-3">
+            <div className="flex gap-1.5 text-xs text-muted-foreground">
+              <NucleoIcon name="lock" className="mt-0.5 size-3 shrink-0" />
+              <p>Tokens are stored encrypted on this server and never leave it.</p>
+            </div>
+          </CardFooter>
         </Card>
 
         {/* Cloudflare DNS */}
         <Card>
           <CardHeader className="border-b border-border/40">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Cloudflare className="h-6 w-6 text-[#f6821f]" />
+              <Cloudflare className="h-5 w-5 shrink-0 text-[#f6821f]" />
               Cloudflare DNS
               {cfConnected && (
                 <Badge variant="success" size="sm" className="ml-1 gap-1">
@@ -771,7 +803,7 @@ export default function SettingsPage() {
               click from the app&apos;s Domains tab.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 pt-4">
+          <CardPanel className="space-y-4 pt-4">
             {cfConnected ? (
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -842,7 +874,13 @@ export default function SettingsPage() {
                 </Button>
               </>
             )}
-          </CardContent>
+          </CardPanel>
+          <CardFooter className="border-t border-border/40 py-3">
+            <div className="flex gap-1.5 text-xs text-muted-foreground">
+              <NucleoIcon name="web" className="mt-0.5 size-3 shrink-0" />
+              <p>DNS records are created from each app&apos;s Domains tab once connected.</p>
+            </div>
+          </CardFooter>
         </Card>
               </>
             )}
@@ -853,12 +891,12 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="border-b border-border/40">
             <CardTitle className="flex items-center gap-2 text-base">
-              <SunIcon className="h-4 w-4 text-muted-foreground" />
-              Interface theme
+              <SunIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              Interface Theme
             </CardTitle>
             <CardDescription>Select or customize your UI theme.</CardDescription>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardPanel className="pt-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {THEME_OPTIONS.map((opt) => {
                 const selected = mounted && (theme ?? "system") === opt.id
@@ -895,33 +933,33 @@ export default function SettingsPage() {
                 )
               })}
             </div>
-          </CardContent>
+          </CardPanel>
         </Card>
 
         {/* Session */}
         <Card>
           <CardHeader className="border-b border-border/40">
             <CardTitle className="flex items-center gap-2 text-base">
-              <LockIcon className="h-4 w-4 text-muted-foreground" />
+              <LockIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               Session
             </CardTitle>
             <CardDescription>Manage your control-plane session on this device.</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-between pt-4">
+          <CardPanel className="flex items-center justify-between gap-3 pt-4">
             <p className="text-sm text-muted-foreground">
               Signing out clears your stored admin token from this browser.
             </p>
-            <Button variant="outline" onClick={signOut}>
+            <Button variant="outline" onClick={signOut} className="shrink-0">
               Sign out
             </Button>
-          </CardContent>
+          </CardPanel>
         </Card>
 
         {/* Custom Domain */}
         <Card>
           <CardHeader className="border-b border-border/40">
             <CardTitle className="flex items-center gap-2 text-base">
-              <GlobeIcon className="h-4 w-4 text-muted-foreground" />
+              <GlobeIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               Custom Domain
               {paasDomainEnvOverridden && (
                 <Badge variant="warning" size="sm" className="ml-1">
@@ -933,7 +971,7 @@ export default function SettingsPage() {
               Set up a custom domain (e.g. <code className="rounded bg-muted px-1 py-0.5 text-[11px]">paas.example.com</code>) to access this Better-PaaS dashboard. Caddy will dynamically route traffic on ports 80/443 and provision TLS certificates automatically.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 pt-4">
+          <CardPanel className="space-y-4 pt-4">
             {paasDomainEnvOverridden && (
               <Alert variant="info">
                 <InfoIcon className="h-4 w-4" />
@@ -967,61 +1005,71 @@ export default function SettingsPage() {
                 </Button>
               </div>
             )}
-          </CardContent>
+          </CardPanel>
+          <CardFooter className="border-t border-border/40 py-3">
+            <div className="flex gap-1.5 text-xs text-muted-foreground">
+              <NucleoIcon name="web" className="mt-0.5 size-3 shrink-0" />
+              <p>Point a CNAME or A record at this server&apos;s IP before saving the domain.</p>
+            </div>
+          </CardFooter>
         </Card>
 
         {/* Onboarding Setup */}
         <Card>
           <CardHeader className="border-b border-border/40">
             <CardTitle className="flex items-center gap-2 text-base">
-              <RotateCcw className="h-4 w-4 text-muted-foreground" />
+              <RotateCcw className="h-4 w-4 shrink-0 text-muted-foreground" />
               Onboarding Setup
             </CardTitle>
             <CardDescription>Reset the onboarding wizard to run the initial setup flow again.</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-between pt-4">
+          <CardPanel className="flex items-center justify-between gap-3 pt-4">
             <p className="text-sm text-muted-foreground">
               Resetting onboarding will guide you through connecting servers, GitHub, and deploying your first app.
             </p>
-            <Button variant="outline" onClick={() => setShowResetModal(true)}>
+            <Button variant="outline" onClick={() => setShowResetModal(true)} className="shrink-0">
               Reset Onboarding
             </Button>
-          </CardContent>
+          </CardPanel>
         </Card>
 
         {/* About */}
         <Card>
           <CardHeader className="border-b border-border/40">
-            <CardTitle className="text-base">About Better-PaaS</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <NucleoIcon name="info" className="h-4 w-4 shrink-0 text-muted-foreground" />
+              About Better-PaaS
+            </CardTitle>
+            <CardDescription>Stack and runtime details for this node.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2 pt-4">
-            {[
-              ["Version", cleanVersion(sysVersion?.version) || "1.0.0"],
-              ["Engine", "Go 1.25 + gorilla/websocket"],
-              ["Database", "SQLite (modernc.org/sqlite)"],
-              ["Builder", "Nixpacks"],
-              ["Proxy", "Caddy + sslip.io"],
-              ["Runtime", "Docker"],
-              ["Frontend", "Next.js + base-ui"],
-            ].map(([key, val]) => (
-              <div
-                key={key}
-                className="flex items-center justify-between border-b border-border/30 pb-2 text-sm last:border-0"
-              >
-                <span className="text-muted-foreground">{key}</span>
-                <span 
-                  className="font-mono text-xs text-foreground"
-                  title={key === "Version" ? sysVersion?.version : undefined}
-                >
-                  {val}
-                </span>
-              </div>
-            ))}
-          </CardContent>
+          <CardPanel className="pt-4">
+            <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+              {[
+                ["Version", cleanVersion(sysVersion?.version) || "1.0.0"],
+                ["Engine", "Go 1.25 + gorilla/websocket"],
+                ["Database", "SQLite (modernc.org/sqlite)"],
+                ["Builder", "Nixpacks"],
+                ["Proxy", "Caddy + sslip.io"],
+                ["Runtime", "Docker"],
+                ["Frontend", "Next.js + base-ui"],
+              ].map(([key, val]) => (
+                <div key={key} className="space-y-1.5">
+                  <span className="block text-xs font-medium text-muted-foreground">{key}</span>
+                  <span
+                    className="block truncate font-mono text-sm font-medium text-foreground tabular-nums"
+                    title={key === "Version" ? sysVersion?.version : undefined}
+                  >
+                    {val}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardPanel>
         </Card>
               </>
             )}
           </div>
+        </div>
         </div>
       </div>
 
