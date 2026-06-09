@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardPanel,
-  CardFooter,
-} from "@/components/ui/card"
+  Frame,
+  FramePanel,
+  FrameTitle,
+  FrameDescription,
+  FrameFooter,
+} from "@/components/ui/frame"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -450,9 +449,9 @@ export default function SettingsPage() {
             {activeSection === "updates" && (
               <>
         {/* Software Updates */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
+        <Frame className="w-full">
+          <FramePanel>
+            <FrameTitle className="flex flex-wrap items-center gap-2">
               <RefreshIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               Software Updates
               {updateStatus?.hasUpdate && (
@@ -460,13 +459,13 @@ export default function SettingsPage() {
                   Update available
                 </Badge>
               )}
-            </CardTitle>
-            <CardDescription>
+            </FrameTitle>
+            <FrameDescription className="text-xs sm:text-sm">
               Update Better-PaaS to the latest release. A backup is taken automatically before
               updating, and the services restart briefly.
-            </CardDescription>
-          </CardHeader>
-          <CardPanel className="space-y-4 pt-4">
+            </FrameDescription>
+          </FramePanel>
+          <FramePanel className="space-y-4">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Current version</span>
@@ -542,23 +541,23 @@ export default function SettingsPage() {
                 </Button>
               )}
             </div>
-          </CardPanel>
-          <CardFooter className="border-t border-border/40 py-3">
+          </FramePanel>
+          <FrameFooter>
             <div className="flex gap-1.5 text-xs text-muted-foreground">
               <NucleoIcon name="refresh" className="mt-0.5 size-3 shrink-0" />
               <p>Updates pull the latest release from the configured update source.</p>
             </div>
-          </CardFooter>
-        </Card>
+          </FrameFooter>
+        </Frame>
 
         {updateProgress && updateProgress.state !== "idle" && (
-          <Card className="overflow-hidden">
-            <CardHeader className="border-b border-border/40">
+          <Frame className="w-full">
+            <FramePanel>
               <div className="flex items-center justify-between gap-3">
-                <CardTitle className="flex items-center gap-2 text-base">
+                <FrameTitle className="flex items-center gap-2">
                   <TerminalIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                   Update Progress &amp; Logs
-                </CardTitle>
+                </FrameTitle>
                 {updateProgress.inProgress ? (
                   <Badge variant="warning" size="sm" className="animate-pulse">
                     In Progress
@@ -573,11 +572,11 @@ export default function SettingsPage() {
                   </Badge>
                 ) : null}
               </div>
-              <CardDescription>
+              <FrameDescription className="text-xs sm:text-sm">
                 Status: <span className="font-mono font-medium">{updateProgress.state}</span>. Real-time build and deployment logs from the self-update script.
-              </CardDescription>
-            </CardHeader>
-            <CardPanel className="p-0">
+              </FrameDescription>
+            </FramePanel>
+            <FramePanel className="overflow-hidden !p-0">
               <div className="relative flex flex-col font-mono text-xs h-80 bg-muted/5">
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 bg-muted/10 text-[10px] uppercase font-bold tracking-wider text-muted-foreground select-none">
                   <span>Update Script Output</span>
@@ -600,8 +599,8 @@ export default function SettingsPage() {
                   <div ref={updateLogEndRef} />
                 </div>
               </div>
-            </CardPanel>
-          </Card>
+            </FramePanel>
+          </Frame>
         )}
               </>
             )}
@@ -609,17 +608,17 @@ export default function SettingsPage() {
             {activeSection === "maintenance" && (
               <>
         {/* Docker Maintenance */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
+        <Frame className="w-full">
+          <FramePanel>
+            <FrameTitle className="flex items-center gap-2">
               <TrashIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               Docker Maintenance
-            </CardTitle>
-            <CardDescription>
+            </FrameTitle>
+            <FrameDescription className="text-xs sm:text-sm">
               Remove unused Docker containers, images, volumes, and build cache.
-            </CardDescription>
-          </CardHeader>
-          <CardPanel className="space-y-4 pt-4">
+            </FrameDescription>
+          </FramePanel>
+          <FramePanel className="space-y-4">
             <Alert variant="warning">
               <AlertTriangleIcon />
               <AlertTitle>This action cannot be undone</AlertTitle>
@@ -644,31 +643,31 @@ export default function SettingsPage() {
                 {pruneOutput}
               </div>
             )}
-          </CardPanel>
-          <CardFooter className="border-t border-border/40 py-3">
+          </FramePanel>
+          <FrameFooter>
             <div className="flex gap-1.5 text-xs text-muted-foreground">
               <NucleoIcon name="info" className="mt-0.5 size-3 shrink-0" />
               <p>Running containers and named volumes are never touched by the prune.</p>
             </div>
-          </CardFooter>
-        </Card>
+          </FrameFooter>
+        </Frame>
               </>
             )}
 
             {activeSection === "notifications" && (
               <>
         {/* Deploy Notifications */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
+        <Frame className="w-full">
+          <FramePanel>
+            <FrameTitle className="flex items-center gap-2">
               <BellIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               Deploy Notifications
-            </CardTitle>
-            <CardDescription>
+            </FrameTitle>
+            <FrameDescription className="text-xs sm:text-sm">
               Get notified on Slack or a custom webhook when deployments succeed or fail.
-            </CardDescription>
-          </CardHeader>
-          <CardPanel className="space-y-4 pt-4">
+            </FrameDescription>
+          </FramePanel>
+          <FramePanel className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-muted-foreground">Slack Incoming Webhook URL</Label>
               <Input
@@ -703,31 +702,33 @@ export default function SettingsPage() {
                 Notify on failure
               </label>
             </div>
-            <div className="flex gap-2 pt-1">
-              <Button onClick={handleSaveNotif} loading={savingNotif}>
-                Save notifications
-              </Button>
-              <Button variant="outline" onClick={handleTestNotif}>
-                Send test
-              </Button>
+          </FramePanel>
+          <FrameFooter>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-1.5 text-xs text-muted-foreground">
+                <NucleoIcon name="activity" className="mt-0.5 size-3 shrink-0" />
+                <p>Use &quot;Send test&quot; to verify your webhook endpoint before relying on it.</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleTestNotif}>
+                  Send test
+                </Button>
+                <Button size="sm" onClick={handleSaveNotif} loading={savingNotif}>
+                  Save notifications
+                </Button>
+              </div>
             </div>
-          </CardPanel>
-          <CardFooter className="border-t border-border/40 py-3">
-            <div className="flex gap-1.5 text-xs text-muted-foreground">
-              <NucleoIcon name="activity" className="mt-0.5 size-3 shrink-0" />
-              <p>Use &quot;Send test&quot; to verify your webhook endpoint before relying on it.</p>
-            </div>
-          </CardFooter>
-        </Card>
+          </FrameFooter>
+        </Frame>
               </>
             )}
 
             {activeSection === "integrations" && (
               <>
         {/* GitHub */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
+        <Frame className="w-full">
+          <FramePanel>
+            <FrameTitle className="flex flex-wrap items-center gap-2">
               <GithubLight className="h-4 w-4 shrink-0 dark:hidden" />
               <GithubDark className="hidden h-4 w-4 shrink-0 dark:block" />
               GitHub
@@ -737,13 +738,13 @@ export default function SettingsPage() {
                   Connected
                 </Badge>
               )}
-            </CardTitle>
-            <CardDescription>
+            </FrameTitle>
+            <FrameDescription className="text-xs sm:text-sm">
               Connect a personal access token to browse and deploy your repositories, and to enable
               auto-deploy webhooks.
-            </CardDescription>
-          </CardHeader>
-          <CardPanel className="space-y-4 pt-4">
+            </FrameDescription>
+          </FramePanel>
+          <FramePanel className="space-y-4">
             {ghConnected ? (
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -776,19 +777,19 @@ export default function SettingsPage() {
                 </Button>
               </>
             )}
-          </CardPanel>
-          <CardFooter className="border-t border-border/40 py-3">
+          </FramePanel>
+          <FrameFooter>
             <div className="flex gap-1.5 text-xs text-muted-foreground">
               <NucleoIcon name="lock" className="mt-0.5 size-3 shrink-0" />
               <p>Tokens are stored encrypted on this server and never leave it.</p>
             </div>
-          </CardFooter>
-        </Card>
+          </FrameFooter>
+        </Frame>
 
         {/* Cloudflare DNS */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
+        <Frame className="w-full">
+          <FramePanel>
+            <FrameTitle className="flex flex-wrap items-center gap-2">
               <Cloudflare className="h-5 w-5 shrink-0 text-[#f6821f]" />
               Cloudflare DNS
               {cfConnected && (
@@ -797,13 +798,13 @@ export default function SettingsPage() {
                   Connected
                 </Badge>
               )}
-            </CardTitle>
-            <CardDescription>
+            </FrameTitle>
+            <FrameDescription className="text-xs sm:text-sm">
               Connect a Cloudflare API token to create DNS records for custom domains with one
               click from the app&apos;s Domains tab.
-            </CardDescription>
-          </CardHeader>
-          <CardPanel className="space-y-4 pt-4">
+            </FrameDescription>
+          </FramePanel>
+          <FramePanel className="space-y-4">
             {cfConnected ? (
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -874,29 +875,31 @@ export default function SettingsPage() {
                 </Button>
               </>
             )}
-          </CardPanel>
-          <CardFooter className="border-t border-border/40 py-3">
+          </FramePanel>
+          <FrameFooter>
             <div className="flex gap-1.5 text-xs text-muted-foreground">
               <NucleoIcon name="web" className="mt-0.5 size-3 shrink-0" />
               <p>DNS records are created from each app&apos;s Domains tab once connected.</p>
             </div>
-          </CardFooter>
-        </Card>
+          </FrameFooter>
+        </Frame>
               </>
             )}
 
             {activeSection === "general" && (
               <>
         {/* Interface theme */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
+        <Frame className="w-full">
+          <FramePanel>
+            <FrameTitle className="flex items-center gap-2">
               <SunIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               Interface Theme
-            </CardTitle>
-            <CardDescription>Select or customize your UI theme.</CardDescription>
-          </CardHeader>
-          <CardPanel className="pt-4">
+            </FrameTitle>
+            <FrameDescription className="text-xs sm:text-sm">
+              Select or customize your UI theme.
+            </FrameDescription>
+          </FramePanel>
+          <FramePanel>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {THEME_OPTIONS.map((opt) => {
                 const selected = mounted && (theme ?? "system") === opt.id
@@ -933,32 +936,51 @@ export default function SettingsPage() {
                 )
               })}
             </div>
-          </CardPanel>
-        </Card>
+          </FramePanel>
+        </Frame>
 
-        {/* Session */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <LockIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-              Session
-            </CardTitle>
-            <CardDescription>Manage your control-plane session on this device.</CardDescription>
-          </CardHeader>
-          <CardPanel className="flex items-center justify-between gap-3 pt-4">
-            <p className="text-sm text-muted-foreground">
-              Signing out clears your stored admin token from this browser.
-            </p>
-            <Button variant="outline" onClick={signOut} className="shrink-0">
+        {/* Session + onboarding actions */}
+        <Frame className="w-full">
+          <FramePanel className="flex items-center justify-between gap-3">
+            <div className="min-w-0 space-y-0.5">
+              <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <LockIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                Session
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Signing out clears your stored admin token from this browser.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={signOut} className="shrink-0">
               Sign out
             </Button>
-          </CardPanel>
-        </Card>
+          </FramePanel>
+
+          <FramePanel className="flex items-center justify-between gap-3">
+            <div className="min-w-0 space-y-0.5">
+              <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <RotateCcw className="h-4 w-4 shrink-0 text-muted-foreground" />
+                Onboarding Setup
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Run the initial setup flow again — servers, GitHub, and your first deploy.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowResetModal(true)}
+              className="shrink-0"
+            >
+              Reset
+            </Button>
+          </FramePanel>
+        </Frame>
 
         {/* Custom Domain */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
+        <Frame className="w-full">
+          <FramePanel>
+            <FrameTitle className="flex flex-wrap items-center gap-2">
               <GlobeIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               Custom Domain
               {paasDomainEnvOverridden && (
@@ -966,12 +988,12 @@ export default function SettingsPage() {
                   Enforced via env
                 </Badge>
               )}
-            </CardTitle>
-            <CardDescription>
+            </FrameTitle>
+            <FrameDescription className="text-xs sm:text-sm">
               Set up a custom domain (e.g. <code className="rounded bg-muted px-1 py-0.5 text-[11px]">paas.example.com</code>) to access this Better-PaaS dashboard. Caddy will dynamically route traffic on ports 80/443 and provision TLS certificates automatically.
-            </CardDescription>
-          </CardHeader>
-          <CardPanel className="space-y-4 pt-4">
+            </FrameDescription>
+          </FramePanel>
+          <FramePanel className="space-y-4">
             {paasDomainEnvOverridden && (
               <Alert variant="info">
                 <InfoIcon className="h-4 w-4" />
@@ -998,51 +1020,34 @@ export default function SettingsPage() {
               </p>
             </div>
 
-            {!paasDomainEnvOverridden && (
-              <div className="flex gap-2 pt-1">
-                <Button onClick={handleSaveDomain} loading={savingDomain}>
+          </FramePanel>
+          <FrameFooter>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-1.5 text-xs text-muted-foreground">
+                <NucleoIcon name="web" className="mt-0.5 size-3 shrink-0" />
+                <p>Point a CNAME or A record at this server&apos;s IP before saving the domain.</p>
+              </div>
+              {!paasDomainEnvOverridden && (
+                <Button size="sm" onClick={handleSaveDomain} loading={savingDomain}>
                   Save Domain
                 </Button>
-              </div>
-            )}
-          </CardPanel>
-          <CardFooter className="border-t border-border/40 py-3">
-            <div className="flex gap-1.5 text-xs text-muted-foreground">
-              <NucleoIcon name="web" className="mt-0.5 size-3 shrink-0" />
-              <p>Point a CNAME or A record at this server&apos;s IP before saving the domain.</p>
+              )}
             </div>
-          </CardFooter>
-        </Card>
-
-        {/* Onboarding Setup */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <RotateCcw className="h-4 w-4 shrink-0 text-muted-foreground" />
-              Onboarding Setup
-            </CardTitle>
-            <CardDescription>Reset the onboarding wizard to run the initial setup flow again.</CardDescription>
-          </CardHeader>
-          <CardPanel className="flex items-center justify-between gap-3 pt-4">
-            <p className="text-sm text-muted-foreground">
-              Resetting onboarding will guide you through connecting servers, GitHub, and deploying your first app.
-            </p>
-            <Button variant="outline" onClick={() => setShowResetModal(true)} className="shrink-0">
-              Reset Onboarding
-            </Button>
-          </CardPanel>
-        </Card>
+          </FrameFooter>
+        </Frame>
 
         {/* About */}
-        <Card>
-          <CardHeader className="border-b border-border/40">
-            <CardTitle className="flex items-center gap-2 text-base">
+        <Frame className="w-full">
+          <FramePanel>
+            <FrameTitle className="flex items-center gap-2">
               <NucleoIcon name="info" className="h-4 w-4 shrink-0 text-muted-foreground" />
               About Better-PaaS
-            </CardTitle>
-            <CardDescription>Stack and runtime details for this node.</CardDescription>
-          </CardHeader>
-          <CardPanel className="pt-4">
+            </FrameTitle>
+            <FrameDescription className="text-xs sm:text-sm">
+              Stack and runtime details for this node.
+            </FrameDescription>
+          </FramePanel>
+          <FramePanel>
             <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
               {[
                 ["Version", cleanVersion(sysVersion?.version) || "1.0.0"],
@@ -1064,8 +1069,8 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
-          </CardPanel>
-        </Card>
+          </FramePanel>
+        </Frame>
               </>
             )}
           </div>
