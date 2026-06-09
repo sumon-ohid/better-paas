@@ -46,6 +46,7 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible"
 import { NucleoIcon } from "@/components/nucleo-icons"
+import { cn } from "@/lib/utils"
 import type { App, Vulnerability } from "@/lib/types"
 import { timeAgo } from "@/app/app/[id]/app-detail-utils"
 import { IconShield } from "nucleo-isometric"
@@ -196,197 +197,213 @@ export function AppVulnerabilities({
 
   const totalCount = vulnerabilities.length
   const hasResults = scanRun && totalCount > 0
+  const canCollapse = hasResults
   const isBusy = fixing || app.status === "building"
+
+  const headerTitle = (
+    <div className="min-w-0 space-y-0.5">
+      <FrameTitle>Security Vulnerabilities</FrameTitle>
+      {canCollapse && !headerOpen && (
+        <FrameDescription className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          <span>
+            {totalCount} advisories
+            {packageManager ? ` · ${packageManager}` : ""}
+          </span>
+          {severityCounts.critical > 0 && (
+            <Badge variant="destructive" size="sm">
+              {severityCounts.critical} critical
+            </Badge>
+          )}
+          {severityCounts.high > 0 && (
+            <Badge variant="error" size="sm">
+              {severityCounts.high} high
+            </Badge>
+          )}
+        </FrameDescription>
+      )}
+    </div>
+  )
+
+  const headerActions = (
+    <div
+      className={cn(
+        "flex shrink-0 flex-wrap items-center gap-1.5",
+        canCollapse && "pl-6 sm:pl-0",
+      )}
+    >
+      {headerOpen && hasResults && (
+        <>
+          <div className="relative w-full sm:w-44">
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter packages…"
+              className="h-7 w-full pl-7 text-xs"
+            />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isBusy}
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <FixIcon className="h-3.5 w-3.5" />
+                  Fix
+                  <ChevronDownIcon className="h-3 w-3 opacity-60" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openFixDialog({ all: true })}>
+                Fix all vulnerable packages
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openFixDialog()}>
+                Fix a specific package…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      )}
+      <Button
+        onClick={onScan}
+        disabled={loading}
+        variant="outline"
+        size="sm"
+        className="h-7 gap-1.5 text-xs"
+      >
+        <RefreshIcon
+          className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+        />
+        {loading ? "Scanning..." : scanRun ? "Rescan" : "Scan now"}
+      </Button>
+    </div>
+  )
+
+  const headerDetails = (
+    <div className={cn("mt-3 space-y-3", canCollapse && "pl-6")}>
+      <FrameDescription className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+        {hasResults ? (
+          <>
+            <span>
+              {totalCount} advisories found
+              {packageManager ? ` · ${packageManager}` : ""}
+            </span>
+            {scannedAt && (
+              <span className="text-muted-foreground/60">
+                · scanned {timeAgo(scannedAt)}
+              </span>
+            )}
+          </>
+        ) : scanRun ? (
+          "No vulnerabilities detected."
+        ) : (
+          "Scan package dependencies for security issues."
+        )}
+      </FrameDescription>
+
+      {updatePending && app.status === "building" && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+          <RefreshIcon className="h-3.5 w-3.5 shrink-0 animate-spin" />
+          Package update in progress. Results will refresh when the deploy
+          finishes.
+        </div>
+      )}
+
+      {hasResults && (
+        <div className="space-y-2.5">
+          <div className="flex h-1.5 overflow-hidden rounded-full bg-muted/40">
+            {(["critical", "high", "moderate", "low"] as const).map((sev) => {
+              const count = severityCounts[sev]
+              if (!count) return null
+              return (
+                <div
+                  key={sev}
+                  className={`${SEVERITY_CONFIG[sev].bar} transition-all`}
+                  style={{
+                    width: `${(count / totalCount) * 100}%`,
+                  }}
+                  title={`${count} ${sev}`}
+                />
+              )
+            })}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {(["critical", "high", "moderate", "low"] as const).map((sev) => {
+              const count = severityCounts[sev]
+              if (!count) return null
+              const active = severityFilter === sev
+              return (
+                <button
+                  key={sev}
+                  type="button"
+                  onClick={() => toggleSeverityFilter(sev)}
+                  className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Badge
+                    variant={SEVERITY_CONFIG[sev].variant}
+                    size="sm"
+                    className={
+                      active
+                        ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                        : "opacity-80 hover:opacity-100"
+                    }
+                  >
+                    {count} {sev}
+                  </Badge>
+                </button>
+              )
+            })}
+            {severityFilter && (
+              <button
+                type="button"
+                onClick={() => setSeverityFilter(null)}
+                className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const headerRow = (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {canCollapse ? (
+        <CollapsibleTrigger className="group flex min-w-0 flex-1 items-start gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-panel-open:rotate-180" />
+          {headerTitle}
+        </CollapsibleTrigger>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-start gap-2">{headerTitle}</div>
+      )}
+      {headerActions}
+    </div>
+  )
 
   return (
     <div className="animate-in fade-in-50 h-full overflow-y-auto p-4 duration-200 md:p-6">
       <div className="mx-auto max-w-6xl">
         <Frame className="w-full">
           <FramePanel className="shrink-0">
-            <Collapsible open={headerOpen} onOpenChange={setHeaderOpen}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <CollapsibleTrigger className="group flex min-w-0 flex-1 items-start gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-panel-open:rotate-180" />
-                  <div className="min-w-0 space-y-0.5">
-                    <FrameTitle>Security Vulnerabilities</FrameTitle>
-                    {!headerOpen && (
-                      <FrameDescription className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                        {hasResults ? (
-                          <>
-                            <span>
-                              {totalCount} advisories
-                              {packageManager ? ` · ${packageManager}` : ""}
-                            </span>
-                            {severityCounts.critical > 0 && (
-                              <Badge variant="destructive" size="sm">
-                                {severityCounts.critical} critical
-                              </Badge>
-                            )}
-                            {severityCounts.high > 0 && (
-                              <Badge variant="error" size="sm">
-                                {severityCounts.high} high
-                              </Badge>
-                            )}
-                          </>
-                        ) : scanRun ? (
-                          "No vulnerabilities detected."
-                        ) : (
-                          "Scan package dependencies for security issues."
-                        )}
-                      </FrameDescription>
-                    )}
-                  </div>
-                </CollapsibleTrigger>
-                <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:pl-0 pl-6">
-                  {headerOpen && hasResults && (
-                    <>
-                      <div className="relative w-full sm:w-44">
-                        <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          value={query}
-                          onChange={(e) => setQuery(e.target.value)}
-                          placeholder="Filter packages…"
-                          className="h-7 w-full pl-7 text-xs"
-                        />
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={isBusy}
-                              className="h-7 gap-1.5 text-xs"
-                            >
-                              <FixIcon className="h-3.5 w-3.5" />
-                              Fix
-                              <ChevronDownIcon className="h-3 w-3 opacity-60" />
-                            </Button>
-                          }
-                        />
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => openFixDialog({ all: true })}
-                          >
-                            Fix all vulnerable packages
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openFixDialog()}>
-                            Fix a specific package…
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </>
-                  )}
-                  <Button
-                    onClick={onScan}
-                    disabled={loading}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 gap-1.5 text-xs"
-                  >
-                    <RefreshIcon
-                      className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-                    />
-                    {loading ? "Scanning..." : scanRun ? "Rescan" : "Scan now"}
-                  </Button>
-                </div>
-              </div>
+            {canCollapse ? (
+              <Collapsible open={headerOpen} onOpenChange={setHeaderOpen}>
+                {headerRow}
+                <CollapsibleContent>{headerDetails}</CollapsibleContent>
+              </Collapsible>
+            ) : (
+              <>
+                {headerRow}
+                {headerDetails}
+              </>
+            )}
 
-              <CollapsibleContent>
-                <div className="mt-3 space-y-3 pl-6">
-                  <FrameDescription className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                    {hasResults ? (
-                      <>
-                        <span>
-                          {totalCount} advisories found
-                          {packageManager ? ` · ${packageManager}` : ""}
-                        </span>
-                        {scannedAt && (
-                          <span className="text-muted-foreground/60">
-                            · scanned {timeAgo(scannedAt)}
-                          </span>
-                        )}
-                      </>
-                    ) : scanRun ? (
-                      "No vulnerabilities detected."
-                    ) : (
-                      "Scan package dependencies for security issues."
-                    )}
-                  </FrameDescription>
-
-                  {updatePending && app.status === "building" && (
-                    <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
-                      <RefreshIcon className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                      Package update in progress. Results will refresh when the
-                      deploy finishes.
-                    </div>
-                  )}
-
-                  {hasResults && (
-                    <div className="space-y-2.5">
-                      <div className="flex h-1.5 overflow-hidden rounded-full bg-muted/40">
-                        {(["critical", "high", "moderate", "low"] as const).map(
-                          (sev) => {
-                            const count = severityCounts[sev]
-                            if (!count) return null
-                            return (
-                              <div
-                                key={sev}
-                                className={`${SEVERITY_CONFIG[sev].bar} transition-all`}
-                                style={{
-                                  width: `${(count / totalCount) * 100}%`,
-                                }}
-                                title={`${count} ${sev}`}
-                              />
-                            )
-                          },
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(["critical", "high", "moderate", "low"] as const).map(
-                          (sev) => {
-                            const count = severityCounts[sev]
-                            if (!count) return null
-                            const active = severityFilter === sev
-                            return (
-                              <button
-                                key={sev}
-                                type="button"
-                                onClick={() => toggleSeverityFilter(sev)}
-                                className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              >
-                                <Badge
-                                  variant={SEVERITY_CONFIG[sev].variant}
-                                  size="sm"
-                                  className={
-                                    active
-                                      ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
-                                      : "opacity-80 hover:opacity-100"
-                                  }
-                                >
-                                  {count} {sev}
-                                </Badge>
-                              </button>
-                            )
-                          },
-                        )}
-                        {severityFilter && (
-                          <button
-                            type="button"
-                            onClick={() => setSeverityFilter(null)}
-                            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                          >
-                            Clear filter
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            {!headerOpen && updatePending && app.status === "building" && (
+            {canCollapse && !headerOpen && updatePending && app.status === "building" && (
               <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 pl-6 text-xs text-amber-600 dark:text-amber-400">
                 <RefreshIcon className="h-3.5 w-3.5 shrink-0 animate-spin" />
                 Package update in progress. Results will refresh when the deploy

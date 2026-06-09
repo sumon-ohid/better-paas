@@ -679,18 +679,6 @@ export function AppDetailView() {
                       </div>
                     </CardPanel>
                   </Card>
-                  <FrameFooter>
-                    <div className="flex gap-1.5 text-muted-foreground text-xs">
-                      <CircleAlertIcon className="size-3 shrink-0 mt-0.5" />
-                      <p>
-                        {app.composeService
-                          ? "This is a Docker Compose service. Build settings are controlled by the compose file."
-                          : activeDeployment
-                            ? `Last deployment ${timeAgo(activeDeployment.createdAt)} · ${activeDeployment.status}.`
-                            : "No deployments yet."}
-                      </p>
-                    </div>
-                  </FrameFooter>
                 </Frame>
 
                 {app.envVars && Object.keys(app.envVars).length > 0 && (
