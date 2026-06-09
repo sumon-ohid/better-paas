@@ -134,7 +134,7 @@ export function AppDomains({ app, onChange }: AppDomainsProps) {
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6">
-      <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-4 duration-200">
+      <div className="animate-in fade-in-50 mx-auto max-w-6xl space-y-4 duration-200">
         <Frame className="w-full">
           {/* Header + Add */}
           <FramePanel>

@@ -72,8 +72,8 @@ function AppDetailPage() {
   const [loadingVul, setLoadingVul] = useState(false)
   const [fixingVul, setFixingVul] = useState(false)
   const [vulScanRun, setVulScanRun] = useState(false)
-  const [fixOption, setFixOption] = useState<"git" | "local">("local")
-  const [fixPackage, setFixPackage] = useState("")
+  const [vulScannedAt, setVulScannedAt] = useState<Date | null>(null)
+  const [vulUpdatePending, setVulUpdatePending] = useState(false)
 
   // ── Config edit states ─────────────────────────────────────────────────────
   const [gitRepo, setGitRepo] = useState("")
@@ -652,6 +652,7 @@ function AppDetailPage() {
       setVulnerabilities(res.vulnerabilities || [])
       setPackageManager(res.packageManager || "")
       setVulScanRun(true)
+      setVulScannedAt(new Date())
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -666,10 +667,13 @@ function AppDetailPage() {
     }
   }, [appId, showToast])
 
-  const fixVulnerability = async (pkgName?: string) => {
+  const fixVulnerability = async (opts: {
+    package?: string
+    option: "git" | "local"
+  }) => {
     setFixingVul(true)
     try {
-      const targetPkg = pkgName || fixPackage
+      const targetPkg = opts.package
       showToast(
         "Updating package...",
         targetPkg
@@ -678,20 +682,19 @@ function AppDetailPage() {
       )
       const res = await api.vulnerabilities.fix({
         id: appId,
-        option: fixOption,
+        option: opts.option,
         package: targetPkg || undefined,
       })
       showToast(
         "Update Triggered",
-        "Redeployment started with updated packages.",
+        "Redeployment started. Check the Deployments tab for build progress.",
         "success"
       )
       setVulScanRun(false)
-      setTab("deployments") // redirect to deployments to see build progress
-      if (res && res.deployId) {
+      setVulUpdatePending(true)
+      if (res?.deployId) {
         setExpandedDepl(res.deployId)
       }
-      // Also refresh the app info
       void fetchData()
     } catch (err: unknown) {
       const message =
@@ -707,6 +710,7 @@ function AppDetailPage() {
   useEffect(() => {
     if (prevStatusRef.current === "building" && app?.status !== "building") {
       setVulScanRun(false)
+      setVulUpdatePending(false)
     }
     prevStatusRef.current = app?.status
   }, [app?.status])
@@ -831,14 +835,12 @@ function AppDetailPage() {
         scanVulnerabilities,
         loadingVul,
         vulScanRun,
+        vulScannedAt,
+        vulUpdatePending,
         vulnerabilities,
         packageManager,
         fixingVul,
         fixVulnerability,
-        setFixPackage,
-        fixPackage,
-        fixOption,
-        setFixOption,
         showDeleteModal,
         handleDelete,
         rollbackTarget,

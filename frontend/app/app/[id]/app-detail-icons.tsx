@@ -60,3 +60,9 @@ export const CircleAlertIcon = (props: IconProps) => (
 export const SearchIcon = (props: IconProps) => (
   <NucleoIcon {...props} name="search" />
 )
+export const ArchiveIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="archive" />
+)
+export const ServerIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="server" />
+)

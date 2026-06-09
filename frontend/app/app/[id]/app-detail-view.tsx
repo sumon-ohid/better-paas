@@ -42,6 +42,7 @@ import { StatusBadge } from "@/components/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { AppDomains } from "@/components/app-domains"
+import { AppVulnerabilities } from "@/components/app-vulnerabilities"
 import { SitePreview } from "@/components/site-preview"
 import { EnvVarsCard } from "@/components/env-vars-card"
 import { EnvVarsEditModal } from "@/components/env-vars-edit-modal"
@@ -74,7 +75,6 @@ import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
 import { Nix } from "@/components/ui/svgs/nix"
-import { IconShield } from "nucleo-isometric"
 import { useAppDetail } from "./app-detail-context"
 import {
   githubCommitUrl,
@@ -83,6 +83,7 @@ import {
 } from "./app-detail-utils"
 import type { AppTab } from "./app-detail-types"
 import {
+  ArchiveIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -201,14 +202,12 @@ export function AppDetailView() {
     scanVulnerabilities,
     loadingVul,
     vulScanRun,
+    vulScannedAt,
+    vulUpdatePending,
     vulnerabilities,
     packageManager,
     fixingVul,
     fixVulnerability,
-    setFixPackage,
-    fixPackage,
-    fixOption,
-    setFixOption,
     showDeleteModal,
     handleDelete,
     rollbackTarget,
@@ -435,7 +434,7 @@ export function AppDetailView() {
           {/* ── Overview ───────────────────────────────────────────────── */}
           <TabsPanel value="overview">
             <div className="h-full overflow-y-auto p-4 md:p-6">
-              <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-6 duration-200">
+              <div className="animate-in fade-in-50 mx-auto max-w-6xl space-y-6 duration-200">
                 {/* Overview card: Frame + Card with sticky preview and lighter metadata */}
                 <Frame className="w-full">
                   <Card>
@@ -738,7 +737,7 @@ export function AppDetailView() {
           {/* ── Configuration ──────────────────────────────────────────── */}
           <TabsPanel value="config">
             <div className="h-full overflow-y-auto p-4 md:p-6">
-              <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-4 duration-200">
+              <div className="animate-in fade-in-50 mx-auto max-w-6xl space-y-4 duration-200">
                 <Frame className="w-full">
                   {/* Compose notice */}
                   {app.composeService && (
@@ -1323,518 +1322,360 @@ export function AppDetailView() {
 
           {/* ── Deployments ────────────────────────────────────────────── */}
           <TabsPanel value="deployments">
-            <div className="animate-in fade-in-50 h-full space-y-4 overflow-y-auto p-4 duration-200 md:p-6">
-              <div>
-                <h2 className="text-sm font-bold text-foreground">
-                  Deployment History
-                </h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {deployments.length} deployment
-                  {deployments.length !== 1 ? "s" : ""} recorded.
-                </p>
-              </div>
-
-              {deployments.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
-                  <RefreshIcon className="mx-auto mb-3 h-6 w-6 opacity-20" />
-                  {app.status === "building"
-                    ? "Waiting for the current build to finish…"
-                    : "No deployments recorded for this project yet."}
-                </div>
-              ) : (
-               <CardFrame className="w-full">
-                  <Table variant="card">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12 text-right">#</TableHead>
-                        <TableHead>Deployment</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Duration</TableHead>
-                        <TableHead className="text-right">Started</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {deployments.map((dep, idx) => {
-                        const isExpanded = expandedDepl === dep.id
-                        const isBuilding =
-                          dep.status === "building" || dep.status === "in_progress"
-                        const isSuccess = dep.status === "success"
-                        const deployNumber = deployments.length - idx
-                        const isLive = !!dep.image && dep.image === app.activeImage
-                        const canRollback =
-                          isSuccess && !!dep.image && !isLive && !isBuilding
-                        const commitUrl = dep.commit
-                          ? githubCommitUrl(app.gitRepo, dep.commit)
-                          : ""
-
-                        return (
-                          <React.Fragment key={dep.id}>
-                            <TableRow
-                              className="cursor-pointer group"
-                              onClick={() =>
-                                setExpandedDepl(isExpanded ? null : dep.id)
-                              }
-                            >
-                              <TableCell className="text-right">
-                                <span className="text-xs font-mono text-muted-foreground">
-                                  #{deployNumber}
-                                </span>
-                              </TableCell>
-
-                              <TableCell>
-                                <div className="flex flex-col gap-0.5 min-w-0">
-                                  <span className="text-sm font-medium text-foreground truncate">
-                                    {dep.commitMsg ||
-                                      (dep.trigger === "rollback"
-                                        ? "Rollback"
-                                        : "(no commit message)")}
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    {dep.commit &&
-                                      (commitUrl ? (
-                                        <a
-                                          href={commitUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="inline-flex items-center gap-1 rounded border border-border/80 bg-muted/30 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
-                                          title="View commit on GitHub"
-                                        >
-                                          <GitCommitIcon className="h-3 w-3" />
-                                          {dep.commit.slice(0, 7)}
-                                          <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
-                                        </a>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
-                                          <GitCommitIcon className="h-3 w-3" />
-                                          {dep.commit.slice(0, 7)}
-                                        </span>
-                                      ))}
-                                    {app.branch && (
-                                      <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
-                                        <GitBranchIcon className="h-3 w-3" />
-                                        {app.branch}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </TableCell>
-
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Badge
-                                    variant={
-                                      isBuilding
-                                        ? "warning"
-                                        : isSuccess
-                                          ? "success"
-                                          : "error"
-                                    }
-                                    size="sm"
-                                    className="shrink-0"
-                                  >
-                                    {isBuilding ? (
-                                      <LoaderIcon className="h-3 w-3 animate-spin" />
-                                    ) : isSuccess ? (
-                                      <CheckIcon className="h-3 w-3" />
-                                    ) : (
-                                      <XIcon className="h-3 w-3" />
-                                    )}
-                                    {isBuilding
-                                      ? "Building"
-                                      : isSuccess
-                                        ? "Success"
-                                        : "Failed"}
-                                  </Badge>
-                                  {isLive && (
-                                    <Badge
-                                      variant="info"
-                                      size="sm"
-                                      className="shrink-0 gap-1"
-                                    >
-                                      <span className="h-1.5 w-1.5 rounded-full bg-info" />
-                                      Live
-                                    </Badge>
-                                  )}
-                                </div>
-                              </TableCell>
-
-                              <TableCell>
-                                <span className="text-xs font-mono text-muted-foreground">
-                                  {isBuilding ? "in progress" : dep.duration}
-                                </span>
-                              </TableCell>
-
-                              <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <span className="text-xs text-muted-foreground tabular-nums">
-                                    {new Date(dep.createdAt).toLocaleString(
-                                      undefined,
-                                      {
-                                        month: "short",
-                                        day: "numeric",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      }
-                                    )}
-                                  </span>
-                                  <ChevronLeftIcon
-                                    className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-                                      isExpanded ? "-rotate-90" : "rotate-180"
-                                    }`}
-                                  />
-                                </div>
-                              </TableCell>
-                            </TableRow>
-
-                            {isExpanded && (
-                              <TableRow className="hover:bg-transparent">
-                                <TableCell
-                                  colSpan={5}
-                                  className="p-0 !border-0 !bg-transparent"
-                                >
-                                  <div className="border-t border-border/30 bg-transparent">
-                                    <div className="flex items-center justify-between border-b border-border/20 px-4 py-2">
-                                      <span className="font-mono text-[11px] text-muted-foreground/50 dark:text-slate-500">
-                                        Build log · {dep.logs.length} lines ·{" "}
-                                        {dep.duration}
-                                        {dep.trigger && (
-                                          <span className="ml-2">
-                                            · {dep.trigger}
-                                          </span>
-                                        )}
-                                        {dep.commit && (
-                                          <span className="ml-2">
-                                            · {dep.commit.slice(0, 7)}
-                                          </span>
-                                        )}
-                                      </span>
-                                      <div className="flex items-center gap-3">
-                                        {canRollback && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              setRollbackTarget(dep)
-                                            }}
-                                            className="flex cursor-pointer items-center gap-1 font-mono text-[11px] text-primary transition-colors hover:text-primary/80"
-                                          >
-                                            <RefreshIcon className="h-3 w-3" />
-                                            Rollback to this
-                                          </button>
-                                        )}
-                                        {isLive && (
-                                          <span className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground/50">
-                                            <CheckIcon className="h-3 w-3 text-info" />
-                                            Currently live
-                                          </span>
-                                        )}
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            router.push(
-                                              `/logs?appId=${appId}&mode=build`
-                                            )
-                                          }}
-                                          className="flex cursor-pointer items-center gap-1 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300"
-                                        >
-                                          <TerminalIcon className="h-3 w-3" />
-                                          Open full log
-                                        </button>
-                                      </div>
-                                    </div>
-                                    <div className="max-h-80 space-y-0.5 overflow-y-auto px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300">
-                                      {dep.logs.length === 0 ? (
-                                        <span className="text-muted-foreground/40 italic dark:text-slate-600">
-                                          No log output recorded.
-                                        </span>
-                                      ) : (
-                                        dep.logs.map((line, i) => (
-                                          <div
-                                            key={i}
-                                            className="flex gap-4"
-                                          >
-                                            <span className="w-8 shrink-0 text-right text-muted-foreground/40 select-none dark:text-slate-600">
-                                              {i + 1}
-                                            </span>
-                                            <span className={lineColor(line)}>
-                                              {line}
-                                            </span>
-                                          </div>
-                                        ))
-                                      )}
-                                    </div>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </React.Fragment>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </CardFrame>
-              )}
-            </div>
-          </TabsPanel>
-
-          {/* ── Vulnerabilities ─────────────────────────────────────────── */}
-          <TabsPanel value="vulnerabilities">
             <div className="animate-in fade-in-50 h-full overflow-y-auto p-4 duration-200 md:p-6">
-              <div className="mx-auto max-w-4xl space-y-4">
+              <div className="mx-auto max-w-6xl space-y-4">
                 <Frame className="w-full">
                   {/* Header */}
                   <FramePanel className="shrink-0">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <FrameTitle>Security Vulnerabilities</FrameTitle>
+                        <FrameTitle>Deployment History</FrameTitle>
                         <FrameDescription>
-                          {vulScanRun
-                            ? vulnerabilities.length === 0
-                              ? "No vulnerabilities detected."
-                              : `${vulnerabilities.length} advisories found`
-                            : "Scan package dependencies for security issues."}
+                          {deployments.length === 0
+                            ? app.status === "building"
+                              ? "Waiting for the current build to finish…"
+                              : "No deployments recorded yet."
+                            : `${deployments.length} deployment${deployments.length !== 1 ? "s" : ""} recorded`}
                         </FrameDescription>
                       </div>
-                      <Button
-                        onClick={scanVulnerabilities}
-                        disabled={loadingVul}
-                        variant="outline"
-                        size="sm"
-                        className="h-7 gap-1.5 text-xs"
-                      >
-                        <RefreshIcon
-                          className={`h-3.5 w-3.5 ${loadingVul ? "animate-spin" : ""}`}
-                        />
-                        {loadingVul ? "Scanning..." : "Rescan"}
-                      </Button>
-                    </div>
 
-                    {vulScanRun && vulnerabilities.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {(
-                          [
-                            ["critical", "error"],
-                            ["high", "error"],
-                            ["moderate", "warning"],
-                            ["low", "secondary"],
-                          ] as const
-                        ).map(([sev, variant]) => {
-                          const count = vulnerabilities.filter(
-                            (v) => v.severity === sev,
-                          ).length
-                          if (!count) return null
-                          return (
-                            <Badge key={sev} variant={variant} size="sm">
-                              {count} {sev}
+                      {deployments.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {deployments.some(
+                            (d) =>
+                              d.status === "building" ||
+                              d.status === "in_progress",
+                          ) && (
+                            <Badge variant="warning" size="sm">
+                              Building
                             </Badge>
-                          )
-                        })}
-                      </div>
-                    )}
+                          )}
+                          <Badge variant="success" size="sm">
+                            {
+                              deployments.filter(
+                                (d) => d.status === "success",
+                              ).length
+                            }{" "}
+                            succeeded
+                          </Badge>
+                          <Badge variant="error" size="sm">
+                            {
+                              deployments.filter(
+                                (d) =>
+                                  d.status !== "success" &&
+                                  d.status !== "building" &&
+                                  d.status !== "in_progress",
+                              ).length
+                            }{" "}
+                            failed
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
                   </FramePanel>
 
-                  {loadingVul ? (
+                  {deployments.length === 0 ? (
                     <FramePanel className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-                      <RefreshIcon className="h-5 w-5 animate-spin text-primary" />
+                      <RefreshIcon className="h-6 w-6 text-muted-foreground/30" />
                       <p className="text-sm text-muted-foreground">
-                        Running package audit scan...
+                        {app.status === "building"
+                          ? "Waiting for the current build to finish…"
+                          : "No deployments recorded for this project yet."}
                       </p>
-                    </FramePanel>
-                  ) : !vulScanRun ? (
-                    <FramePanel className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-                      <CircleAlertIcon className="h-6 w-6 text-muted-foreground/30" />
-                      <p className="text-sm text-muted-foreground">
-                        Click scan to check for vulnerabilities.
-                      </p>
-                    </FramePanel>
-                  ) : vulnerabilities.length === 0 ? (
-                    <FramePanel className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
-                        <IconShield className="h-7 w-7" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-medium text-foreground">
-                          No vulnerabilities found
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {packageManager
-                            ? `The ${packageManager} audit passed cleanly.`
-                            : "Package scanning is not applicable for this deployment."}
-                        </p>
-                      </div>
                     </FramePanel>
                   ) : (
                     <>
                       <Table variant="card">
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-[12%]">Severity</TableHead>
-                            <TableHead className="w-[22%]">Package</TableHead>
-                            <TableHead>Vulnerability</TableHead>
-                            <TableHead className="w-[12%] text-right">
-                              Action
+                            <TableHead className="w-[1%] text-left pl-2">
+                              #
+                            </TableHead>
+                            <TableHead className="w-[45%]">
+                              Deployment
+                            </TableHead>
+                            <TableHead className="w-[15%]">Status</TableHead>
+                            <TableHead className="w-[15%]">Duration</TableHead>
+                            <TableHead className="w-[20%] text-right">
+                              Started
                             </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {vulnerabilities.map((vul, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell>
-                                <Badge
-                                  variant={
-                                    vul.severity === "critical" ||
-                                    vul.severity === "high"
-                                      ? "error"
-                                      : vul.severity === "moderate"
-                                        ? "warning"
-                                        : "secondary"
+                          {deployments.map((dep, idx) => {
+                            const isExpanded = expandedDepl === dep.id
+                            const isBuilding =
+                              dep.status === "building" ||
+                              dep.status === "in_progress"
+                            const isSuccess = dep.status === "success"
+                            const deployNumber = deployments.length - idx
+                            const isLive =
+                              !!dep.image && dep.image === app.activeImage
+                            const canRollback =
+                              isSuccess && !!dep.image && !isLive && !isBuilding
+                            const commitUrl = dep.commit
+                              ? githubCommitUrl(app.gitRepo, dep.commit)
+                              : ""
+
+                            return (
+                              <React.Fragment key={dep.id}>
+                                <TableRow
+                                  className="cursor-pointer group"
+                                  onClick={() =>
+                                    setExpandedDepl(
+                                      isExpanded ? null : dep.id,
+                                    )
                                   }
-                                  size="sm"
-                                  className="font-mono text-[10px] uppercase"
                                 >
-                                  {vul.severity}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <span className="font-mono text-sm font-semibold text-foreground">
-                                  {vul.package}
-                                </span>
-                                {vul.range && (
-                                  <span className="ml-1 block font-mono text-[10px] text-muted-foreground">
-                                    {vul.range}
-                                  </span>
+                                  <TableCell className="text-left pl-6">
+                                    <span className="text-[10px] font-mono text-muted-foreground/60">
+                                      #{deployNumber}
+                                    </span>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                      <span className="truncate text-sm font-medium text-foreground">
+                                        {dep.commitMsg ||
+                                          (dep.trigger === "rollback"
+                                            ? "Rollback"
+                                            : "(no commit message)")}
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        {dep.commit &&
+                                          (commitUrl ? (
+                                            <a
+                                              href={commitUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                              className="inline-flex items-center gap-1 rounded border border-border/80 bg-muted/30 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                                              title="View commit on GitHub"
+                                            >
+                                              <GitCommitIcon className="h-3 w-3" />
+                                              {dep.commit.slice(0, 7)}
+                                              <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
+                                            </a>
+                                          ) : (
+                                            <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
+                                              <GitCommitIcon className="h-3 w-3" />
+                                              {dep.commit.slice(0, 7)}
+                                            </span>
+                                          ))}
+                                        {app.branch && (
+                                          <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
+                                            <GitBranchIcon className="h-3 w-3" />
+                                            {app.branch}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <Badge
+                                        variant={
+                                          isBuilding
+                                            ? "warning"
+                                            : isSuccess
+                                              ? "success"
+                                              : "error"
+                                        }
+                                        size="sm"
+                                        className="shrink-0"
+                                      >
+                                        {isBuilding ? (
+                                          <LoaderIcon className="h-3 w-3 animate-spin" />
+                                        ) : isSuccess ? (
+                                          <CheckIcon className="h-3 w-3" />
+                                        ) : (
+                                          <XIcon className="h-3 w-3" />
+                                        )}
+                                        {isBuilding
+                                          ? "Building"
+                                          : isSuccess
+                                            ? "Success"
+                                            : "Failed"}
+                                      </Badge>
+                                      {isLive && (
+                                        <Badge
+                                          variant="info"
+                                          size="sm"
+                                          className="shrink-0 gap-1"
+                                        >
+                                          <span className="h-1.5 w-1.5 rounded-full bg-info" />
+                                          Live
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <span className="text-xs font-mono text-muted-foreground">
+                                      {isBuilding
+                                        ? "in progress"
+                                        : dep.duration}
+                                    </span>
+                                  </TableCell>
+
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <span className="text-xs text-muted-foreground tabular-nums">
+                                        {new Date(
+                                          dep.createdAt,
+                                        ).toLocaleString(undefined, {
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                      </span>
+                                      <ChevronLeftIcon
+                                        className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
+                                          isExpanded
+                                            ? "-rotate-90"
+                                            : "rotate-180"
+                                        }`}
+                                      />
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+
+                                {isExpanded && (
+                                  <TableRow className="hover:bg-transparent">
+                                    <TableCell
+                                      colSpan={5}
+                                      className="max-w-full overflow-hidden whitespace-normal p-0"
+                                    >
+                                      <div className="max-w-full overflow-hidden border-t border-border/30 px-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/20 py-2">
+                                          <span className="font-mono text-[11px] text-muted-foreground/50">
+                                            Build log · {dep.logs.length} lines
+                                            · {dep.duration}
+                                            {dep.trigger && (
+                                              <span className="ml-2">
+                                                · {dep.trigger}
+                                              </span>
+                                            )}
+                                          </span>
+                                          <div className="flex items-center gap-3">
+                                            {canRollback && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  setRollbackTarget(dep)
+                                                }}
+                                                className="flex cursor-pointer items-center gap-1 text-xs text-primary transition-colors hover:text-primary/80"
+                                              >
+                                                <RefreshIcon className="h-3.5 w-3.5" />
+                                                Rollback
+                                              </button>
+                                            )}
+                                            {isLive && (
+                                              <span className="flex items-center gap-1 text-xs text-info">
+                                                <CheckIcon className="h-3.5 w-3.5" />
+                                                Currently live
+                                              </span>
+                                            )}
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                router.push(
+                                                  `/logs?appId=${appId}&mode=build`,
+                                                )
+                                              }}
+                                              className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                                            >
+                                              <TerminalIcon className="h-3.5 w-3.5" />
+                                              Full log
+                                            </button>
+                                          </div>
+                                        </div>
+                                        <div className="max-h-80 space-y-0.5 overflow-y-auto overflow-x-hidden py-3 font-mono text-xs text-foreground">
+                                          {dep.logs.length === 0 ? (
+                                            <span className="text-muted-foreground/40 italic">
+                                              No log output recorded.
+                                            </span>
+                                          ) : (
+                                            dep.logs.map((line, i) => (
+                                              <div
+                                                key={i}
+                                                className="flex min-w-0 gap-3"
+                                              >
+                                                <span className="w-6 shrink-0 select-none text-right text-[10px] leading-loose text-muted-foreground/30">
+                                                  {i + 1}
+                                                </span>
+                                                <span
+                                                  className={`min-w-0 ${lineColor(line)} break-all leading-loose`}
+                                                >
+                                                  {line}
+                                                </span>
+                                              </div>
+                                            ))
+                                          )}
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
                                 )}
-                              </TableCell>
-                              <TableCell>
-                                <p className="text-sm leading-relaxed text-foreground">
-                                  {vul.title}
-                                </p>
-                                {vul.url && (
-                                  <a
-                                    href={vul.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-0.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                                  >
-                                    <ExternalIcon className="h-3 w-3" />
-                                    More details
-                                  </a>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex justify-end">
-                                  <Button
-                                    onClick={() => {
-                                      setFixPackage(vul.package)
-                                      void fixVulnerability(vul.package)
-                                    }}
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={
-                                      fixingVul || app.status === "building"
-                                    }
-                                    className="h-7 text-xs"
-                                  >
-                                    Update
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                              </React.Fragment>
+                            )
+                          })}
                         </TableBody>
                       </Table>
 
                       <FrameFooter className="shrink-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">
-                            {vulnerabilities.length} advisory
-                            {vulnerabilities.length !== 1 ? "ies" : "y"}{" "}
-                            detected
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>
+                            {deployments.filter((d) => d.status === "success")
+                              .length}{" "}
+                            successful ·{" "}
+                            {
+                              deployments.filter(
+                                (d) =>
+                                  d.status !== "success" &&
+                                  d.status !== "building" &&
+                                  d.status !== "in_progress",
+                              ).length
+                            }{" "}
+                            failed
                           </span>
-                          <Button
-                            onClick={() => fixVulnerability("")}
-                            disabled={
-                              fixingVul || app.status === "building"
-                            }
-                            variant="outline"
-                            size="sm"
-                            className="h-7 gap-1.5 border-amber-500/20 text-xs text-amber-500 hover:bg-amber-500/10"
-                          >
-                            <RefreshIcon className="h-3.5 w-3.5" />
-                            Update All
-                          </Button>
+                          {deployments.some(
+                            (d) =>
+                              d.status === "building" ||
+                              d.status === "in_progress",
+                          ) && (
+                            <span className="flex items-center gap-1.5 text-warning">
+                              <LoaderIcon className="h-3 w-3 animate-spin" />
+                              Build in progress
+                            </span>
+                          )}
                         </div>
                       </FrameFooter>
                     </>
                   )}
                 </Frame>
-
-                {/* Manual fix panel — only when vulnerabilities were found */}
-                {vulScanRun && vulnerabilities.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Manual Package Update</CardTitle>
-                      <CardDescription>
-                        Update a specific package or run a general audit fix.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardPanel className="space-y-4">
-                      <Field>
-                        <FieldLabel>Package Name</FieldLabel>
-                        <Input
-                          value={fixPackage}
-                          onChange={(e) => setFixPackage(e.target.value)}
-                          placeholder="e.g., lodash (leave blank for general audit fix)"
-                          className="h-9 text-sm"
-                        />
-                      </Field>
-
-                      <Field>
-                        <FieldLabel>Update Option</FieldLabel>
-                        <Select
-                          value={fixOption}
-                          onValueChange={(val) =>
-                            setFixOption(val as "git" | "local")
-                          }
-                        >
-                          <SelectTrigger className="h-9 w-full text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectPopup>
-                            <SelectItem value="local">
-                              Keep locally and redeploy
-                            </SelectItem>
-                            <SelectItem value="git">
-                              Push update to Git and redeploy
-                            </SelectItem>
-                          </SelectPopup>
-                        </Select>
-                        <FieldDescription>
-                          {fixOption === "git"
-                            ? "Commits and pushes back to your repository branch before triggering a deployment."
-                            : "Updates packages directly in the server's build directory. The Git remote is not modified."}
-                        </FieldDescription>
-                      </Field>
-
-                      <Button
-                        onClick={() => fixVulnerability()}
-                        disabled={fixingVul || app.status === "building"}
-                        className="h-9 w-full text-xs"
-                      >
-                        {fixingVul ? (
-                          <>
-                            <LoaderIcon className="mr-2 h-3.5 w-3.5 animate-spin" />
-                            Updating...
-                          </>
-                        ) : (
-                          "Update and Redeploy"
-                        )}
-                      </Button>
-                    </CardPanel>
-                  </Card>
-                )}
               </div>
             </div>
+          </TabsPanel>
+
+          {/* ── Vulnerabilities ─────────────────────────────────────────── */}
+          <TabsPanel value="vulnerabilities">
+            <AppVulnerabilities
+              app={app}
+              vulnerabilities={vulnerabilities}
+              packageManager={packageManager}
+              loading={loadingVul}
+              scanRun={vulScanRun}
+              scannedAt={vulScannedAt}
+              fixing={fixingVul}
+              updatePending={vulUpdatePending}
+              onScan={scanVulnerabilities}
+              onFix={fixVulnerability}
+            />
           </TabsPanel>
         </div>
 
