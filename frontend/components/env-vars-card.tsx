@@ -206,7 +206,7 @@ export function EnvVarsCard({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Filter variables…"
-                  className="h-8 w-36 pl-8 text-xs sm:w-44"
+                  className="h-7 w-36 pl-6 text-xs sm:w-44"
                 />
               </div>
             )}

@@ -60,6 +60,7 @@ function AppDetailPage() {
   const renameInputRef = useRef<HTMLInputElement | null>(null)
   const [expandedDepl, setExpandedDepl] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showEnvVarsModal, setShowEnvVarsModal] = useState(false)
   const [rollbackTarget, setRollbackTarget] = useState<DeploymentRecord | null>(
     null
   )
@@ -481,6 +482,24 @@ function AppDetailPage() {
     }
   }
 
+  const handleSaveEnvVars = async (vars: Record<string, string>) => {
+    if (!app) return
+    setIsSaving(true)
+    try {
+      await api.apps.update({
+        id: app.id,
+        envVars: vars,
+      })
+      showToast("Environment Variables Saved", "Application env vars updated.")
+      fetchData()
+    } catch (err) {
+      showToast("Error", "Failed to save environment variables.", "destructive")
+      console.error(err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const startRename = () => {
     if (!app) return
     setRenameValue(app.name)
@@ -764,6 +783,9 @@ function AppDetailPage() {
         copied,
         handleCopyUrl,
         setShowDeleteModal,
+        showEnvVarsModal,
+        setShowEnvVarsModal,
+        handleSaveEnvVars,
         gitRepo,
         setGitRepo,
         branch,

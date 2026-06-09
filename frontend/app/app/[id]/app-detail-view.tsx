@@ -50,6 +50,7 @@ import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { AppDomains } from "@/components/app-domains"
 import { SitePreview } from "@/components/site-preview"
 import { EnvVarsCard } from "@/components/env-vars-card"
+import { EnvVarsEditModal } from "@/components/env-vars-edit-modal"
 import {
   Dialog,
   DialogContent,
@@ -171,6 +172,9 @@ export function AppDetailView() {
     copied,
     handleCopyUrl,
     setShowDeleteModal,
+    showEnvVarsModal,
+    setShowEnvVarsModal,
+    handleSaveEnvVars,
     gitRepo,
     setGitRepo,
     branch,
@@ -692,7 +696,7 @@ export function AppDetailView() {
                   <EnvVarsCard
                     envVars={app.envVars}
                     secretKeys={app.secretKeys}
-                    onEdit={() => setTab("config")}
+                    onEdit={() => setShowEnvVarsModal(true)}
                   />
                 )}
 
@@ -1663,6 +1667,15 @@ export function AppDetailView() {
           appName={app?.name ?? ""}
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteModal(false)}
+        />
+
+        <EnvVarsEditModal
+          isOpen={showEnvVarsModal}
+          onClose={() => setShowEnvVarsModal(false)}
+          envVars={app?.envVars ?? {}}
+          secretKeys={app?.secretKeys ?? []}
+          onSave={handleSaveEnvVars}
+          isSaving={isSaving}
         />
 
         {/* Rollback Confirm Modal */}
