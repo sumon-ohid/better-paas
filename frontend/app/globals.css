@@ -334,8 +334,8 @@
   background:
     radial-gradient(
       135% 120% at 0% 0%,
-      rgba(255, 255, 255, 0.07),
-      rgba(255, 255, 255, 0.025) 26%,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.018) 26%,
       rgba(255, 255, 255, 0) 46%
     ),
     var(--card);
@@ -357,8 +357,8 @@
   background:
     radial-gradient(
       135% 120% at 0% 0%,
-      rgba(255, 255, 255, 0.07),
-      rgba(255, 255, 255, 0.025) 26%,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.018) 26%,
       rgba(255, 255, 255, 0) 46%
     ),
     var(--popover);
@@ -382,13 +382,13 @@
     /* spotlight: bright at the top-left corner, fades out */
     radial-gradient(
       125% 125% at 0% 0%,
-      rgba(255, 255, 255, 0.42) 0%,
-      rgba(255, 255, 255, 0.13) 18%,
-      rgba(255, 255, 255, 0.04) 34%,
+      rgba(255, 255, 255, 0.30) 0%,
+      rgba(255, 255, 255, 0.09) 18%,
+      rgba(255, 255, 255, 0.03) 34%,
       rgba(255, 255, 255, 0) 52%
     ),
     /* baseline: uniform thin border so all sides stay defined */
-    linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
+    linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06));
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -405,8 +405,8 @@
   background:
     radial-gradient(
       135% 120% at 0% 0%,
-      rgba(255, 255, 255, 0.07),
-      rgba(255, 255, 255, 0.025) 26%,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.018) 26%,
       rgba(255, 255, 255, 0) 46%
     ),
     #0c0d0e;

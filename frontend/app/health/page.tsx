@@ -250,7 +250,7 @@ export default function HealthPage() {
           </section>
 
           {/* Detail grid */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
             {/* Service health */}
             <Frame className="flex max-h-[480px] w-full flex-col">
               <FramePanel className="shrink-0">
