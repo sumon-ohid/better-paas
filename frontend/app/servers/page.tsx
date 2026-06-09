@@ -54,6 +54,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/menu"
+import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs"
+import { AnimatePresence, motion } from "motion/react"
 
 // ── Icon aliases ──────────────────────────────────────────────────────────────
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
@@ -484,231 +486,257 @@ export function AddServerWizard({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-muted/20 p-1">
-                <button
-                  type="button"
-                  onClick={() => setMode("manual")}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    mode === "manual"
-                      ? "bg-background text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Manual SSH
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("cloud")}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    mode === "cloud"
-                      ? "bg-background text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Cloud Provider
-                </button>
-              </div>
+              <Tabs
+                value={mode}
+                onValueChange={(value) => {
+                  if (value === "manual" || value === "cloud") setMode(value)
+                }}
+                className="gap-4"
+              >
+                <TabsList className="w-full [&>[data-slot=tabs-tab]]:flex-1">
+                  <TabsTab value="manual">Manual SSH</TabsTab>
+                  <TabsTab value="cloud">Cloud Provider</TabsTab>
+                </TabsList>
 
-              {mode === "cloud" && (
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {CLOUD_PROVIDERS.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => selectProvider(item.id)}
-                      className={`min-h-[112px] rounded-lg border p-3 text-left transition-colors ${
-                        provider === item.id
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-muted/10 hover:border-primary/40 hover:bg-muted/20"
-                      }`}
-                    >
-                      <ProviderLogo provider={item.id} className="h-9 w-9" />
-                      <div className="mt-3 text-sm font-semibold text-foreground">
-                        {item.name}
-                      </div>
-                      <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                        {item.description}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Server Name <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="server-name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. Production VPS"
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Description
+                    </Label>
+                    <Input
+                      id="server-desc"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder={
+                        mode === "cloud"
+                          ? `Optional - e.g. ${providerConfig.name} ${cloudSize}`
+                          : "Optional - e.g. Hetzner CX22, Frankfurt"
+                      }
+                      className="text-sm"
+                    />
+                  </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs font-semibold text-muted-foreground">
-                    Server Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="server-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Production VPS"
-                    className="text-sm"
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs font-semibold text-muted-foreground">
-                    Description
-                  </Label>
-                  <Input
-                    id="server-desc"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder={
-                      mode === "cloud"
-                        ? `Optional - e.g. ${providerConfig.name} ${cloudSize}`
-                        : "Optional - e.g. Hetzner CX22, Frankfurt"
-                    }
-                    className="text-sm"
-                  />
-                </div>
-                {mode === "cloud" ? (
-                  <>
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <Label className="text-xs font-semibold text-muted-foreground">
-                          {providerConfig.name} Token{" "}
-                          <span className="text-destructive">*</span>
-                        </Label>
-                        <a
-                          href={providerConfig.tokenUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  <div className="sm:col-span-2">
+                    <AnimatePresence mode="wait" initial={false}>
+                      {mode === "manual" ? (
+                        <motion.div
+                          key="manual"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{
+                            duration: 0.25,
+                            ease: [0.4, 0, 0.2, 1],
+                          }}
+                          className="overflow-hidden"
                         >
-                          Get API key
-                          <ExternalIcon className="h-3 w-3" />
-                        </a>
-                      </div>
-                      <Input
-                        id="cloud-token"
-                        value={cloudToken}
-                        onChange={(e) => setCloudToken(e.target.value)}
-                        placeholder={providerConfig.tokenHint}
-                        className="font-mono text-sm"
-                        type="password"
-                        autoComplete="off"
-                      />
-                      <p className="text-[11px] leading-relaxed text-muted-foreground">
-                        {providerConfig.tokenHelp}
-                      </p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-muted-foreground">
-                        Region
-                      </Label>
-                      <Select
-                        value={cloudRegion}
-                        onValueChange={(value) =>
-                          value && setCloudRegion(value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue>
-                            {providerConfig.regions.find(
-                              (r) => r.value === cloudRegion
-                            )?.label || cloudRegion}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {providerConfig.regions.map((region) => (
-                            <SelectItem key={region.value} value={region.value}>
-                              {region.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-muted-foreground">
-                        Server Size
-                      </Label>
-                      <Select
-                        value={cloudSize}
-                        onValueChange={(value) => value && setCloudSize(value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue>
-                            {providerConfig.sizes.find(
-                              (s) => s.value === cloudSize
-                            )?.label || cloudSize}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {providerConfig.sizes.map((size) => (
-                            <SelectItem key={size.value} value={size.value}>
-                              {size.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-muted-foreground">
-                        Image
-                      </Label>
-                      <Input
-                        id="cloud-image"
-                        value={cloudImage}
-                        onChange={(e) => setCloudImage(e.target.value)}
-                        placeholder={providerConfig.imageLabel}
-                        className="font-mono text-sm"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-muted-foreground">
-                        IP Address / Hostname{" "}
-                        <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="server-ip"
-                        value={ip}
-                        onChange={(e) => setIp(e.target.value)}
-                        placeholder="e.g. 192.168.1.10"
-                        className="font-mono text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-muted-foreground">
-                        SSH Port
-                      </Label>
-                      <Input
-                        id="server-port"
-                        value={port}
-                        onChange={(e) => setPort(e.target.value)}
-                        placeholder="22"
-                        className="font-mono text-sm"
-                        type="number"
-                        min={1}
-                        max={65535}
-                      />
-                    </div>
-                  </>
-                )}
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs font-semibold text-muted-foreground">
-                    SSH Username
-                  </Label>
-                  <Input
-                    id="server-user"
-                    value={sshUser}
-                    onChange={(e) => setSshUser(e.target.value)}
-                    placeholder="root"
-                    className="font-mono text-sm"
-                  />
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-semibold text-muted-foreground">
+                                IP Address / Hostname{" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="server-ip"
+                                value={ip}
+                                onChange={(e) => setIp(e.target.value)}
+                                placeholder="e.g. 192.168.1.10"
+                                className="font-mono text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-semibold text-muted-foreground">
+                                SSH Port
+                              </Label>
+                              <Input
+                                id="server-port"
+                                value={port}
+                                onChange={(e) => setPort(e.target.value)}
+                                placeholder="22"
+                                className="font-mono text-sm"
+                                type="number"
+                                min={1}
+                                max={65535}
+                              />
+                            </div>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="cloud"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{
+                            duration: 0.25,
+                            ease: [0.4, 0, 0.2, 1],
+                          }}
+                          className="overflow-hidden"
+                        >
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5 sm:col-span-2">
+                              <div className="grid gap-2 sm:grid-cols-3">
+                                {CLOUD_PROVIDERS.map((item) => (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => selectProvider(item.id)}
+                                    className={`min-h-[112px] rounded-lg border p-3 text-left transition-colors ${
+                                      provider === item.id
+                                        ? "border-primary bg-primary/10"
+                                        : "border-border bg-muted/10 hover:border-primary/40 hover:bg-muted/20"
+                                    }`}
+                                  >
+                                    <ProviderLogo
+                                      provider={item.id}
+                                      className="h-9 w-9"
+                                    />
+                                    <div className="mt-3 text-sm font-semibold text-foreground">
+                                      {item.name}
+                                    </div>
+                                    <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                                      {item.description}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 sm:col-span-2">
+                              <div className="flex items-center justify-between gap-3">
+                                <Label className="text-xs font-semibold text-muted-foreground">
+                                  {providerConfig.name} Token{" "}
+                                  <span className="text-destructive">*</span>
+                                </Label>
+                                <a
+                                  href={providerConfig.tokenUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                                >
+                                  Get API key
+                                  <ExternalIcon className="h-3 w-3" />
+                                </a>
+                              </div>
+                              <Input
+                                id="cloud-token"
+                                value={cloudToken}
+                                onChange={(e) => setCloudToken(e.target.value)}
+                                placeholder={providerConfig.tokenHint}
+                                className="font-mono text-sm"
+                                type="password"
+                                autoComplete="off"
+                              />
+                              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                                {providerConfig.tokenHelp}
+                              </p>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-semibold text-muted-foreground">
+                                Region
+                              </Label>
+                              <Select
+                                value={cloudRegion}
+                                onValueChange={(value) =>
+                                  value && setCloudRegion(value)
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue>
+                                    {providerConfig.regions.find(
+                                      (r) => r.value === cloudRegion
+                                    )?.label || cloudRegion}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {providerConfig.regions.map((region) => (
+                                    <SelectItem
+                                      key={region.value}
+                                      value={region.value}
+                                    >
+                                      {region.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-semibold text-muted-foreground">
+                                Server Size
+                              </Label>
+                              <Select
+                                value={cloudSize}
+                                onValueChange={(value) =>
+                                  value && setCloudSize(value)
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue>
+                                    {providerConfig.sizes.find(
+                                      (s) => s.value === cloudSize
+                                    )?.label || cloudSize}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {providerConfig.sizes.map((size) => (
+                                    <SelectItem
+                                      key={size.value}
+                                      value={size.value}
+                                    >
+                                      {size.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-semibold text-muted-foreground">
+                                Image
+                              </Label>
+                              <Input
+                                id="cloud-image"
+                                value={cloudImage}
+                                onChange={(e) => setCloudImage(e.target.value)}
+                                placeholder={providerConfig.imageLabel}
+                                className="font-mono text-sm"
+                              />
+                            </div>
+                            <div className="rounded-lg border border-border bg-muted/15 px-3 py-2 text-xs leading-relaxed text-muted-foreground sm:col-span-2">
+                              Better PaaS will create the VM, install your SSH
+                              key, run cloud-init to install Docker, and then
+                              save the server with the returned public IP.
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      SSH Username
+                    </Label>
+                    <Input
+                      id="server-user"
+                      value={sshUser}
+                      onChange={(e) => setSshUser(e.target.value)}
+                      placeholder="root"
+                      className="font-mono text-sm"
+                    />
+                  </div>
                 </div>
-              </div>
-              {mode === "cloud" && (
-                <div className="rounded-lg border border-border bg-muted/15 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                  Better PaaS will create the VM, install your SSH key, run
-                  cloud-init to install Docker, and then save the server with
-                  the returned public IP.
-                </div>
-              )}
+              </Tabs>
             </div>
           )}
 
