@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/menu"
 import {
   Card,
-  CardFrame,
   CardHeader,
   CardTitle,
   CardDescription,
@@ -28,7 +27,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectTrigger,
@@ -83,7 +81,6 @@ import {
 } from "./app-detail-utils"
 import type { AppTab } from "./app-detail-types"
 import {
-  ArchiveIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,

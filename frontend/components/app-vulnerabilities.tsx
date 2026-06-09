@@ -58,9 +58,6 @@ const RefreshIcon = (props: IconProps) => (
 const SearchIcon = (props: IconProps) => (
   <NucleoIcon {...props} name="search" />
 )
-const ExternalIcon = (props: IconProps) => (
-  <NucleoIcon {...props} name="external" />
-)
 const CircleAlertIcon = (props: IconProps) => (
   <NucleoIcon {...props} name="circle-alert" />
 )
