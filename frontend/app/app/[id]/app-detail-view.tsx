@@ -680,23 +680,35 @@ export function AppDetailView() {
                   />
                 )}
 
-                <div className="flex items-center gap-2 pt-2">
-                  <Button
-                    onClick={() => setTab("config")}
-                    variant="outline"
-                    className="h-8 border-border text-xs"
-                  >
-                    Edit Configuration
-                  </Button>
-                  <Button
-                    onClick={() => setShowDeleteModal(true)}
-                    variant="outline"
-                    className="h-8 border-rose-500/30 text-xs text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
-                  >
-                    <Trash2Icon className="mr-1 h-3 w-3" />
-                    Delete
-                  </Button>
-                </div>
+                <Frame className="w-full">
+                  <Card>
+                    <CardPanel>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-medium">Delete project</p>
+                          <p className="text-xs text-muted-foreground">
+                            Permanently remove this app and all its data. This
+                            cannot be undone.
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => setShowDeleteModal(true)}
+                          variant="outline"
+                          className="h-8 border-rose-500/30 text-xs text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
+                        >
+                          <Trash2Icon className="mr-1 h-3 w-3" />
+                          Delete
+                        </Button>
+                      </div>
+                    </CardPanel>
+                  </Card>
+                  <FrameFooter>
+                    <div className="flex gap-1.5 text-muted-foreground text-xs">
+                      <CircleAlertIcon className="size-3 shrink-0 mt-0.5" />
+                      <p>This action cannot be undone.</p>
+                    </div>
+                  </FrameFooter>
+                </Frame>
               </div>
             </div>
           </TabsPanel>

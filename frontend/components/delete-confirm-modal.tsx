@@ -97,10 +97,11 @@ export function DeleteConfirmModal({
 
         <div className="space-y-3 px-6 mb-4">
           {/* Project name — neutral, copyable chip */}
-          <button
+          <Button
             type="button"
+            variant={"ghost"}
             onClick={handleCopy}
-            className="group flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/50 cursor-pointer"
+            className="group flex w-full items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/50 cursor-pointer"
             aria-label="Copy project name"
           >
             <span className="truncate font-mono text-sm font-semibold text-foreground">
@@ -111,16 +112,17 @@ export function DeleteConfirmModal({
             ) : (
               <CopyIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
             )}
-          </button>
+          </Button>
 
           {/* Confirmation input */}
           <div className="space-y-1.5">
-            <Label htmlFor="delete-confirm-input" className="text-xs font-semibold text-muted-foreground">
+            <Label htmlFor="delete-confirm-input" className="text-xs pb-2 font-semibold text-muted-foreground">
               Type the project name to confirm
             </Label>
             <Input
               id="delete-confirm-input"
               ref={inputRef}
+              size={"sm"}
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -128,7 +130,7 @@ export function DeleteConfirmModal({
               placeholder={appName}
               disabled={isDeleting}
               className={cn(
-                "h-10 font-mono",
+                "h-8 font-mono",
                 inputValue.length > 0 &&
                   (isMatch
                     ? "border-success focus:border-success"
