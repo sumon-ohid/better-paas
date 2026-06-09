@@ -6,7 +6,6 @@ import { NucleoIcon } from "@/components/nucleo-icons"
 import { AppShell, useToast } from "@/components/app-shell"
 import { StatusBadge } from "@/components/status-badge"
 import { api, createBuildLogsWs, createRuntimeLogsWs } from "@/lib/api"
-import { getAppUrl } from "@/lib/utils"
 import type { App, LogEntry } from "@/lib/types"
 import { useActiveServer } from "@/components/server-context"
 import {
@@ -16,15 +15,35 @@ import {
   SelectPopup,
   SelectItem,
 } from "@/components/ui/select"
-import { Button } from "@base-ui/react/button";
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
+import {
+  Frame,
+  FramePanel,
+  FrameFooter,
+} from "@/components/ui/frame"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/menu"
+import { lineColor } from "@/app/app/[id]/app-detail-utils"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
-const LoaderIcon = (props: IconProps) => <NucleoIcon {...props} name="loader" />
 const ChevronLeftIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-left" />
-const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
-const ExternalIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
+const ChevronDownIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-down" />
+const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
+const CopyIcon = (props: IconProps) => <NucleoIcon {...props} name="copy" />
+const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
+const TrashIcon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 
 type LogMode = "build" | "runtime"
 
@@ -42,6 +61,8 @@ function LogsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [connected, setConnected] = useState(false)
   const [isRedeploying, setIsRedeploying] = useState(false)
+  const [logQuery, setLogQuery] = useState("")
+  const [logCopied, setLogCopied] = useState(false)
 
   const wsRef = useRef<WebSocket | null>(null)
   const wsSeqRef = useRef(0)
@@ -194,234 +215,327 @@ function LogsPage() {
 
   const selectedApp = apps.find((a) => a.id === selectedAppId)
 
-  // Trigger a fresh build for the selected app, then follow its build logs.
-  const handleRedeploy = useCallback(async () => {
-    if (!selectedApp || isRedeploying) return
-    setIsRedeploying(true)
-    try {
-      await api.apps.redeploy(selectedApp.id)
-      showToast("Redeploy Started", `Triggering new build for ${selectedApp.name}...`, "success")
-      fetchApps()
-      setLogMode("build")
-      const url = new URL(window.location.href)
-      url.searchParams.set("mode", "build")
-      window.history.replaceState({}, "", url.toString())
-      connectStream(selectedApp.id, "build")
-    } catch (err) {
-      showToast("Error", "Failed to trigger redeployment.", "destructive")
-      console.error(err)
-    } finally {
-      setIsRedeploying(false)
-    }
-  }, [selectedApp, isRedeploying, showToast, fetchApps, connectStream])
+  const filteredLogs = logQuery.trim()
+    ? logs.filter((l) =>
+        l.message.toLowerCase().includes(logQuery.trim().toLowerCase()),
+      )
+    : logs
 
-  // ── Log line renderer ─────────────────────────────────────────────────────
-
-  const lineColor = (msg: string) => {
-    if (msg.startsWith("✖") || msg.includes(" Error") || msg.includes("failed"))
-      return "text-destructive"
-    if (msg.startsWith("✅") || msg.startsWith("✔") || msg.includes("successfully"))
-      return "text-success"
-    if (msg.startsWith("📦") || msg.startsWith("🔍") || msg.startsWith("🚀") ||
-        msg.startsWith("🧹") || msg.startsWith("✨") || msg.startsWith("💡") ||
-        msg.startsWith("⚠️") || msg.startsWith("📂"))
-      return "text-warning"
-    return "text-foreground dark:text-slate-200"
+  const setLogModeWithUrl = (mode: LogMode) => {
+    setLogMode(mode)
+    setLogQuery("")
+    const url = new URL(window.location.href)
+    url.searchParams.set("mode", mode)
+    window.history.replaceState({}, "", url.toString())
   }
+
+  const handleCopyLogs = () => {
+    const text = logs
+      .map(
+        (l) =>
+          `[${new Date(l.timestamp).toLocaleTimeString()}] ${l.message}`,
+      )
+      .join("\n")
+    navigator.clipboard.writeText(text)
+    setLogCopied(true)
+    setTimeout(() => setLogCopied(false), 2000)
+  }
+
+  const handleRedeploy = useCallback(
+    async (noCache: boolean = false) => {
+      if (!selectedApp || isRedeploying) return
+      setIsRedeploying(true)
+      try {
+        await api.apps.redeploy(selectedApp.id, noCache)
+        showToast(
+          "Redeploy Started",
+          noCache
+            ? `Clearing cache and rebuilding ${selectedApp.name}...`
+            : `Triggering new build for ${selectedApp.name}...`,
+          "success",
+        )
+        fetchApps()
+        setLogModeWithUrl("build")
+        connectStream(selectedApp.id, "build")
+      } catch (err) {
+        showToast("Error", "Failed to trigger redeployment.", "destructive")
+        console.error(err)
+      } finally {
+        setIsRedeploying(false)
+      }
+    },
+    [selectedApp, isRedeploying, showToast, fetchApps, connectStream],
+  )
+
+  const logModeLabel = logMode === "build" ? "Build Logs" : "Runtime Logs"
 
   return (
     <AppShell hasActiveLogs={connected && logs.length > 0}>
-      {/* Full-height flex column inside the shell's <main> */}
-      <div className="flex flex-col h-full overflow-hidden">
-
-        {/* ── Top toolbar ──────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-border bg-transparent px-4 py-2 shrink-0 select-none">
-
-          {/* Back */}
-          <button
-            onClick={() => router.push("/")}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-          >
-            <ChevronLeftIcon className="h-3.5 w-3.5" />
-            Apps
-          </button>
-
-          <span className="h-4 w-px bg-border" />
-
-          {/* App selector */}
-          <Select
-            value={selectedAppId}
-            onValueChange={(v) => {
-              const id = v ?? ""
-              setSelectedAppId(id)
-              const url = new URL(window.location.href)
-              if (id) {
-                url.searchParams.set("appId", id)
-              } else {
-                url.searchParams.delete("appId")
-              }
-              window.history.replaceState({}, "", url.toString())
-            }}
-          >
-            <SelectTrigger size={"sm"} className="h-7 text-xs w-48">
-              <SelectValue placeholder="— Select app —">
-                {selectedApp ? selectedApp.name : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectPopup>
-              <SelectItem value="">— Select app —</SelectItem>
-              {filteredApps.map((app) => (
-                <SelectItem key={app.id} value={app.id}>
-                  {app.name}
-                </SelectItem>
-              ))}
-            </SelectPopup>
-          </Select>
-
-          {/* App status + URL */}
-          {selectedApp && (
-            <div className="flex items-center gap-2">
-              <StatusBadge status={selectedApp.status} />
-
-              {selectedApp.branch && (
-                <span className="flex items-center gap-1 text-xs font-mono text-muted-foreground">
-                  <GitBranchIcon className="h-3 w-3" />
-                  {selectedApp.branch}
-                </span>
-              )}
-
-              {getAppUrl(selectedApp) && (
-                <a
-                  href={getAppUrl(selectedApp)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs font-mono text-muted-foreground hover:text-primary transition-colors"
+      <div className="animate-in fade-in-50 flex h-full min-h-0 flex-1 flex-col p-4 duration-200 md:p-6">
+        <Frame className="h-full w-full">
+          <FramePanel className="shrink-0 !py-3">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+                <button
+                  onClick={() => router.push("/")}
+                  className="flex h-7 shrink-0 cursor-pointer items-center gap-1 px-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <ExternalIcon className="h-3 w-3" />
-                  {getAppUrl(selectedApp).replace(/^https?:\/\//, "")}
-                </a>
-              )}
-            </div>
-          )}
+                  <ChevronLeftIcon className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Apps</span>
+                </button>
 
-          <span className="h-4 w-px bg-border" />
+                <span className="hidden h-4 w-px bg-border sm:block" />
 
-          {/* Build / Runtime toggle */}
-          <div className="flex items-center overflow-hidden rounded-lg border border-border bg-muted/15">
-            {(["build", "runtime"] as LogMode[]).map((m, i) => (
-              <Button
-                key={m}
-                onClick={() => setLogMode(m)}
-                className={`px-2.5 py-1 text-xs cursor-pointer transition-all ${
-                  i > 0 ? "border-l border-border" : ""
-                } ${
-                  logMode === m
-                    ? "bg-accent text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {m === "build" ? "Build Logs" : "Runtime Logs"}
-              </Button>
-            ))}
-          </div>
+                <Select
+                  value={selectedAppId}
+                  onValueChange={(v) => {
+                    const id = v ?? ""
+                    setSelectedAppId(id)
+                    setLogQuery("")
+                    const url = new URL(window.location.href)
+                    if (id) {
+                      url.searchParams.set("appId", id)
+                    } else {
+                      url.searchParams.delete("appId")
+                    }
+                    window.history.replaceState({}, "", url.toString())
+                  }}
+                >
+                  <SelectTrigger size="sm" className="h-7 w-full min-w-0 text-xs sm:w-44">
+                    <SelectValue placeholder="Select app">
+                      {selectedApp ? selectedApp.name : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value="">Select app</SelectItem>
+                    {filteredApps.map((app) => (
+                      <SelectItem key={app.id} value={app.id}>
+                        {app.name}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
 
-          {/* Reconnect */}
-          {selectedAppId && (
-            <Button
-              onClick={() => connectStream(selectedAppId, logMode)}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/15 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-all"
-            >
-              <RefreshIcon className="h-3 w-3" />
-              Reconnect
-            </Button>
-          )}
+                <Tabs
+                  value={logMode}
+                  onValueChange={(value) => {
+                    if (value === "build" || value === "runtime") {
+                      setLogModeWithUrl(value)
+                    }
+                  }}
+                >
+                  <TabsList className="h-7 w-auto shrink-0 p-0.5 [&>[data-slot=tabs-tab]]:h-6 [&>[data-slot=tabs-tab]]:px-2.5 [&>[data-slot=tabs-tab]]:text-xs">
+                    <TabsTab value="build">Build</TabsTab>
+                    <TabsTab value="runtime">Runtime</TabsTab>
+                  </TabsList>
+                </Tabs>
 
-          {/* Redeploy */}
-          {selectedAppId && (
-            <Button
-              onClick={handleRedeploy}
-              disabled={isRedeploying || selectedApp?.status === "building"}
-              className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary hover:bg-primary/15 cursor-pointer transition-all disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isRedeploying || selectedApp?.status === "building" ? (
-                <LoaderIcon className="h-3 w-3 animate-spin" />
-              ) : (
-                <RefreshIcon className="h-3 w-3" />
-              )}
-              {isRedeploying
-                ? "Redeploying…"
-                : selectedApp?.status === "building"
-                  ? "Building…"
-                  : "Redeploy"}
-            </Button>
-          )}
+                {selectedApp && <StatusBadge status={selectedApp.status} />}
 
-          {/* Clear */}
-          {logs.length > 0 && (
-            <button
-              onClick={() => setLogs([])}
-              className="text-xs text-muted-foreground/60 hover:text-muted-foreground cursor-pointer transition-colors"
-            >
-              Clear
-            </button>
-          )}
-        </div>
+                <div className="hidden min-w-2 flex-1 sm:block" />
 
-        {/* ── Terminal — fills remaining height ────────────────────────── */}
-        <div className="flex-1 min-h-0 flex flex-col bg-transparent overflow-hidden font-mono text-xs leading-relaxed">
-          {/* Terminal body */}
-          <div className="flex-1 overflow-y-auto bg-transparent">
-          {logs.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 dark:text-slate-500 select-none">
-              <TerminalIcon
-                className={`h-8 w-8 opacity-25 ${connected ? "animate-pulse" : ""}`}
-              />
-              {!selectedAppId ? (
-                <span>Select an application above to stream logs.</span>
-              ) : connected ? (
-                <span>Connected — waiting for output…</span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
-                  Connecting to {logMode} log stream…
-                </span>
-              )}
-            </div>
-          ) : (
-            <div className="p-4 space-y-0.5">
-              {logs.map((log, i) => (
-                <div key={i} className="flex gap-4 group hover:bg-foreground/2 dark:hover:bg-white/2 rounded px-1 -mx-1">
-                  {/* Line number */}
-                  <span className="select-none shrink-0 w-10 text-right text-muted-foreground/40 dark:text-slate-600 group-hover:text-muted-foreground/60 dark:group-hover:text-slate-500 transition-colors">
-                    {i + 1}
-                  </span>
-                  {/* Timestamp */}
-                  <span className="select-none shrink-0 text-muted-foreground/40 dark:text-slate-600">
-                    {new Date(log.timestamp).toLocaleTimeString()}
-                  </span>
-                  {/* Message */}
-                  <span className={`${lineColor(log.message)} break-all`}>{log.message}</span>
+                <div className="flex w-full items-center gap-1 sm:ml-auto sm:w-auto">
+                  {logs.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCopyLogs}
+                      title={logCopied ? "Copied" : "Copy all"}
+                      aria-label={logCopied ? "Copied" : "Copy all"}
+                      className="h-7 w-7 shrink-0 p-0 sm:w-auto sm:px-2.5"
+                    >
+                      {logCopied ? (
+                        <CheckIcon className="h-3.5 w-3.5 text-success" />
+                      ) : (
+                        <CopyIcon className="h-3.5 w-3.5" />
+                      )}
+                      <span className="hidden md:inline">
+                        {logCopied ? "Copied" : "Copy"}
+                      </span>
+                    </Button>
+                  )}
+
+                  {selectedAppId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => connectStream(selectedAppId, logMode)}
+                      title="Reconnect"
+                      aria-label="Reconnect"
+                      className="h-7 w-7 shrink-0 p-0 sm:w-auto sm:px-2.5"
+                    >
+                      <RefreshIcon className="h-3.5 w-3.5" />
+                      <span className="hidden md:inline">Reconnect</span>
+                    </Button>
+                  )}
+
+                  {selectedAppId && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            loading={isRedeploying || selectedApp?.status === "building"}
+                            disabled={isRedeploying || selectedApp?.status === "building"}
+                            className="h-7 shrink-0 gap-1.5 border-primary/30 px-2.5 text-xs text-primary hover:bg-primary/10 hover:text-primary"
+                          >
+                            <RefreshIcon className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">
+                              {isRedeploying
+                                ? "Deploying…"
+                                : selectedApp?.status === "building"
+                                  ? "Building…"
+                                  : "Redeploy"}
+                            </span>
+                            <ChevronDownIcon className="h-3 w-3 opacity-80" />
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem onClick={() => handleRedeploy(false)}>
+                          <RefreshIcon className="h-4 w-4" />
+                          Redeploy
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleRedeploy(true)}>
+                          <TrashIcon className="h-4 w-4 text-destructive-foreground" />
+                          Clear cache & redeploy
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+
+                  {logs.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setLogs([])
+                        setLogQuery("")
+                      }}
+                      title="Clear logs"
+                      aria-label="Clear logs"
+                      className="h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-foreground sm:w-auto sm:px-2.5"
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                      <span className="hidden md:inline">Clear</span>
+                    </Button>
+                  )}
+
+                  {logs.length > 0 && (
+                    <InputGroup className="h-7 min-w-0 flex-1 sm:ml-1 sm:w-36 sm:flex-none">
+                      <InputGroupInput
+                        value={logQuery}
+                        onChange={(e) => setLogQuery(e.target.value)}
+                        placeholder="Filter…"
+                        type="search"
+                        className="text-xs"
+                      />
+                      <InputGroupAddon align="inline-end">
+                        <SearchIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      </InputGroupAddon>
+                    </InputGroup>
+                  )}
                 </div>
-              ))}
-              <div ref={endRef} />
             </div>
-          )}
-          </div>
-        </div>
+          </FramePanel>
 
-        {/* ── Status bar ───────────────────────────────────────────────── */}
-        <div className="flex items-center  bg-transparent justify-between border-t border-border/50 px-4 py-1.5 text-[11px] font-mono text-muted-foreground/40 dark:text-slate-600 shrink-0 select-none">
-          <span>
-            {selectedApp
-              ? `${selectedApp.name} · port ${selectedApp.port}`
-              : "No app selected"}
-          </span>
-          <span>
-            {connected
-              ? `● streaming ${logMode} logs`
-              : "○ disconnected"}
-          </span>
-        </div>
+          <FramePanel className="relative flex min-h-0 flex-1 flex-col overflow-hidden !p-0">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 font-mono text-xs leading-relaxed">
+              {logs.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 select-none">
+                  <TerminalIcon
+                    className={`h-8 w-8 opacity-25 ${connected ? "animate-pulse" : ""}`}
+                  />
+                  {!selectedAppId ? (
+                    <span>Select an application above to stream logs.</span>
+                  ) : connected ? (
+                    <span>Connected — waiting for output…</span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
+                      Connecting to {logMode} log stream…
+                    </span>
+                  )}
+                </div>
+              ) : filteredLogs.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground/50 select-none">
+                  <SearchIcon className="h-6 w-6 opacity-25" />
+                  <span>
+                    No logs match &ldquo;{logQuery.trim()}&rdquo;
+                  </span>
+                </div>
+              ) : (
+                <>
+                  {filteredLogs.map((log, i) => {
+                    const lineNum = logQuery.trim()
+                      ? logs.indexOf(log) + 1
+                      : i + 1
+                    return (
+                      <div
+                        key={`${lineNum}-${log.timestamp}`}
+                        className="group -mx-1 flex gap-3 rounded px-1 transition-colors hover:bg-foreground/[0.03] dark:hover:bg-white/[0.03]"
+                      >
+                        <span className="w-8 shrink-0 select-none text-right text-[10px] leading-loose text-muted-foreground/30 transition-colors group-hover:text-muted-foreground/50">
+                          {lineNum}
+                        </span>
+                        <span className="mt-px shrink-0 select-none text-[10px] leading-loose text-muted-foreground/30 transition-colors group-hover:text-muted-foreground/50">
+                          {new Date(log.timestamp).toLocaleTimeString(undefined, {
+                            hour12: false,
+                          })}
+                        </span>
+                        <span
+                          className={`${lineColor(log.message)} break-all leading-loose`}
+                        >
+                          {log.message}
+                        </span>
+                      </div>
+                    )
+                  })}
+                  <div ref={endRef} />
+                </>
+              )}
+            </div>
+          </FramePanel>
+
+          {(selectedApp || logs.length > 0) && (
+            <FrameFooter className="shrink-0">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>
+                  {selectedApp
+                    ? `${selectedApp.name} · port ${selectedApp.port} · ${logModeLabel}`
+                    : "No app selected"}
+                </span>
+                <div className="flex items-center gap-3">
+                  {logs.length > 0 && (
+                    <span>
+                      {filteredLogs.length.toLocaleString()}
+                      {logQuery.trim() && filteredLogs.length !== logs.length
+                        ? ` of ${logs.length.toLocaleString()}`
+                        : ""}{" "}
+                      lines
+                    </span>
+                  )}
+                  {logQuery.trim() && filteredLogs.length !== logs.length && (
+                    <button
+                      onClick={() => setLogQuery("")}
+                      className="cursor-pointer text-primary underline-offset-2 hover:underline"
+                    >
+                      Clear filter
+                    </button>
+                  )}
+                  {connected ? (
+                    <span className="flex items-center gap-1.5 text-success">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
+                      Live
+                    </span>
+                  ) : (
+                    <span>Disconnected</span>
+                  )}
+                </div>
+              </div>
+            </FrameFooter>
+          )}
+        </Frame>
       </div>
     </AppShell>
   )
@@ -429,7 +543,15 @@ function LogsPage() {
 
 export default function LogsRoute() {
   return (
-    <Suspense fallback={<div className="h-screen bg-card" />}>
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center p-6">
+          <span className="animate-pulse text-sm text-muted-foreground">
+            Loading logs…
+          </span>
+        </div>
+      }
+    >
       <LogsPage />
     </Suspense>
   )
