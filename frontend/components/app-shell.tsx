@@ -243,7 +243,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
-  const baseNavIconClass = "h-4 w-4 text-sidebar-foreground/70"
+  const baseNavIconClass = "h-4 w-4"
 
   const navSections: NavSection[] = [
     {
@@ -252,7 +252,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {
           id: "apps",
           label: "Applications",
-          icon: <GlobeIcon className="h-4 w-4 text-primary" />,
+          icon: <GlobeIcon className={baseNavIconClass} />,
           href: "/",
           badge: appCount,
         },
@@ -276,7 +276,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {
           id: "health",
           label: "Node Health",
-          icon: <ActivityIcon className="h-4 w-4 text-success" />,
+          icon: <ActivityIcon className={baseNavIconClass} />,
           href: "/health",
         },
         {
@@ -295,7 +295,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {
           id: "cron",
           label: "Scheduled Jobs",
-          icon: <ClockIcon className="h-4 w-4 text-warning" />,
+          icon: <ClockIcon className={baseNavIconClass} />,
           href: "/cron",
         },
       ],
@@ -306,7 +306,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {
           id: "addons",
           label: "Databases",
-          icon: <DatabaseIcon className="h-4 w-4 text-chart-3" />,
+          icon: <DatabaseIcon className={baseNavIconClass} />,
           href: "/addons",
         },
         {
@@ -323,7 +323,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         {
           id: "analytics",
           label: "Web Analytics",
-          icon: <ChartIcon className="h-4 w-4 text-primary" />,
+          icon: <ChartIcon className={baseNavIconClass} />,
           href: "/analytics",
         },
       ],
