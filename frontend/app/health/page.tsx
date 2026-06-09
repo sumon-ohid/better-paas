@@ -329,7 +329,7 @@ export default function HealthPage() {
 
             {/* System information */}
             <Frame className="w-full">
-              <FramePanel className="shrink-0 mb-6 md:mb-10">
+              <FramePanel className="shrink-0 mb-2">
                 <FrameTitle>System Information</FrameTitle>
                 <FrameDescription>Node environment and runtime details.</FrameDescription>
               </FramePanel>
