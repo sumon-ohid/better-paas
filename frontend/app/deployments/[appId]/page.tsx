@@ -5,8 +5,17 @@ import { useRouter, useParams } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { AppShell } from "@/components/app-shell"
 import { StatusBadge } from "@/components/status-badge"
-import { Badge } from "@/components/ui/badge"
+import { Badge, badgeVariants } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { CardFrame } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +24,8 @@ import {
 } from "@/components/ui/menu"
 import { api } from "@/lib/api"
 import type { App, DeploymentRecord } from "@/lib/types"
+import { cn } from "@/lib/utils"
+import type { VariantProps } from "class-variance-authority"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
@@ -26,6 +37,25 @@ const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal
 const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
 const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
+const LoaderIcon = (props: IconProps) => <NucleoIcon {...props} name="loader" />
+
+function depStatusMeta(status: string): {
+  variant: NonNullable<VariantProps<typeof badgeVariants>["variant"]>
+  Icon: React.FC<IconProps> | null
+  label: string
+  spin?: boolean
+} {
+  if (status === "success") {
+    return { variant: "success", Icon: CheckIcon, label: "Success" }
+  }
+  if (status === "failed") {
+    return { variant: "error", Icon: XIcon, label: "Failed" }
+  }
+  if (status === "building" || status === "in_progress") {
+    return { variant: "warning", Icon: LoaderIcon, label: "Building", spin: true }
+  }
+  return { variant: "outline", Icon: null, label: status }
+}
 
 export default function ProjectDeploymentsPage() {
   const router = useRouter()
@@ -199,7 +229,7 @@ export default function ProjectDeploymentsPage() {
               },
             ].map(({ label, value, color }) => (
               <div key={label} className="flex flex-col">
-                <span className={`font-bold text-lg font-mono ${color ?? "text-foreground"}`}>
+                <span className={cn("font-bold text-lg font-mono", color ?? "text-foreground")}>
                   {value}
                 </span>
                 <span className="text-xs text-muted-foreground">{label}</span>
@@ -220,138 +250,170 @@ export default function ProjectDeploymentsPage() {
             No deployments recorded for this project yet.
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-border bg-card/72 backdrop-blur-xl divide-y divide-border/40">
-            {/* Table header */}
-            <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground bg-muted/20">
-              <span>#</span>
-              <span>Deployment ID</span>
-              <span>Status</span>
-              <span>Duration</span>
-              <span>Started</span>
-            </div>
+          <CardFrame className="w-full">
+            <Table variant="card">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12 text-right">#</TableHead>
+                  <TableHead>Deployment</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead className="text-right">Started</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {deployments.map((dep, idx) => {
+                  const isExpanded = expanded === dep.id
+                  const number = deployments.length - idx
+                  const meta = depStatusMeta(dep.status)
 
-            {deployments.map((dep, idx) => (
-              <div key={dep.id}>
-                {/* Row */}
-                <div
-                  className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-4 py-3 items-center hover:bg-accent/30 transition-colors cursor-pointer group"
-                  onClick={() => setExpanded(expanded === dep.id ? null : dep.id)}
-                >
-                  {/* Index (newest = #1) */}
-                  <span className="text-xs font-mono text-muted-foreground w-6 text-right">
-                    {deployments.length - idx}
-                  </span>
+                  return (
+                    <React.Fragment key={dep.id}>
+                      <TableRow
+                        className="cursor-pointer group"
+                        onClick={() => setExpanded(isExpanded ? null : dep.id)}
+                      >
+                        <TableCell className="text-right">
+                          <span className="text-xs font-mono text-muted-foreground">
+                            {number}
+                          </span>
+                        </TableCell>
 
-                  {/* ID */}
-                  <div className="min-w-0">
-                    <span className="text-sm font-mono text-foreground">{dep.id}</span>
-                  </div>
-
-                  {/* Status badge */}
-                  <Badge
-                    variant={dep.status === "success" ? "success" : "error"}
-                    size="sm"
-                    className="w-fit"
-                  >
-                    {dep.status === "success" ? (
-                      <CheckIcon className="h-3 w-3" />
-                    ) : (
-                      <XIcon className="h-3 w-3" />
-                    )}
-                    {dep.status}
-                  </Badge>
-
-                  {/* Duration */}
-                  <span className="text-xs font-mono text-muted-foreground">{dep.duration}</span>
-
-                  {/* Date */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(dep.createdAt).toLocaleString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    <ChevronDownIcon
-                      className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-150 ${
-                        expanded === dep.id ? "rotate-180" : ""
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                {/* ── Expanded log output ───────────────────────────── */}
-                {expanded === dep.id && (
-                  <div className="border-t border-border/30 bg-[#f8f9fc] dark:bg-[#080910]">
-                    {/* Log toolbar */}
-                    <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
-                      <span className="text-[11px] font-mono text-muted-foreground/50 dark:text-slate-500">
-                        Build log · {dep.logs.length} lines · {dep.duration}
-                        {dep.trigger && <span className="ml-2">· {dep.trigger}</span>}
-                        {dep.commit && <span className="ml-2">· {dep.commit.slice(0, 7)}</span>}
-                      </span>
-                      <div className="flex items-center gap-3">
-                        {dep.image && dep.status === "success" && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleRollback(dep)
-                            }}
-                            className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-primary dark:text-slate-500 dark:hover:text-primary cursor-pointer transition-colors"
-                          >
-                            <RefreshIcon className="h-3 w-3" />
-                            Roll back to this
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/logs?appId=${appId}&mode=build`)
-                          }}
-                          className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer transition-colors"
-                        >
-                          <TerminalIcon className="h-3 w-3" />
-                          Open full log
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Log lines */}
-                    <div className="px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300 max-h-96 overflow-y-auto space-y-0.5">
-                      {dep.logs.length === 0 ? (
-                        <span className="text-muted-foreground/40 dark:text-slate-600 italic">No log output recorded.</span>
-                      ) : (
-                        dep.logs.map((line, i) => (
-                          <div key={i} className="flex gap-4 group/line hover:bg-foreground/2 dark:hover:bg-white/2 rounded -mx-1 px-1">
-                            <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-8 text-right shrink-0 group-hover/line:text-muted-foreground/60 dark:group-hover/line:text-slate-500">
-                              {i + 1}
+                        <TableCell>
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-sm font-mono text-foreground truncate">
+                              {dep.id}
                             </span>
-                            <span
-                              className={
-                                line.startsWith("✖") || line.includes("Error") || line.includes("failed")
-                                  ? "text-destructive"
-                                  : line.startsWith("✅") || line.startsWith("✔") || line.includes("successfully")
-                                    ? "text-success"
-                                    : line.startsWith("📦") || line.startsWith("🔍") ||
-                                        line.startsWith("🚀") || line.startsWith("🧹") ||
-                                        line.startsWith("✨") || line.startsWith("💡")
-                                      ? "text-warning"
-                                      : "text-foreground dark:text-slate-300"
-                              }
-                            >
-                              {line}
-                            </span>
+                            {dep.commit && (
+                              <span className="text-[11px] font-mono text-muted-foreground">
+                                {dep.commit.slice(0, 7)}
+                                {dep.commitMsg ? ` — ${dep.commitMsg}` : ""}
+                              </span>
+                            )}
                           </div>
-                        ))
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge variant={meta.variant} size="sm" className="w-fit">
+                            {meta.Icon && (
+                              <meta.Icon
+                                className={cn(
+                                  "h-3 w-3",
+                                  meta.spin && "animate-spin"
+                                )}
+                              />
+                            )}
+                            {meta.label}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <span className="text-xs font-mono text-muted-foreground">
+                            {dep.duration}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(dep.createdAt).toLocaleString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            <ChevronDownIcon
+                              className={cn(
+                                "h-3.5 w-3.5 text-muted-foreground transition-transform duration-150",
+                                isExpanded && "rotate-180"
+                              )}
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+
+                      {isExpanded && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={5} className="p-0 !border-0 !bg-transparent">
+                            <div className="border-t border-border/30 bg-[#f8f9fc] dark:bg-[#080910]">
+                              {/* Log toolbar */}
+                              <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
+                                <span className="text-[11px] font-mono text-muted-foreground/50 dark:text-slate-500">
+                                  Build log · {dep.logs.length} lines · {dep.duration}
+                                  {dep.trigger && <span className="ml-2">· {dep.trigger}</span>}
+                                  {dep.commit && <span className="ml-2">· {dep.commit.slice(0, 7)}</span>}
+                                </span>
+                                <div className="flex items-center gap-3">
+                                  {dep.image && dep.status === "success" && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleRollback(dep)
+                                      }}
+                                      className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-primary dark:text-slate-500 dark:hover:text-primary cursor-pointer transition-colors"
+                                    >
+                                      <RefreshIcon className="h-3 w-3" />
+                                      Roll back to this
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      router.push(`/logs?appId=${appId}&mode=build`)
+                                    }}
+                                    className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer transition-colors"
+                                  >
+                                    <TerminalIcon className="h-3 w-3" />
+                                    Open full log
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Log lines */}
+                              <div className="px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300 max-h-96 overflow-y-auto space-y-0.5">
+                                {dep.logs.length === 0 ? (
+                                  <span className="text-muted-foreground/40 dark:text-slate-600 italic">
+                                    No log output recorded.
+                                  </span>
+                                ) : (
+                                  dep.logs.map((line, i) => (
+                                    <div
+                                      key={i}
+                                      className="flex gap-4 group/line hover:bg-foreground/2 dark:hover:bg-white/2 rounded -mx-1 px-1"
+                                    >
+                                      <span className="select-none text-muted-foreground/40 dark:text-slate-600 w-8 text-right shrink-0 group-hover/line:text-muted-foreground/60 dark:group-hover/line:text-slate-500">
+                                        {i + 1}
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          line.startsWith("✖") || line.includes("Error") || line.includes("failed")
+                                            ? "text-destructive"
+                                            : line.startsWith("✅") || line.startsWith("✔") || line.includes("successfully")
+                                              ? "text-success"
+                                              : line.startsWith("📦") || line.startsWith("🔍") ||
+                                                  line.startsWith("🚀") || line.startsWith("🧹") ||
+                                                  line.startsWith("✨") || line.startsWith("💡")
+                                                ? "text-warning"
+                                                : "text-foreground dark:text-slate-300"
+                                        )}
+                                      >
+                                        {line}
+                                      </span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                    </React.Fragment>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </CardFrame>
         )}
       </div>
     </AppShell>

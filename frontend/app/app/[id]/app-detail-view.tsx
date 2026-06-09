@@ -9,7 +9,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/menu"
-import { Card } from "@/components/ui/card"
+import { Card, CardFrame } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -1238,225 +1246,237 @@ export function AppDetailView() {
                     : "No deployments recorded for this project yet."}
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {deployments.map((dep, idx) => {
-                    const isExpanded = expandedDepl === dep.id
-                    const isBuilding =
-                      dep.status === "building" || dep.status === "in_progress"
-                    const isSuccess = dep.status === "success"
-                    const deployNumber = deployments.length - idx
-                    const isLive = !!dep.image && dep.image === app.activeImage
-                    const canRollback =
-                      isSuccess && !!dep.image && !isLive && !isBuilding
-                    const commitUrl = dep.commit
-                      ? githubCommitUrl(app.gitRepo, dep.commit)
-                      : ""
+               <CardFrame className="w-full">
+                  <Table variant="card">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12 text-right">#</TableHead>
+                        <TableHead>Deployment</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead className="text-right">Started</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {deployments.map((dep, idx) => {
+                        const isExpanded = expandedDepl === dep.id
+                        const isBuilding =
+                          dep.status === "building" || dep.status === "in_progress"
+                        const isSuccess = dep.status === "success"
+                        const deployNumber = deployments.length - idx
+                        const isLive = !!dep.image && dep.image === app.activeImage
+                        const canRollback =
+                          isSuccess && !!dep.image && !isLive && !isBuilding
+                        const commitUrl = dep.commit
+                          ? githubCommitUrl(app.gitRepo, dep.commit)
+                          : ""
 
-                    return (
-                      <div
-                        key={dep.id}
-                        className="overflow-hidden rounded-xl border border-border bg-card/72 backdrop-blur-xl transition-shadow hover:shadow-sm"
-                      >
-                        {/* Header row — single flex row that wraps on small screens */}
-                        <div
-                          className="group flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3"
-                          onClick={() =>
-                            setExpandedDepl(isExpanded ? null : dep.id)
-                          }
-                        >
-                          {/* Status indicator */}
-                          <div
-                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-                              isBuilding
-                                ? "bg-warning/10"
-                                : isSuccess
-                                  ? "bg-success/10"
-                                  : "bg-destructive/10"
-                            }`}
-                          >
-                            {isBuilding ? (
-                              <LoaderIcon className="h-3.5 w-3.5 animate-spin text-warning" />
-                            ) : isSuccess ? (
-                              <CheckIcon className="h-3.5 w-3.5 text-success" />
-                            ) : (
-                              <XIcon className="h-3.5 w-3.5 text-destructive" />
-                            )}
-                          </div>
-
-                          <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                            #{deployNumber}
-                          </span>
-
-                          {/* Commit message — flexes and truncates to fit the row */}
-                          <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium text-foreground">
-                            {dep.commitMsg ||
-                              (dep.trigger === "rollback"
-                                ? "Rollback"
-                                : "(no commit message)")}
-                          </span>
-
-                          {/* Commit hash → GitHub commit page */}
-                          {dep.commit &&
-                            (commitUrl ? (
-                              <a
-                                href={commitUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex shrink-0 items-center gap-1 rounded border border-border/80 bg-muted/30 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
-                                title="View commit on GitHub"
-                              >
-                                <GitCommitIcon className="h-3 w-3" />
-                                {dep.commit.slice(0, 7)}
-                                <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
-                              </a>
-                            ) : (
-                              <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
-                                <GitCommitIcon className="h-3 w-3" />
-                                {dep.commit.slice(0, 7)}
-                              </span>
-                            ))}
-
-                          {/* Branch */}
-                          {app.branch && (
-                            <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
-                              <GitBranchIcon className="h-3 w-3" />
-                              {app.branch}
-                            </span>
-                          )}
-
-                          {/* Time */}
-                          <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
-                            {new Date(dep.createdAt).toLocaleString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-
-                          {/* Duration */}
-                          <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
-                            {isBuilding ? "in progress" : dep.duration}
-                          </span>
-
-                          {/* Status + live badges */}
-                          <Badge
-                            variant={
-                              isBuilding
-                                ? "warning"
-                                : isSuccess
-                                  ? "success"
-                                  : "error"
-                            }
-                            size="sm"
-                            className="shrink-0"
-                          >
-                            {isBuilding
-                              ? "Building"
-                              : isSuccess
-                                ? "Success"
-                                : "Failed"}
-                          </Badge>
-
-                          {isLive && (
-                            <Badge
-                              variant="info"
-                              size="sm"
-                              className="shrink-0 gap-1"
+                        return (
+                          <React.Fragment key={dep.id}>
+                            <TableRow
+                              className="cursor-pointer group"
+                              onClick={() =>
+                                setExpandedDepl(isExpanded ? null : dep.id)
+                              }
                             >
-                              <span className="h-1.5 w-1.5 rounded-full bg-info" />
-                              Live
-                            </Badge>
-                          )}
-
-                          {/* Rollback (inline, no need to expand) */}
-                          {canRollback && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setRollbackTarget(dep)
-                              }}
-                              className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[11px] text-primary transition-colors hover:bg-primary/15"
-                              title="Roll back to this deployment"
-                            >
-                              <RefreshIcon className="h-3 w-3" />
-                              Rollback
-                            </button>
-                          )}
-
-                          {/* Expand chevron */}
-                          <ChevronLeftIcon
-                            className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-                              isExpanded ? "-rotate-90" : "rotate-180"
-                            }`}
-                          />
-                        </div>
-
-                        {/* Expanded log output */}
-                        {isExpanded && (
-                          <div className="border-t border-border/30 bg-transparent">
-                            <div className="flex items-center justify-between border-b border-border/20 px-4 py-2">
-                              <span className="font-mono text-[11px] text-muted-foreground/50 dark:text-slate-500">
-                                Build log · {dep.logs.length} lines
-                              </span>
-                              <div className="flex items-center gap-3">
-                                {canRollback && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setRollbackTarget(dep)
-                                    }}
-                                    className="flex cursor-pointer items-center gap-1 font-mono text-[11px] text-primary transition-colors hover:text-primary/80"
-                                  >
-                                    <RefreshIcon className="h-3 w-3" />
-                                    Rollback to this
-                                  </button>
-                                )}
-                                {isLive && (
-                                  <span className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground/50">
-                                    <CheckIcon className="h-3 w-3 text-info" />
-                                    Currently live
-                                  </span>
-                                )}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    router.push(
-                                      `/logs?appId=${appId}&mode=build`
-                                    )
-                                  }}
-                                  className="flex cursor-pointer items-center gap-1 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300"
-                                >
-                                  <TerminalIcon className="h-3 w-3" />
-                                  Open full log
-                                </button>
-                              </div>
-                            </div>
-                            <div className="max-h-80 space-y-0.5 overflow-y-auto px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300">
-                              {dep.logs.length === 0 ? (
-                                <span className="text-muted-foreground/40 italic dark:text-slate-600">
-                                  No log output recorded.
+                              <TableCell className="text-right">
+                                <span className="text-xs font-mono text-muted-foreground">
+                                  #{deployNumber}
                                 </span>
-                              ) : (
-                                dep.logs.map((line, i) => (
-                                  <div key={i} className="flex gap-4">
-                                    <span className="w-8 shrink-0 text-right text-muted-foreground/40 select-none dark:text-slate-600">
-                                      {i + 1}
-                                    </span>
-                                    <span className={lineColor(line)}>
-                                      {line}
-                                    </span>
+                              </TableCell>
+
+                              <TableCell>
+                                <div className="flex flex-col gap-0.5 min-w-0">
+                                  <span className="text-sm font-medium text-foreground truncate">
+                                    {dep.commitMsg ||
+                                      (dep.trigger === "rollback"
+                                        ? "Rollback"
+                                        : "(no commit message)")}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {dep.commit &&
+                                      (commitUrl ? (
+                                        <a
+                                          href={commitUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="inline-flex items-center gap-1 rounded border border-border/80 bg-muted/30 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                                          title="View commit on GitHub"
+                                        >
+                                          <GitCommitIcon className="h-3 w-3" />
+                                          {dep.commit.slice(0, 7)}
+                                          <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
+                                        </a>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
+                                          <GitCommitIcon className="h-3 w-3" />
+                                          {dep.commit.slice(0, 7)}
+                                        </span>
+                                      ))}
+                                    {app.branch && (
+                                      <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
+                                        <GitBranchIcon className="h-3 w-3" />
+                                        {app.branch}
+                                      </span>
+                                    )}
                                   </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+                                </div>
+                              </TableCell>
+
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant={
+                                      isBuilding
+                                        ? "warning"
+                                        : isSuccess
+                                          ? "success"
+                                          : "error"
+                                    }
+                                    size="sm"
+                                    className="shrink-0"
+                                  >
+                                    {isBuilding ? (
+                                      <LoaderIcon className="h-3 w-3 animate-spin" />
+                                    ) : isSuccess ? (
+                                      <CheckIcon className="h-3 w-3" />
+                                    ) : (
+                                      <XIcon className="h-3 w-3" />
+                                    )}
+                                    {isBuilding
+                                      ? "Building"
+                                      : isSuccess
+                                        ? "Success"
+                                        : "Failed"}
+                                  </Badge>
+                                  {isLive && (
+                                    <Badge
+                                      variant="info"
+                                      size="sm"
+                                      className="shrink-0 gap-1"
+                                    >
+                                      <span className="h-1.5 w-1.5 rounded-full bg-info" />
+                                      Live
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+
+                              <TableCell>
+                                <span className="text-xs font-mono text-muted-foreground">
+                                  {isBuilding ? "in progress" : dep.duration}
+                                </span>
+                              </TableCell>
+
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <span className="text-xs text-muted-foreground tabular-nums">
+                                    {new Date(dep.createdAt).toLocaleString(
+                                      undefined,
+                                      {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      }
+                                    )}
+                                  </span>
+                                  <ChevronLeftIcon
+                                    className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
+                                      isExpanded ? "-rotate-90" : "rotate-180"
+                                    }`}
+                                  />
+                                </div>
+                              </TableCell>
+                            </TableRow>
+
+                            {isExpanded && (
+                              <TableRow className="hover:bg-transparent">
+                                <TableCell
+                                  colSpan={5}
+                                  className="p-0 !border-0 !bg-transparent"
+                                >
+                                  <div className="border-t border-border/30 bg-transparent">
+                                    <div className="flex items-center justify-between border-b border-border/20 px-4 py-2">
+                                      <span className="font-mono text-[11px] text-muted-foreground/50 dark:text-slate-500">
+                                        Build log · {dep.logs.length} lines ·{" "}
+                                        {dep.duration}
+                                        {dep.trigger && (
+                                          <span className="ml-2">
+                                            · {dep.trigger}
+                                          </span>
+                                        )}
+                                        {dep.commit && (
+                                          <span className="ml-2">
+                                            · {dep.commit.slice(0, 7)}
+                                          </span>
+                                        )}
+                                      </span>
+                                      <div className="flex items-center gap-3">
+                                        {canRollback && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setRollbackTarget(dep)
+                                            }}
+                                            className="flex cursor-pointer items-center gap-1 font-mono text-[11px] text-primary transition-colors hover:text-primary/80"
+                                          >
+                                            <RefreshIcon className="h-3 w-3" />
+                                            Rollback to this
+                                          </button>
+                                        )}
+                                        {isLive && (
+                                          <span className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground/50">
+                                            <CheckIcon className="h-3 w-3 text-info" />
+                                            Currently live
+                                          </span>
+                                        )}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            router.push(
+                                              `/logs?appId=${appId}&mode=build`
+                                            )
+                                          }}
+                                          className="flex cursor-pointer items-center gap-1 font-mono text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300"
+                                        >
+                                          <TerminalIcon className="h-3 w-3" />
+                                          Open full log
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="max-h-80 space-y-0.5 overflow-y-auto px-4 py-3 font-mono text-xs text-foreground dark:text-slate-300">
+                                      {dep.logs.length === 0 ? (
+                                        <span className="text-muted-foreground/40 italic dark:text-slate-600">
+                                          No log output recorded.
+                                        </span>
+                                      ) : (
+                                        dep.logs.map((line, i) => (
+                                          <div
+                                            key={i}
+                                            className="flex gap-4"
+                                          >
+                                            <span className="w-8 shrink-0 text-right text-muted-foreground/40 select-none dark:text-slate-600">
+                                              {i + 1}
+                                            </span>
+                                            <span className={lineColor(line)}>
+                                              {line}
+                                            </span>
+                                          </div>
+                                        ))
+                                      )}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </React.Fragment>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardFrame>
               )}
             </div>
           </TabsPanel>
