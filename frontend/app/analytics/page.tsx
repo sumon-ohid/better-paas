@@ -3,10 +3,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { AppShell, useToast } from "@/components/app-shell"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { Card, CardPanel } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Frame,
+  FramePanel,
+  FrameTitle,
+  FrameDescription,
+  FrameFooter,
+} from "@/components/ui/frame"
 import {
   Empty,
   EmptyContent,
@@ -215,84 +222,66 @@ function EmbedSnippet({ appId }: { appId: string }) {
   }, [prompt, showToast])
 
   return (
-    <Card>
-      <CardHeader className="border-b border-border/40 pb-3">
-        <CardTitle className="text-base">Install tracking</CardTitle>
-        <CardDescription>
+    <Frame className="w-full">
+      <FramePanel className="shrink-0 mb-2">
+        <FrameTitle>Install Tracking</FrameTitle>
+        <FrameDescription>
           Paste this snippet into your site&apos;s{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">&lt;head&gt;</code>. No
           cookies, no consent banner required.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pt-4">
-        {/* Code block — themed via the design-system code tokens so it reads
-            cleanly in both light and dark mode. */}
-        <div className="overflow-hidden rounded-lg border border-border bg-transparent shadow-xs">
-          <pre className="overflow-x-auto p-3.5 font-mono text-xs leading-relaxed text-code-foreground">
-            <code>{snippet}</code>
-          </pre>
+        </FrameDescription>
+      </FramePanel>
+      <Card>
+        <CardPanel>
+          {/* Code block — themed via the design-system code tokens so it reads
+              cleanly in both light and dark mode. */}
+          <div className="overflow-hidden rounded-lg border border-border bg-transparent shadow-xs">
+            <pre className="overflow-x-auto p-3.5 font-mono text-xs leading-relaxed text-code-foreground">
+              <code>{snippet}</code>
+            </pre>
+          </div>
+
+          {/* Action buttons — stack on mobile, row from sm up */}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={copySnippet}
+              className="w-full justify-center gap-1.5 sm:w-auto"
+            >
+              {copied ? (
+                <CheckIcon className="h-4 w-4 text-success" />
+              ) : (
+                <CopyIcon className="h-4 w-4" />
+              )}
+              {copied ? "Copied" : "Copy snippet"}
+            </Button>
+            <Button
+              onClick={copyPrompt}
+              className="w-full justify-center gap-1.5 sm:w-auto"
+            >
+              {promptCopied ? (
+                <CheckIcon className="h-4 w-4" />
+              ) : (
+                ""
+              )}
+              {promptCopied ? "Prompt copied" : "Copy AI prompt"}
+            </Button>
+          </div>
+        </CardPanel>
+      </Card>
+      <FrameFooter>
+        <div className="flex gap-1.5 text-xs text-muted-foreground">
+          <NucleoIcon name="terminal" className="mt-0.5 size-3 shrink-0" />
+          <p>
+            Pageviews are recorded automatically, including SPA route changes. Not sure where it
+            goes? Use{" "}
+            <span className="font-medium text-foreground">Copy AI prompt</span> and paste it into
+            Cursor, Copilot, or any AI assistant — it explains how to install on plain HTML,
+            Next.js, Vite, Vue, SvelteKit, Astro, and more.
+          </p>
         </div>
-
-        {/* Action buttons — stack on mobile, row from sm up */}
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <Button
-            variant="outline"
-            onClick={copySnippet}
-            className="w-full justify-center gap-1.5 sm:w-auto"
-          >
-            {copied ? (
-              <CheckIcon className="h-4 w-4 text-success" />
-            ) : (
-              <CopyIcon className="h-4 w-4" />
-            )}
-            {copied ? "Copied" : "Copy snippet"}
-          </Button>
-          <Button
-            onClick={copyPrompt}
-            className="w-full justify-center gap-1.5 sm:w-auto"
-          >
-            {promptCopied ? (
-              <CheckIcon className="h-4 w-4" />
-            ) : (
-              ""
-            )}
-            {promptCopied ? "Prompt copied" : "Copy AI prompt"}
-          </Button>
-        </div>
-
-        <p className="mt-3 text-xs text-muted-foreground">
-          Pageviews are recorded automatically, including SPA route changes. Not sure where it
-          goes? Use{" "}
-          <span className="font-medium text-foreground">Copy AI prompt</span> and paste it into
-          Cursor, Copilot, or any AI assistant — it explains how to install on plain HTML, Next.js,
-          Vite, Vue, SvelteKit, Astro, and more.
-        </p>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ── Stat card ─────────────────────────────────────────────────────────────────
-
-function StatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string
-  value: string
-  icon: React.ReactNode
-}) {
-  return (
-    <Card className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {label}
-        </span>
-        {icon}
-      </div>
-      <span className="block font-mono text-3xl font-bold tabular-nums">{value}</span>
-    </Card>
+      </FrameFooter>
+    </Frame>
   )
 }
 
@@ -364,231 +353,277 @@ export default function AnalyticsPage() {
 
   const hasData = summary && summary.totalViews > 0
 
+  const statCards = [
+    {
+      label: "Pageviews",
+      value: compactNumber(summary?.totalViews ?? 0),
+      icon: <EyeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />,
+    },
+    {
+      label: "Unique Visitors",
+      value: compactNumber(summary?.totalVisitors ?? 0),
+      icon: <GlobeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />,
+    },
+    {
+      label: "Views / Visitor",
+      value:
+        summary && summary.totalVisitors > 0
+          ? (summary.totalViews / summary.totalVisitors).toFixed(1)
+          : "0.0",
+      icon: <ActivityIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />,
+    },
+  ]
+
   return (
     <AppShell appCount={apps.length}>
-      <div className="space-y-6 p-4 md:p-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Web Analytics</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Privacy-friendly visitor stats for your deployed sites.
-            </p>
-          </div>
-
-          {apps.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Select
-                value={selectedId}
-                onValueChange={(v) => setSelectedId(v as string)}
-              >
-                <SelectTrigger size="sm" className="w-48">
-                  <SelectValue placeholder="Select a site">
-                    {selectedApp ? selectedApp.name : undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {apps.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <ToggleGroup
-                variant="outline"
-                size="sm"
-                value={[range]}
-                onValueChange={(v) => setRange(v[0] ?? "7")}
-              >
-                {RANGES.map((r) => (
-                  <ToggleGroupItem key={r.value} value={r.value} className="px-2.5 text-sm">
-                    {r.label}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </div>
-          )}
-        </div>
-
-        {/* No apps at all */}
-        {appsLoaded && apps.length === 0 ? (
-          <div className="du-card rounded-xl">
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <GlobeIcon />
-                </EmptyMedia>
-                <EmptyTitle>No sites to track yet</EmptyTitle>
-                <EmptyDescription>
-                  Deploy a service first, then come back to add analytics to it.
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <Button onClick={() => (window.location.href = "/deploy")} className="gap-1.5">
-                  Deploy a service
-                </Button>
-              </EmptyContent>
-            </Empty>
-          </div>
-        ) : (
-          <>
-            {/* Selected site URL */}
-            {selectedApp && getAppUrl(selectedApp) && (
-              <a
-                href={getAppUrl(selectedApp)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm font-mono text-primary hover:underline"
-              >
-                <LinkIcon className="h-3.5 w-3.5 opacity-60" />
-                {getAppUrl(selectedApp).replace(/^https?:\/\//, "")}
-                <ExternalLinkIcon className="h-3 w-3 opacity-60" />
-              </a>
-            )}
-
-            {/* Stat cards */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {loading && !summary ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-28 w-full rounded-xl" />
-                ))
-              ) : (
-                <>
-                  <StatCard
-                    label="Pageviews"
-                    value={compactNumber(summary?.totalViews ?? 0)}
-                    icon={<EyeIcon className="h-4 w-4 text-muted-foreground" />}
-                  />
-                  <StatCard
-                    label="Unique visitors"
-                    value={compactNumber(summary?.totalVisitors ?? 0)}
-                    icon={<GlobeIcon className="h-4 w-4 text-muted-foreground" />}
-                  />
-                  <StatCard
-                    label="Views / visitor"
-                    value={
-                      summary && summary.totalVisitors > 0
-                        ? (summary.totalViews / summary.totalVisitors).toFixed(1)
-                        : "0.0"
-                    }
-                    icon={<ActivityIcon className="h-4 w-4 text-muted-foreground" />}
-                  />
-                </>
-              )}
-            </section>
-
-            {/* Chart */}
-            <Card>
-              <CardHeader className="border-b border-border/40 pb-3">
-                <CardTitle className="text-base">Traffic over time</CardTitle>
-                <CardDescription>
-                  {rangeDays === 1 ? "Hourly" : "Daily"} pageviews and unique visitors.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                {loading && !summary ? (
-                  <Skeleton className="h-48 w-full rounded-lg" />
-                ) : summary && summary.timeseries.length > 0 ? (
-                  <BarChart data={summary.timeseries} days={rangeDays} />
-                ) : (
-                  <div className="py-12 text-center text-sm text-muted-foreground">
-                    No traffic recorded in this range.
-                  </div>
+      <div className="animate-in fade-in-50 p-4 duration-200 md:p-6">
+        <div className="mx-auto max-w-6xl space-y-6">
+          {/* Page header */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
+                Web Analytics
+              </h2>
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                Privacy-friendly visitor stats for your deployed sites.
+                {selectedApp && (
+                  <span className="ml-2 font-medium text-foreground">{selectedApp.name}</span>
                 )}
-              </CardContent>
-            </Card>
+              </p>
+            </div>
 
-            {/* Breakdowns + embed */}
-            {hasData ? (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Card>
-                  <CardHeader className="border-b border-border/40 pb-3">
-                    <CardTitle className="text-base">Top pages</CardTitle>
-                    <CardDescription>Most visited paths.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    <BreakdownList items={summary!.topPages} emptyLabel="No pages yet" mono />
-                  </CardContent>
-                </Card>
+            {apps.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Select
+                  value={selectedId}
+                  onValueChange={(v) => setSelectedId(v as string)}
+                >
+                  <SelectTrigger size="sm" className="w-48">
+                    <SelectValue placeholder="Select a site">
+                      {selectedApp ? selectedApp.name : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {apps.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-                <Card>
-                  <CardHeader className="border-b border-border/40 pb-3">
-                    <CardTitle className="text-base">Top referrers</CardTitle>
-                    <CardDescription>Where your visitors come from.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    <BreakdownList items={summary!.topReferrers} emptyLabel="No referrers yet" />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="border-b border-border/40 pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <CpuIcon className="h-4 w-4 text-muted-foreground" />
-                      Browsers &amp; devices
-                    </CardTitle>
-                    <CardDescription>Visitor environment breakdown.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-5 pt-4">
-                    <div>
-                      <span className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                        Browser
-                      </span>
-                      <BreakdownList items={summary!.browsers} emptyLabel="—" />
-                    </div>
-                    <div>
-                      <span className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                        Operating system
-                      </span>
-                      <BreakdownList items={summary!.os} emptyLabel="—" />
-                    </div>
-                    <div>
-                      <span className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                        Device
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        {summary!.devices.length === 0 ? (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        ) : (
-                          summary!.devices.map((d) => (
-                            <Badge key={d.label} variant="outline" className="gap-1.5">
-                              {d.label}
-                              <span className="font-mono text-xs text-muted-foreground">
-                                {compactNumber(d.count)}
-                              </span>
-                            </Badge>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {selectedId && <EmbedSnippet appId={selectedId} />}
+                <ToggleGroup
+                  variant="outline"
+                  size="sm"
+                  value={[range]}
+                  onValueChange={(v) => setRange(v[0] ?? "7")}
+                >
+                  {RANGES.map((r) => (
+                    <ToggleGroupItem key={r.value} value={r.value} className="px-2.5 text-sm">
+                      {r.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
               </div>
-            ) : (
-              // No data yet → lead with the install instructions.
-              !loading && selectedId && (
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  <Card className="flex flex-col justify-center">
-                    <CardContent className="py-8 text-center">
-                      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                        <ActivityIcon className="h-5 w-5" />
+            )}
+          </div>
+
+          {/* No apps at all */}
+          {appsLoaded && apps.length === 0 ? (
+            <Frame>
+              <FramePanel>
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <GlobeIcon />
+                    </EmptyMedia>
+                    <EmptyTitle>No sites to track yet</EmptyTitle>
+                    <EmptyDescription>
+                      Deploy a service first, then come back to add analytics to it.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button onClick={() => (window.location.href = "/deploy")} className="gap-1.5">
+                      Deploy a service
+                    </Button>
+                  </EmptyContent>
+                </Empty>
+              </FramePanel>
+            </Frame>
+          ) : (
+            <>
+              {/* Selected site URL */}
+              {selectedApp && getAppUrl(selectedApp) && (
+                <a
+                  href={getAppUrl(selectedApp)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-mono text-primary hover:underline"
+                >
+                  <LinkIcon className="h-3.5 w-3.5 opacity-60" />
+                  {getAppUrl(selectedApp).replace(/^https?:\/\//, "")}
+                  <ExternalLinkIcon className="h-3 w-3 opacity-60" />
+                </a>
+              )}
+
+              {/* Stat cards */}
+              <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {loading && !summary ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+                  ))
+                ) : (
+                  statCards.map((card) => (
+                    <Frame key={card.label}>
+                      <Card className="before:hidden shadow-none">
+                        <CardPanel className="space-y-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {card.label}
+                            </span>
+                            {card.icon}
+                          </div>
+                          <div className="flex min-w-0 items-center justify-between gap-2">
+                            <span className="shrink-0 font-mono text-2xl font-bold tabular-nums sm:text-3xl">
+                              {card.value}
+                            </span>
+                            <Badge variant="secondary" size="sm">
+                              {RANGES.find((r) => r.value === range)?.label ?? "7d"}
+                            </Badge>
+                          </div>
+                        </CardPanel>
+                      </Card>
+                    </Frame>
+                  ))
+                )}
+              </section>
+
+              {/* Chart */}
+              <Frame className="w-full">
+                <FramePanel className="shrink-0 mb-2">
+                  <FrameTitle>Traffic Over Time</FrameTitle>
+                  <FrameDescription>
+                    {rangeDays === 1 ? "Hourly" : "Daily"} pageviews and unique visitors.
+                  </FrameDescription>
+                </FramePanel>
+                <Card>
+                  <CardPanel>
+                    {loading && !summary ? (
+                      <Skeleton className="h-48 w-full rounded-lg" />
+                    ) : summary && summary.timeseries.length > 0 ? (
+                      <BarChart data={summary.timeseries} days={rangeDays} />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+                        <ActivityIcon className="h-6 w-6 text-muted-foreground/30" />
+                        <p className="text-sm text-muted-foreground">
+                          No traffic recorded in this range.
+                        </p>
                       </div>
-                      <p className="text-sm font-medium text-foreground">No data yet</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Add the snippet to your site to start collecting pageviews.
-                      </p>
-                    </CardContent>
-                  </Card>
+                    )}
+                  </CardPanel>
+                </Card>
+                <FrameFooter>
+                  <div className="flex gap-1.5 text-xs text-muted-foreground">
+                    <NucleoIcon name="activity" className="mt-0.5 size-3 shrink-0" />
+                    <p>Stats refresh automatically every 30 seconds.</p>
+                  </div>
+                </FrameFooter>
+              </Frame>
+
+              {/* Breakdowns + embed */}
+              {hasData ? (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+                  <Frame className="w-full">
+                    <FramePanel className="shrink-0 mb-2">
+                      <FrameTitle>Top Pages</FrameTitle>
+                      <FrameDescription>Most visited paths.</FrameDescription>
+                    </FramePanel>
+                    <Card>
+                      <CardPanel>
+                        <BreakdownList items={summary!.topPages} emptyLabel="No pages yet" mono />
+                      </CardPanel>
+                    </Card>
+                  </Frame>
+
+                  <Frame className="w-full">
+                    <FramePanel className="shrink-0 mb-2">
+                      <FrameTitle>Top Referrers</FrameTitle>
+                      <FrameDescription>Where your visitors come from.</FrameDescription>
+                    </FramePanel>
+                    <Card>
+                      <CardPanel>
+                        <BreakdownList items={summary!.topReferrers} emptyLabel="No referrers yet" />
+                      </CardPanel>
+                    </Card>
+                  </Frame>
+
+                  <Frame className="w-full">
+                    <FramePanel className="shrink-0 mb-2">
+                      <FrameTitle className="flex items-center gap-2">
+                        <CpuIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        Browsers &amp; Devices
+                      </FrameTitle>
+                      <FrameDescription>Visitor environment breakdown.</FrameDescription>
+                    </FramePanel>
+                    <Card>
+                      <CardPanel className="space-y-5">
+                        <div>
+                          <span className="mb-2 block text-xs font-medium text-muted-foreground">
+                            Browser
+                          </span>
+                          <BreakdownList items={summary!.browsers} emptyLabel="—" />
+                        </div>
+                        <div>
+                          <span className="mb-2 block text-xs font-medium text-muted-foreground">
+                            Operating system
+                          </span>
+                          <BreakdownList items={summary!.os} emptyLabel="—" />
+                        </div>
+                        <div>
+                          <span className="mb-2 block text-xs font-medium text-muted-foreground">
+                            Device
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {summary!.devices.length === 0 ? (
+                              <span className="text-sm text-muted-foreground">—</span>
+                            ) : (
+                              summary!.devices.map((d) => (
+                                <Badge key={d.label} variant="outline" className="gap-1.5">
+                                  {d.label}
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    {compactNumber(d.count)}
+                                  </span>
+                                </Badge>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </CardPanel>
+                    </Card>
+                  </Frame>
+
                   {selectedId && <EmbedSnippet appId={selectedId} />}
                 </div>
-              )
-            )}
-          </>
-        )}
+              ) : (
+                // No data yet → lead with the install instructions.
+                !loading && selectedId && (
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+                    <Frame className="w-full lg:self-stretch">
+                      <FramePanel className="flex flex-1 flex-col items-center justify-center gap-2 py-12 text-center">
+                        <ActivityIcon className="h-6 w-6 text-muted-foreground/30" />
+                        <p className="text-sm font-medium text-foreground">No data yet</p>
+                        <p className="text-sm text-muted-foreground">
+                          Add the snippet to your site to start collecting pageviews.
+                        </p>
+                      </FramePanel>
+                    </Frame>
+                    {selectedId && <EmbedSnippet appId={selectedId} />}
+                  </div>
+                )
+              )}
+            </>
+          )}
+        </div>
       </div>
     </AppShell>
   )

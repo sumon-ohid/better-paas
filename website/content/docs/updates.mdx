@@ -40,10 +40,16 @@ flowchart TD
 2. Launches a detached helper that runs `git fetch` and checks out the new
    release tag.
 3. Rebuilds the backend (swapping in the new binary only on a successful build,
-   keeping `server.bak`) and rebuilds the frontend.
-4. Restarts the services and **health-checks** the new build at `/api/health`.
-5. If the new build doesn't come up, it **automatically restores** the previous
-   binary and git ref and restarts — so a bad release rolls itself back.
+   keeping `server.bak`) and rebuilds the frontend **out-of-band** into
+   `.next.new` — the running dashboard keeps serving its current assets,
+   untouched, for the entire build.
+4. Atomically swaps the new frontend build in right before restarting, and
+   carries the previous build's hashed CSS/JS files over so browser tabs that
+   are still open don't lose their styles after the update.
+5. Restarts the services and **health-checks** the new build at `/api/health`.
+6. If the new build doesn't come up, it **automatically restores** the previous
+   binary, frontend build, and git ref and restarts — so a bad release rolls
+   itself back.
 
 <Callout type="info" title="Your data is never touched">
   Updates never modify your `data/` directory. Schema changes are applied by

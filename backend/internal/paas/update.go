@@ -322,14 +322,36 @@ REPO="%[3]s"
 BACKEND="%[4]s"
 FRONTEND="%[5]s"
 FRONTEND_PREV_BUILD="$FRONTEND/.next.pre-update"
+FRONTEND_NEW_BUILD="$FRONTEND/.next.new"
 HEALTH_URL="%[7]s"
 %[6]s
 
+# Legacy in-place build: moves the live .next aside before building. Only used
+# when the checked-out frontend does not support NEXT_DIST_DIR.
 prepare_frontend_build() {
   cd "$FRONTEND" || exit 1
   rm -rf "$FRONTEND_PREV_BUILD"
   if [ -d ".next" ]; then
     mv ".next" "$FRONTEND_PREV_BUILD"
+  fi
+}
+
+# Atomically promote the out-of-band build (.next.new -> .next) right before
+# the frontend restarts, then merge the previous build's hashed static assets
+# into the new one. Browsers holding cached HTML from the old build keep
+# requesting /_next/static/<old-hash>.css|js; keeping those files around
+# prevents unstyled pages after an update.
+swap_frontend_build() {
+  cd "$FRONTEND" || exit 1
+  rm -rf "$FRONTEND_PREV_BUILD"
+  if [ -d ".next" ]; then
+    mv ".next" "$FRONTEND_PREV_BUILD"
+  fi
+  mv "$FRONTEND_NEW_BUILD" ".next"
+  if [ -d "$FRONTEND_PREV_BUILD/static" ]; then
+    mkdir -p ".next/static"
+    cp -a -n "$FRONTEND_PREV_BUILD/static/." ".next/static/" 2>/dev/null || \
+      cp -Rn "$FRONTEND_PREV_BUILD/static/." ".next/static/" 2>/dev/null || true
   fi
 }
 
@@ -403,23 +425,51 @@ if ! pnpm install --frozen-lockfile; then
   git -C "$REPO" checkout -f "$PREV_REF" || true
   exit 1
 fi
-prepare_frontend_build
-if ! pnpm build; then
-  echo "[updater] frontend build failed; rolling back before restart"
-  restore_frontend_build
-  cd "$BACKEND" || exit 1
-  [ -f server.bak ] && mv -f server.bak server
-  git -C "$REPO" checkout -f "$PREV_REF" || true
-  exit 1
+# Prefer an out-of-band build: the live frontend keeps serving its current
+# .next untouched while the new build lands in .next.new. Falls back to the
+# legacy in-place build when the checked-out frontend predates NEXT_DIST_DIR.
+FRONTEND_OOB=0
+if grep -qs "NEXT_DIST_DIR" next.config.mjs next.config.js next.config.ts 2>/dev/null; then
+  FRONTEND_OOB=1
+fi
+
+if [ "$FRONTEND_OOB" -eq 1 ]; then
+  echo "[updater] building frontend out-of-band into .next.new ..."
+  rm -rf "$FRONTEND_NEW_BUILD"
+  if ! NEXT_DIST_DIR=".next.new" pnpm build; then
+    echo "[updater] frontend build failed; rolling back before restart"
+    rm -rf "$FRONTEND_NEW_BUILD"
+    cd "$BACKEND" || exit 1
+    [ -f server.bak ] && mv -f server.bak server
+    git -C "$REPO" checkout -f "$PREV_REF" || true
+    exit 1
+  fi
+else
+  prepare_frontend_build
+  if ! pnpm build; then
+    echo "[updater] frontend build failed; rolling back before restart"
+    restore_frontend_build
+    cd "$BACKEND" || exit 1
+    [ -f server.bak ] && mv -f server.bak server
+    git -C "$REPO" checkout -f "$PREV_REF" || true
+    exit 1
+  fi
 fi
 
 if ! restart_backend; then
   echo "[updater] backend restart failed; rolling back"
   restore_frontend_build
+  rm -rf "$FRONTEND_NEW_BUILD"
   cd "$BACKEND" || exit 1
   [ -f server.bak ] && mv -f server.bak server
   git -C "$REPO" checkout -f "$PREV_REF" || true
   exit 1
+fi
+# Promote the new frontend build at the last possible moment, immediately
+# before the frontend restarts, so the swap window is milliseconds instead of
+# the entire build duration.
+if [ "$FRONTEND_OOB" -eq 1 ]; then
+  swap_frontend_build
 fi
 if ! start_frontend; then
   echo "[updater] frontend restart failed; rolling back"

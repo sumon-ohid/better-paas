@@ -189,6 +189,10 @@ export default function SettingsPage() {
           if (p.state === "completed") {
             api.system.version().then(setSysVersion).catch(() => {})
             api.system.updateCheck(true).then(setUpdateStatus).catch(() => {})
+            // Hard-reload so the dashboard runs on the new build's assets
+            // instead of stale cached chunks from the previous version.
+            showToast("Update complete", "Reloading to load the new version...", "success")
+            setTimeout(() => window.location.reload(), 2000)
           }
         }
       } catch {
@@ -196,7 +200,7 @@ export default function SettingsPage() {
       }
     }
     await poll()
-  }, [])
+  }, [showToast])
 
   useEffect(() => {
     api.notifications
