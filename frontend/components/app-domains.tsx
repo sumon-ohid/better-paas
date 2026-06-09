@@ -4,7 +4,21 @@ import React, { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
+import {
+  Frame,
+  FramePanel,
+  FrameTitle,
+  FrameDescription,
+  FrameFooter,
+} from "@/components/ui/frame"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -120,161 +134,177 @@ export function AppDomains({ app, onChange }: AppDomainsProps) {
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6">
-      <div className="mx-auto max-w-4xl space-y-6 animate-in fade-in-50 duration-200">
-        {/* Add domain */}
-        <div className="space-y-3">
-          <div>
-            <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
-              <GlobeIcon className="h-4 w-4 text-muted-foreground" />
-              Custom Domains
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Point your own hostname at this app. HTTPS certificates are issued automatically once
-              DNS resolves here.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Input
-              value={newDomain}
-              onChange={(e) => setNewDomain(e.target.value.replace(/\s/g, ""))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !isAdding) handleAdd()
-              }}
-              placeholder="app.example.com"
-              className="h-9 text-sm font-mono"
-            />
-            <Button
-              onClick={handleAdd}
-              disabled={isAdding || !newDomain.trim()}
-              className="h-9 shrink-0 gap-1.5 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {isAdding ? (
-                <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <PlusIcon className="h-3.5 w-3.5" />
-              )}
-              Add Domain
-            </Button>
-          </div>
-        </div>
-
-        {/* DNS target hint */}
-        <Card className="border-border bg-card/72 backdrop-blur-xl p-4 space-y-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-            DNS Target
-          </span>
-          <p className="text-xs text-muted-foreground">
-            Create an <code className="rounded bg-muted px-1.5 py-0.5 font-mono font-semibold text-[11px]">A</code>{" "}
-            record for each domain pointing at this server&apos;s public IP:
-          </p>
-          <div className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2">
-            <span className="font-mono text-sm text-foreground">
-              {serverIp || "detecting…"}
-            </span>
-            {serverIp && (
-              <button
-                onClick={() => copy(serverIp, "ip")}
-                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Copy IP"
-              >
-                {copied === "ip" ? (
-                  <CheckIcon className="h-3 w-3 text-success" />
-                ) : (
-                  <CopyIcon className="h-3 w-3" />
-                )}
-              </button>
-            )}
-          </div>
-          {!cfConnected && (
-            <p className="flex items-start gap-1.5 pt-1 text-[11px] text-muted-foreground">
-              <InfoIcon className="mt-px h-3 w-3 shrink-0" />
-              <span>
-                Using Cloudflare?{" "}
-                <Link
-                  href="/settings"
-                  className="text-primary underline-offset-2 hover:underline"
-                >
-                  Connect an API token
-                </Link>{" "}
-                to add DNS records with one click.
-              </span>
-            </p>
-          )}
-        </Card>
-
-        {/* Domain list */}
-        {domains.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border py-12 text-center">
-            <GlobeIcon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">No custom domains yet.</p>
-            <p className="mt-0.5 text-xs text-muted-foreground/60">
-              Add one above to serve this app from your own hostname.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-card/72 backdrop-blur-xl divide-y divide-border">
-            {domains.map((domain) => (
-              <div
-                key={domain}
-                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/20"
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <GlobeIcon className="h-4 w-4" />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <a
-                    href={`https://${domain}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 truncate font-mono text-sm font-medium text-foreground transition-colors hover:text-primary"
-                  >
-                    <span className="truncate">{domain}</span>
-                    <ExternalIcon className="h-3 w-3 shrink-0 opacity-50" />
-                  </a>
-                  <span className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <span className="h-2 w-2 mr-1 rounded-full bg-success" />
-                    HTTPS provisioned automatically
-                  </span>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {cfConnected && (
-                    <Button
-                      onClick={() => handleCloudflareDns(domain)}
-                      disabled={dnsBusy === domain}
-                      variant="outline"
-                      className="h-8 gap-1.5 border-[#f6821f]/40 text-xs text-[#f6821f] hover:bg-[#f6821f]/10 hover:text-[#f6821f]"
-                      title="Create the A record on Cloudflare automatically"
-                    >
-                      {dnsBusy === domain ? (
-                        <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <CloudIcon className="h-3.5 w-3.5" />
-                      )}
-                      Add DNS
-                    </Button>
-                  )}
-
-                  <Button
-                    onClick={() => setRemoveTarget(domain)}
-                    disabled={removing === domain}
-                    variant="ghost"
-                    className="h-8 w-8 border-0 p-0 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
-                    title="Remove domain"
-                  >
-                    {removing === domain ? (
-                      <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <TrashIcon className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </div>
+      <div className="animate-in fade-in-50 mx-auto max-w-4xl space-y-4 duration-200">
+        <Frame className="w-full">
+          {/* Header + Add */}
+          <FramePanel>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <FrameTitle>Custom Domains</FrameTitle>
+                <FrameDescription>
+                  Point your own hostname at this app. HTTPS certificates are
+                  issued automatically once DNS resolves here.
+                </FrameDescription>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+                <Input
+                  value={newDomain}
+                  onChange={(e) =>
+                    setNewDomain(e.target.value.replace(/\s/g, ""))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !isAdding) handleAdd()
+                  }}
+                  placeholder="app.example.com"
+                  className="h-8 text-sm font-mono sm:w-64"
+                />
+                <Button
+                  onClick={handleAdd}
+                  disabled={isAdding || !newDomain.trim()}
+                  size="default"
+                  className="h-9 gap-1.5 text-xs"
+                >
+                  {isAdding ? (
+                    <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <PlusIcon className="h-3.5 w-3.5" />
+                  )}
+                  Add
+                </Button>
+              </div>
+            </div>
+          </FramePanel>
+
+          {/* Domain list */}
+          {domains.length === 0 ? (
+            <FramePanel className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+              <GlobeIcon className="h-6 w-6 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">
+                No custom domains yet.
+              </p>
+              <p className="text-xs text-muted-foreground/60">
+                Add one above to serve this app from your own hostname.
+              </p>
+            </FramePanel>
+          ) : (
+            <Table variant="card">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[55%]">Domain</TableHead>
+                  <TableHead className="w-[25%]">Status</TableHead>
+                  <TableHead className="w-[20%] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {domains.map((domain) => (
+                  <TableRow key={domain}>
+                    <TableCell>
+                      <a
+                        href={`https://${domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 truncate font-mono text-sm font-medium text-foreground transition-colors hover:text-primary"
+                        title={`Open https://${domain}`}
+                      >
+                        <GlobeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{domain}</span>
+                        <ExternalIcon className="h-3 w-3 shrink-0 opacity-50" />
+                      </a>
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className="h-2 w-2 rounded-full bg-success" />
+                        HTTPS active
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {cfConnected && (
+                          <Button
+                            onClick={() => handleCloudflareDns(domain)}
+                            disabled={dnsBusy === domain}
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1.5 border-[#f6821f]/40 text-xs text-[#f6821f] hover:bg-[#f6821f]/10 hover:text-[#f6821f]"
+                            title="Create the A record on Cloudflare automatically"
+                          >
+                            {dnsBusy === domain ? (
+                              <RefreshIcon className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <CloudIcon className="h-3 w-3" />
+                            )}
+                            DNS
+                          </Button>
+                        )}
+                        <Button
+                          onClick={() => setRemoveTarget(domain)}
+                          disabled={removing === domain}
+                          variant="ghost"
+                          size="icon-xs"
+                          className="text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
+                          title="Remove domain"
+                        >
+                          {removing === domain ? (
+                            <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+
+          {/* Footer: DNS target */}
+          <FrameFooter>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <InfoIcon className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Point an{" "}
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono font-semibold">
+                    A
+                  </code>{" "}
+                  record to this server&apos;s public IP
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-1">
+                  <span className="font-mono text-xs text-foreground">
+                    {serverIp || "detecting…"}
+                  </span>
+                  {serverIp && (
+                    <button
+                      onClick={() => copy(serverIp, "ip")}
+                      className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      aria-label="Copy IP"
+                    >
+                      {copied === "ip" ? (
+                        <CheckIcon className="h-3 w-3 text-success" />
+                      ) : (
+                        <CopyIcon className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
+                </div>
+                {!cfConnected && (
+                  <span className="text-[11px] text-muted-foreground">
+                    <Link
+                      href="/settings"
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
+                      Connect Cloudflare
+                    </Link>{" "}
+                    for 1-click DNS
+                  </span>
+                )}
+              </div>
+            </div>
+          </FrameFooter>
+        </Frame>
       </div>
 
       {/* Remove domain confirmation */}
@@ -292,13 +322,18 @@ export function AppDomains({ app, onChange }: AppDomainsProps) {
             <AlertDialogTitle>Remove domain</AlertDialogTitle>
             <AlertDialogDescription>
               Stop routing{" "}
-              <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{removeTarget}</code>{" "}
-              to {app.name}? The app stays online on its other domains. You can re-add it anytime,
-              but its TLS certificate will need to be re-issued.
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+                {removeTarget}
+              </code>{" "}
+              to {app.name}? The app stays online on its other domains. You can
+              re-add it anytime, but its TLS certificate will need to be
+              re-issued.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="outline">Cancel</Button>} />
+            <AlertDialogClose
+              render={<Button variant="outline">Cancel</Button>}
+            />
             <Button
               variant="destructive"
               onClick={() => removeTarget && handleRemove(removeTarget)}
