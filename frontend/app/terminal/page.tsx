@@ -4,6 +4,13 @@ import React, { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
 import { AppShell } from "@/components/app-shell"
+import { Button } from "@/components/ui/button"
+import {
+  Frame,
+  FramePanel,
+  FrameTitle,
+  FrameDescription,
+} from "@/components/ui/frame"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { api } from "@/lib/api"
 import type { App } from "@/lib/types"
@@ -15,7 +22,7 @@ const HostTerminal = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-border/80 bg-card text-xs text-muted-foreground">
+      <div className="flex h-full min-h-0 items-center justify-center text-xs text-muted-foreground">
         Loading terminal…
       </div>
     ),
@@ -23,7 +30,6 @@ const HostTerminal = dynamic(
 )
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
-const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 
 export default function TerminalPage() {
@@ -33,7 +39,7 @@ export default function TerminalPage() {
 
   // If navigated from a server card with ?server=<id>, auto-select that server.
   const searchParams = useSearchParams()
-  const { setActiveServerId, servers } = useActiveServer()
+  const { activeServerId, setActiveServerId, servers } = useActiveServer()
 
   useEffect(() => {
     const serverId = searchParams.get("server")
@@ -59,47 +65,62 @@ export default function TerminalPage() {
   }, [fetchApps])
 
   const serverParam = searchParams.get("server")
-  const serverName =
-    serverParam === "localhost" || !serverParam
-      ? "host"
-      : (servers.find((s) => s.id === serverParam)?.name ?? "server")
+  const isRemote = !!serverParam && serverParam !== "localhost"
+  const serverName = isRemote
+    ? (servers.find((s) => s.id === serverParam)?.name ?? "server")
+    : "host"
+
+  // Connection signal for the status dot: localhost is always reachable; remote
+  // servers report a status through the server context.
+  const activeServer = servers.find((s) => s.id === activeServerId)
+  const noContext = activeServerId === "all"
+  const connected = noContext
+    ? false
+    : activeServerId === "localhost" || activeServer?.status === "connected"
 
   return (
     <AppShell appCount={appCount}>
-      <div className="flex h-full min-h-0 flex-col p-4 md:p-6">
-        {/* Page header */}
-        <div className="space-y-1 shrink-0">
-          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
-            {serverParam && serverParam !== "localhost"
-              ? `Terminal — ${serverName}`
-              : "Server Terminal"}
-          </h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            {serverParam && serverParam !== "localhost"
-              ? `Interactive shell on ${serverName}.`
-              : "An interactive shell on the host machine running Better-PaaS."}
-          </p>
-        </div>
+      <div className="animate-in fade-in-50 flex h-full min-h-0 flex-1 flex-col p-4 duration-200 md:p-6">
+        <Frame className="h-full w-full">
+          {/* Header */}
+          <FramePanel className="shrink-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <FrameTitle className="flex items-center gap-2">
+                  <span className="truncate">
+                    {isRemote ? `Terminal — ${serverName}` : "Host Shell"}
+                  </span>
+                  <span
+                    className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
+                      connected ? "bg-success" : "bg-muted-foreground/30"
+                    }`}
+                  />
+                </FrameTitle>
+                <FrameDescription className="text-xs sm:text-sm">
+                  {noContext
+                    ? "Select a server to open a shell"
+                    : isRemote
+                      ? `Interactive shell on ${serverName}`
+                      : "Interactive shell on the host machine running Better-PaaS"}
+                </FrameDescription>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setReconnectToken((t) => t + 1)}
+                className="h-7 shrink-0 gap-1.5 text-xs"
+              >
+                <RefreshIcon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Reconnect</span>
+              </Button>
+            </div>
+          </FramePanel>
 
-        {/* Terminal toolbar */}
-        <div className="mt-6 flex shrink-0 items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <TerminalIcon className="h-3.5 w-3.5" />
-            <span>Host Shell</span>
-          </div>
-          <button
-            onClick={() => setReconnectToken((t) => t + 1)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-          >
-            <RefreshIcon className="h-3 w-3" />
-            Reconnect
-          </button>
-        </div>
-
-        {/* Terminal surface */}
-        <div className="mt-4 min-h-0 flex-1">
-          <HostTerminal reconnectToken={reconnectToken} />
-        </div>
+          {/* Terminal surface */}
+          <FramePanel className="relative flex min-h-0 flex-1 flex-col overflow-hidden !p-0">
+            <HostTerminal reconnectToken={reconnectToken} />
+          </FramePanel>
+        </Frame>
       </div>
     </AppShell>
   )
