@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useEffect, useState, useCallback } from "react"
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -269,14 +268,13 @@ export default function CronPage() {
             <div className="min-w-0 space-y-6">
               {/* Create form */}
               <Frame className="w-full">
-                <FramePanel className="shrink-0 mb-2">
+                <FramePanel className="shrink-0">
                   <FrameTitle>New scheduled job</FrameTitle>
-                  <FrameDescription>
+                  <FrameDescription className="text-xs sm:text-sm">
                     5-field cron expression — minute, hour, day, month, weekday.
                   </FrameDescription>
                 </FramePanel>
-                <Card>
-                  <CardPanel className="space-y-4">
+                <FramePanel className="space-y-4">
                     {apps.length === 0 && !loading ? (
                       <div className="rounded-lg border border-dashed border-border bg-muted/10 px-4 py-6 text-center">
                         <p className="text-sm font-medium text-foreground">No apps deployed yet</p>
@@ -354,24 +352,25 @@ export default function CronPage() {
                             Runs inside the selected app&apos;s container with its environment and files.
                           </FieldDescription>
                         </Field>
-
-                        <Button
-                          onClick={handleCreate}
-                          loading={creating}
-                          disabled={apps.length === 0}
-                          className="gap-1.5"
-                        >
-                          <PlusIcon className="h-3.5 w-3.5" />
-                          Add job
-                        </Button>
                       </>
                     )}
-                  </CardPanel>
-                </Card>
+                </FramePanel>
                 <FrameFooter>
-                  <div className="flex gap-1.5 text-xs text-muted-foreground">
-                    <ClockIcon className="mt-0.5 size-3 shrink-0" />
-                    <p>Times follow the server&apos;s timezone. Press Enter in the command field to submit.</p>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex gap-1.5 text-xs text-muted-foreground">
+                      <ClockIcon className="mt-0.5 size-3 shrink-0" />
+                      <p>Times follow the server&apos;s timezone. Press Enter in the command field to submit.</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleCreate}
+                      loading={creating}
+                      disabled={apps.length === 0}
+                      className="gap-1.5"
+                    >
+                      <PlusIcon className="h-3.5 w-3.5" />
+                      Add job
+                    </Button>
                   </div>
                 </FrameFooter>
               </Frame>
@@ -472,32 +471,33 @@ export default function CronPage() {
                     </div>
 
                     {/* Mobile cards */}
-                    <div className="space-y-1 p-1 md:hidden">
+                    <div className="space-y-1 md:hidden">
                       {jobs.map((job) => (
-                        <Card key={job.id} className={cn("before:hidden shadow-none", !job.enabled && "opacity-70")}>
-                          <CardPanel className="space-y-3">
-                            <JobMeta job={job} />
-                            <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-3">
-                              <div>
-                                {hasValidLastRun(job.lastRun) ? (
-                                  <span className="text-xs text-muted-foreground">
-                                    Last run {timeAgo(job.lastRun)}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">Never run</span>
-                                )}
-                              </div>
-                              <JobActions
-                                job={job}
-                                onToggle={() => toggle(job)}
-                                onRun={() => runNow(job)}
-                                onDelete={() => setDeleteJob(job)}
-                                running={runningId === job.id}
-                                toggling={togglingId === job.id}
-                              />
+                        <FramePanel
+                          key={job.id}
+                          className={cn("space-y-3", !job.enabled && "opacity-70")}
+                        >
+                          <JobMeta job={job} />
+                          <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-3">
+                            <div>
+                              {hasValidLastRun(job.lastRun) ? (
+                                <span className="text-xs text-muted-foreground">
+                                  Last run {timeAgo(job.lastRun)}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Never run</span>
+                              )}
                             </div>
-                          </CardPanel>
-                        </Card>
+                            <JobActions
+                              job={job}
+                              onToggle={() => toggle(job)}
+                              onRun={() => runNow(job)}
+                              onDelete={() => setDeleteJob(job)}
+                              running={runningId === job.id}
+                              toggling={togglingId === job.id}
+                            />
+                          </div>
+                        </FramePanel>
                       ))}
                     </div>
                   </>
@@ -517,7 +517,7 @@ export default function CronPage() {
             </div>
 
             {/* Sidebar reference */}
-            <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            <aside className="lg:sticky lg:top-6 lg:self-start">
               <Frame className="w-full">
                 <FramePanel>
                   <div className="mb-3 flex items-center gap-2">
@@ -542,15 +542,13 @@ export default function CronPage() {
                     lists.
                   </FrameDescription>
                 </FramePanel>
-              </Frame>
 
-              <Frame className="w-full">
-                <Card className="before:hidden shadow-none">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm">Examples</CardTitle>
-                    <CardDescription className="text-xs">Common patterns you can paste into the schedule field.</CardDescription>
-                  </CardHeader>
-                  <CardPanel className="space-y-2 pt-0">
+                <FramePanel>
+                  <FrameTitle>Examples</FrameTitle>
+                  <FrameDescription className="mb-3 text-xs">
+                    Common patterns — tap one to fill the schedule field.
+                  </FrameDescription>
+                  <div className="space-y-2">
                     {[
                       ["0 0 * * *", "Every day at midnight"],
                       ["0 9 * * 1-5", "Weekdays at 9am"],
@@ -567,8 +565,8 @@ export default function CronPage() {
                         <span className="text-[11px] text-muted-foreground">{desc}</span>
                       </button>
                     ))}
-                  </CardPanel>
-                </Card>
+                  </div>
+                </FramePanel>
               </Frame>
             </aside>
           </div>
