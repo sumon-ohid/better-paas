@@ -61,7 +61,16 @@ import type { App } from "@/lib/types"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { Docker } from "@/components/ui/svgs/docker"
-import { Card } from "@/components/ui/card";
+import { Card, CardFrame, CardFrameFooter } from "@/components/ui/card"
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+} from "@tanstack/react-table"
+import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
@@ -308,25 +317,23 @@ function useAppActions() {
   return { toggle, redeploy }
 }
 
-// ── Desktop table row ─────────────────────────────────────────────────────────
+// ── Columns for list view ─────────────────────────────────────────────────────
 
-function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
-  const router = useRouter()
-  const { toggle, redeploy } = useAppActions()
-
-  return (
-    <TableRow
-      className="group cursor-pointer"
-      onClick={() => router.push(`/app/${app.id}`)}
-    >
-      {/* Project name — primary attention anchor */}
-      <TableCell className="py-4">
+const appColumns: ColumnDef<App>[] = [
+  {
+    accessorKey: "name",
+    header: "Project",
+    size: 220,
+    cell: ({ row }) => {
+      const app = row.original
+      const router = useRouter()
+      return (
         <div className="flex items-center gap-2.5">
           <StatusDot status={app.status} />
-          <span className="font-semibold text-base text-foreground group-hover:text-primary transition-colors">
+          <span className="font-semibold text-base text-foreground">
             {app.name}
           </span>
-          {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
+          {app.vulnerabilitiesCount ? (
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -354,41 +361,196 @@ function AppRow({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
             </span>
           )}
         </div>
-      </TableCell>
+      )
+    },
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    size: 110,
+    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+  },
+  {
+    accessorKey: "url",
+    header: "URL",
+    size: 200,
+    cell: ({ row }) => <UrlLink url={getAppUrl(row.original)} />,
+  },
+  {
+    accessorKey: "gitRepo",
+    header: "Repository",
+    size: 220,
+    cell: ({ row }) => (
+      <RepoLink gitRepo={row.original.gitRepo} image={row.original.image} />
+    ),
+  },
+  {
+    accessorKey: "branch",
+    header: "Branch",
+    size: 120,
+    cell: ({ row }) => <BranchBadge branch={row.original.branch} />,
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Deployed",
+    size: 110,
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground tabular-nums">
+        {formatRelativeTime(row.original.createdAt)}
+      </span>
+    ),
+  },
+  {
+    id: "actions",
+    header: () => <span className="sr-only">Actions</span>,
+    size: 60,
+    enableSorting: false,
+    cell: ({ row }) => {
+      const app = row.original
+      const { toggle, redeploy } = useAppActions()
+      return (
+        <div className="text-right">
+          <AppActionsMenu
+            app={app}
+            onDelete={() => {}}
+            onToggle={(action) => toggle(app, action)}
+            onRedeploy={(noCache) => redeploy(app, noCache)}
+          />
+        </div>
+      )
+    },
+  },
+]
 
-      <TableCell className="py-4">
-        <StatusBadge status={app.status} />
-      </TableCell>
+function AppTable({
+  apps,
+  loading,
+  isEmpty,
+  noAppsAtAll,
+  onRowClick,
+}: {
+  apps: App[]
+  loading: boolean
+  isEmpty: boolean
+  noAppsAtAll: boolean
+  onRowClick: (app: App) => void
+}) {
+  const router = useRouter()
+  const [sorting, setSorting] = useState<SortingState>([])
 
-      <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
-        <UrlLink url={getAppUrl(app)} />
-      </TableCell>
+  const table = useReactTable({
+    data: apps,
+    columns: appColumns,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    enableSortingRemoval: false,
+    onSortingChange: setSorting,
+    state: { sorting },
+  })
 
-      <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
-        <RepoLink gitRepo={app.gitRepo} image={app.image} />
-      </TableCell>
+  const rows = table.getRowModel().rows
 
-      <TableCell className="py-4">
-        <BranchBadge branch={app.branch} />
-      </TableCell>
-
-      <TableCell className="py-4">
-        <span className="text-sm text-muted-foreground tabular-nums">
-          {formatRelativeTime(app.createdAt)}
-        </span>
-      </TableCell>
-
-      <TableCell className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
-        <AppActionsMenu
-          app={app}
-          onDelete={onDelete}
-          onToggle={(action) => toggle(app, action)}
-          onRedeploy={(noCache) => redeploy(app, noCache)}
-        />
-      </TableCell>
-    </TableRow>
+  return (
+    <CardFrame className="w-full">
+      <Table variant="card" className="table-fixed">
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow className="hover:bg-transparent" key={headerGroup.id}>
+              {headerGroup.headers.map((header) => {
+                const columnSize = header.column.getSize()
+                return (
+                  <TableHead
+                    key={header.id}
+                    style={columnSize ? { width: `${columnSize}px` } : undefined}
+                  >
+                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                      <div
+                        className="flex h-full cursor-pointer select-none items-center justify-between gap-2"
+                        onClick={header.column.getToggleSortingHandler()}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            header.column.getToggleSortingHandler()?.(e)
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                        {{
+                          asc: (
+                            <ChevronUpIcon
+                              aria-hidden="true"
+                              className="size-4 shrink-0 opacity-80"
+                            />
+                          ),
+                          desc: (
+                            <ChevronDownIcon
+                              aria-hidden="true"
+                              className="size-4 shrink-0 opacity-80"
+                            />
+                          ),
+                        }[header.column.getIsSorted() as string] ?? null}
+                      </div>
+                    ) : (
+                      flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )
+                    )}
+                  </TableHead>
+                )
+              })}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            <LoadingRows />
+          ) : isEmpty ? (
+            <TableRow>
+              <TableCell className="h-24 text-center" colSpan={appColumns.length}>
+                <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
+              </TableCell>
+            </TableRow>
+          ) : (
+            rows.map((row) => (
+              <TableRow
+                className="group cursor-pointer"
+                data-state={row.getIsSelected() ? "selected" : undefined}
+                key={row.id}
+                onClick={() => onRowClick(row.original)}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+      {!loading && !isEmpty && (
+        <CardFrameFooter className="p-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-muted-foreground text-sm">
+              <strong className="font-medium text-foreground">
+                {apps.length}
+              </strong>{" "}
+              {apps.length === 1 ? "service" : "services"} deployed
+            </p>
+          </div>
+        </CardFrameFooter>
+      )}
+    </CardFrame>
   )
 }
+
+// ── Desktop table row ─────────────────────────────────────────────────────────
 
 // ── Mobile card (responsive) ──────────────────────────────────────────────────
 
@@ -814,35 +976,14 @@ function ApplicationsDashboard() {
       {/* Content */}
       <div className="p-4 md:p-6">
         {/* Desktop list (table) view */}
-        <div className={`du-card hidden overflow-hidden rounded-xl ${viewMode === "list" ? "md:block" : ""}`}>
-          <Table className="[&_td]:px-5 [&_th]:px-5">
-            <TableHeader>
-              <TableRow className="bg-muted/20 text-xs uppercase tracking-[0.08em] select-none">
-                <TableHead className="py-3.5">Project</TableHead>
-                <TableHead className="py-3.5">Status</TableHead>
-                <TableHead className="py-3.5">URL</TableHead>
-                <TableHead className="py-3.5">Repository</TableHead>
-                <TableHead className="py-3.5">Branch</TableHead>
-                <TableHead className="py-3.5">Deployed</TableHead>
-                <TableHead className="py-3.5 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <LoadingRows />
-              ) : isEmpty ? (
-                <TableRow>
-                  <TableCell colSpan={7}>
-                    <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredApps.map((app) => (
-                  <AppRow key={app.id} app={app} onDelete={(a) => setDeleteTarget(a)} />
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <div className={`hidden ${viewMode === "list" ? "md:block" : ""}`}>
+          <AppTable
+            apps={filteredApps}
+            loading={loading}
+            isEmpty={isEmpty}
+            noAppsAtAll={noAppsAtAll}
+            onRowClick={(app) => router.push(`/app/${app.id}`)}
+          />
         </div>
 
         {/* Desktop card (grid) view */}
