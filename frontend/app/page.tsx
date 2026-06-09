@@ -710,7 +710,7 @@ function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void
                         e.stopPropagation()
                         router.push(`/app/${app.id}?tab=vulnerabilities`)
                       }}
-                      className="inline-flex cursor-pointer items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                      className="inline-flex h-5.5 cursor-pointer items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
                     >
                       <NucleoIcon name="circle-alert" className="h-3 w-3 animate-pulse" />
                       <span>
