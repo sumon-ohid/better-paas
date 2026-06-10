@@ -18,13 +18,25 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogPanel,
   DialogFooter,
 } from "@/components/ui/dialog"
+import {
+  Frame,
+  FramePanel,
+  FrameTitle,
+  FrameDescription,
+  FrameFooter,
+} from "@/components/ui/frame"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import type { GitHubRepo, GitHubContent, Server } from "@/lib/types"
 import { GitHubConnectModal } from "@/components/github-connect-modal"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
@@ -63,6 +75,13 @@ const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
+
+function isValidPublicRepoInput(input: string): boolean {
+  const trimmed = input.trim().replace(/\.git$/, "")
+  if (!trimmed) return false
+  if (/^https?:\/\/(www\.)?github\.com\/[\w.-]+\/[\w.-]+/.test(trimmed)) return true
+  return /^[\w.-]+\/[\w.-]+$/.test(trimmed)
+}
 
 // Smoothly animates its own height whenever the content inside grows or
 // shrinks (step changes, expanding sections, added env vars, etc.).
@@ -496,8 +515,13 @@ export default function DeployPage() {
   }
 
   const handleManualRepo = async (url: string) => {
-    const cleanUrl = url.trim().replace(/\.git$/, "")
+    let cleanUrl = url.trim().replace(/\.git$/, "")
     if (!cleanUrl) return
+
+    // Normalize owner/repo shorthand → full GitHub URL
+    if (!/^https?:\/\//i.test(cleanUrl)) {
+      cleanUrl = `https://github.com/${cleanUrl.replace(/^\/+/, "")}`
+    }
 
     setErrorMsg("")
     setIsFetchingBranches(true)
@@ -1276,9 +1300,10 @@ export default function DeployPage() {
                     <Button
                       type="button"
                       onClick={() => setDeployEnvVars((prev) => [...prev, { key: "", value: "" }])}
-                      className="h-6 cursor-pointer rounded bg-secondary text-secondary-foreground text-xs px-2 hover:bg-secondary/85 flex items-center gap-1 font-semibold border-0"
+                      className="h-6 cursor-pointer rounded-lg bg-secondary text-xs px-2 hover:bg-secondary/85 flex items-center gap-1 font-semibold border-0"
                     >
-                      <PlusIcon className="h-3 w-3" /> Add Var
+                      <PlusIcon className="h-3 w-3" />
+                      <span>Add Vars</span>
                     </Button>
                   </div>
                 </div>
@@ -1430,44 +1455,138 @@ export default function DeployPage() {
 
       {/* Public Repo URL Modal */}
       <Dialog open={showPublicRepoModal} onOpenChange={setShowPublicRepoModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-base">Deploy Public Repository</DialogTitle>
+            <DialogTitle className="flex items-center gap-2.5 text-base">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40">
+                <GithubLight className="h-4 w-4 dark:hidden" />
+                <GithubDark className="h-4 w-4 hidden dark:block" />
+              </span>
+              Deploy public repository
+            </DialogTitle>
             <DialogDescription>
-              Paste any public GitHub URL — authentication is not required.
+              Paste a public GitHub URL — no account connection required.
             </DialogDescription>
           </DialogHeader>
-          <DialogPanel>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                GitHub Repository URL
-              </Label>
-              <Input
-                value={manualGitUrl}
-                onChange={(e) => setManualGitUrl(e.target.value)}
-                placeholder="https://github.com/user/repo"
-                className="h-9 text-sm"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && manualGitUrl.trim()) {
-                    setShowPublicRepoModal(false)
-                    handleManualRepo(manualGitUrl)
-                  }
-                }}
-              />
-            </div>
-          </DialogPanel>
+
+          <div className="space-y-4 px-6 pb-2">
+            <Frame className="w-full">
+              <FramePanel className="shrink-0 !py-3">
+                <FrameTitle>Repository URL</FrameTitle>
+                <FrameDescription className="text-xs sm:text-sm">
+                  We&apos;ll fetch branches and detect your framework automatically.
+                </FrameDescription>
+              </FramePanel>
+
+              <FramePanel className="space-y-2">
+                <Label
+                  htmlFor="public-repo-url"
+                  className="text-xs font-semibold text-muted-foreground"
+                >
+                  GitHub URL
+                </Label>
+                <InputGroup>
+                  <InputGroupAddon align="inline-start">
+                    <GithubLight className="h-4 w-4 opacity-80 dark:hidden" />
+                    <GithubDark className="hidden h-4 w-4 opacity-80 dark:block" />
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    id="public-repo-url"
+                    value={manualGitUrl}
+                    onChange={(e) => setManualGitUrl(e.target.value)}
+                    placeholder="https://github.com/owner/repo"
+                    className="font-mono text-sm"
+                    autoFocus
+                    aria-invalid={
+                      manualGitUrl.trim() && !isValidPublicRepoInput(manualGitUrl)
+                        ? true
+                        : undefined
+                    }
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === "Enter" &&
+                        isValidPublicRepoInput(manualGitUrl) &&
+                        !isFetchingBranches
+                      ) {
+                        setShowPublicRepoModal(false)
+                        handleManualRepo(manualGitUrl)
+                      }
+                    }}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      disabled={
+                        !isValidPublicRepoInput(manualGitUrl) || isFetchingBranches
+                      }
+                      loading={isFetchingBranches}
+                      onClick={() => {
+                        setShowPublicRepoModal(false)
+                        handleManualRepo(manualGitUrl)
+                      }}
+                    >
+                      Continue
+                    </Button>
+                  </InputGroupAddon>
+                </InputGroup>
+                <p className="text-[11px] text-muted-foreground">
+                  Accepts{" "}
+                  <code className="font-mono text-foreground/80">
+                    https://github.com/owner/repo
+                  </code>{" "}
+                  or{" "}
+                  <code className="font-mono text-foreground/80">
+                    owner/repo
+                  </code>
+                  .
+                </p>
+              </FramePanel>
+
+              <FrameFooter className="!py-3">
+                <div className="flex gap-2 text-[11px] leading-snug text-muted-foreground">
+                  <NucleoIcon
+                    name="info"
+                    className="h-3.5 w-3.5 shrink-0 text-primary"
+                  />
+                  <span>
+                    Private repos need{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPublicRepoModal(false)
+                        setShowGitHubModal(true)
+                      }}
+                      className="cursor-pointer text-primary underline-offset-2 hover:underline"
+                    >
+                      GitHub connected
+                    </button>
+                    . Public repos deploy without signing in.
+                  </span>
+                </div>
+              </FrameFooter>
+            </Frame>
+          </div>
+
           <DialogFooter>
+            <DialogClose
+              render={
+                <Button variant="outline" disabled={isFetchingBranches}>
+                  Cancel
+                </Button>
+              }
+            />
             <Button
               onClick={() => {
                 setShowPublicRepoModal(false)
                 handleManualRepo(manualGitUrl)
               }}
-              disabled={!manualGitUrl.trim() || isFetchingBranches}
-              className="h-9 gap-1.5 text-sm"
+              disabled={!isValidPublicRepoInput(manualGitUrl) || isFetchingBranches}
+              loading={isFetchingBranches}
+              className="gap-1.5"
             >
-              {isFetchingBranches && <RefreshIcon className="h-3 w-3 animate-spin" />}
-              {isFetchingBranches ? "Fetching..." : "Continue"}
+              <ChevronRightIcon className="h-3.5 w-3.5" />
+              Continue
             </Button>
           </DialogFooter>
         </DialogContent>

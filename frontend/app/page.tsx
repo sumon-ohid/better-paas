@@ -10,6 +10,11 @@ import { compareByStatusPriority } from "@/lib/status"
 import { useActiveServer } from "@/components/server-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -90,8 +95,6 @@ const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const SquareIcon = (props: IconProps) => <NucleoIcon {...props} name="square" />
 const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
-const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
-const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
 const ExternalLinkIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
 const LinkIcon = (props: IconProps) => <NucleoIcon {...props} name="link" />
 const NoUrlIcon = (props: IconProps) => <NucleoIcon {...props} name="link-2-off" />
@@ -914,25 +917,20 @@ function ApplicationsDashboard() {
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
-          <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/25 px-2.5 py-1">
-            <SearchIcon className="h-4 w-4 text-muted-foreground" />
-            <input
+          <InputGroup className="min-w-0 w-full sm:w-48">
+            <InputGroupInput
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filter by name..."
+              type="search"
               aria-label="Filter applications by name"
-              className="bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/60 w-40"
             />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                aria-label="Clear filter"
-                className="cursor-pointer text-muted-foreground hover:text-foreground"
-              >
-                <XIcon className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+            <InputGroupAddon align="inline-end">
+              <Button size="xs" variant="secondary">
+                Search
+              </Button>
+            </InputGroupAddon>
+          </InputGroup>
 
           {/* Status filter */}
           <ToggleGroup
