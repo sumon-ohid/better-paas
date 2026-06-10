@@ -2,7 +2,13 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Frame, FramePanel } from "@/components/ui/frame"
+import {
+  Frame,
+  FramePanel,
+  FrameTitle,
+  FrameDescription,
+  FrameFooter,
+} from "@/components/ui/frame"
 import { Button } from "@/components/ui/button"
 import {
   InputGroup,
@@ -475,19 +481,21 @@ export default function CatalogPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2.5 text-base">
               {selected && (
-                <span className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-white p-1">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-white p-1">
                   <AppLogo
                     template={selected}
                     className="h-full w-full object-contain"
                   />
                 </span>
               )}
-              Deploy {selected?.name}
+              <span className="min-w-0 truncate">Deploy {selected?.name}</span>
             </DialogTitle>
-            <DialogDescription>{selected?.description}</DialogDescription>
+            <DialogDescription className="line-clamp-2">
+              {selected?.description}
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[55vh] space-y-4 overflow-y-auto px-6 pb-2">
+          <div className="max-h-[65vh] space-y-4 overflow-y-auto px-6 pb-2">
             {errorMsg && (
               <Alert variant="error">
                 <NucleoIcon name="triangle-alert" />
@@ -495,121 +503,159 @@ export default function CatalogPage() {
               </Alert>
             )}
 
-            {/* App name */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">
-                App name
-              </Label>
-              <Input
-                value={deployName}
-                onChange={(e) =>
-                  setDeployName(
-                    e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")
-                  )
-                }
-                placeholder="my-app"
-                className="h-9 text-sm"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Used for the container name and the app&apos;s default URL.
-              </p>
-            </div>
-
-            {selected && selected.requiredAddons?.length ? (
-              <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-[11px] leading-snug text-muted-foreground">
-                <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                <span>
-                  Better PaaS will create{" "}
-                  {selected.requiredAddons
-                    .map((addon) => addonLabel(addon.type))
-                    .join(" + ")}{" "}
-                  on the selected server and inject the connection variables
-                  automatically.
-                </span>
-              </div>
-            ) : null}
-
-            {/* Configurable env vars */}
-            {selected &&
-              (selected.env || []).some((e) => !isAutoFilledEnv(e)) && (
-                <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-                  <p className="text-xs font-semibold text-foreground">
-                    Configuration
-                  </p>
-                  {(selected.env || [])
-                    .filter((e: CatalogEnv) => !isAutoFilledEnv(e))
-                    .map((e: CatalogEnv) => (
-                      <div key={e.key} className="space-y-1.5">
-                        <Label className="flex items-center gap-1.5 font-mono text-[11px] text-foreground/90">
-                          {e.key}
-                          {e.required && (
-                            <span className="text-destructive-foreground">
-                              *
-                            </span>
-                          )}
-                          {e.secret && (
-                            <NucleoIcon
-                              name="lock"
-                              className="h-3 w-3 text-muted-foreground"
-                            />
-                          )}
-                        </Label>
-                        <Input
-                          type={e.secret ? "password" : "text"}
-                          value={envValues[e.key] ?? ""}
-                          onChange={(ev) =>
-                            setEnvValues((prev) => ({
-                              ...prev,
-                              [e.key]: ev.target.value,
-                            }))
-                          }
-                          placeholder={
-                            e.generate
-                              ? "Leave blank to auto-generate"
-                              : e.value || ""
-                          }
-                          className="h-8 font-mono text-xs"
-                        />
-                        {e.description && (
-                          <p className="text-[11px] leading-snug text-muted-foreground">
-                            {e.description}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              )}
-
-            {/* Notes / caveats */}
-            {selected?.notes && (
-              <div className="flex gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-[11px] leading-snug text-muted-foreground">
-                <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-                <span>{selected.notes}</span>
-              </div>
-            )}
-
-            {/* Runtime summary */}
             {selected && (
-              <div className="space-y-1 rounded-lg border border-border bg-card/40 p-3 text-[11px] text-muted-foreground">
-                <div className="flex items-center justify-between gap-2">
-                  <span>Image</span>
-                  <span className="truncate font-mono text-foreground/80 select-all">
-                    {selected.image}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span>Internal port</span>
-                  <span className="font-mono text-foreground/80">
-                    {selected.port}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span>Storage</span>
-                  <span className="font-mono text-foreground/80">
-                    {selected.volumePath ? "Persistent volume" : "Stateless"}
-                  </span>
-                </div>
-              </div>
+              <Frame className="w-full">
+                <FramePanel className="shrink-0 !py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <FrameTitle>App settings</FrameTitle>
+                      <FrameDescription className="text-xs sm:text-sm">
+                        Name your deployment on{" "}
+                        <span className="font-mono text-foreground/80">
+                          {targetServerId}
+                        </span>
+                        .
+                      </FrameDescription>
+                    </div>
+                    <Badge variant="info" size="sm" className="shrink-0">
+                      {selected.category}
+                    </Badge>
+                  </div>
+                </FramePanel>
+
+                <FramePanel className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    App name
+                  </Label>
+                  <Input
+                    value={deployName}
+                    onChange={(e) =>
+                      setDeployName(
+                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                      )
+                    }
+                    placeholder="my-app"
+                    className="h-9 text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Used for the container name and the app&apos;s default URL.
+                  </p>
+                </FramePanel>
+
+                {selected.requiredAddons?.length ? (
+                  <FramePanel className="!py-3">
+                    <div className="flex gap-2 text-[11px] leading-snug text-muted-foreground">
+                      <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span>
+                        Better PaaS will create{" "}
+                        {selected.requiredAddons
+                          .map((addon) => addonLabel(addon.type))
+                          .join(" + ")}{" "}
+                        on the selected server and inject the connection
+                        variables automatically.
+                      </span>
+                    </div>
+                  </FramePanel>
+                ) : null}
+
+                {(selected.env || []).some((e) => !isAutoFilledEnv(e)) && (
+                  <>
+                    <FramePanel className="shrink-0 !py-3">
+                      <FrameTitle>Configuration</FrameTitle>
+                      <FrameDescription className="text-xs sm:text-sm">
+                        Environment variables for this template.
+                      </FrameDescription>
+                    </FramePanel>
+                    <FramePanel className="space-y-3">
+                      {(selected.env || [])
+                        .filter((e: CatalogEnv) => !isAutoFilledEnv(e))
+                        .map((e: CatalogEnv) => (
+                          <div key={e.key} className="space-y-1.5">
+                            <Label className="flex items-center gap-1.5 font-mono text-[11px] text-foreground/90">
+                              {e.key}
+                              {e.required && (
+                                <span className="text-destructive-foreground">
+                                  *
+                                </span>
+                              )}
+                              {e.secret && (
+                                <NucleoIcon
+                                  name="lock"
+                                  className="h-3 w-3 text-muted-foreground"
+                                />
+                              )}
+                            </Label>
+                            <Input
+                              type={e.secret ? "password" : "text"}
+                              value={envValues[e.key] ?? ""}
+                              onChange={(ev) =>
+                                setEnvValues((prev) => ({
+                                  ...prev,
+                                  [e.key]: ev.target.value,
+                                }))
+                              }
+                              placeholder={
+                                e.generate
+                                  ? "Leave blank to auto-generate"
+                                  : e.value || ""
+                              }
+                              className="h-8 font-mono text-xs"
+                            />
+                            {e.description && (
+                              <p className="text-[11px] leading-snug text-muted-foreground">
+                                {e.description}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                    </FramePanel>
+                  </>
+                )}
+
+                <FramePanel className="shrink-0 !py-3">
+                  <FrameTitle>Runtime</FrameTitle>
+                  <FrameDescription className="text-xs sm:text-sm">
+                    Container image and networking details.
+                  </FrameDescription>
+                </FramePanel>
+                <FramePanel className="divide-y divide-border/60 !py-0">
+                  <div className="flex items-center justify-between gap-3 py-2.5 text-xs">
+                    <span className="text-muted-foreground">Image</span>
+                    <span className="truncate font-mono text-foreground/80 select-all">
+                      {selected.image}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 py-2.5 text-xs">
+                    <span className="text-muted-foreground">Internal port</span>
+                    <span className="font-mono text-foreground/80">
+                      {selected.port}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 py-2.5 text-xs">
+                    <span className="text-muted-foreground">Storage</span>
+                    <span className="font-mono text-foreground/80">
+                      {selected.volumePath ? "Persistent volume" : "Stateless"}
+                    </span>
+                  </div>
+                  {selected.imageSize && (
+                    <div className="flex items-center justify-between gap-3 py-2.5 text-xs">
+                      <span className="text-muted-foreground">Image size</span>
+                      <span className="font-mono text-foreground/80">
+                        {selected.imageSize}
+                      </span>
+                    </div>
+                  )}
+                </FramePanel>
+
+                {selected.notes && (
+                  <FrameFooter className="!py-3">
+                    <div className="flex gap-2 text-[11px] leading-snug text-muted-foreground">
+                      <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                      <span>{selected.notes}</span>
+                    </div>
+                  </FrameFooter>
+                )}
+              </Frame>
             )}
           </div>
 
@@ -750,6 +796,7 @@ function CustomDeployModal({
   onClose: () => void
   onDeployed: (app: App) => void
 }) {
+  const router = useRouter()
   const [name, setName] = useState("")
   const [image, setImage] = useState("")
   const [dockerfile, setDockerfile] = useState("")
@@ -764,6 +811,7 @@ function CustomDeployModal({
   const [errorMsg, setErrorMsg] = useState("")
 
   const isImage = mode === "image"
+  const dockerfileLines = dockerfile ? dockerfile.split("\n").length : 0
 
   const buildCommon = () => {
     const envVars: Record<string, string> = {}
@@ -835,7 +883,7 @@ function CustomDeployModal({
       open={!!mode}
       onOpenChange={(open) => !open && !deploying && onClose()}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className={isImage ? "max-w-lg" : "max-w-2xl"}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             {isImage ? (
@@ -847,12 +895,12 @@ function CustomDeployModal({
           </DialogTitle>
           <DialogDescription>
             {isImage
-              ? "Run any public image from Docker Hub or another registry. It deploys through the same zero-downtime pipeline as your other apps."
-              : "Paste a self-contained Dockerfile. We build the image on this server and run it — no Git repo required."}
+              ? "Run any public image from Docker Hub or another registry."
+              : "Paste a self-contained Dockerfile. We build the image on this server."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[60vh] space-y-4 overflow-y-auto px-6 pb-2">
+        <div className="max-h-[70vh] space-y-4 overflow-y-auto px-6 pb-2">
           {errorMsg && (
             <Alert variant="error">
               <NucleoIcon name="triangle-alert" />
@@ -879,32 +927,93 @@ function CustomDeployModal({
               </p>
             </div>
           ) : (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">
-                Dockerfile
-              </Label>
-              <Textarea
-                value={dockerfile}
-                onChange={(e) => setDockerfile(e.target.value)}
-                placeholder={
-                  'FROM alpine:3.20\nRUN apk add --no-cache caddy\nEXPOSE 80\nCMD ["caddy", "file-server", "--listen", ":80"]'
-                }
-                className="min-h-[160px] font-mono text-xs"
-              />
-              <div className="flex gap-2 rounded-lg border border-warning/30 bg-warning/5 p-2.5 text-[11px] leading-snug text-muted-foreground">
-                <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-                <span>
-                  There&apos;s no build context, so{" "}
-                  <code className="font-mono">COPY</code> /{" "}
-                  <code className="font-mono">ADD</code> of local files
-                  won&apos;t work. The Dockerfile must fetch everything it needs
-                  (packages, <code className="font-mono">ADD https://…</code>).
-                  Need local files? Use a Git deploy instead.
-                </span>
-              </div>
-            </div>
+            <Frame className="w-full">
+              <FramePanel className="shrink-0 !py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <FrameTitle className="flex items-center gap-2">
+                      <TerminalIcon className="h-3.5 w-3.5 text-chart-4" />
+                      Dockerfile
+                    </FrameTitle>
+                    <FrameDescription className="text-xs sm:text-sm">
+                      Self-contained builds only — fetch dependencies inside the
+                      Dockerfile.
+                    </FrameDescription>
+                  </div>
+                  {dockerfile && (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => setDockerfile("")}
+                      className="h-7 shrink-0 text-xs text-muted-foreground"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </FramePanel>
+
+              <FramePanel className="relative overflow-hidden !p-0">
+                <Textarea
+                  value={dockerfile}
+                  onChange={(e) => setDockerfile(e.target.value)}
+                  placeholder={
+                    'FROM alpine:3.20\nRUN apk add --no-cache caddy\nEXPOSE 80\nCMD ["caddy", "file-server", "--listen", ":80"]'
+                  }
+                  spellCheck={false}
+                  className="min-h-[240px] resize-y rounded-none border-0 bg-code px-4 py-3 font-mono text-xs leading-relaxed text-foreground shadow-none focus-visible:ring-0"
+                />
+                <div className="flex items-center justify-between border-t border-border/60 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
+                  <span className="font-mono">
+                    {dockerfileLines > 0
+                      ? `${dockerfileLines} line${dockerfileLines === 1 ? "" : "s"}`
+                      : "No content"}
+                  </span>
+                  <span>
+                    {/from\s+/i.test(dockerfile)
+                      ? "FROM detected"
+                      : "Needs a FROM instruction"}
+                  </span>
+                </div>
+              </FramePanel>
+
+              <FrameFooter className="!py-3">
+                <div className="flex gap-2 text-[11px] leading-snug text-muted-foreground">
+                  <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                  <span>
+                    There&apos;s no build context, so{" "}
+                    <code className="font-mono">COPY</code> /{" "}
+                    <code className="font-mono">ADD</code> of local files
+                    won&apos;t work. Use packages or{" "}
+                    <code className="font-mono">ADD https://…</code> instead.
+                    Need local files?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose()
+                        router.push("/deploy")
+                      }}
+                      className="cursor-pointer text-primary underline-offset-2 hover:underline"
+                    >
+                      Deploy from Git
+                    </button>
+                    .
+                  </span>
+                </div>
+              </FrameFooter>
+            </Frame>
           )}
 
+          <Frame className="w-full">
+            <FramePanel className="shrink-0 !py-3">
+              <FrameTitle>Deploy settings</FrameTitle>
+              <FrameDescription className="text-xs sm:text-sm">
+                Optional overrides for the container runtime.
+              </FrameDescription>
+            </FramePanel>
+
+            <FramePanel className="space-y-4">
           {/* Name */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-muted-foreground">
@@ -952,7 +1061,7 @@ function CustomDeployModal({
           <EnvVarEditor rows={envRows} onChange={setEnvRows} />
 
           {/* Advanced */}
-          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+          <div className="space-y-3 rounded-lg border border-border bg-muted/15 p-3">
             <p className="text-xs font-semibold text-foreground">
               Advanced (optional)
             </p>
@@ -1006,6 +1115,8 @@ function CustomDeployModal({
               </div>
             </div>
           </div>
+            </FramePanel>
+          </Frame>
         </div>
 
         <DialogFooter>
