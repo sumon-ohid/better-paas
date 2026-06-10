@@ -11,7 +11,6 @@ import {
   SelectPopup,
   SelectItem,
 } from "@/components/ui/select"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -59,11 +58,19 @@ import { useActiveServer } from "@/components/server-context"
 // Styled fallback for frameworks without svgl assets (Elixir/Phoenix only)
 function FallbackIcon({ label }: { label: string; color: string }) {
   return (
-    <div className="h-5 w-5 rounded-md flex items-center justify-center text-[9px] font-bold border border-purple-400/40 text-purple-400 bg-purple-400/10">
+    <div className="flex h-5 w-5 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-[9px] font-bold text-primary">
       {label.slice(0, 2).toUpperCase()}
     </div>
   )
 }
+
+const fieldLabel = "text-xs font-semibold text-muted-foreground"
+
+const WIZARD_STEPS = [
+  { num: 1, label: "Repository" },
+  { num: 2, label: "Build config" },
+  { num: 3, label: "Environment" },
+] as const
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
@@ -655,54 +662,57 @@ export default function DeployPage() {
       <button
         onClick={() => router.push("/")}
         aria-label="Close"
-        className="absolute right-5 top-5 z-10 hidden h-9 w-9 cursor-pointer items-center justify-center rounded-md border border-border bg-card/60 text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground md:flex"
+        className="absolute right-5 top-5 z-10 hidden h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-background/80 text-muted-foreground backdrop-blur-sm transition-colors hover:border-primary/30 hover:text-foreground md:flex"
       >
         <XIcon className="h-4 w-4" />
       </button>
 
       <div className="relative my-auto w-full max-w-2xl shrink-0 py-4">
-        {/* Step Indicator */}
-        <div className="flex items-center mb-8 px-2">
-          {[
-            { num: 1, label: "Repository" },
-            { num: 2, label: "Build Config" },
-            { num: 3, label: "Environment" },
-          ].map((s) => (
-            <React.Fragment key={s.num}>
-              <div className="flex shrink-0 items-center gap-3">
-                <span
-                  className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${
+        <Frame className="w-full">
+          <FramePanel className="shrink-0 space-y-4 !py-4">
+            <div className="min-w-0">
+              <FrameTitle className="text-base">Deploy new service</FrameTitle>
+              <FrameDescription className="text-xs sm:text-sm">
+                {step === 1 && "Choose a repository and where to deploy it."}
+                {step === 2 && "Configure how your app is built and started."}
+                {step === 3 && "Set runtime environment variables (optional)."}
+              </FrameDescription>
+            </div>
+
+            <div className="grid w-full grid-cols-3 gap-2">
+              {WIZARD_STEPS.map((s) => (
+                <div
+                  key={s.num}
+                  className={`flex items-center gap-1.5 text-xs transition-colors ${
                     step === s.num
-                      ? "bg-primary border-primary text-primary-foreground font-extrabold"
+                      ? "font-medium text-foreground"
                       : step > s.num
-                        ? "bg-muted border-muted text-primary"
-                        : "border-border text-muted-foreground"
+                        ? "text-muted-foreground"
+                        : "text-muted-foreground/50"
                   }`}
                 >
-                  {s.num}
-                </span>
-                <span
-                  className={`text-sm font-semibold hidden md:inline transition-colors ${
-                    step === s.num ? "text-foreground" : "text-muted-foreground"
-                  }`}
-                >
-                  {s.label}
-                </span>
-              </div>
-              {s.num < 3 && <div className="h-px flex-1 bg-border mx-3" />}
-            </React.Fragment>
-          ))}
-        </div>
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
+                      step === s.num
+                        ? "bg-primary text-primary-foreground"
+                        : step > s.num
+                          ? "border border-primary/25 text-primary"
+                          : "border border-border text-muted-foreground"
+                    }`}
+                  >
+                    {step > s.num ? (
+                      <NucleoIcon name="check" className="h-3 w-3" />
+                    ) : (
+                      s.num
+                    )}
+                  </span>
+                  <span className="truncate">{s.label}</span>
+                </div>
+              ))}
+            </div>
+          </FramePanel>
 
-        <Card className="border border-border/80 bg-card">
-          <CardHeader className="border-b border-border/40 pb-4">
-            <CardTitle className="text-base font-bold text-foreground">Deploy New Service</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground mt-0.5">
-              Select a repository, configure your build, and deploy.
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="pt-4 min-h-[320px]">
+          <FramePanel className="min-h-[320px] !py-4">
             <AnimatedHeight>
             {errorMsg && (
               <Alert variant="error" className="mb-4">
@@ -724,178 +734,201 @@ export default function DeployPage() {
             >
             {/* ── STEP 1: Repository Selection ─────────────────────────────── */}
             {step === 1 && (
-              <div className="space-y-5 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
-                {/* When no repo selected and not connected: show CTA */}
+              <div className="max-h-[calc(100vh-400px)] space-y-5 overflow-y-auto">
                 {!gitHubConnected && !selectedRepo && (
-                  <div className="py-8 space-y-4 text-center">
+                  <div className="flex flex-col items-center gap-4 py-6 text-center">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted/30">
+                      <GithubLight className="h-5 w-5 dark:hidden" />
+                      <GithubDark className="hidden h-5 w-5 dark:block" />
+                    </span>
                     <div className="space-y-1">
-                      <h4 className="text-sm font-medium text-foreground">Connect GitHub</h4>
-                      <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                        Link your account to browse and deploy your repositories.
+                      <p className="text-sm font-semibold text-foreground">Connect GitHub</p>
+                      <p className="mx-auto max-w-xs text-xs text-muted-foreground">
+                        Link your account to browse private and public repositories.
                       </p>
                     </div>
                     <Button
                       onClick={() => setShowGitHubModal(true)}
-                      className="h-9 text-sm flex items-center gap-2 justify-center mx-auto"
+                      size="sm"
+                      className="gap-2"
                     >
-                      <GithubLight className="h-4 w-4 hidden dark:block" />
-                      <GithubDark className="h-4 w-4 dark:hidden" />
+                      <GithubLight className="h-4 w-4 dark:hidden" />
+                      <GithubDark className="hidden h-4 w-4 dark:block" />
                       Connect GitHub
                     </Button>
                     <button
+                      type="button"
                       onClick={() => setShowPublicRepoModal(true)}
-                      className="block mx-auto text-xs text-muted-foreground hover:text-primary transition-colors"
+                      className="text-xs text-muted-foreground transition-colors hover:text-primary"
                     >
-                      Or deploy a public repository &rarr;
+                      Or deploy a public repository without signing in →
                     </button>
                   </div>
                 )}
 
-                {/* Connected state: show repo list */}
                 {gitHubConnected && (
                   <div className="space-y-3">
-                    {/* Connected header */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-md flex items-center justify-center">
-                          <GitCompareArrows className="h-4 w-4 text-success" />
-                        </div>
-                        <span className="text-sm font-medium text-foreground">GitHub connected</span>
+                        <GitCompareArrows className="h-4 w-4 text-success" />
+                        <p className="text-sm font-semibold text-foreground">Your repositories</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="ghost"
                           onClick={loadRepos}
                           disabled={isLoadingRepos}
-                          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                          className="h-7 gap-1 text-xs text-muted-foreground"
                         >
-                          <RefreshIcon className={`h-3 w-3 ${isLoadingRepos ? "animate-spin" : ""}`} />
+                          <RefreshIcon
+                            className={`h-3 w-3 ${isLoadingRepos ? "animate-spin" : ""}`}
+                          />
                           Refresh
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="ghost"
                           onClick={handleDisconnect}
-                          className="text-xs text-destructive-foreground hover:text-destructive transition-colors"
+                          className="h-7 text-xs text-destructive-foreground"
                         >
                           Disconnect
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
-                    {/* Repo list — collapses after selection so config stays visible. */}
                     {(showRepoList || !selectedRepo) && (
-                      isLoadingRepos ? (
-                        <div className="py-12 text-center text-xs text-muted-foreground">
-                          <RefreshIcon className="h-5 w-5 mx-auto mb-2 animate-spin opacity-50" />
-                          Loading repositories...
-                        </div>
-                      ) : repos.length === 0 ? (
-                        <div className="py-12 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
-                          No repositories found.
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {/* Search Input */}
-                          <div className="relative flex items-center">
-                            <SearchIcon className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground/60" />
-                            <Input
-                              value={repoSearchQuery}
-                              onChange={(e) => setRepoSearchQuery(e.target.value)}
-                              placeholder="Search repositories..."
-                              className="h-9 pl-9 pr-8 text-sm placeholder:text-muted-foreground/50"
-                            />
-                            {repoSearchQuery && (
-                              <button
-                                onClick={() => setRepoSearchQuery("")}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                              >
-                                <XIcon className="h-3 w-3" />
-                              </button>
-                            )}
+                      <div className="space-y-3">
+                        {isLoadingRepos ? (
+                          <div className="flex flex-col items-center gap-2 py-10 text-xs text-muted-foreground">
+                            <RefreshIcon className="h-5 w-5 animate-spin opacity-50" />
+                            Loading repositories…
                           </div>
-
-                          {/* Repo items */}
-                          <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                            {filteredRepos.length === 0 ? (
-                              <div className="py-8 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
-                                No repositories match your search query.
-                              </div>
-                            ) : (
-                              filteredRepos.map((repo) => {
-                                const isSelected = selectedRepo?.full_name === repo.full_name
-                                return (
-                                  <button
-                                    key={repo.full_name}
-                                    onClick={() => handleRepoSelect(repo.full_name)}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
-                                      isSelected
-                                        ? "border-primary/50 bg-primary/5"
-                                        : "border-border bg-card/40 hover:bg-accent/30"
-                                    }`}
+                        ) : repos.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-border py-10 text-center text-xs text-muted-foreground">
+                            No repositories found on this account.
+                          </div>
+                        ) : (
+                          <>
+                            <InputGroup>
+                              <InputGroupAddon align="inline-start">
+                                <SearchIcon className="h-4 w-4 opacity-80" />
+                              </InputGroupAddon>
+                              <InputGroupInput
+                                value={repoSearchQuery}
+                                onChange={(e) => setRepoSearchQuery(e.target.value)}
+                                placeholder="Search repositories…"
+                                className="text-sm"
+                              />
+                              {repoSearchQuery && (
+                                <InputGroupAddon align="inline-end">
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="ghost"
+                                    onClick={() => setRepoSearchQuery("")}
+                                    className="h-7 w-7 p-0"
+                                    aria-label="Clear search"
                                   >
-                                    <div className="flex items-center gap-2.5">
-                                      <div className="h-7 w-7 rounded-md bg-muted/50 flex items-center justify-center shrink-0">
-                                        <GithubLight className="h-4 w-4 dark:hidden" />
-                                        <GithubDark className="h-4 w-4 hidden dark:block" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-sm font-medium text-foreground truncate">
-                                            {repo.name}
-                                          </span>
-                                          {repo.private ? (
-                                            <span className="text-[10px] font-mono px-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                              private
-                                            </span>
-                                          ) : (
-                                            <span className="text-[10px] font-mono px-1 rounded bg-muted/50 text-muted-foreground border border-border">
-                                              public
-                                            </span>
-                                          )}
-                                        </div>
-                                        <p className="text-[11px] text-muted-foreground truncate">
-                                          {repo.description || "No description"}
-                                        </p>
-                                      </div>
-                                      <span className="text-[10px] text-muted-foreground/60 shrink-0">
-                                        {new Date(repo.updated_at).toLocaleDateString(undefined, {
-                                          month: "short",
-                                          day: "numeric",
-                                        })}
-                                      </span>
-                                    </div>
-                                  </button>
-                                )
-                              })
-                            )}
-                          </div>
-                        </div>
-                      )
-                    )}
+                                    <XIcon className="h-3 w-3" />
+                                  </Button>
+                                </InputGroupAddon>
+                              )}
+                            </InputGroup>
 
-                    {/* Add public repo */}
-                    {(showRepoList || !selectedRepo) && <button
-                      onClick={() => setShowPublicRepoModal(true)}
-                      className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 hover:bg-accent/20 transition-all cursor-pointer"
-                    >
-                      <PlusIcon className="h-3.5 w-3.5" />
-                      Deploy a public repository
-                    </button>}
+                            <div className="max-h-[200px] space-y-1.5 overflow-y-auto pr-0.5">
+                              {filteredRepos.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-border py-8 text-center text-xs text-muted-foreground">
+                                  No repositories match your search.
+                                </div>
+                              ) : (
+                                filteredRepos.map((repo) => {
+                                  const isSelected =
+                                    selectedRepo?.full_name === repo.full_name
+                                  return (
+                                    <button
+                                      key={repo.full_name}
+                                      type="button"
+                                      onClick={() => handleRepoSelect(repo.full_name)}
+                                      className={`w-full cursor-pointer rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                                        isSelected
+                                          ? "border-primary/40 bg-primary/5"
+                                          : "border-border/80 hover:bg-accent/30"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/50">
+                                          <GithubLight className="h-4 w-4 dark:hidden" />
+                                          <GithubDark className="hidden h-4 w-4 dark:block" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="truncate text-sm font-medium text-foreground">
+                                              {repo.name}
+                                            </span>
+                                            <span
+                                              className={`shrink-0 rounded border px-1 font-mono text-[10px] ${
+                                                repo.private
+                                                  ? "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                                  : "border-border bg-muted/40 text-muted-foreground"
+                                              }`}
+                                            >
+                                              {repo.private ? "private" : "public"}
+                                            </span>
+                                          </div>
+                                          <p className="truncate text-[11px] text-muted-foreground">
+                                            {repo.description || "No description"}
+                                          </p>
+                                        </div>
+                                        <span className="shrink-0 text-[10px] text-muted-foreground/60">
+                                          {new Date(repo.updated_at).toLocaleDateString(
+                                            undefined,
+                                            { month: "short", day: "numeric" },
+                                          )}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  )
+                                })
+                              )}
+                            </div>
+                          </>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => setShowPublicRepoModal(true)}
+                          className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2.5 text-xs text-muted-foreground transition-colors hover:border-muted-foreground/30 hover:bg-accent/20 hover:text-foreground"
+                        >
+                          <PlusIcon className="h-3.5 w-3.5" />
+                          Deploy a public repository
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Selected repo details — shown for both connected & manual flows */}
                 {selectedRepo && (
-                  <div className="space-y-3 pt-2 border-t border-border/40">
-                    {/* Selected repo info */}
-                    <div className="flex items-center gap-2.5 px-1">
-                      <div className="h-7 w-7 rounded-md bg-muted/50 flex items-center justify-center shrink-0">
+                  <div className="space-y-4 border-t border-border/50 pt-5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/30">
                         <GithubLight className="h-4 w-4 dark:hidden" />
-                        <GithubDark className="h-4 w-4 hidden dark:block" />
+                        <GithubDark className="hidden h-4 w-4 dark:block" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{selectedRepo.name}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{selectedRepo.full_name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {selectedRepo.name}
+                        </p>
+                        <p className="truncate font-mono text-xs text-muted-foreground">
+                          {selectedRepo.full_name}
+                        </p>
                       </div>
-                      <button
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="ghost"
                         onClick={() => {
                           if (gitHubConnected) {
                             setShowRepoList(true)
@@ -906,102 +939,122 @@ export default function DeployPage() {
                             setDetectedFramework(null)
                           }
                         }}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        className="h-7 shrink-0 text-xs text-muted-foreground"
                       >
-                        Change repository
-                      </button>
+                        Change
+                      </Button>
                     </div>
 
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Branch
-                      </Label>
-                      {isFetchingBranches ? (
-                        <div className="h-9 flex items-center gap-2 text-xs text-muted-foreground">
-                          <RefreshIcon className="h-3 w-3 animate-spin" />
-                          Fetching branches...
-                        </div>
-                      ) : branches.length > 0 ? (
-                        <Select value={selectedBranch} onValueChange={(v) => setSelectedBranch(v ?? "")}>
-                          <SelectTrigger className="h-9 text-sm w-full">
-                            <SelectValue placeholder="Select branch..." />
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <Label className={fieldLabel}>Branch</Label>
+                        {isFetchingBranches ? (
+                          <div className="flex h-9 items-center gap-2 text-xs text-muted-foreground">
+                            <RefreshIcon className="h-3 w-3 animate-spin" />
+                            Fetching branches…
+                          </div>
+                        ) : branches.length > 0 ? (
+                          <Select
+                            value={selectedBranch}
+                            onValueChange={(v) => setSelectedBranch(v ?? "")}
+                          >
+                            <SelectTrigger className="h-9 w-full text-sm">
+                              <SelectValue placeholder="Select branch…" />
+                            </SelectTrigger>
+                            <SelectPopup>
+                              {branches.map((branch) => (
+                                <SelectItem key={branch} value={branch}>
+                                  {branch}
+                                </SelectItem>
+                              ))}
+                            </SelectPopup>
+                          </Select>
+                        ) : (
+                          <Input
+                            value={selectedBranch}
+                            onChange={(e) => setSelectedBranch(e.target.value)}
+                            placeholder="main"
+                            className="h-9 text-sm"
+                          />
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className={fieldLabel}>App name</Label>
+                        <Input
+                          value={deployName}
+                          onChange={(e) =>
+                            setDeployName(
+                              e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                            )
+                          }
+                          placeholder="my-app"
+                          className="h-9 text-sm"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Used for the container name and default URL.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className={fieldLabel}>Target server</Label>
+                        <Select
+                          value={selectedServerId}
+                          onValueChange={(v) => setSelectedServerId(v ?? "localhost")}
+                        >
+                          <SelectTrigger className="h-9 w-full text-sm">
+                            <span className="truncate">{selectedServerLabel}</span>
                           </SelectTrigger>
                           <SelectPopup>
-                            {branches.map((branch) => (
-                              <SelectItem key={branch} value={branch}>
-                                {branch}
+                            {servers.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.isLocal ? "Localhost" : `${s.name} (${s.ip})`}
                               </SelectItem>
                             ))}
                           </SelectPopup>
                         </Select>
-                      ) : (
-                        <Input
-                          value={selectedBranch}
-                          onChange={(e) => setSelectedBranch(e.target.value)}
-                          placeholder="main"
-                          className="h-9 text-sm"
-                        />
-                      )}
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        App Name
-                      </Label>
-                      <Input
-                        value={deployName}
-                        onChange={(e) =>
-                          setDeployName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
-                        }
-                        placeholder="e.g. my-app"
-                        className="h-9 text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Target Server
-                      </Label>
-                      <Select value={selectedServerId} onValueChange={(v) => setSelectedServerId(v ?? "localhost")}>
-                        <SelectTrigger className="h-9 text-sm w-full">
-                          <span className="truncate">{selectedServerLabel}</span>
-                        </SelectTrigger>
-                        <SelectPopup>
-                          {servers.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.isLocal ? "🖥️ Localhost" : `🌐 ${s.name} (${s.ip})`}
-                            </SelectItem>
-                          ))}
-                        </SelectPopup>
-                      </Select>
-                      {servers.find((s) => s.id === selectedServerId)?.status !== "connected" && (
-                        <p className="text-[10px] text-destructive">
-                          ⚠️ Selected server status is not connected.
-                        </p>
-                      )}
-                    </div>
-
-                    {isDetectingFramework ? (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border">
-                        <RefreshIcon className="h-4 w-4 animate-spin text-muted-foreground" />
-                        <div>
-                          <p className="text-xs font-medium text-foreground">Scanning repository…</p>
-                          <p className="text-[10px] text-muted-foreground">Detecting framework from files</p>
-                        </div>
-                      </div>
-                    ) : detectedFramework ? (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border">
-                        {detectedFramework.icon ? (
-                          <detectedFramework.icon className="h-5 w-5 shrink-0" />
-                        ) : (
-                          <FallbackIcon label={detectedFramework.name} color="" />
+                        {servers.find((s) => s.id === selectedServerId)?.status !==
+                          "connected" && (
+                          <p className="text-[11px] text-destructive-foreground">
+                            Selected server is not connected.
+                          </p>
                         )}
-                        <div>
-                          <p className="text-xs font-medium text-foreground">{detectedFramework.name} detected</p>
-                          <p className="text-[10px] text-muted-foreground">Build and start commands auto-configured</p>
-                        </div>
                       </div>
-                    ) : null}
+                    </div>
+
+                    {(isDetectingFramework || detectedFramework) && (
+                      <div className="flex items-center gap-2.5 rounded-lg bg-muted/25 px-3 py-2.5">
+                        {isDetectingFramework ? (
+                          <>
+                            <RefreshIcon className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                            <div>
+                              <p className="text-xs font-medium text-foreground">
+                                Scanning repository…
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                Detecting framework from project files
+                              </p>
+                            </div>
+                          </>
+                        ) : detectedFramework ? (
+                          <>
+                            {detectedFramework.icon ? (
+                              <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                            ) : (
+                              <FallbackIcon label={detectedFramework.name} color="" />
+                            )}
+                            <div>
+                              <p className="text-xs font-medium text-foreground">
+                                {detectedFramework.name} detected
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                Build and start commands will be pre-filled on the next step.
+                              </p>
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1009,395 +1062,500 @@ export default function DeployPage() {
 
             {/* ── STEP 2: Build Config ─────────────────────────────────────── */}
             {step === 2 && (
-              <div className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
-                {isDetectingFramework ? (
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
-                    <RefreshIcon className="h-4 w-4 animate-spin text-primary" />
-                    <div>
-                      <p className="text-xs font-medium text-foreground">Scanning repository…</p>
-                      <p className="text-[10px] text-muted-foreground">Detecting framework from files</p>
-                    </div>
-                  </div>
-                ) : detectedFramework ? (
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
-                    {detectedFramework.icon ? (
-                      <detectedFramework.icon className="h-5 w-5 shrink-0" />
-                    ) : (
-                      <FallbackIcon label={detectedFramework.name} color="" />
-                    )}
-                    <div>
-                      <p className="text-xs font-medium text-foreground">
-                        {detectedFramework.name} project detected
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Commands pre-filled. Adjust if needed.
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* Build method selector — shown when the chosen directory has
-                    a Dockerfile and/or a Compose file; otherwise Nixpacks. */}
-                {(dockerfileAvailable || composeAvailable) && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Build Method
-                  </Label>
-                  <div className={`grid gap-2 ${dockerfileAvailable && composeAvailable ? "grid-cols-3" : "grid-cols-2"}`}>
-                    {[
-                      { id: "nixpacks" as const, label: "Nixpacks", desc: "Auto-detect", icon: <Nix className="h-5 w-5 text-foreground" />, show: true },
-                      { id: "dockerfile" as const, label: "Dockerfile", desc: "Use Dockerfile", icon: <Docker className="h-5 w-5" />, show: dockerfileAvailable },
-                      { id: "compose" as const, label: "Compose", desc: "Multi-service", icon: <Docker className="h-5 w-5" />, show: composeAvailable },
-                    ].filter((opt) => opt.show).map((opt) => {
-                      const active = deployBuildMethod === opt.id
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => setDeployBuildMethod(opt.id)}
-                          className={`flex flex-col items-start gap-1.5 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                            active
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/40 hover:bg-muted/30"
-                          }`}
-                        >
-                          {opt.icon}
-                          <span className="flex flex-col">
-                            <span className="text-sm font-semibold text-foreground">{opt.label}</span>
-                            <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-                )}
-
-                {deployBuildMethod === "dockerfile" && (
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Dockerfile Path
-                    </Label>
-                    <Input
-                      value={deployDockerfilePath}
-                      onChange={(e) => setDeployDockerfilePath(e.target.value)}
-                      placeholder="Dockerfile"
-                      className="h-9 text-sm font-mono"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      Relative to the root directory. Install/build/start commands are ignored — your
-                      Dockerfile controls the build. Make sure it exposes the app on the port below.
-                    </p>
+              <div className="max-h-[calc(100vh-400px)] space-y-5 overflow-y-auto">
+                {(isDetectingFramework || detectedFramework) && (
+                  <div className="flex items-center gap-2.5 rounded-lg bg-muted/25 px-3 py-2.5">
+                    {isDetectingFramework ? (
+                      <>
+                        <RefreshIcon className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                        <div>
+                          <p className="text-xs font-medium text-foreground">Scanning repository…</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Detecting framework from project files
+                          </p>
+                        </div>
+                      </>
+                    ) : detectedFramework ? (
+                      <>
+                        {detectedFramework.icon ? (
+                          <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                        ) : (
+                          <FallbackIcon label={detectedFramework.name} color="" />
+                        )}
+                        <div>
+                          <p className="text-xs font-medium text-foreground">
+                            {detectedFramework.name} detected
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Commands pre-filled below — adjust if needed.
+                          </p>
+                        </div>
+                      </>
+                    ) : null}
                   </div>
                 )}
 
-                {deployBuildMethod === "compose" && (
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Compose File Path
-                    </Label>
-                    <Input
-                      value={deployComposePath}
-                      onChange={(e) => setDeployComposePath(e.target.value)}
-                      placeholder="docker-compose.yml"
-                      className="h-9 text-sm font-mono"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      Each service becomes its own app, grouped together. Web-facing services (those
-                      publishing a port, excluding databases) each get a URL. Build/start commands and
-                      the port below are ignored — the compose file controls everything. Deploys recreate
-                      the project (brief downtime); managed databases are better added as Add-ons.
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Root Directory
-                      </Label>
-                      <button
-                        type="button"
-                        onClick={openFolderBrowser}
-                        disabled={!selectedRepo || !selectedBranch}
-                        className="text-[10px] text-primary hover:underline disabled:opacity-40 disabled:pointer-events-none"
+                <div className="space-y-4">
+                  {(dockerfileAvailable || composeAvailable) && (
+                    <div className="space-y-2">
+                      <Label className={fieldLabel}>Build method</Label>
+                      <div
+                        className={`grid gap-2 ${dockerfileAvailable && composeAvailable ? "grid-cols-3" : "grid-cols-2"}`}
                       >
-                        Browse…
-                      </button>
+                        {[
+                          {
+                            id: "nixpacks" as const,
+                            label: "Nixpacks",
+                            desc: "Auto-detect",
+                            icon: <Nix className="h-5 w-5 text-foreground" />,
+                            show: true,
+                          },
+                          {
+                            id: "dockerfile" as const,
+                            label: "Dockerfile",
+                            desc: "Use Dockerfile",
+                            icon: <Docker className="h-5 w-5" />,
+                            show: dockerfileAvailable,
+                          },
+                          {
+                            id: "compose" as const,
+                            label: "Compose",
+                            desc: "Multi-service",
+                            icon: <Docker className="h-5 w-5" />,
+                            show: composeAvailable,
+                          },
+                        ]
+                          .filter((opt) => opt.show)
+                          .map((opt) => {
+                            const active = deployBuildMethod === opt.id
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setDeployBuildMethod(opt.id)}
+                                className={`flex cursor-pointer flex-col items-start gap-1.5 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                                  active
+                                    ? "border-primary/40 bg-primary/5"
+                                    : "border-border/80 hover:bg-accent/30"
+                                }`}
+                              >
+                                {opt.icon}
+                                <span className="flex flex-col">
+                                  <span className="text-sm font-semibold text-foreground">
+                                    {opt.label}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {opt.desc}
+                                  </span>
+                                </span>
+                              </button>
+                            )
+                          })}
+                      </div>
                     </div>
-                    <Input
-                      value={deployRootDir}
-                      onChange={(e) => handleRootDirChange(e.target.value)}
-                      placeholder="./"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Port Override
-                    </Label>
-                    <Input
-                      value={deployPortOverride}
-                      onChange={(e) => setDeployPortOverride(e.target.value.replace(/\D/g, ""))}
-                      placeholder="e.g. 3000"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                </div>
+                  )}
 
-                {deployBuildMethod === "nixpacks" && (
-                  <>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Install Command
-                      </Label>
-                      <Input
-                        value={deployInstallCommand}
-                        onChange={(e) => setDeployInstallCommand(e.target.value)}
-                        placeholder="npm install"
-                        className="h-9 text-sm font-mono"
-                      />
-                    </div>
+                  {deployBuildMethod === "dockerfile" && (
+                      <div className="space-y-1.5">
+                        <Label className={fieldLabel}>Dockerfile path</Label>
+                        <Input
+                          value={deployDockerfilePath}
+                          onChange={(e) => setDeployDockerfilePath(e.target.value)}
+                          placeholder="Dockerfile"
+                          className="h-9 font-mono text-sm"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Relative to root directory. Your Dockerfile controls the build — install,
+                          build, and start commands below are ignored.
+                        </p>
+                      </div>
+                    )}
+
+                    {deployBuildMethod === "compose" && (
+                      <div className="space-y-1.5">
+                        <Label className={fieldLabel}>Compose file path</Label>
+                        <Input
+                          value={deployComposePath}
+                          onChange={(e) => setDeployComposePath(e.target.value)}
+                          placeholder="docker-compose.yml"
+                          className="h-9 font-mono text-sm"
+                        />
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          Each service becomes its own app. Web-facing services get a URL. The
+                          compose file controls ports and commands — settings below are ignored.
+                        </p>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Build Command
-                        </Label>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center pb-1.5 justify-between">
+                          <Label className={fieldLabel}>Root directory</Label>
+                          <button
+                            type="button"
+                            onClick={openFolderBrowser}
+                            disabled={!selectedRepo || !selectedBranch}
+                            className="text-[11px] text-primary hover:underline disabled:pointer-events-none disabled:opacity-40"
+                          >
+                            Browse…
+                          </button>
+                        </div>
                         <Input
-                          value={deployBuildCommand}
-                          onChange={(e) => setDeployBuildCommand(e.target.value)}
-                          placeholder="npm run build"
-                          className="h-9 text-sm font-mono"
+                          value={deployRootDir}
+                          onChange={(e) => handleRootDirChange(e.target.value)}
+                          placeholder="./"
+                          className="h-9 text-sm"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Start Command
-                        </Label>
+                      <div className="space-y-1.5">
+                        <Label className={fieldLabel}>Port override</Label>
                         <Input
-                          value={deployStartCommand}
-                          onChange={(e) => setDeployStartCommand(e.target.value)}
-                          placeholder="npm start"
-                          className="h-9 text-sm font-mono"
+                          value={deployPortOverride}
+                          onChange={(e) =>
+                            setDeployPortOverride(e.target.value.replace(/\D/g, ""))
+                          }
+                          placeholder="3000"
+                          className="h-9 text-sm"
                         />
                       </div>
                     </div>
-                  </>
-                )}
 
-                {/* Advanced: resource limits, health check, domains, volumes */}
-                <div className="pt-2 mt-2 border-t border-border/40 space-y-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                    Advanced (optional)
-                  </p>
+                    {deployBuildMethod === "nixpacks" && (
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <Label className={fieldLabel}>Install command</Label>
+                          <Input
+                            value={deployInstallCommand}
+                            onChange={(e) => setDeployInstallCommand(e.target.value)}
+                            placeholder="npm install"
+                            className="h-9 font-mono text-sm"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label className={fieldLabel}>Build command</Label>
+                            <Input
+                              value={deployBuildCommand}
+                              onChange={(e) => setDeployBuildCommand(e.target.value)}
+                              placeholder="npm run build"
+                              className="h-9 font-mono text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className={fieldLabel}>Start command</Label>
+                            <Input
+                              value={deployStartCommand}
+                              onChange={(e) => setDeployStartCommand(e.target.value)}
+                              placeholder="npm start"
+                              className="h-9 font-mono text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                </div>
+
+                <div className="space-y-4 border-t border-border/50 pt-5">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Advanced</p>
+                    <p className="text-xs text-muted-foreground">
+                      Optional resource limits, health checks, domains, and volumes.
+                    </p>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Memory Limit
-                      </Label>
-                      <Input
-                        value={deployMemory}
-                        onChange={(e) => setDeployMemory(e.target.value)}
-                        placeholder="e.g. 512m, 1g"
-                        className="h-9 text-sm font-mono"
-                      />
+                      <div className="space-y-1.5">
+                        <Label className={fieldLabel}>Memory limit</Label>
+                        <Input
+                          value={deployMemory}
+                          onChange={(e) => setDeployMemory(e.target.value)}
+                          placeholder="512m, 1g"
+                          className="h-9 font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className={fieldLabel}>CPU limit</Label>
+                        <Input
+                          value={deployCpus}
+                          onChange={(e) => setDeployCpus(e.target.value)}
+                          placeholder="0.5, 1, 2"
+                          className="h-9 font-mono text-sm"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        CPU Limit
-                      </Label>
+
+                    <div className="space-y-1.5">
+                      <Label className={fieldLabel}>Health check path</Label>
                       <Input
-                        value={deployCpus}
-                        onChange={(e) => setDeployCpus(e.target.value)}
-                        placeholder="e.g. 0.5, 1, 2"
-                        className="h-9 text-sm font-mono"
+                        value={deployHealthPath}
+                        onChange={(e) => setDeployHealthPath(e.target.value)}
+                        placeholder="/health (blank = TCP check)"
+                        className="h-9 font-mono text-sm"
                       />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Health Check Path
-                    </Label>
-                    <Input
-                      value={deployHealthPath}
-                      onChange={(e) => setDeployHealthPath(e.target.value)}
-                      placeholder="/health (blank = TCP check)"
-                      className="h-9 text-sm font-mono"
-                    />
-                    <p className="text-[10px] text-muted-foreground/60">
-                      Probed before traffic is switched to a new deploy (zero-downtime).
-                    </p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Custom Domains
-                    </Label>
-                    <Input
-                      value={deployDomains}
-                      onChange={(e) => setDeployDomains(e.target.value)}
-                      placeholder="app.example.com, www.example.com"
-                      className="h-9 text-sm font-mono"
-                    />
-                    <p className="text-[10px] text-muted-foreground/60">
-                      Comma-separated. HTTPS certs are issued automatically by Caddy. Point DNS to this server first.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Persistent Volumes
-                    </Label>
-                    <Input
-                      value={deployVolumes}
-                      onChange={(e) => setDeployVolumes(e.target.value)}
-                      placeholder="myapp-data:/data"
-                      className="h-9 text-sm font-mono"
-                    />
-                    <p className="text-[10px] text-muted-foreground/60">
-                      Comma-separated <span className="font-mono">name:/container/path</span>. Survives redeploys.
-                    </p>
-                  </div>
-
-                  <label className="flex items-center gap-2.5 cursor-pointer rounded-lg border border-border bg-card/40 px-3 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={deployAutoDeploy}
-                      onChange={(e) => setDeployAutoDeploy(e.target.checked)}
-                      className="h-4 w-4 accent-primary"
-                    />
-                    <div>
-                      <p className="text-xs font-medium text-foreground">Auto-deploy on push</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Redeploy automatically when you push to this branch (set up the webhook after deploying).
+                      <p className="text-[11px] text-muted-foreground">
+                        Probed before traffic switches to a new deploy.
                       </p>
                     </div>
-                  </label>
+
+                    <div className="space-y-1.5">
+                      <Label className={fieldLabel}>Custom domains</Label>
+                      <Input
+                        value={deployDomains}
+                        onChange={(e) => setDeployDomains(e.target.value)}
+                        placeholder="app.example.com, www.example.com"
+                        className="h-9 font-mono text-sm"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Comma-separated. HTTPS certs are issued automatically — point DNS here
+                        first.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className={fieldLabel}>Persistent volumes</Label>
+                      <Input
+                        value={deployVolumes}
+                        onChange={(e) => setDeployVolumes(e.target.value)}
+                        placeholder="myapp-data:/data"
+                        className="h-9 font-mono text-sm"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Comma-separated{" "}
+                        <code className="font-mono text-foreground/80">name:/path</code>. Survives
+                        redeploys.
+                      </p>
+                    </div>
+
+                    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border/80 px-3 py-2.5 transition-colors hover:bg-accent/20">
+                      <input
+                        type="checkbox"
+                        checked={deployAutoDeploy}
+                        onChange={(e) => setDeployAutoDeploy(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-primary"
+                      />
+                      <div>
+                        <p className="text-xs font-medium text-foreground">Auto-deploy on push</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Redeploy when you push to this branch. Set up the webhook after
+                          deploying.
+                        </p>
+                      </div>
+                    </label>
                 </div>
               </div>
             )}
 
             {/* ── STEP 3: Environment ──────────────────────────────────────── */}
-            {step === 3 && (
-              <div className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
-                <div className="flex justify-between items-center">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Environment Variables
-                  </Label>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      type="button"
-                      onClick={() => setShowBulkEnv((v) => !v)}
-                      variant="outline"
-                      className="h-6 text-[11px] px-2 font-medium"
-                    >
-                      {showBulkEnv ? "Cancel" : "Paste .env"}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => setDeployEnvVars((prev) => [...prev, { key: "", value: "" }])}
-                      className="h-6 cursor-pointer rounded-lg bg-secondary text-xs px-2 hover:bg-secondary/85 flex items-center gap-1 font-semibold border-0"
-                    >
-                      <PlusIcon className="h-3 w-3" />
-                      <span>Add Vars</span>
-                    </Button>
-                  </div>
-                </div>
+            {step === 3 && (() => {
+              const bulkEnvParsed = parseEnvBlock(bulkEnvText)
+              const bulkEnvLines = bulkEnvText
+                ? bulkEnvText.split(/\r?\n/).filter((l) => l.trim()).length
+                : 0
 
-                {/* Bulk paste textarea */}
-                {showBulkEnv && (
-                  <div className="space-y-2 animate-in fade-in-50">
-                    <Textarea
-                      value={bulkEnvText}
-                      onChange={(e) => setBulkEnvText(e.target.value)}
-                      placeholder={`KEY=value\nDATABASE_URL="postgres://..."\n# comments are ignored\nexport API_KEY=secret`}
-                      className="w-full h-32 rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 resize-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none"
-                    />
-                    <div className="flex justify-end">
+              const handleBulkEnvImport = () => {
+                if (bulkEnvParsed.length === 0) {
+                  setErrorMsg("No valid KEY=value pairs found in pasted text.")
+                  return
+                }
+                setDeployEnvVars((prev) => {
+                  const existingKeys = new Set(prev.map((e) => e.key))
+                  const merged = [...prev]
+                  for (const p of bulkEnvParsed) {
+                    if (!existingKeys.has(p.key)) {
+                      merged.push(p)
+                      existingKeys.add(p.key)
+                    }
+                  }
+                  return merged
+                })
+                setBulkEnvText("")
+                setShowBulkEnv(false)
+                setErrorMsg("")
+              }
+
+              return (
+                <div className="max-h-[calc(100vh-400px)] space-y-5 overflow-y-auto">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Environment variables</p>
+                      <p className="text-xs text-muted-foreground">
+                        Optional runtime config — injected at deploy, not baked into the image.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {!showBulkEnv && (
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="outline"
+                          onClick={() => setShowBulkEnv(true)}
+                          className="h-7 gap-1 text-xs"
+                        >
+                          <NucleoIcon name="copy" className="h-3 w-3" />
+                          Paste .env
+                        </Button>
+                      )}
                       <Button
                         type="button"
-                        onClick={() => {
-                          const parsed = parseEnvBlock(bulkEnvText)
-                          if (parsed.length === 0) {
-                            setErrorMsg("No valid KEY=value pairs found.")
-                            return
+                        size="xs"
+                        variant="secondary"
+                        onClick={() =>
+                          setDeployEnvVars((prev) => [...prev, { key: "", value: "" }])
+                        }
+                        className="h-7 gap-1 text-xs"
+                      >
+                        <PlusIcon className="h-3 w-3" />
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+
+                  {showBulkEnv && (
+                    <div className="animate-in fade-in-50 space-y-3 rounded-lg border border-border/80 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                            <NucleoIcon name="copy" className="h-3.5 w-3.5 text-chart-4" />
+                            Paste .env contents
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Comments, blank lines, and{" "}
+                            <code className="font-mono text-foreground/80">export</code> prefixes
+                            are ignored.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="ghost"
+                          onClick={() => {
+                            setShowBulkEnv(false)
+                            setBulkEnvText("")
+                          }}
+                          className="h-7 shrink-0 text-xs text-muted-foreground"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+
+                      <div className="overflow-hidden rounded-lg border border-border">
+                        <Textarea
+                          value={bulkEnvText}
+                          onChange={(e) => setBulkEnvText(e.target.value)}
+                          placeholder={
+                            "DATABASE_URL=postgres://user:pass@host/db\nAPI_KEY=sk_live_...\n# comments are skipped\nexport NODE_ENV=production"
                           }
-                          setDeployEnvVars((prev) => {
-                            const existingKeys = new Set(prev.map((e) => e.key))
-                            const merged = [...prev]
-                            for (const p of parsed) {
-                              if (!existingKeys.has(p.key)) {
-                                merged.push(p)
-                                existingKeys.add(p.key)
-                              }
-                            }
-                            return merged
-                          })
-                          setBulkEnvText("")
-                          setShowBulkEnv(false)
-                          setErrorMsg("")
-                        }}
-                        disabled={!bulkEnvText.trim()}
-                        className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 px-3"
-                      >
-                        Parse & Add {bulkEnvText.trim() ? `(${parseEnvBlock(bulkEnvText).length})` : ""}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                          spellCheck={false}
+                          className="min-h-[140px] resize-y rounded-none border-0 bg-code px-4 py-3 font-mono text-xs leading-relaxed text-foreground shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0"
+                        />
+                        <div className="flex items-center justify-between border-t border-border/60 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
+                          <span>
+                            {bulkEnvLines > 0
+                              ? `${bulkEnvLines} non-empty line${bulkEnvLines === 1 ? "" : "s"}`
+                              : "Paste KEY=value lines above"}
+                          </span>
+                          <span>
+                            {bulkEnvParsed.length > 0
+                              ? `${bulkEnvParsed.length} variable${bulkEnvParsed.length === 1 ? "" : "s"} detected`
+                              : "Waiting for valid pairs"}
+                          </span>
+                        </div>
+                      </div>
 
-                <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
-                  {deployEnvVars.map((env, index) => (
-                    <div key={index} className="flex gap-2 items-center animate-in fade-in-50 duration-150">
-                      <Input
-                        value={env.key}
-                        onChange={(e) => {
-                          const updated = [...deployEnvVars]
-                          updated[index].key = e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "")
-                          setDeployEnvVars(updated)
-                        }}
-                        placeholder="VARIABLE_NAME"
-                        className="h-9 text-sm font-mono flex-1"
-                      />
-                      <Input
-                        value={env.value}
-                        onChange={(e) => {
-                          const updated = [...deployEnvVars]
-                          updated[index].value = e.target.value
-                          setDeployEnvVars(updated)
-                        }}
-                        placeholder="value"
-                        className="h-9 text-sm font-mono flex-1"
-                      />
-                      <Button
-                        type="button"
-                        onClick={() => setDeployEnvVars((prev) => prev.filter((_, i) => i !== index))}
-                        variant="ghost"
-                        className="h-8 w-8 hover:bg-destructive/10 text-destructive p-0 shrink-0 border-0"
-                      >
-                        <XIcon className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[11px] text-muted-foreground">
+                          Duplicate keys are skipped.
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleBulkEnvImport}
+                          disabled={bulkEnvParsed.length === 0}
+                          className="shrink-0 gap-1.5"
+                        >
+                          <PlusIcon className="h-3.5 w-3.5" />
+                          Import{bulkEnvParsed.length > 0 ? ` ${bulkEnvParsed.length}` : ""}
+                        </Button>
+                      </div>
                     </div>
-                  ))}
-                  {deployEnvVars.length === 0 && (
-                    <div className="text-center py-8 text-sm text-muted-foreground/60 border border-dashed border-border/80 rounded-md">
-                      No environment variables configured.
+                  )}
+
+                  {deployEnvVars.length === 0 ? (
+                    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-8 text-center">
+                      <NucleoIcon name="layers" className="h-5 w-5 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">No variables yet</p>
+                      <p className="max-w-xs text-[11px] leading-snug text-muted-foreground/80">
+                        Add keys manually or paste a{" "}
+                        <code className="font-mono text-foreground/70">.env</code> file to import
+                        them in bulk.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-[1fr_1fr_2rem] gap-2 px-0.5 text-[10px] font-medium text-muted-foreground">
+                        <span>Key</span>
+                        <span>Value</span>
+                        <span className="sr-only">Remove</span>
+                      </div>
+                      <div className="max-h-[220px] space-y-2 overflow-y-auto">
+                        {deployEnvVars.map((env, index) => (
+                          <div
+                            key={index}
+                            className="grid grid-cols-[1fr_1fr_2rem] items-center gap-2 animate-in fade-in-50 duration-150"
+                          >
+                            <Input
+                              value={env.key}
+                              onChange={(e) => {
+                                const updated = [...deployEnvVars]
+                                updated[index].key = e.target.value
+                                  .toUpperCase()
+                                  .replace(/[^A-Z0-9_]/g, "")
+                                setDeployEnvVars(updated)
+                              }}
+                              placeholder="VARIABLE_NAME"
+                              className="h-9 font-mono text-xs"
+                            />
+                            <Input
+                              value={env.value}
+                              onChange={(e) => {
+                                const updated = [...deployEnvVars]
+                                updated[index].value = e.target.value
+                                setDeployEnvVars(updated)
+                              }}
+                              placeholder="value"
+                              className="h-9 font-mono text-xs"
+                            />
+                            <Button
+                              type="button"
+                              onClick={() =>
+                                setDeployEnvVars((prev) => prev.filter((_, i) => i !== index))
+                              }
+                              variant="ghost"
+                              size="icon-xs"
+                              className="text-destructive-foreground hover:bg-destructive/10"
+                              aria-label={`Remove ${env.key || "variable"}`}
+                            >
+                              <XIcon className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {deployEnvVars.filter((e) => e.key.trim()).length} variable
+                        {deployEnvVars.filter((e) => e.key.trim()).length === 1 ? "" : "s"} will be
+                        set when you deploy.
+                      </p>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
+              )
+            })()}
             </motion.div>
             </AnimatePresence>
             </AnimatedHeight>
-          </CardContent>
+          </FramePanel>
 
-          {/* Wizard Footer */}
-          <div className="p-4 border-t border-border/40 flex items-center justify-between bg-muted/5">
+          <FrameFooter className="flex items-center justify-between gap-3 !py-3">
             <Button
               type="button"
               onClick={() => {
@@ -1405,43 +1563,38 @@ export default function DeployPage() {
                 else handleBack()
               }}
               variant="outline"
-              className="h-9 cursor-pointer rounded-md border-border bg-background px-3.5 text-sm text-foreground hover:bg-muted/30"
+              size="sm"
             >
-              <ChevronLeftIcon className="h-3.5 w-3.5 mr-1" />
+              <ChevronLeftIcon className="h-3.5 w-3.5" />
               {step === 1 ? "Cancel" : "Back"}
             </Button>
 
-            <div className="flex gap-2">
-              {step < 3 ? (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={step === 1 && !selectedRepo}
-                  className="h-9 cursor-pointer rounded-md bg-primary text-primary-foreground px-4 text-sm font-semibold hover:bg-primary/90"
-                >
-                  Next
-                  <ChevronRightIcon className="h-3.5 w-3.5 ml-1" />
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  onClick={handleDeploy}
-                  disabled={isDeploying}
-                  className="h-9 cursor-pointer rounded-md bg-primary text-primary-foreground px-5 text-sm font-semibold hover:bg-primary/90 flex items-center gap-1.5"
-                >
-                  {isDeploying ? (
-                    "Deploying..."
-                  ) : (
-                    <>
-                      <PlayIcon className="h-3.5 w-3.5" />
-                      Start Deploy
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
+            {step < 3 ? (
+              <Button
+                type="button"
+                onClick={handleNext}
+                disabled={step === 1 && !selectedRepo}
+                size="sm"
+                className="gap-1.5"
+              >
+                Next
+                <ChevronRightIcon className="h-3.5 w-3.5" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleDeploy}
+                disabled={isDeploying}
+                loading={isDeploying}
+                size="sm"
+                className="gap-1.5"
+              >
+                <PlayIcon className="h-3.5 w-3.5" />
+                Deploy
+              </Button>
+            )}
+          </FrameFooter>
+        </Frame>
       </div>
 
       <GitHubConnectModal
@@ -1594,77 +1747,106 @@ export default function DeployPage() {
 
       {/* Folder Browser Modal */}
       <Dialog open={showFolderBrowser} onOpenChange={setShowFolderBrowser}>
-        <DialogContent className="sm:max-w-md max-h-[70vh] flex flex-col">
+        <DialogContent className="flex max-h-[75vh] max-w-md flex-col">
           <DialogHeader>
-            <DialogTitle className="text-sm font-bold">Select Root Directory</DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Choose the directory containing your project files.
+            <DialogTitle className="flex items-center gap-2.5 text-base">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40">
+                <FolderIcon className="h-4 w-4 text-chart-4" />
+              </span>
+              Select root directory
+            </DialogTitle>
+            <DialogDescription>
+              {selectedRepo && selectedBranch ? (
+                <>
+                  Browsing{" "}
+                  <span className="font-medium text-foreground">{selectedRepo.name}</span> on{" "}
+                  <code className="font-mono text-foreground/80">{selectedBranch}</code>. Pick the
+                  folder that contains your app.
+                </>
+              ) : (
+                "Choose the directory containing your project files."
+              )}
             </DialogDescription>
           </DialogHeader>
 
-          {/* Breadcrumbs */}
-          <div className="flex items-center gap-1 text-xs text-muted-foreground overflow-x-auto pb-1 px-6">
-            <button
-              className={`hover:text-foreground flex items-center gap-0.5 shrink-0 ${folderBrowserPath === "" ? "font-medium text-foreground" : ""}`}
-              onClick={() => navigateToBreadcrumb(-1)}
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-6 pb-2">
+            <nav
+              aria-label="Folder path"
+              className="flex items-center gap-1 overflow-x-auto rounded-lg bg-muted/25 px-3 py-2 text-xs text-muted-foreground"
             >
-              <NucleoIcon name="house" className="h-3 w-3" />
-              Root
-            </button>
-            {folderBrowserBreadcrumbs.map((crumb, i) => (
-              <React.Fragment key={i}>
-                <ChevronRightIcon className="h-3 w-3 shrink-0" />
-                <button
-                  className={`hover:text-foreground shrink-0 ${i === folderBrowserBreadcrumbs.length - 1 ? "font-medium text-foreground" : ""}`}
-                  onClick={() => navigateToBreadcrumb(i)}
-                >
-                  {crumb}
-                </button>
-              </React.Fragment>
-            ))}
-          </div>
+              <button
+                type="button"
+                onClick={() => navigateToBreadcrumb(-1)}
+                className={`flex shrink-0 items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-foreground ${
+                  folderBrowserPath === "" ? "font-medium text-foreground" : ""
+                }`}
+              >
+                <NucleoIcon name="house" className="h-3 w-3" />
+                <span>repository root</span>
+              </button>
+              {folderBrowserBreadcrumbs.map((crumb, i) => (
+                <React.Fragment key={i}>
+                  <ChevronRightIcon className="h-3 w-3 shrink-0 opacity-50" />
+                  <button
+                    type="button"
+                    onClick={() => navigateToBreadcrumb(i)}
+                    className={`shrink-0 rounded px-1 py-0.5 font-mono transition-colors hover:text-foreground ${
+                      i === folderBrowserBreadcrumbs.length - 1
+                        ? "font-medium text-foreground"
+                        : ""
+                    }`}
+                  >
+                    {crumb}
+                  </button>
+                </React.Fragment>
+              ))}
+            </nav>
 
-          {/* Current selection indicator */}
-          {folderBrowserPath && (
-            <div className="text-xs px-2 mb-2 py-1 mx-6 bg-primary/5 border border-primary/20 rounded text-primary font-medium">
-              Selected: ./{folderBrowserPath}
+            <div className="flex items-center justify-between gap-2 text-[11px]">
+              <span className="text-muted-foreground">Will use</span>
+              <code className="truncate rounded-md border border-border/80 bg-muted/20 px-2 py-0.5 font-mono text-foreground/90">
+                ./{folderBrowserPath || ""}
+              </code>
             </div>
-          )}
 
-          {/* Folder list */}
-          <div className="flex-1 mb-2 overflow-y-auto border border-border rounded-md mx-6">
-            {folderBrowserLoading ? (
-              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-                <RefreshIcon className="h-4 w-4 animate-spin mr-2" />
-                Loading folders…
-              </div>
-            ) : folderBrowserContents.filter((i) => i.type === "dir").length === 0 ? (
-              <div className="text-center py-12 text-sm text-muted-foreground">
-                No subdirectories found.
-              </div>
-            ) : (
-              <div className="divide-y divide-border/50">
-                {folderBrowserContents
-                  .filter((item) => item.type === "dir")
-                  .map((item) => (
-                    <div
-                      key={item.path}
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 cursor-pointer group"
-                      onClick={() => navigateIntoFolder(item.name)}
-                    >
-                      <div className="flex items-center gap-2 text-sm text-foreground">
-                        <FolderIcon className="h-4 w-4 text-muted-foreground group-hover:text-amber-400" />
-                        {item.name}
-                      </div>
-                      <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                    </div>
-                  ))}
-              </div>
-            )}
+            <div className="min-h-[220px] flex-1 overflow-y-auto rounded-lg border border-border/80">
+              {folderBrowserLoading ? (
+                <div className="flex flex-col items-center justify-center gap-2 py-14 text-xs text-muted-foreground">
+                  <RefreshIcon className="h-5 w-5 animate-spin opacity-60" />
+                  Loading folders…
+                </div>
+              ) : folderBrowserContents.filter((i) => i.type === "dir").length === 0 ? (
+                <div className="flex flex-col items-center gap-2 px-4 py-14 text-center">
+                  <FolderIcon className="h-5 w-5 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">No subdirectories here</p>
+                  <p className="text-[11px] text-muted-foreground/80">
+                    Select this folder if your project lives at the current path.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border/50">
+                  {folderBrowserContents
+                    .filter((item) => item.type === "dir")
+                    .map((item) => (
+                      <button
+                        key={item.path}
+                        type="button"
+                        onClick={() => navigateIntoFolder(item.name)}
+                        className="group flex w-full cursor-pointer items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-accent/30"
+                      >
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <FolderIcon className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+                          <span className="truncate text-sm text-foreground">{item.name}</span>
+                        </span>
+                        <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-40 transition-opacity group-hover:opacity-100" />
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between gap-3 pt-3 border-t border-border/40 px-6 pb-6">
+          <DialogFooter className="gap-2 sm:justify-between">
             <Button
               type="button"
               variant="ghost"
@@ -1675,21 +1857,28 @@ export default function DeployPage() {
                 if (rootDirDetectTimer.current) clearTimeout(rootDirDetectTimer.current)
                 redetectForRootDir("")
               }}
-              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+              className="text-xs text-muted-foreground"
             >
-              Clear selection
+              Use repository root
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => selectFolder(folderBrowserPath)}
-              title={`Select ${folderBrowserPath || "Root (./)"}`}
-              className="flex min-w-0 shrink items-center gap-1 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <span className="shrink-0">Select</span>
-              <span className="truncate font-mono">{folderBrowserPath || "Root (./)"}</span>
-            </Button>
-          </div>
+            <div className="flex gap-2">
+              <DialogClose
+                render={<Button variant="outline" size="sm">Cancel</Button>}
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => selectFolder(folderBrowserPath)}
+                className="max-w-[200px] gap-1.5"
+                title={`Select ./${folderBrowserPath || ""}`}
+              >
+                <span className="shrink-0">Select</span>
+                <span className="truncate font-mono text-xs opacity-90">
+                  ./{folderBrowserPath || ""}
+                </span>
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </main>
