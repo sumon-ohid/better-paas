@@ -1,5 +1,4 @@
 import { RootProvider } from 'fumadocs-ui/provider/next';
-import { ThemeFavicon } from '@/components/theme-favicon';
 import './global.css';
 import { Inter } from 'next/font/google';
 import type { Metadata } from 'next';
@@ -55,6 +54,14 @@ export const metadata: Metadata = {
     description: appDescription,
     images: ['/og-image.png'],
   },
+  manifest: '/site.webmanifest',
+  icons: {
+    icon: [
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export default function Layout({ children }: LayoutProps<'/'>) {
@@ -87,10 +94,7 @@ export default function Layout({ children }: LayoutProps<'/'>) {
         />
       </head>
       <body className="flex flex-col min-h-screen">
-        <RootProvider>
-          <ThemeFavicon />
-          {children}
-        </RootProvider>
+        <RootProvider>{children}</RootProvider>
       </body>
     </html>
   );
