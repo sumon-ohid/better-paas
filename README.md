@@ -1,8 +1,10 @@
 <p align="center">
   <a href="https://github.com/sumon-ohid/better-paas">
-    <img src="https://github.com/user-attachments/assets/d92c57e6-a22e-4039-870c-a01599430b46" alt="better-paas Logo" width="80" height="80" />
+    <img width="80" height="80" alt="better-paas Logo" src="https://github.com/user-attachments/assets/dfa8a970-d387-4ac4-aa29-8441521ca979" />
   </a>
 </p>
+
+
 
 <h1 align="center">better-paas</h1>
 
@@ -26,8 +28,10 @@
 </table>
 
 ---
+## Deployment preview
 
-<img width="1470" height="800" alt="Screenshot 2026-06-04 at 19 21 21" src="https://github.com/user-attachments/assets/4699d0d7-b575-4f64-a51d-5dbd165e8836" />
+https://github.com/user-attachments/assets/9f34c3ac-f373-459c-ab95-1952acc4905b
+
 
 ## Features
 
