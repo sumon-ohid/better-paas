@@ -31,6 +31,8 @@
     --color-secondary-foreground: var(--secondary-foreground);
     --color-secondary: var(--secondary);
     --color-ring: var(--ring);
+    --color-button-foreground: var(--button-foreground);
+    --color-button: var(--button);
     --color-primary-foreground: var(--primary-foreground);
     --color-primary: var(--primary);
     --color-popover-foreground: var(--popover-foreground);
@@ -159,6 +161,8 @@
     --muted-foreground: #6f7280;
     --popover: #ffffff;
     --popover-foreground: #20212b;
+    --button: #18181b;
+    --button-foreground: #fafafa;
     --primary: #5e6ad2;
     --primary-foreground: #ffffff;
     --ring: rgba(94, 106, 210, 0.38);
@@ -210,6 +214,8 @@
     --muted-foreground: rgba(255, 255, 255, 0.46);
     --popover: #161618;
     --popover-foreground: #ededed;
+    --button: #ededed;
+    --button-foreground: #0a0a0b;
     --primary: #8b7ff6;
     --primary-foreground: #0a0a0b;
     --ring: rgba(139, 127, 246, 0.5);
@@ -480,14 +486,14 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   "du-primary" — du-surface treatment tuned for the solid primary button:
-     · soft top-left spotlight glow over the primary fill (padding box)
+   "du-primary" — du-surface treatment tuned for the default solid button:
+     · soft top-left spotlight glow over the button fill (padding box)
      · a top-left corner glow ring, bright then fading on all sides (border box)
-   Applies in both themes since the primary button is colored in light & dark.
-   Hover brightens the fill via the --du-fill variable for a smooth transition.
+   Uses --button / --button-foreground (neutral inverted), separate from --primary.
+   Hover adjusts the fill via --du-fill for a smooth transition per theme.
    ────────────────────────────────────────────────────────────────────────── */
 .du-primary {
-  --du-fill: var(--primary);
+  --du-fill: var(--button);
   --du-glow: 0.7;
   background:
     /* interior: soft top-left spotlight over the primary fill */
@@ -519,12 +525,21 @@
 }
 
 .du-primary:hover {
-  --du-fill: color-mix(in srgb, var(--primary), white 8%);
+  --du-fill: color-mix(in srgb, var(--button), white 8%);
+}
+
+.dark .du-primary:hover {
+  --du-fill: color-mix(in srgb, var(--button), black 6%);
 }
 
 .du-primary[data-pressed],
 .du-primary:active {
-  --du-fill: color-mix(in srgb, var(--primary), black 6%);
+  --du-fill: color-mix(in srgb, var(--button), black 6%);
+}
+
+.dark .du-primary[data-pressed],
+.dark .du-primary:active {
+  --du-fill: color-mix(in srgb, var(--button), black 10%);
 }
 
 @layer utilities {
