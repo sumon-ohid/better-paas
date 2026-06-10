@@ -11,7 +11,7 @@
  * micro-component classes (bp-card / bp-surface / bp-primary) ported from the
  * dashboard's du-* treatments.
  *
- * Design rules: near-monochrome, one accent (brand indigo/violet), hairline
+ * Design rules: near-monochrome, one accent (brand blue), hairline
  * borders, soft monochrome shadows. No colorful gradients, no grid/dot
  * textures. Depth comes from fills, borders, and type — not effects.
  * ────────────────────────────────────────────────────────────────────────── */
@@ -27,16 +27,16 @@
   --color-fd-card: #ffffff;
   --color-fd-card-foreground: #20212b;
   --color-fd-border: rgba(20, 21, 31, 0.09);
-  --color-fd-primary: #5e6ad2;
+  --color-fd-primary: #3b6fd9;
   --color-fd-primary-foreground: #ffffff;
   --color-fd-secondary: #eef0f3;
   --color-fd-secondary-foreground: #20212b;
-  --color-fd-accent: rgba(94, 106, 210, 0.08);
+  --color-fd-accent: rgba(59, 111, 217, 0.08);
   --color-fd-accent-foreground: #20212b;
-  --color-fd-ring: #5e6ad2;
+  --color-fd-ring: #3b6fd9;
 
   /* Landing-page semantic palette. */
-  --bp-primary: #5e6ad2;
+  --bp-primary: #3b6fd9;
   --bp-primary-foreground: #ffffff;
   --bp-success: #3c9f7a;
   --bp-warning: #d6a34a;
@@ -55,15 +55,15 @@
   --color-fd-card: #121214;
   --color-fd-card-foreground: #ededed;
   --color-fd-border: rgba(255, 255, 255, 0.08);
-  --color-fd-primary: #8b7ff6;
+  --color-fd-primary: #6b9fff;
   --color-fd-primary-foreground: #0a0a0b;
   --color-fd-secondary: rgba(255, 255, 255, 0.055);
   --color-fd-secondary-foreground: #ededed;
   --color-fd-accent: rgba(255, 255, 255, 0.06);
   --color-fd-accent-foreground: #ededed;
-  --color-fd-ring: rgba(139, 127, 246, 0.5);
+  --color-fd-ring: rgba(107, 159, 255, 0.45);
 
-  --bp-primary: #8b7ff6;
+  --bp-primary: #6b9fff;
   --bp-primary-foreground: #0a0a0b;
   --bp-success: #5fe0a0;
   --bp-warning: #f5d04a;

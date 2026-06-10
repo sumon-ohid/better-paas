@@ -141,13 +141,13 @@
 
 :root {
     --destructive-foreground: #c94444;
-    --info: #5e6ad2;
-    --info-foreground: #4f59bd;
+    --info: #3b6fd9;
+    --info-foreground: #2a56b8;
     --success: #3c9f7a;
     --success-foreground: #257356;
     --warning: #d6a34a;
     --warning-foreground: #986b22;
-    --accent: rgba(94, 106, 210, 0.08);
+    --accent: rgba(59, 111, 217, 0.08);
     --accent-foreground: #20212b;
     --background: #ffffff;
     --border: rgba(20, 21, 31, 0.08);
@@ -163,40 +163,39 @@
     --popover-foreground: #20212b;
     --button: #18181b;
     --button-foreground: #fafafa;
-    --primary: #5e6ad2;
+    --primary: #3b6fd9;
     --primary-foreground: #ffffff;
-    --ring: rgba(94, 106, 210, 0.38);
+    --ring: rgba(59, 111, 217, 0.38);
     --secondary: rgba(20, 21, 31, 0.055);
     --secondary-foreground: #20212b;
-    --chart-1: #5e6ad2;
+    --chart-1: #3b6fd9;
     --chart-2: #88a2f6;
     --chart-3: #3c9f7a;
     --chart-4: #d6a34a;
     --chart-5: #d55372;
     --code: #f1f2f6;
     --code-foreground: var(--foreground);
-    --code-highlight: rgba(94, 106, 210, 0.08);
+    --code-highlight: rgba(59, 111, 217, 0.08);
     --radius: 8px;
     --sidebar: #fafafa;
     --sidebar-accent: rgba(20, 21, 31, 0.07);
     --sidebar-accent-foreground: #08090d;
     --sidebar-border: rgba(8, 9, 13, 0.08);
     --sidebar-foreground: #08090d;
-    --sidebar-primary: #5e6ad2;
+    --sidebar-primary: #3b6fd9;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-ring: rgba(94, 106, 210, 0.38);
+    --sidebar-ring: rgba(59, 111, 217, 0.38);
     --grid-line: rgba(20, 21, 31, 0.025);
     --grid-size: 28px;
 }
 
 .dark {
-    /* Palette mapped from the HR workforce demo UI.
-       bg #0a0a0b · card #161617 · card-2 #1b1b1d · txt #ededed
-       sub white/46 · line white/7 · purple #8b7ff6 · green #5fe0a0
-       yellow #f5d04a · orange #f1542e */
+    /* Dark palette: neutral surfaces + blue primary accent.
+       bg #0b0c0e · card #121315 · txt #ededed · primary #6b9fff
+       green #5fe0a0 · yellow #f5d04a · orange #f1542e */
     --destructive-foreground: #f7b3a4;
-    --info: #8b7ff6;
-    --info-foreground: #b3aaf9;
+    --info: #6b9fff;
+    --info-foreground: #9ec5ff;
     --success: #5fe0a0;
     --success-foreground: #8eecc0;
     --warning: #f5d04a;
@@ -216,27 +215,27 @@
     --popover-foreground: #ededed;
     --button: #ededed;
     --button-foreground: #0a0a0b;
-    --primary: #8b7ff6;
+    --primary: #6b9fff;
     --primary-foreground: #0a0a0b;
-    --ring: rgba(139, 127, 246, 0.5);
+    --ring: rgba(107, 159, 255, 0.45);
     --secondary: rgba(255, 255, 255, 0.055);
     --secondary-foreground: #ededed;
-    --chart-1: #8b7ff6;
+    --chart-1: #6b9fff;
     --chart-2: #5aa9f6;
     --chart-3: #5fe0a0;
     --chart-4: #f5d04a;
     --chart-5: #f1542e;
     --code: #0a0a0b;
     --code-foreground: var(--foreground);
-    --code-highlight: rgba(139, 127, 246, 0.12);
+    --code-highlight: rgba(107, 159, 255, 0.12);
     --sidebar: #121214;
     --sidebar-accent: rgba(255, 255, 255, 0.075);
     --sidebar-accent-foreground: #ffffff;
     --sidebar-border: rgba(255, 255, 255, 0.08);
     --sidebar-foreground: #ffffff;
-    --sidebar-primary: #8b7ff6;
+    --sidebar-primary: #6b9fff;
     --sidebar-primary-foreground: #0a0a0b;
-    --sidebar-ring: rgba(139, 127, 246, 0.5);
+    --sidebar-ring: rgba(107, 159, 255, 0.45);
     --grid-line: rgba(255, 255, 255, 0.022);
     --grid-size: 28px;
 }
