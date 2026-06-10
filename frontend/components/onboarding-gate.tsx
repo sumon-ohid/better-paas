@@ -1,8 +1,8 @@
 "use client"
 
 import React, { useCallback, useEffect, useState } from "react"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { LogoMark } from "@/components/logo-mark"
 import { Button } from "@/components/ui/button"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { GitHubConnectModal } from "@/components/github-connect-modal"
@@ -209,7 +209,7 @@ function WelcomeScreen({
   ]
   return (
     <div className="flex flex-col items-center text-center animate-in fade-in-50 duration-300">
-      <Image src="/logo.svg" alt="Better-PaaS" width={8340} height={840} className="size-11" />
+      <LogoMark className="size-11" aria-label="Better-PaaS" />
       <h1 className="mt-5 text-2xl font-bold tracking-tight text-foreground">Welcome to Better-PaaS</h1>
       <p className="mt-1.5 text-sm text-muted-foreground">
         Set up servers, connect GitHub, and deploy your first app in minutes.

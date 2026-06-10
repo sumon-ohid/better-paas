@@ -27,6 +27,7 @@ import {
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { useAuth } from "@/components/auth-gate"
 import { api } from "@/lib/api"
+import { LogoMark } from "@/components/logo-mark"
 import { cleanVersion } from "@/lib/utils"
 import { toastManager } from "@/components/ui/toast"
 import {
@@ -520,12 +521,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
         <Sidebar variant="inset" className="bg-sidebar">
           <SidebarHeader className="relative flex flex-row items-center justify-between overflow-hidden px-4 py-3">
             <div className="relative flex items-center gap-2.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img 
-                  src="/logo.svg"
-                  alt="Better-PaaS Logo"
-                  className="size-6"
-              />
+              <LogoMark className="size-6" aria-label="Better-PaaS Logo" />
               <div className="flex items-center gap-2">
                 <span className="font-bold text-base leading-none text-sidebar-foreground">
                   Better-PaaS

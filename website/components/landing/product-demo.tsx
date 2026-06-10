@@ -225,7 +225,7 @@ export function ProductDemo() {
       <div className="flex h-136 overflow-hidden rounded-[1.15rem] sm:h-152 lg:h-168">
         <aside className="hidden w-62 shrink-0 flex-col bg-transparent lg:flex">
           <div className="flex items-center gap-2.5 px-4 py-4">
-            <LogoMark className="size-5 text-fd-muted-foreground" />
+            <LogoMark className="size-5" />
             <span className="text-sm font-semibold leading-none text-fd-foreground/90">
               Better-PaaS
             </span>

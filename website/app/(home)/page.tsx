@@ -599,7 +599,7 @@ function Integrations() {
                       borderClassName="shadow-fd-primary/10 shadow-xl border-fd-primary/30 dark:border-fd-primary/30"
                       className="bg-fd-primary/10 border border-fd-primary/20"
                     >
-                      <LogoMark className="size-6.5 sm:size-8 text-fd-primary" />
+                      <LogoMark className="size-6.5 sm:size-8" />
                     </IntegrationCard>
                     <IntegrationCard className="bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 shadow-sm">
                       <NextjsLogo className="size-6.5 sm:size-8" />
@@ -931,7 +931,7 @@ function CallToAction() {
 
           <div className="relative w-full max-w-[720px] overflow-hidden rounded-[0.85rem] bg-[#f8fbff]/92 px-4 py-10 text-center shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)] sm:px-10 sm:py-12 dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
             <div className="relative flex flex-col items-center z-10">
-              <LogoMark className="size-10 text-fd-primary" />
+              <LogoMark className="size-10" />
               <p className="mt-6 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">
                 Start shipping
               </p>

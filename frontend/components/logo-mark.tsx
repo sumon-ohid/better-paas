@@ -1,33 +1,20 @@
-import { appName } from '@/lib/shared';
-
-/**
- * Better-PaaS wordmark + glyph, used in the navbar and footer.
- * The glyph mirrors the dashboard logo (frontend/public/logo.svg).
- */
-export function Logo({ className }: { className?: string }) {
-  return (
-    <span className={`inline-flex items-center gap-2 font-semibold ${className ?? ''}`}>
-      <LogoMark className="h-6 w-6" />
-      <span>{appName}</span>
-    </span>
-  );
-}
+import { cn } from "@/lib/utils"
 
 export function LogoMark({
   className,
-  'aria-label': ariaLabel,
+  "aria-label": ariaLabel,
 }: {
   className?: string
-  'aria-label'?: string
+  "aria-label"?: string
 }) {
   return (
     <svg
       viewBox="0 0 108.89 108.89"
       xmlns="http://www.w3.org/2000/svg"
-      className={['text-fd-foreground', className].filter(Boolean).join(' ')}
+      className={cn("text-foreground", className)}
       aria-hidden={ariaLabel ? undefined : true}
       aria-label={ariaLabel}
-      role={ariaLabel ? 'img' : undefined}
+      role={ariaLabel ? "img" : undefined}
     >
       <g fill="currentColor">
         <rect x="18.15" width="18.15" height="18.15" />
@@ -44,5 +31,5 @@ export function LogoMark({
         <rect x="90.74" y="72.6" width="18.15" height="18.15" />
       </g>
     </svg>
-  );
+  )
 }

@@ -1,8 +1,8 @@
 "use client"
 
 import React, { useEffect, useState, useCallback } from "react"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { LogoMark } from "@/components/logo-mark"
 import { Input } from "@/components/ui/input"
 import { Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
@@ -108,13 +108,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
         <div className="flex w-full max-w-sm flex-col items-center text-center">
           {/* Logo */}
-          <Image
-            src="/logo.svg"
-            alt="Better-PaaS Logo"
-            width={40}
-            height={40}
-            className="size-10"
-          />
+          <LogoMark className="size-10" aria-label="Better-PaaS Logo" />
 
           {/* Heading */}
           <div className="mt-5 flex items-center justify-center gap-2">
