@@ -1,11 +1,52 @@
 import Link from 'next/link';
 import { ArrowRight, Layers } from 'lucide-react';
 import { Eyebrow, IconTile } from '@/components/landing/primitives';
+import { appName, siteUrl } from '@/lib/shared';
 import { getSeoUrl, type SeoHub, type SeoPage } from '@/lib/seo/content';
 
 export function SeoHubPage({ hub, pages }: { hub: SeoHub; pages: SeoPage[] }) {
+  const url = `${siteUrl}${hub.path}`;
+  const hubFaqs = buildHubFaqs(hub, pages);
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'FAQPage',
+        mainEntity: hubFaqs.map((faq) => ({
+          '@type': 'Question',
+          name: faq.question,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: faq.answer,
+          },
+        })),
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: appName,
+            item: siteUrl,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: hub.h1,
+            item: url,
+          },
+        ],
+      },
+    ],
+  };
+
   return (
     <main className="relative flex min-h-screen flex-1 flex-col bg-fd-background text-fd-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute left-1/2 top-0 h-[520px] w-full max-w-7xl -translate-x-1/2 opacity-[0.14] dark:opacity-[0.22]"
@@ -72,4 +113,21 @@ export function SeoHubPage({ hub, pages }: { hub: SeoHub; pages: SeoPage[] }) {
       </section>
     </main>
   );
+}
+
+function buildHubFaqs(hub: SeoHub, pages: SeoPage[]) {
+  return [
+    {
+      question: `What is ${hub.h1}?`,
+      answer: hub.description,
+    },
+    {
+      question: `How many ${hub.eyebrow.toLowerCase()} pages are there?`,
+      answer: `There are ${pages.length} pages in this section, covering various topics related to ${hub.h1.toLowerCase()}.`,
+    },
+    {
+      question: `Are these pages regularly updated?`,
+      answer: `Yes, we review and update our content regularly to ensure accuracy. Most pages include a "Last updated" date at the top.`,
+    },
+  ];
 }

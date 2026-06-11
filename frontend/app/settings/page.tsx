@@ -771,8 +771,8 @@ export default function SettingsPage() {
                   </AlertDescription>
                 </Alert>
                 <Button onClick={() => setGhModalOpen(true)} className="gap-1.5">
-                  <GithubLight className="h-3.5 w-3.5 dark:hidden" />
-                  <GithubDark className="hidden h-3.5 w-3.5 dark:block" />
+                  <GithubLight className="hidden h-4 w-4 dark:block" />
+                  <GithubDark className="h-4 w-4 dark:hidden" />
                   Connect GitHub
                 </Button>
               </>

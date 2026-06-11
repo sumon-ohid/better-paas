@@ -9,7 +9,9 @@ export type SeoFamily =
   | 'integrations'
   | 'glossary'
   | 'fix'
-  | 'best';
+  | 'best'
+  | 'templates'
+  | 'examples';
 
 export type SeoSection = {
   title: string;
@@ -20,6 +22,13 @@ export type SeoSection = {
 export type SeoFAQ = {
   question: string;
   answer: string;
+};
+
+export type ComparisonRow = {
+  criterion: string;
+  appName: string;
+  competitor: string;
+  winner: 'app' | 'competitor' | 'tie' | null;
 };
 
 export type SeoPage = {
@@ -39,6 +48,10 @@ export type SeoPage = {
   ctaLabel?: string;
   ctaHref?: string;
   schemaType: 'TechArticle' | 'SoftwareApplication' | 'FAQPage' | 'HowTo' | 'DefinedTerm' | 'ItemList';
+  datePublished: string;
+  dateModified: string;
+  lastReviewed: string;
+  comparisonTable?: ComparisonRow[];
 };
 
 export type SeoHub = {
@@ -63,6 +76,8 @@ const familyPath: Record<SeoFamily, string> = {
   glossary: '/glossary',
   fix: '/fix',
   best: '/best',
+  templates: '/templates',
+  examples: '/examples',
 };
 
 export const seoHubs: SeoHub[] = [
@@ -138,7 +153,26 @@ export const seoHubs: SeoHub[] = [
     description: 'Curated lists for choosing self-hosted PaaS tools, Heroku alternatives, Docker deployment platforms, and VPS app hosts.',
     eyebrow: 'Best',
   },
+  {
+    family: 'templates',
+    path: '/templates',
+    title: 'Deployment Templates | Better-PaaS',
+    h1: 'Ready-to-deploy templates',
+    description: 'Pre-configured deployment templates for popular frameworks, databases, and app stacks on your own VPS.',
+    eyebrow: 'Templates',
+  },
+  {
+    family: 'examples',
+    path: '/examples',
+    title: 'Deployment Examples | Better-PaaS',
+    h1: 'Real-world deployment examples',
+    description: 'Step-by-step examples of deploying real applications on Better-PaaS with configuration details and production recommendations.',
+    eyebrow: 'Examples',
+  },
 ];
+
+const launchDate = '2025-01-15';
+const lastUpdated = '2025-06-11';
 
 const competitors = [
   { slug: 'heroku', name: 'Heroku', angle: 'hosted dynos and add-ons', choose: 'you want a mature hosted platform and do not need server ownership' },
@@ -523,11 +557,44 @@ const bestLists = [
   ['vercel-alternatives', 'Best Vercel alternatives', 'frontend, full-stack, and self-hosted deployment options'],
 ] as const;
 
+const deploymentTemplates = [
+  { slug: 'nextjs-postgres', name: 'Next.js + Postgres', description: 'Full-stack Next.js app with PostgreSQL database and automatic HTTPS', stack: ['Next.js', 'Postgres', 'Docker', 'Nixpacks'], effort: '5 minutes', useCase: 'SaaS apps, dashboards, content sites' },
+  { slug: 'fastapi-redis', name: 'FastAPI + Redis', description: 'Python API with Redis cache, background jobs, and uvicorn server', stack: ['FastAPI', 'Redis', 'Docker', 'Nixpacks'], effort: '5 minutes', useCase: 'APIs, microservices, automation backends' },
+  { slug: 'nodejs-mongodb', name: 'Node.js + MongoDB', description: 'Express or NestJS app with MongoDB for document-based data', stack: ['Node.js', 'MongoDB', 'Docker', 'Nixpacks'], effort: '8 minutes', useCase: 'Real-time apps, CMS backends, APIs' },
+  { slug: 'rails-postgres', name: 'Ruby on Rails + Postgres', description: 'Rails application with PostgreSQL, migrations, and ActiveRecord', stack: ['Ruby on Rails', 'Postgres', 'Docker', 'Nixpacks'], effort: '8 minutes', useCase: 'Marketplaces, SaaS, internal tools' },
+  { slug: 'laravel-mysql', name: 'Laravel + MySQL', description: 'PHP Laravel app with MySQL database and artisan queues', stack: ['Laravel', 'MySQL', 'Docker', 'Nixpacks'], effort: '8 minutes', useCase: 'Web apps, portals, e-commerce backends' },
+  { slug: 'static-site-https', name: 'Static Site + HTTPS', description: 'JAMstack site deployed with automatic HTTPS and custom domain', stack: ['HTML/CSS/JS', 'Caddy', 'Docker'], effort: '3 minutes', useCase: 'Landing pages, docs, blogs, portfolios' },
+  { slug: 'docker-compose-stack', name: 'Docker Compose Stack', description: 'Multi-service deployment using docker-compose with persistent volumes', stack: ['Docker Compose', 'Caddy', 'VPS'], effort: '10 minutes', useCase: 'Complex apps with multiple services' },
+  { slug: 'custom-docker-image', name: 'Custom Docker Image', description: 'Deploy a pre-built Docker image with environment variables and volumes', stack: ['Docker', 'Custom Image', 'Caddy'], effort: '5 minutes', useCase: 'Legacy apps, pre-built services, AI/ML APIs' },
+] as const;
+
+const deploymentExamples = [
+  { slug: 'nextjs-blog-with-postgres', name: 'Next.js Blog with Postgres', description: 'A production-ready Next.js blog with PostgreSQL, Prisma ORM, and Tailwind CSS deployed on a VPS with automatic HTTPS.', tags: ['Next.js', 'Postgres', 'Prisma', 'Blog'], complexity: 'Beginner' },
+  { slug: 'fastapi-microservice-with-redis', name: 'FastAPI Microservice with Redis', description: 'A Python microservice using FastAPI and Redis for caching and background task queuing with uvicorn server.', tags: ['FastAPI', 'Redis', 'Microservice', 'Python'], complexity: 'Intermediate' },
+  { slug: 'nodejs-realtime-chat', name: 'Node.js Realtime Chat', description: 'A Socket.io-based realtime chat application with MongoDB for message persistence and Express backend.', tags: ['Node.js', 'Socket.io', 'MongoDB', 'Realtime'], complexity: 'Intermediate' },
+  { slug: 'rails-ecommerce-marketplace', name: 'Rails E-commerce Marketplace', description: 'A multi-vendor marketplace built with Ruby on Rails, PostgreSQL, and Stripe integration for payments.', tags: ['Rails', 'Postgres', 'Stripe', 'Marketplace'], complexity: 'Advanced' },
+  { slug: 'laravel-cms-with-mysql', name: 'Laravel CMS with MySQL', description: 'A content management system built with Laravel, MySQL, and Filament admin panel for content editing.', tags: ['Laravel', 'MySQL', 'CMS', 'Filament'], complexity: 'Intermediate' },
+  { slug: 'static-portfolio-site', name: 'Static Portfolio Site', description: 'A fast, SEO-optimized portfolio website deployed as static files with automatic HTTPS and custom domain.', tags: ['HTML/CSS', 'Static', 'Portfolio', 'Landing'], complexity: 'Beginner' },
+  { slug: 'docker-wordpress-with-mysql', name: 'Docker WordPress with MySQL', description: 'A WordPress site running in Docker with MySQL database, persistent volumes, and automated backups.', tags: ['WordPress', 'MySQL', 'Docker', 'CMS'], complexity: 'Beginner' },
+  { slug: 'multi-service-docker-compose', name: 'Multi-service Docker Compose', description: 'A complex application with frontend, backend API, database, and cache service orchestrated via Docker Compose.', tags: ['Docker Compose', 'Multi-service', 'Architecture', 'Full-stack'], complexity: 'Advanced' },
+] as const;
+
 function href(family: SeoFamily, slug: string) {
   return `${familyPath[family]}/${slug}`;
 }
 
 function altPage(c: (typeof competitors)[number]): SeoPage {
+  const whenBetterFitTitle =
+    c.slug === 'heroku'
+      ? 'When to switch from Heroku dynos'
+      : c.slug === 'coolify'
+        ? 'When Better-PaaS fits instead of Coolify'
+        : c.slug === 'vercel'
+          ? 'When self-hosting beats Vercel'
+          : c.slug === 'kubernetes'
+            ? 'When a single-server PaaS is enough'
+            : `When ${appName} is a better fit than ${c.name}`;
+
   return {
     family: 'alternatives',
     slug: c.slug,
@@ -541,7 +608,7 @@ function altPage(c: (typeof competitors)[number]): SeoPage {
     secondaryKeywords: [`self-hosted ${c.name} alternative`, `open source ${c.name} alternative`, `${c.name} vs ${appName}`],
     sections: [
       {
-        title: `When ${appName} is a better fit`,
+        title: whenBetterFitTitle,
         body: `${appName} fits teams that want the Heroku-style workflow without handing the runtime to a hosted provider. It is especially useful for small products, internal tools, homelab services, and client apps that should stay on a VPS or private server.`,
         bullets: ['Git-based deploys', 'Docker container runtime', 'Automatic HTTPS through Caddy', 'Postgres, Redis, and MySQL support', 'No per-seat platform pricing'],
       },
@@ -550,7 +617,7 @@ function altPage(c: (typeof competitors)[number]): SeoPage {
         body: `Choose ${c.name} if ${c.choose}. A good comparison page should be honest: hosted platforms and larger orchestration systems can be better when you need managed global infrastructure, enterprise support, or deep ecosystem integrations.`,
       },
       {
-        title: 'Migration path',
+        title: c.slug === 'heroku' ? 'Moving from Heroku dynos' : c.slug === 'vercel' ? 'Migrating from Vercel' : `Migration path from ${c.name}`,
         body: `Most teams start by installing ${appName} on a VPS, connecting the same Git repository, setting environment variables, adding a database if needed, then pointing a custom domain once the app is healthy.`,
         bullets: ['Install Better-PaaS on a Linux VPS', 'Connect the repository and branch', 'Copy environment variables', 'Deploy and inspect logs', 'Switch DNS after validation'],
       },
@@ -561,11 +628,82 @@ function altPage(c: (typeof competitors)[number]): SeoPage {
     ],
     related: ['/alternatives', '/compare', '/deploy/nextjs', '/features/automatic-https', quickstart],
     schemaType: 'SoftwareApplication',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
   };
 }
 
 function comparePage(left: string, right: (typeof competitors)[number]): SeoPage {
   const slug = `${left.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-vs-${right.slug}`;
+  const decisionTitle =
+    right.slug === 'heroku'
+      ? 'Heroku dynos vs your own VPS'
+      : right.slug === 'kubernetes'
+        ? 'Single server vs cluster orchestration'
+        : right.slug === 'docker-compose'
+          ? 'Dashboard vs manual YAML'
+          : 'Decision summary';
+  const featureTitle =
+    right.slug === 'heroku'
+      ? 'Platform add-ons vs self-hosted services'
+      : right.slug === 'vercel'
+        ? 'Edge network vs single-server hosting'
+        : right.slug === 'coolify'
+          ? 'Control plane comparison'
+          : 'Feature comparison';
+
+  const comparisonTable: ComparisonRow[] = [
+    {
+      criterion: 'Hosting model',
+      appName: 'Self-hosted on your VPS',
+      competitor: right.slug.includes('kubernetes') || right.slug === 'docker-compose' ? 'Self-managed orchestration' : 'Hosted platform',
+      winner: null,
+    },
+    {
+      criterion: 'Server ownership',
+      appName: 'You own the server and data',
+      competitor: 'Provider manages infrastructure',
+      winner: 'app',
+    },
+    {
+      criterion: 'Pricing predictability',
+      appName: 'Flat VPS cost, no per-app fees',
+      competitor: right.slug === 'heroku' ? 'Per-dyno and add-on pricing' : right.slug === 'vercel' ? 'Usage-based with limits' : right.slug === 'kubernetes' ? 'Cluster + operator costs' : 'Usage or seat-based billing',
+      winner: 'app',
+    },
+    {
+      criterion: 'Setup complexity',
+      appName: 'Install control plane, then dashboard deploys',
+      competitor: right.slug === 'heroku' ? 'Push to Git, dyno starts' : right.slug === 'kubernetes' ? 'Cluster setup, YAML manifests' : right.slug === 'docker-compose' ? 'SSH + docker-compose up' : 'Web UI or CLI connected to account',
+      winner: 'competitor',
+    },
+    {
+      criterion: 'Custom domains & HTTPS',
+      appName: 'Automatic via Caddy',
+      competitor: right.slug === 'heroku' ? 'Available with paid dynos' : right.slug === 'vercel' ? 'Automatic, edge-optimized' : 'Manual or add-on dependent',
+      winner: 'tie',
+    },
+    {
+      criterion: 'Database management',
+      appName: 'One-click Postgres, Redis, MySQL containers',
+      competitor: right.slug === 'heroku' ? 'Heroku Postgres add-ons' : right.slug === 'kubernetes' ? 'StatefulSets or external DB' : right.slug === 'docker-compose' ? 'Manual container linking' : 'Managed or self-hosted options',
+      winner: 'tie',
+    },
+    {
+      criterion: 'Rollback & logs',
+      appName: 'Built-in rollback, live logs in dashboard',
+      competitor: right.slug === 'heroku' ? 'Release history, Heroku logs' : 'Varies by tooling',
+      winner: 'tie',
+    },
+    {
+      criterion: 'Multi-region / scaling',
+      appName: 'Single server focused',
+      competitor: right.slug === 'heroku' || right.slug === 'vercel' ? 'Built-in global distribution' : right.slug === 'kubernetes' ? 'Native multi-node scheduling' : 'Manual server scaling',
+      winner: 'competitor',
+    },
+  ];
+
   return {
     family: 'compare',
     slug,
@@ -579,16 +717,16 @@ function comparePage(left: string, right: (typeof competitors)[number]): SeoPage
     secondaryKeywords: [`${right.name} comparison`, `${right.name} alternative`, 'self-hosted PaaS comparison'],
     sections: [
       {
-        title: 'Decision summary',
+        title: decisionTitle,
         body: `Pick ${appName} when ownership, predictable server cost, and a lightweight self-hosted control plane matter. Pick ${right.name} when ${right.choose}.`,
       },
       {
-        title: 'Feature comparison',
+        title: featureTitle,
         body: `${appName} gives you Git deploys, custom domains, automatic HTTPS, rollbacks, logs, scheduled jobs, backups, and one-click databases on a server you control. The key question is whether you want to operate that server or pay a platform to abstract it away.`,
         bullets: ['Hosting model', 'Deployment workflow', 'Database handling', 'Rollback and logs', 'Maintenance responsibility'],
       },
       {
-        title: 'Cost and control',
+        title: right.slug === 'heroku' ? 'Pricing: dyno cost vs VPS cost' : 'Cost and control',
         body: `A self-hosted platform can be dramatically cheaper for many small apps because the main cost is the VPS. The tradeoff is operational responsibility: updates, server resources, backups, and security hygiene remain your job.`,
       },
     ],
@@ -598,6 +736,10 @@ function comparePage(left: string, right: (typeof competitors)[number]): SeoPage
     ],
     related: [href('alternatives', right.slug), '/compare', '/features/git-deployments', '/features/rollbacks', quickstart],
     schemaType: 'TechArticle',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
+    comparisonTable,
   };
 }
 
@@ -625,6 +767,9 @@ function deployAppPage(app: (typeof appCatalog)[number]): SeoPage {
     ],
     related: ['/catalog', '/deploy', '/features/persistent-volumes', '/features/automatic-https', '/docs/guides/app-catalog'],
     schemaType: 'HowTo',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
   };
 }
 
@@ -652,6 +797,9 @@ function deployStackPage(stack: (typeof stacks)[number]): SeoPage {
     ],
     related: ['/deploy', deployGuide, '/features/git-deployments', '/features/automatic-https', '/fix/port-environment-variable'],
     schemaType: 'HowTo',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
   };
 }
 
@@ -679,6 +827,9 @@ function featurePage(feature: (typeof features)[number]): SeoPage {
     ],
     related: ['/features', '/platform', deployGuide, '/deploy/nextjs', quickstart],
     schemaType: 'TechArticle',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
   };
 }
 
@@ -706,6 +857,9 @@ function integrationPage(integration: (typeof integrations)[number]): SeoPage {
     ],
     related: ['/integrations', '/docs/guides/integrations', '/features/git-deployments', '/features/automatic-https', quickstart],
     schemaType: 'TechArticle',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
   };
 }
 
@@ -733,6 +887,9 @@ function useCasePage(useCase: (typeof useCases)[number]): SeoPage {
     ],
     related: ['/use-cases', '/pricing', '/features/server-backups', '/features/live-logs', quickstart],
     schemaType: 'TechArticle',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
   };
 }
 
@@ -760,6 +917,9 @@ function glossaryPage(item: (typeof glossary)[number]): SeoPage {
     ],
     related: ['/glossary', '/docs', '/features/git-deployments', '/deploy', quickstart],
     schemaType: 'DefinedTerm',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
   };
 }
 
@@ -787,6 +947,89 @@ function fixPage(problem: (typeof fixes)[number]): SeoPage {
     ],
     related: ['/fix', '/docs/troubleshooting', '/features/live-logs', '/features/rollbacks', deployGuide],
     schemaType: 'HowTo',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
+  };
+}
+
+function templatePage(tpl: (typeof deploymentTemplates)[number]): SeoPage {
+  return {
+    family: 'templates',
+    slug: tpl.slug,
+    title: `${tpl.name} Deployment Template | ${appName}`,
+    h1: `${tpl.name} deployment template`,
+    description: `${tpl.description}. Deploy this stack on your own VPS with Git, Docker, automatic HTTPS, and persistent storage.`,
+    eyebrow: 'Template',
+    intent: `${tpl.name} deployment template, deploy ${tpl.name} on VPS`,
+    summary: `${tpl.description}. This template is pre-configured for ${appName}: push your code, add environment variables, attach the required database, and go live with automatic HTTPS. Most teams can deploy this stack in ${tpl.effort}.`,
+    primaryKeyword: `${tpl.name} deployment template`,
+    secondaryKeywords: [`deploy ${tpl.name}`, `${tpl.name} VPS`, `${tpl.name} self-hosted`],
+    sections: [
+      {
+        title: 'What this template includes',
+        body: `This template packages ${tpl.stack.join(', ')} into a repeatable deployment. Better-PaaS handles the build, containerization, routing, and HTTPS so you can focus on the application logic.`,
+        bullets: tpl.stack.map((s) => `${s} pre-configured`),
+      },
+      {
+        title: 'Best for',
+        body: `Use this template when you want to ${tpl.useCase.toLowerCase()} without spending time on server setup, reverse proxy configuration, or manual Docker orchestration.`,
+      },
+      {
+        title: 'Deploy in ' + tpl.effort,
+        body: `Connect your repository, choose this template or let Nixpacks auto-detect, set environment variables, attach the database service, and deploy. Better-PaaS issues HTTPS certificates automatically once DNS points to your server.`,
+        bullets: ['Connect Git repository', 'Set build and runtime variables', 'Add required database or cache service', 'Deploy and inspect logs', 'Add domain and verify HTTPS'],
+      },
+    ],
+    faqs: [
+      { question: `Can I customize the ${tpl.name} template?`, answer: 'Yes. The template is a starting point. You can modify environment variables, add volumes, change the build command, or switch to a custom Dockerfile at any time.' },
+      { question: `Is this template suitable for production?`, answer: `Yes when you add backups, monitoring, and proper resource sizing. Start with a small VPS and scale the server as traffic grows.` },
+    ],
+    related: ['/deploy', '/catalog', '/features/git-deployments', '/features/automatic-https', quickstart],
+    schemaType: 'HowTo',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
+  };
+}
+
+function examplePage(ex: (typeof deploymentExamples)[number]): SeoPage {
+  return {
+    family: 'examples',
+    slug: ex.slug,
+    title: `${ex.name} — Deployment Example | ${appName}`,
+    h1: `${ex.name}: deployment example`,
+    description: `${ex.description} See how to deploy this stack on your own VPS with Better-PaaS.`,
+    eyebrow: 'Example',
+    intent: `${ex.name} deployment example, ${ex.tags.join(' ')} example`,
+    summary: `${ex.description} This example walks through the complete deployment: repository setup, environment variables, database configuration, domain routing, and production considerations.`,
+    primaryKeyword: `${ex.name} deployment example`,
+    secondaryKeywords: [...ex.tags.map((t) => `${t} example`), `${ex.name} VPS`, `${ex.name} tutorial`],
+    sections: [
+      {
+        title: 'What this example covers',
+        body: `This example demonstrates deploying ${ex.name} on Better-PaaS. It includes step-by-step configuration, common pitfalls, and production recommendations. Complexity level: ${ex.complexity}.`,
+        bullets: ex.tags.map((tag) => `${tag} configuration`),
+      },
+      {
+        title: 'Prerequisites',
+        body: `Before starting, ensure you have a VPS with Docker installed, a Git repository with your application code, and a domain name you want to use. This example assumes ${ex.complexity.toLowerCase()} familiarity with deployment concepts.`,
+      },
+      {
+        title: 'Deployment steps',
+        body: `Follow these steps to deploy ${ex.name} on your Better-PaaS instance. The process typically takes 10-30 minutes depending on your familiarity with the stack.`,
+        bullets: ['Connect your Git repository', 'Configure environment variables', 'Add required database or cache service', 'Deploy and verify health checks', 'Configure custom domain and HTTPS'],
+      },
+    ],
+    faqs: [
+      { question: `Is this example suitable for beginners?`, answer: `This example is rated ${ex.complexity.toLowerCase()}. Beginners can follow along but may need to reference additional documentation for specific technologies.` },
+      { question: `Can I modify this example for my use case?`, answer: `Absolutely. This example is a starting point. Adapt the configuration, environment variables, and services to match your specific requirements.` },
+    ],
+    related: ['/templates', '/deploy', '/features/git-deployments', '/features/automatic-https', quickstart],
+    schemaType: 'HowTo',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
   };
 }
 
@@ -814,6 +1057,9 @@ function bestPage(item: (typeof bestLists)[number]): SeoPage {
     ],
     related: ['/best', '/alternatives/heroku', '/alternatives/coolify', '/compare/better-paas-vs-coolify', quickstart],
     schemaType: 'ItemList',
+    datePublished: launchDate,
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
   };
 }
 
@@ -828,6 +1074,8 @@ const rawSeoPages: SeoPage[] = [
   ...glossary.map(glossaryPage),
   ...fixes.map(fixPage),
   ...bestLists.map(bestPage),
+  ...deploymentTemplates.map(templatePage),
+  ...deploymentExamples.map(examplePage),
 ];
 
 function enrichForIndexing(page: SeoPage): SeoPage {
@@ -904,6 +1152,12 @@ function familyDepthSections(page: SeoPage): SeoSection[] {
       return fixDepth(page);
     case 'best':
       return bestDepth(page);
+    case 'templates':
+      return templateDepth(page);
+    case 'examples':
+      return exampleDepth(page);
+    default:
+      return [];
   }
 }
 
@@ -1159,6 +1413,44 @@ function bestDepth(page: SeoPage): SeoSection[] {
     {
       title: 'Who should pick Better-PaaS',
       body: `Pick Better-PaaS if you want one server to host several apps with a Git-based workflow, automatic domains, simple database add-ons, and a dashboard. Skip it if you want a fully managed cloud, if your company already mandates Kubernetes, or if you need multi-region autoscaling on day one.`,
+    },
+  ];
+}
+
+function templateDepth(page: SeoPage): SeoSection[] {
+  return [
+    {
+      title: 'Why use a template',
+      body: `Templates remove the guesswork from deployment. Instead of configuring Docker, Caddy, and databases manually, you start with a proven stack that Better-PaaS understands. This reduces the time from repository to live app and lowers the chance of misconfiguration.`,
+      bullets: ['Pre-configured build and start commands', 'Known-working database pairings', 'Tested volume and environment variable setup', 'HTTPS and domain routing included'],
+    },
+    {
+      title: 'When to move beyond the template',
+      body: `A template is a starting point, not a ceiling. Once your app grows, you may need to add services, tune resource limits, split databases to dedicated servers, or customize the Dockerfile. Better-PaaS supports all of these without locking you into the template.`,
+    },
+    {
+      title: 'Production readiness checklist',
+      body: `Before depending on this template for production traffic, verify that backups, monitoring, and rollback behavior are tested. A template gets you live quickly; production readiness requires operational habits.`,
+      bullets: ['Test a redeploy and confirm zero-downtime behavior', 'Set up database backups', 'Document environment variables and secrets', 'Verify log streaming and health checks', 'Plan server scaling before traffic spikes'],
+    },
+  ];
+}
+
+function exampleDepth(page: SeoPage): SeoSection[] {
+  return [
+    {
+      title: 'What makes this example useful',
+      body: `Real-world examples show how Better-PaaS handles the messy details: environment variables, database connections, volume mounts, custom domains, and HTTPS. This example is based on the actual deployment workflow, not a theoretical setup.`,
+      bullets: ['Concrete deployment steps', 'Known-working configuration', 'Common pitfalls and how to avoid them', 'Production recommendations'],
+    },
+    {
+      title: 'How to adapt this example',
+      body: `Every app is different, but the deployment pattern is often similar. Use this example as a starting point, then adjust environment variables, resource limits, and domain settings to match your specific requirements.`,
+    },
+    {
+      title: 'Production considerations',
+      body: `Before relying on this example for production, verify backups, health checks, log monitoring, and a rollback plan. Examples get you live quickly; production readiness requires operational discipline.`,
+      bullets: ['Set up automated backups', 'Configure health check endpoints', 'Monitor logs and resource usage', 'Document environment variables', 'Test rollback behavior'],
     },
   ];
 }

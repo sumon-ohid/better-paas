@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, BookOpen, CheckCircle, GitBranch, HelpCircle } from 'lucide-react';
+import { ArrowRight, BookOpen, CheckCircle, GitBranch, HelpCircle, ChevronRight, Calendar, X, Check, AlertCircle, User } from 'lucide-react';
 import { Eyebrow, IconTile } from '@/components/landing/primitives';
 import { appName, siteUrl } from '@/lib/shared';
 import { getSeoUrl, type SeoPage } from '@/lib/seo/content';
@@ -23,12 +23,53 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
         }}
       />
 
-      <section className="relative mx-auto grid w-full max-w-6xl gap-10 px-6 pb-12 pt-24 sm:pt-32 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      {/* Breadcrumb navigation */}
+      <nav aria-label="breadcrumb" className="relative mx-auto w-full max-w-6xl px-6 pt-20 sm:pt-28">
+        <ol className="flex flex-wrap items-center gap-1.5 text-sm text-fd-muted-foreground">
+          <li>
+            <Link href="/" className="hover:text-fd-foreground transition-colors">
+              {appName}
+            </Link>
+          </li>
+          <li aria-hidden="true">
+            <ChevronRight className="size-3.5 opacity-60" />
+          </li>
+          <li>
+            <Link href={`/${page.family}`} className="hover:text-fd-foreground transition-colors capitalize">
+              {page.family.replace(/-/g, ' ')}
+            </Link>
+          </li>
+          <li aria-hidden="true">
+            <ChevronRight className="size-3.5 opacity-60" />
+          </li>
+          <li className="text-fd-foreground font-medium truncate max-w-[200px] sm:max-w-xs" aria-current="page">
+            {page.h1}
+          </li>
+        </ol>
+      </nav>
+
+      <section className="relative mx-auto grid w-full max-w-6xl gap-10 px-6 pb-12 pt-6 sm:pt-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         <div>
           <Eyebrow>{page.eyebrow}</Eyebrow>
           <h1 className="bp-display mt-6 max-w-4xl text-4xl font-semibold tracking-tight text-fd-foreground sm:text-5xl">
             {page.h1}
           </h1>
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-fd-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="size-3.5" />
+              <span>Last updated {new Date(page.dateModified).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <User className="size-3.5" />
+              <span>Reviewed by Better-PaaS team</span>
+            </div>
+            {isContentFresh(page.lastReviewed) ? null : (
+              <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-amber-600 dark:text-amber-400">
+                <AlertCircle className="size-3" />
+                <span>Content may need review</span>
+              </div>
+            )}
+          </div>
           <p className="mt-6 max-w-3xl text-base leading-8 text-fd-muted-foreground sm:text-lg">
             {page.description}
           </p>
@@ -111,6 +152,54 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
               ))}
             </div>
 
+            {page.comparisonTable?.length ? (
+              <section className="mt-6 rounded-lg border border-fd-border bg-fd-card/25 p-6 sm:p-8">
+                <h2 className="text-2xl font-semibold text-fd-foreground">Side-by-side comparison</h2>
+                <div className="mt-6 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-fd-border">
+                        <th className="pb-3 pr-4 text-left font-semibold text-fd-muted-foreground">Criterion</th>
+                        <th className="pb-3 pr-4 text-left font-semibold text-fd-primary">{appName}</th>
+                        <th className="pb-3 text-left font-semibold text-fd-muted-foreground">Competitor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-fd-border">
+                      {page.comparisonTable.map((row) => (
+                        <tr key={row.criterion} className="group">
+                          <td className="py-3 pr-4 font-medium text-fd-foreground">{row.criterion}</td>
+                          <td className="py-3 pr-4">
+                            <div className="flex items-start gap-2">
+                              {row.winner === 'app' ? (
+                                <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                              ) : row.winner === 'competitor' ? (
+                                <X className="mt-0.5 size-4 shrink-0 text-fd-muted-foreground opacity-50" />
+                              ) : (
+                                <span className="mt-0.5 size-4 shrink-0 text-center text-xs text-fd-muted-foreground">—</span>
+                              )}
+                              <span className="text-fd-foreground">{row.appName}</span>
+                            </div>
+                          </td>
+                          <td className="py-3">
+                            <div className="flex items-start gap-2">
+                              {row.winner === 'competitor' ? (
+                                <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                              ) : row.winner === 'app' ? (
+                                <X className="mt-0.5 size-4 shrink-0 text-fd-muted-foreground opacity-50" />
+                              ) : (
+                                <span className="mt-0.5 size-4 shrink-0 text-center text-xs text-fd-muted-foreground">—</span>
+                              )}
+                              <span className="text-fd-muted-foreground">{row.competitor}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : null}
+
             <section className="mt-6 rounded-lg border border-fd-border bg-fd-card/25 p-6 sm:p-8">
               <div className="flex items-center gap-3">
                 <IconTile size="sm">
@@ -160,7 +249,7 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
                 href="/pricing"
                 className="mt-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-fd-foreground px-4 text-sm font-semibold text-fd-background transition-opacity hover:opacity-90"
               >
-                See pricing
+                Free Forever
                 <ArrowRight className="size-4" />
               </Link>
             </div>
@@ -169,6 +258,11 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
       </section>
     </main>
   );
+}
+
+function isContentFresh(lastReviewed: string): boolean {
+  const sixMonthsAgo = Date.now() - 1000 * 60 * 60 * 24 * 180;
+  return new Date(lastReviewed).getTime() > sixMonthsAgo;
 }
 
 function labelFromHref(href: string) {
@@ -205,6 +299,8 @@ function buildJsonLd(page: SeoPage, url: string) {
     url,
     name: page.h1,
     about: page.primaryKeyword,
+    datePublished: page.datePublished,
+    dateModified: page.dateModified,
     author: {
       '@type': 'Organization',
       name: appName,
