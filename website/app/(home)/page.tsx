@@ -197,7 +197,7 @@ function Hero({
             />
 
             {/* Glassmorphism Parent Container */}
-            <div className="relative w-full rounded-[0.85rem] bg-[#f8fbff]/92 p-2 sm:p-4.5 xl:p-5 dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)] shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)]">
+            <div className="relative w-full rounded-[1.5rem] bg-[#f8fbff]/92 p-2 dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)] shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)]">
               <ProductDemo />
             </div>
           </div>
