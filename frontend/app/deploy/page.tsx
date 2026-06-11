@@ -752,8 +752,8 @@ export default function DeployPage() {
                       size="sm"
                       className="gap-2"
                     >
-                      <GithubLight className="h-4 w-4 dark:hidden" />
-                      <GithubDark className="hidden h-4 w-4 dark:block" />
+                      <GithubLight className="hidden h-4 w-4 dark:block" />
+                      <GithubDark className="h-4 w-4 dark:hidden" />
                       Connect GitHub
                     </Button>
                     <button
