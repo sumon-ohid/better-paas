@@ -726,7 +726,7 @@ export function AppDetailView() {
                 <Frame className="w-full">
                   {/* Compose notice */}
                   {app.composeService && (
-                    <FramePanel className="border-amber-500/20 bg-amber-500/5">
+                    <FramePanel className="mb-2">
                       <div className="flex items-start gap-2.5">
                         <Docker className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                         <div className="space-y-1">
