@@ -18,7 +18,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
         ? 0.85
         : page.family === 'glossary'
           ? 0.6
-          : 0.75;
+          : page.family === 'examples'
+            ? 0.8
+            : 0.75;
     return {
       url: `${siteUrl}${getSeoUrl(page)}`,
       lastModified: new Date(page.dateModified),
