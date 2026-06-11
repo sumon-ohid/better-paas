@@ -1750,9 +1750,6 @@ export default function DeployPage() {
         <DialogContent className="flex max-h-[75vh] max-w-md flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2.5 text-base">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40">
-                <FolderIcon className="h-4 w-4 text-chart-4" />
-              </span>
               Select root directory
             </DialogTitle>
             <DialogDescription>
@@ -1859,7 +1856,7 @@ export default function DeployPage() {
               }}
               className="text-xs text-muted-foreground"
             >
-              Use repository root
+              Use repo root
             </Button>
             <div className="flex gap-2">
               <DialogClose
