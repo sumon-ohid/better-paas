@@ -40,6 +40,37 @@ export interface App {
   activeCommit?: string
   activeCommitMsg?: string
   vulnerabilitiesCount?: number
+  projectId?: string
+  serviceName?: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  createdAt: string
+  serverId?: string
+}
+
+export interface ProjectSummary extends Project {
+  serviceCount: number
+  status: string
+  hasGit?: boolean
+  hasDocker?: boolean
+  lastServiceAt?: string
+  focusServiceId?: string
+}
+
+export interface ProjectDetail extends ProjectSummary {
+  services: App[]
+}
+
+export interface ProjectCreateRequest {
+  name: string
+  serverId?: string
+}
+
+export interface ProjectServiceDeployRequest extends DeployRequest {
+  projectId: string
 }
 
 export interface Vulnerability {

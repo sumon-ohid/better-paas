@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { AppShell } from "@/components/app-shell"
@@ -8,12 +8,42 @@ import { StatusDot } from "@/components/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
+import {
+  aggregateGroupStatus,
+  getGroupKey,
+  getGroupPrimary,
+  getGroupServices,
+  groupApps,
+  isMultiServiceGroup,
+  type AppGroup,
+} from "@/lib/app-groups"
 import type { App, DeploymentRecord } from "@/lib/types"
+import { Docker } from "@/components/ui/svgs/docker"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
 const ChevronRightIcon = (props: IconProps) => <NucleoIcon {...props} name="chevron-right" />
+
+function getProjectDeploymentStats(
+  group: AppGroup,
+  deployments: DeploymentRecord[],
+): { total: number; failed: number; latest: DeploymentRecord | null } {
+  const primaryId = getGroupPrimary(group).id
+  const projectDeployments = deployments.filter((d) => d.appId === primaryId)
+  const failed = projectDeployments.filter((d) => d.status === "failed").length
+  const latest =
+    projectDeployments.reduce<DeploymentRecord | null>((best, d) => {
+      if (!best || new Date(d.createdAt) > new Date(best.createdAt)) return d
+      return best
+    }, null) ?? null
+
+  return {
+    total: projectDeployments.length,
+    failed,
+    latest,
+  }
+}
 
 export default function DeploymentsIndexPage() {
   const router = useRouter()
@@ -42,24 +72,7 @@ export default function DeploymentsIndexPage() {
     fetchData()
   }, [fetchData])
 
-  // Group deployment counts per app
-  const countByApp = deployments.reduce<Record<string, { total: number; failed: number }>>(
-    (acc, d) => {
-      if (!acc[d.appId]) acc[d.appId] = { total: 0, failed: 0 }
-      acc[d.appId].total++
-      if (d.status === "failed") acc[d.appId].failed++
-      return acc
-    },
-    {},
-  )
-
-  // Latest deployment per app
-  const latestByApp = deployments.reduce<Record<string, DeploymentRecord>>((acc, d) => {
-    if (!acc[d.appId] || new Date(d.createdAt) > new Date(acc[d.appId].createdAt)) {
-      acc[d.appId] = d
-    }
-    return acc
-  }, {})
+  const projectGroups = useMemo(() => groupApps(apps), [apps])
 
   return (
     <AppShell>
@@ -82,14 +95,13 @@ export default function DeploymentsIndexPage() {
             <RefreshIcon className="h-5 w-5 mx-auto mb-3 opacity-30 animate-spin" />
             Loading projects...
           </div>
-        ) : apps.length === 0 ? (
+        ) : projectGroups.length === 0 ? (
           <div className="py-20 text-center text-sm text-muted-foreground">
             <GlobeIcon className="h-6 w-6 mx-auto mb-3 opacity-20" />
             No projects deployed yet.
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border bg-card/72 backdrop-blur-xl divide-y divide-border/50">
-            {/* Header */}
             <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground bg-muted/20">
               <span>Project</span>
               <span>Last Deploy</span>
@@ -98,41 +110,52 @@ export default function DeploymentsIndexPage() {
               <span />
             </div>
 
-            {apps.map((app) => {
-              const counts = countByApp[app.id] ?? { total: 0, failed: 0 }
-              const latest = latestByApp[app.id]
+            {projectGroups.map((group) => {
+              const primary = getGroupPrimary(group)
+              const aggregateStatus = aggregateGroupStatus(getGroupServices(group))
+              const { total, failed, latest } = getProjectDeploymentStats(
+                group,
+                deployments,
+              )
+
               return (
                 <button
-                  key={app.id}
-                  onClick={() => router.push(`/app/${app.id}?tab=deployments`)}
+                  key={getGroupKey(group)}
+                  onClick={() => router.push(`/app/${primary.id}?tab=deployments`)}
                   className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 w-full px-4 py-3.5 items-center text-left hover:bg-accent/30 transition-colors cursor-pointer group"
                 >
-                  {/* Project info */}
-                  <div className="flex items-center gap-3">
-                    <StatusDot status={app.status} />
-                    <div>
-                      <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                        {app.name}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <StatusDot status={aggregateStatus} />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                          {primary.name}
+                        </span>
+                        {isMultiServiceGroup(group) && (
+                          <Badge variant="outline" size="sm" className="gap-1 font-mono shrink-0">
+                            <Docker className="h-3 w-3" />
+                            {group.services.length} services
+                          </Badge>
+                        )}
                       </div>
-                       {app.gitRepo ? (
-                         <a
-                           href={app.gitRepo}
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           onClick={(e) => e.stopPropagation()}
-                           className="text-[11px] font-mono text-muted-foreground hover:text-primary transition-colors truncate max-w-xs block"
-                         >
-                           {app.gitRepo}
-                         </a>
-                       ) : (
-                         <span className="text-[11px] font-mono text-muted-foreground/70 truncate max-w-xs block">
-                           {app.image || "No repository"}
-                         </span>
-                       )}
+                      {primary.gitRepo ? (
+                        <a
+                          href={primary.gitRepo}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[11px] font-mono text-muted-foreground hover:text-primary transition-colors truncate max-w-xs block"
+                        >
+                          {primary.gitRepo}
+                        </a>
+                      ) : (
+                        <span className="text-[11px] font-mono text-muted-foreground/70 truncate max-w-xs block">
+                          {primary.image || "No repository"}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Last deploy time */}
                   <span className="text-xs text-muted-foreground">
                     {latest
                       ? new Date(latest.createdAt).toLocaleString(undefined, {
@@ -144,18 +167,16 @@ export default function DeploymentsIndexPage() {
                       : "—"}
                   </span>
 
-                  {/* Total count */}
                   <Badge variant="secondary" size="sm" className="font-mono">
-                    {counts.total}
+                    {total}
                   </Badge>
 
-                  {/* Failed count */}
                   <Badge
-                    variant={counts.failed > 0 ? "error" : "secondary"}
+                    variant={failed > 0 ? "error" : "secondary"}
                     size="sm"
                     className="font-mono"
                   >
-                    {counts.failed}
+                    {failed}
                   </Badge>
 
                   <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />

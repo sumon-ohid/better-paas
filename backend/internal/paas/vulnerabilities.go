@@ -767,10 +767,11 @@ func injectPnpmWorkspaceOverrides(appPath string, pkgVersions map[string]string)
 		existing = string(data)
 	}
 
-	// Remove any existing overrides: block (simple line-based approach)
+	// Remove any existing overrides: block while preserving its entries for merge.
 	lines := strings.Split(existing, "\n")
 	var filtered []string
 	inOverridesBlock := false
+	existingOverrides := make(map[string]string)
 	for _, line := range lines {
 		trimmed := strings.TrimRight(line, " \t")
 		if trimmed == "overrides:" {
@@ -780,6 +781,9 @@ func injectPnpmWorkspaceOverrides(appPath string, pkgVersions map[string]string)
 		if inOverridesBlock {
 			// Lines that start with whitespace are continuation of the overrides block
 			if len(trimmed) > 0 && (trimmed[0] == ' ' || trimmed[0] == '\t') {
+				if pkg, ver, ok := strings.Cut(strings.TrimSpace(trimmed), ":"); ok {
+					existingOverrides[strings.TrimSpace(pkg)] = strings.Trim(strings.TrimSpace(ver), `"'`)
+				}
 				continue
 			}
 			inOverridesBlock = false
@@ -798,11 +802,15 @@ func injectPnpmWorkspaceOverrides(appPath string, pkgVersions map[string]string)
 		content = content + "\n\npackages:\n  - '.'"
 	}
 
-	// Append overrides block
-	overrideLines := "\n\noverrides:"
+	// Append overrides block (merge with any pre-existing entries).
+	mergedOverrides := existingOverrides
 	for pkg, ver := range pkgVersions {
-		overrideLines += fmt.Sprintf("\n  %s: \"^%s\"", pkg, ver)
+		mergedOverrides[pkg] = "^" + ver
 		log.Printf("[vulnerabilities] injecting pnpm workspace override: %s -> ^%s", pkg, ver)
+	}
+	overrideLines := "\n\noverrides:"
+	for pkg, ver := range mergedOverrides {
+		overrideLines += fmt.Sprintf("\n  %s: \"%s\"", pkg, ver)
 	}
 	content = content + overrideLines + "\n"
 

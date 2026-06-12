@@ -2,7 +2,15 @@
 
 import React, { useState } from "react"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { BreadcrumbLink, BreadcrumbPage } from "@/components/ui/breadcrumb"
+import {
+  BreadcrumbHeaderRow,
+  BreadcrumbRenameIconButton,
+  BreadcrumbRenameInput,
+  ProjectBreadcrumb,
+} from "@/components/project-breadcrumb"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,6 +116,8 @@ import {
 type ViewContext = Record<string, any> & {
   app: App
   setApp: React.Dispatch<React.SetStateAction<App | null>>
+  composePrimaryApp: App
+  isComposeChild: boolean
   deployments: DeploymentRecord[]
   branches: string[]
   logs: LogEntry[]
@@ -139,6 +149,11 @@ export function AppDetailView() {
     setApp,
     router,
     appId,
+    allProjects,
+    resolvedProjectId,
+    projectName,
+    composePrimaryApp,
+    isComposeChild,
     deployments,
     isEditingName,
     renameInputRef,
@@ -279,90 +294,101 @@ export function AppDetailView() {
       <Tabs value={currentTab} onValueChange={(value) => setTab(value as AppTab)} className="flex h-full flex-col">
         {/* Header */}
         <div className="shrink-0 bg-transparent px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <Button
-                variant={"link"}
-                onClick={() => router.push("/")}
-                className="flex shrink-0 cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ChevronLeftIcon className="h-3.5 w-3.5" />
-                Dashboard
-              </Button>
-              <span className="h-4 w-px shrink-0 bg-border" />
-              <div className="flex min-w-0 items-center gap-2.5">
-                {isEditingName ? (
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <Input
-                      ref={renameInputRef}
-                      value={renameValue}
-                      onChange={(e) =>
-                        setRenameValue(
-                          e.target.value
-                            .toLowerCase()
-                            .replace(/[^a-z0-9-]/g, "")
-                        )
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") void handleRename()
-                        if (e.key === "Escape") cancelRename()
-                      }}
-                      disabled={isRenaming}
-                      className="h-8 w-[min(52vw,280px)] text-lg font-bold sm:text-xl"
-                      aria-label="Project name"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRename}
-                      disabled={isRenaming}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-success/10 hover:text-success disabled:cursor-not-allowed disabled:opacity-50"
-                      title="Save name"
-                      aria-label="Save name"
-                    >
-                      {isRenaming ? (
-                        <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <CheckIcon className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelRename}
-                      disabled={isRenaming}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                      title="Cancel"
-                      aria-label="Cancel rename"
-                    >
-                      <XIcon className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <h1 className="truncate text-lg font-bold text-foreground sm:text-xl">
-                      {app.name}
-                    </h1>
+          <div className="space-y-3">
+            <BreadcrumbHeaderRow
+              trailing={
+                <>
+                  <StatusBadge status={app.status} />
+                  {!isComposeChild && !isEditingName ? (
                     <button
                       type="button"
                       onClick={startRename}
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      title="Edit project name"
-                      aria-label="Edit project name"
+                      title="Rename service"
+                      aria-label="Rename service"
                     >
                       <EditIcon className="h-3.5 w-3.5" />
                     </button>
-                  </div>
-                )}
-                <StatusBadge status={app.status} />
-              </div>
-              {app.branch && (
-                <span className="hidden shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground sm:inline-flex">
-                  <GitBranchIcon className="h-3 w-3" />
-                  {app.branch}
-                </span>
-              )}
-            </div>
+                  ) : null}
+                </>
+              }
+            >
+              <ProjectBreadcrumb
+                projects={allProjects ?? []}
+                currentProjectId={resolvedProjectId}
+                projectCrumb={
+                  <BreadcrumbLink
+                    render={<Link href={`/project/${resolvedProjectId}`} />}
+                  >
+                    {projectName}
+                  </BreadcrumbLink>
+                }
+                serviceCrumb={
+                  isEditingName ? (
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <BreadcrumbRenameInput
+                        ref={renameInputRef}
+                        value={renameValue}
+                        onChange={(e) =>
+                          setRenameValue(
+                            e.target.value
+                              .toLowerCase()
+                              .replace(/[^a-z0-9-]/g, ""),
+                          )
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void handleRename()
+                          if (e.key === "Escape") cancelRename()
+                        }}
+                        disabled={isRenaming}
+                        aria-label="Service name"
+                      />
+                      <BreadcrumbRenameIconButton
+                        onClick={() => void handleRename()}
+                        disabled={isRenaming}
+                        label="Save name"
+                        variant="success"
+                      >
+                        {isRenaming ? (
+                          <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CheckIcon className="h-3.5 w-3.5" />
+                        )}
+                      </BreadcrumbRenameIconButton>
+                      <BreadcrumbRenameIconButton
+                        onClick={cancelRename}
+                        disabled={isRenaming}
+                        label="Cancel rename"
+                      >
+                        <XIcon className="h-3.5 w-3.5" />
+                      </BreadcrumbRenameIconButton>
+                    </div>
+                  ) : (
+                    <BreadcrumbPage>
+                      {app.composeService || app.serviceName || app.name}
+                    </BreadcrumbPage>
+                  )
+                }
+              />
+            </BreadcrumbHeaderRow>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                {app.composeService && (
+                  <Badge variant="outline" size="sm" className="gap-1 font-mono shrink-0">
+                    <Docker className="h-3 w-3" />
+                    compose
+                  </Badge>
+                )}
+                {app.branch && (
+                  <span className="inline-flex shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground">
+                    <GitBranchIcon className="h-3 w-3" />
+                    {app.branch}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
               {app.status === "running" ? (
                 <Button
                   onClick={() => handleToggle("stop")}
@@ -411,6 +437,7 @@ export function AppDetailView() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
             </div>
           </div>
 

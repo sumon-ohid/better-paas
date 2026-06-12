@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import {
@@ -130,7 +130,10 @@ const stepVariants = {
 
 export default function DeployPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const projectId = searchParams.get("projectId") ?? ""
   const { activeServerId } = useActiveServer()
+  const [projectName, setProjectName] = useState<string | null>(null)
 
   // ── Wizard step ────────────────────────────────────────────────────────────
   const [step, setStep] = useState(1)
@@ -236,6 +239,17 @@ export default function DeployPage() {
         console.error("Failed to load servers:", err)
       })
   }, [activeServerId])
+
+  useEffect(() => {
+    if (!projectId) {
+      setProjectName(null)
+      return
+    }
+    api.projects
+      .get(projectId)
+      .then((p) => setProjectName(p.name))
+      .catch(() => setProjectName(null))
+  }, [projectId])
 
   // Debounce timer for re-detecting the framework when the Root Directory input
   // is edited by hand.
@@ -618,7 +632,7 @@ export default function DeployPage() {
 
     try {
       setIsDeploying(true)
-      const newApp = await api.apps.deploy({
+      const deployPayload = {
         name: deployName,
         gitRepo: selectedRepo.clone_url,
         branch: selectedBranch,
@@ -644,8 +658,15 @@ export default function DeployPage() {
         dockerfilePath: deployBuildMethod === "dockerfile" ? deployDockerfilePath.trim() || "Dockerfile" : undefined,
         composePath: deployBuildMethod === "compose" ? deployComposePath.trim() || "docker-compose.yml" : undefined,
         serverId: selectedServerId,
-      })
-      router.push(`/logs?appId=${newApp.id}&mode=build`)
+      }
+      const newApp = projectId
+        ? await api.projects.deployService({ ...deployPayload, projectId })
+        : await api.apps.deploy(deployPayload)
+      if (projectId) {
+        router.push(`/project/${projectId}`)
+      } else {
+        router.push(`/logs?appId=${newApp.id}&mode=build`)
+      }
     } catch (err) {
       console.error(err)
       setErrorMsg(
@@ -660,7 +681,7 @@ export default function DeployPage() {
     <main className="relative h-dvh bg-background text-foreground flex flex-col items-center overflow-y-auto p-4">
       {/* Close (desktop only) — return to the dashboard */}
       <button
-        onClick={() => router.push("/")}
+        onClick={() => router.push(projectId ? `/project/${projectId}` : "/")}
         aria-label="Close"
         className="absolute right-5 top-5 z-10 hidden h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-background/80 text-muted-foreground backdrop-blur-sm transition-colors hover:border-primary/30 hover:text-foreground md:flex"
       >
@@ -671,9 +692,15 @@ export default function DeployPage() {
         <Frame className="w-full">
           <FramePanel className="shrink-0 space-y-4 !py-4">
             <div className="min-w-0">
-              <FrameTitle className="text-base">Deploy new service</FrameTitle>
+              <FrameTitle className="text-base">
+                {projectId
+                  ? `Add service${projectName ? ` to ${projectName}` : ""}`
+                  : "Deploy new service"}
+              </FrameTitle>
               <FrameDescription className="text-xs sm:text-sm">
-                {step === 1 && "Choose a repository and where to deploy it."}
+                {step === 1 && (projectId
+                  ? "Choose a repository for the new service in this project."
+                  : "Choose a repository and where to deploy it.")}
                 {step === 2 && "Configure how your app is built and started."}
                 {step === 3 && "Set runtime environment variables (optional)."}
               </FrameDescription>

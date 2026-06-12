@@ -1,0 +1,8 @@
+# Pin pnpm via Corepack so frozen installs match the lockfile config
+# (overrides in pnpm-workspace.yaml require pnpm 9+).
+[phases.install]
+cmds = [
+  "corepack enable",
+  "corepack prepare pnpm@11.1.2 --activate",
+  "pnpm install --frozen-lockfile",
+]

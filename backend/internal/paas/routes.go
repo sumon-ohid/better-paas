@@ -6,6 +6,7 @@ func newRouter() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	registerAppRoutes(mux)
+	registerProjectRoutes(mux)
 	registerServerRoutes(mux)
 	registerGitRoutes(mux)
 	registerCatalogRoutes(mux)
@@ -38,6 +39,15 @@ func registerAppRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/apps/vulnerabilities/scan", handleVulnerabilitiesScan)
 	mux.HandleFunc("/api/apps/vulnerabilities/fix", handleVulnerabilitiesFix)
 	mux.HandleFunc("/api/apps/runtime-logs", handleRuntimeLogHistory)
+}
+
+func registerProjectRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/api/projects", handleProjectsList)
+	mux.HandleFunc("/api/projects/get", handleProjectGet)
+	mux.HandleFunc("/api/projects/create", handleProjectCreate)
+	mux.HandleFunc("/api/projects/rename", handleProjectRename)
+	mux.HandleFunc("/api/projects/delete", handleProjectDelete)
+	mux.HandleFunc("/api/projects/services/deploy", handleProjectServiceDeploy)
 }
 
 func registerServerRoutes(mux *http.ServeMux) {

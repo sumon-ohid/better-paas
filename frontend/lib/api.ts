@@ -4,6 +4,10 @@ import type {
   App,
   Server,
   DeployRequest,
+  ProjectSummary,
+  ProjectDetail,
+  ProjectCreateRequest,
+  ProjectServiceDeployRequest,
   DeploymentRecord,
   UpdateRequest,
   GitHubContent,
@@ -257,6 +261,34 @@ export const api = {
       }>("/api/cloudflare/dns", {
         method: "POST",
         body: JSON.stringify({ domain }),
+      }),
+  },
+
+  // ── Projects ─────────────────────────────────────────────────────────────────
+
+  projects: {
+    list: () => req<ProjectSummary[]>("/api/projects"),
+    get: (id: string) =>
+      req<ProjectDetail>(`/api/projects/get?id=${encodeURIComponent(id)}`),
+    create: (data: ProjectCreateRequest) =>
+      req<ProjectSummary>("/api/projects/create", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    rename: (id: string, name: string) =>
+      req<ProjectSummary>("/api/projects/rename", {
+        method: "POST",
+        body: JSON.stringify({ id, name }),
+      }),
+    delete: (id: string) =>
+      req<{ status: string }>("/api/projects/delete", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
+    deployService: (data: ProjectServiceDeployRequest) =>
+      req<App>("/api/projects/services/deploy", {
+        method: "POST",
+        body: JSON.stringify(data),
       }),
   },
 

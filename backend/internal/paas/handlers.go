@@ -222,8 +222,12 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 		ServerID:       serverID,
 	}
 	newApp.URL = defaultAppURL(newApp.ID, serverID)
+	newApp.ProjectID = appID
+	newApp.ServiceName = req.Name
 	apps = append(apps, newApp)
 	appsLock.Unlock()
+
+	ensureProjectForApp(newApp, req.Name)
 
 	if err := dbSaveApp(newApp); err != nil {
 		log.Printf("[db] failed to save app: %v", err)

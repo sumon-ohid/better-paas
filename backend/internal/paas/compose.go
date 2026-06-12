@@ -657,6 +657,10 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, noCache boo
 					apps[i].ComposeService = s.Name
 					apps[i].ComposeWeb = s.Web
 					apps[i].ComposePrimary = true
+					apps[i].ProjectID = app.ProjectID
+					if apps[i].ServiceName == "" {
+						apps[i].ServiceName = s.Name
+					}
 					apps[i].ActiveContainer = container
 					apps[i].ActiveDeployID = deployID
 					apps[i].Status = "running"
@@ -711,6 +715,8 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, noCache boo
 		child := App{
 			ID:              childID,
 			Name:            childName,
+			ServiceName:     s.Name,
+			ProjectID:       app.ProjectID,
 			Status:          "running",
 			GitRepo:         app.GitRepo,
 			Branch:          app.Branch,
