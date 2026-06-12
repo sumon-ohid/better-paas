@@ -4,7 +4,11 @@ import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
-import { StatusBadge, StatusDot } from "@/components/status-badge"
+import {
+  DeployedTimeHover,
+  StatusBadgeHover,
+} from "@/components/hover-previews"
+import { StatusDot } from "@/components/status-badge"
 import { useToast } from "@/components/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -405,7 +409,17 @@ function ServiceTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={app.status} />
+                    <StatusBadgeHover
+                      status={app.status}
+                      title="Service"
+                      services={[
+                        {
+                          id: app.id,
+                          name: serviceLabel(app),
+                          status: app.status,
+                        },
+                      ]}
+                    />
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <UrlLink url={getAppUrl(app)} />
@@ -417,9 +431,12 @@ function ServiceTable({
                     <BranchBadge branch={app.branch} />
                   </TableCell>
                   <TableCell>
-                    <span className="text-sm text-muted-foreground tabular-nums">
-                      {formatRelativeTime(app.createdAt)}
-                    </span>
+                    <DeployedTimeHover
+                      dateStr={app.createdAt}
+                      label="Deployed"
+                      relative={formatRelativeTime(app.createdAt)}
+                      size="sm"
+                    />
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="text-right">
@@ -501,7 +518,17 @@ function ServiceCard({
             />
           </CardAction>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <StatusBadge status={app.status} />
+            <StatusBadgeHover
+              status={app.status}
+              title="Service"
+              services={[
+                {
+                  id: app.id,
+                  name: serviceLabel(app),
+                  status: app.status,
+                },
+              ]}
+            />
             <BranchBadge branch={app.branch} />
             {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
               <Tooltip>
@@ -573,9 +600,15 @@ function ServiceCard({
       </Card>
       <FrameFooter className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Deployed</span>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {formatRelativeTime(app.createdAt)}
-        </span>
+        <DeployedTimeHover
+          dateStr={app.createdAt}
+          label="Deployed"
+          relative={formatRelativeTime(app.createdAt)}
+        >
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {formatRelativeTime(app.createdAt)}
+          </span>
+        </DeployedTimeHover>
       </FrameFooter>
     </Frame>
   )

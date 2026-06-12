@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { AppShell, useToast } from "@/components/app-shell"
-import { StatusBadge } from "@/components/status-badge"
+import {
+  DeployedTimeHover,
+  StatusBadgeHover,
+} from "@/components/hover-previews"
 import { useActiveServer } from "@/components/server-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -120,17 +123,33 @@ function projectServiceLabel(project: ProjectSummary): string {
   return `${project.serviceCount} ${project.serviceCount === 1 ? "service" : "services"}`
 }
 
-function projectStatusHint(project: ProjectSummary): string | null {
-  if (project.serviceCount === 0) return "Add a service to deploy"
-  if (project.status === "building") return "Deploy in progress"
-  return null
+function projectTimeMeta(project: ProjectSummary): {
+  label: string
+  at: string
+  dateStr: string
+} {
+  if (project.serviceCount > 0 && project.lastServiceAt) {
+    return {
+      label: "Last service",
+      at: formatRelativeTime(project.lastServiceAt),
+      dateStr: project.lastServiceAt,
+    }
+  }
+  return {
+    label: "Created",
+    at: formatRelativeTime(project.createdAt),
+    dateStr: project.createdAt,
+  }
 }
 
-function projectTimeMeta(project: ProjectSummary): { label: string; at: string } {
-  if (project.serviceCount > 0 && project.lastServiceAt) {
-    return { label: "Last service", at: formatRelativeTime(project.lastServiceAt) }
-  }
-  return { label: "Created", at: formatRelativeTime(project.createdAt) }
+function projectServiceStatuses(
+  project: ProjectSummary,
+): { id: string; name: string; status: string }[] {
+  return (project.serviceStatuses ?? []).map((service) => ({
+    id: service.id,
+    name: service.name,
+    status: service.status,
+  }))
 }
 
 function ProjectServerBadge({ serverId }: { serverId?: string }) {
@@ -250,9 +269,24 @@ function ProjectTableRow({
             <span className="font-semibold text-sm text-foreground truncate block">
               {project.name}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {projectServiceLabel(project)}
-            </span>
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <span className="text-xs text-muted-foreground">
+                {projectServiceLabel(project)}
+              </span>
+              {project.status === "failed" && project.focusServiceId ? (
+                <Button
+                  variant="link"
+                  size="xs"
+                  className="h-auto min-h-0 px-0 py-0 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onViewLogs()
+                  }}
+                >
+                  View logs
+                </Button>
+              ) : null}
+            </div>
           </div>
           {shouldShowServerBadge(project, activeServerId) ? (
             <ProjectServerBadge serverId={project.serverId} />
@@ -260,31 +294,21 @@ function ProjectTableRow({
         </div>
       </TableCell>
       <TableCell>
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={project.status} />
-          {project.status === "failed" && project.focusServiceId ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 px-2 text-[11px]"
-              onClick={(e) => {
-                e.stopPropagation()
-                onViewLogs()
-              }}
-            >
-              View logs
-            </Button>
-          ) : null}
-        </div>
+        <StatusBadgeHover
+          status={project.status}
+          services={projectServiceStatuses(project)}
+        />
       </TableCell>
       <TableCell>
         <ProjectSourceIcons project={project} compact />
       </TableCell>
       <TableCell>
-        <span className="text-sm text-muted-foreground tabular-nums">
-          <span className="text-muted-foreground/70">{timeMeta.label}</span>{" "}
-          {timeMeta.at}
-        </span>
+        <DeployedTimeHover
+          dateStr={timeMeta.dateStr}
+          label={timeMeta.label}
+          relative={timeMeta.at}
+          size="sm"
+        />
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-0.5">
@@ -489,7 +513,6 @@ function ProjectSummaryCard({
   onViewLogs: () => void
   activeServerId: string
 }) {
-  const statusHint = projectStatusHint(project)
   const timeMeta = projectTimeMeta(project)
 
   return (
@@ -537,13 +560,29 @@ function ProjectSummaryCard({
                 </CardAction>
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                <StatusBadge status={project.status} />
+                <StatusBadgeHover
+                  status={project.status}
+                  services={projectServiceStatuses(project)}
+                />
                 <span className="text-xs text-muted-foreground" aria-hidden>
                   ·
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {projectServiceLabel(project)}
                 </span>
+                {project.status === "failed" && project.focusServiceId ? (
+                  <Button
+                    variant="link"
+                    size="xs"
+                    className="h-auto min-h-0 px-0 py-0 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onViewLogs()
+                    }}
+                  >
+                    View logs
+                  </Button>
+                ) : null}
                 {shouldShowServerBadge(project, activeServerId) ? (
                   <>
                     <span className="text-xs text-muted-foreground" aria-hidden>
@@ -553,28 +592,6 @@ function ProjectSummaryCard({
                   </>
                 ) : null}
               </div>
-              {statusHint || project.status === "failed" ? (
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  {statusHint ? (
-                    <span className="text-[11px] text-muted-foreground/80">
-                      {statusHint}
-                    </span>
-                  ) : null}
-                  {project.status === "failed" && project.focusServiceId ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-5 px-1.5 text-[10px]"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onViewLogs()
-                      }}
-                    >
-                      View logs
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
             </div>
           </div>
         </CardHeader>
@@ -582,10 +599,11 @@ function ProjectSummaryCard({
       <FrameFooter className="flex items-center justify-between gap-2">
         <ProjectSourceIcons project={project} />
         <div className="flex shrink-0 items-center gap-1.5">
-          <span className="text-xs text-muted-foreground tabular-nums">
-            <span className="text-muted-foreground/70">{timeMeta.label}</span>{" "}
-            {timeMeta.at}
-          </span>
+          <DeployedTimeHover
+            dateStr={timeMeta.dateStr}
+            label={timeMeta.label}
+            relative={timeMeta.at}
+          />
           <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
         </div>
       </FrameFooter>

@@ -78,14 +78,37 @@ func projectSummary(p Project) ProjectSummary {
 	hasGit, hasDocker := projectSourceFlags(services)
 	status := aggregateProjectStatus(services)
 	return ProjectSummary{
-		Project:        p,
-		ServiceCount:   len(services),
-		Status:         status,
-		HasGit:         hasGit,
-		HasDocker:      hasDocker,
-		LastServiceAt:  latestServiceTime(services),
-		FocusServiceID: focusServiceForStatus(services, status),
+		Project:         p,
+		ServiceCount:    len(services),
+		Status:          status,
+		HasGit:          hasGit,
+		HasDocker:       hasDocker,
+		LastServiceAt:   latestServiceTime(services),
+		FocusServiceID:  focusServiceForStatus(services, status),
+		ServiceStatuses: projectServiceStatuses(services),
 	}
+}
+
+func projectServiceStatuses(services []App) []ProjectServiceStatus {
+	if len(services) == 0 {
+		return nil
+	}
+	out := make([]ProjectServiceStatus, 0, len(services))
+	for _, s := range services {
+		name := strings.TrimSpace(s.ServiceName)
+		if name == "" {
+			name = strings.TrimSpace(s.ComposeService)
+		}
+		if name == "" {
+			name = s.Name
+		}
+		out = append(out, ProjectServiceStatus{
+			ID:     s.ID,
+			Name:   name,
+			Status: s.Status,
+		})
+	}
+	return out
 }
 
 func latestServiceTime(services []App) *time.Time {

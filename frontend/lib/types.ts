@@ -51,6 +51,12 @@ export interface Project {
   serverId?: string
 }
 
+export interface ProjectServiceStatus {
+  id: string
+  name: string
+  status: string
+}
+
 export interface ProjectSummary extends Project {
   serviceCount: number
   status: string
@@ -58,6 +64,7 @@ export interface ProjectSummary extends Project {
   hasDocker?: boolean
   lastServiceAt?: string
   focusServiceId?: string
+  serviceStatuses?: ProjectServiceStatus[]
 }
 
 export interface ProjectDetail extends ProjectSummary {

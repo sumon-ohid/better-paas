@@ -118,15 +118,23 @@ type Project struct {
 	ServerID  string    `json:"serverId"`
 }
 
+// ProjectServiceStatus is a lightweight per-service row for project list cards.
+type ProjectServiceStatus struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
 // ProjectSummary is returned by the projects list API.
 type ProjectSummary struct {
 	Project
-	ServiceCount    int        `json:"serviceCount"`
-	Status          string     `json:"status"` // aggregate across services
-	HasGit          bool       `json:"hasGit"`    // any service deploys from a Git repo
-	HasDocker       bool       `json:"hasDocker"` // any service uses images / Dockerfile / Compose
-	LastServiceAt   *time.Time `json:"lastServiceAt,omitempty"`
-	FocusServiceID  string     `json:"focusServiceId,omitempty"` // service driving aggregate status
+	ServiceCount    int                    `json:"serviceCount"`
+	Status          string                 `json:"status"` // aggregate across services
+	HasGit          bool                   `json:"hasGit"`    // any service deploys from a Git repo
+	HasDocker       bool                   `json:"hasDocker"` // any service uses images / Dockerfile / Compose
+	LastServiceAt   *time.Time             `json:"lastServiceAt,omitempty"`
+	FocusServiceID  string                 `json:"focusServiceId,omitempty"` // service driving aggregate status
+	ServiceStatuses []ProjectServiceStatus `json:"serviceStatuses,omitempty"`
 }
 
 // ProjectDetail is a project plus its services.
