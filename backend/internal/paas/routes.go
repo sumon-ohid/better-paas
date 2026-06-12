@@ -24,6 +24,7 @@ func newRouter() *http.ServeMux {
 func registerAppRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/apps", handleApps)
 	mux.HandleFunc("/api/deploy", handleDeploy)
+	mux.HandleFunc("/api/deploy/upload", handleDeployUpload)
 	mux.HandleFunc("/api/apps/stop", handleStop)
 	mux.HandleFunc("/api/apps/start", handleStart)
 	mux.HandleFunc("/api/apps/delete", handleDelete)
@@ -48,6 +49,7 @@ func registerProjectRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/projects/rename", handleProjectRename)
 	mux.HandleFunc("/api/projects/delete", handleProjectDelete)
 	mux.HandleFunc("/api/projects/services/deploy", handleProjectServiceDeploy)
+	mux.HandleFunc("/api/projects/services/deploy/upload", handleProjectServiceDeployUpload)
 }
 
 func registerServerRoutes(mux *http.ServeMux) {

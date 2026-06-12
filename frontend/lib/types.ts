@@ -150,6 +150,11 @@ export interface DeployRequest {
   serverId?: string
 }
 
+/** Deploy config sent inside multipart upload (no git fields). */
+export type UploadDeployConfig = Omit<DeployRequest, "gitRepo" | "branch" | "gitToken" | "autoDeploy"> & {
+  projectId?: string
+}
+
 export interface UpdateRequest {
   id: string
   gitRepo?: string

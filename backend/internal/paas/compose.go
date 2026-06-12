@@ -499,30 +499,40 @@ func uniqueComposeRowName(base, service string, taken map[string]bool) string {
 func deployComposeProject(app App, gitURL, deployID, logFile string, noCache bool, localLog func(string)) (string, string, string) {
 	project := composeProjectName(app.ID)
 
-	// ── 1. Clone ─────────────────────────────────────────────────────────────
+	// ── 1. Clone (or reuse uploaded source) ────────────────────────────────────
 	localLog(fmt.Sprintf("✨ Initializing Compose deployment for: %s", app.Name))
 	buildDir := filepath.Join("builds", app.ID)
-	os.RemoveAll(buildDir)
-
-	branchLog := app.Branch
-	if branchLog == "" {
-		branchLog = "default branch"
-	}
-	localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, branchLog))
-	authenticatedURL := formatGitURL(gitURL, app.GitToken)
-	var cloneCmd *exec.Cmd
-	if app.Branch != "" {
-		cloneCmd = exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
+	if isUploadSource(app.GitRepo) {
+		if _, err := os.Stat(buildDir); err != nil {
+			localLog("✖ Uploaded source not found on disk. Upload files again to redeploy.")
+			return "failed", "", ""
+		}
+		localLog("📂 Using uploaded source files.")
 	} else {
-		cloneCmd = exec.Command("git", "clone", authenticatedURL, buildDir, "--depth", "1")
-	}
-	if output, err := cloneCmd.CombinedOutput(); err != nil {
-		localLog(fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, scrubCredentials(string(output))))
-		return "failed", "", ""
+		os.RemoveAll(buildDir)
+
+		branchLog := app.Branch
+		if branchLog == "" {
+			branchLog = "default branch"
+		}
+		localLog(fmt.Sprintf("📦 Cloning %s [branch: %s]...", gitURL, branchLog))
+		authenticatedURL := formatGitURL(gitURL, app.GitToken)
+		var cloneCmd *exec.Cmd
+		if app.Branch != "" {
+			cloneCmd = exec.Command("git", "clone", authenticatedURL, buildDir, "--branch", app.Branch, "--depth", "1")
+		} else {
+			cloneCmd = exec.Command("git", "clone", authenticatedURL, buildDir, "--depth", "1")
+		}
+		if output, err := cloneCmd.CombinedOutput(); err != nil {
+			localLog(fmt.Sprintf("✖ Git clone failed: %v\nOutput: %s", err, scrubCredentials(string(output))))
+			return "failed", "", ""
+		}
 	}
 	commitSHA := gitHeadCommit(buildDir)
 	commitMsg := gitHeadCommitMsg(buildDir)
-	if commitSHA != "" {
+	if isUploadSource(app.GitRepo) {
+		commitMsg = "Uploaded source"
+	} else if commitSHA != "" {
 		localLog(fmt.Sprintf("✔ Repository cloned (commit %s).", shortSHA(commitSHA)))
 	} else {
 		localLog("✔ Repository cloned successfully.")

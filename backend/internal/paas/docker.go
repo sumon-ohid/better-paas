@@ -448,10 +448,23 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		localLog("✔ Docker image built successfully!")
 	} else {
 		buildDir := filepath.Join("builds", app.ID)
-		if trigger == "local" {
-			localLog(fmt.Sprintf("✨ Using existing local build directory for app: %s (local package update)", app.Name))
+		if trigger == "local" || isUploadSource(app.GitRepo) {
+			if isUploadSource(app.GitRepo) {
+				localLog(fmt.Sprintf("✨ Using uploaded source for app: %s", app.Name))
+				commitMsg = "Uploaded source"
+			} else {
+				localLog(fmt.Sprintf("✨ Using existing local build directory for app: %s (local package update)", app.Name))
+				commitMsg = "Local build with package updates"
+			}
+			if _, err := os.Stat(buildDir); err != nil {
+				localLog("✖ Uploaded source not found on disk. Upload files again to redeploy.")
+				finish("failed", "")
+				return
+			}
 			commitSHA = gitHeadCommit(buildDir)
-			commitMsg = "Local build with package updates"
+			if commitSHA == "" && isUploadSource(app.GitRepo) {
+				commitSHA = ""
+			}
 		} else {
 			// ── 1. Clone repository ──────────────────────────────────────────────
 			localLog(fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
