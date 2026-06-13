@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS meta (
 		{"apps", "vulnerabilities_count", "INTEGER DEFAULT 0"},
 		{"apps", "project_id", "TEXT"},
 		{"apps", "service_name", "TEXT"},
+		{"projects", "description", "TEXT"},
 	}
 	for _, c := range addColumns {
 		// SQLite has no "ADD COLUMN IF NOT EXISTS"; ignore the duplicate error.
@@ -487,7 +488,7 @@ func loadStateFromDB() {
 	log.Printf("[db] Loaded %d apps from SQLite", len(apps))
 
 	projects = []Project{}
-	pRows, err := sqliteDB.Query(`SELECT id, name, created_at, server_id FROM projects ORDER BY created_at DESC`)
+	pRows, err := sqliteDB.Query(`SELECT id, name, description, created_at, server_id FROM projects ORDER BY created_at DESC`)
 	if err != nil {
 		log.Printf("[db] failed to load projects: %v", err)
 		return
@@ -495,11 +496,12 @@ func loadStateFromDB() {
 	defer pRows.Close()
 	for pRows.Next() {
 		var p Project
-		var serverID sql.NullString
-		if err := pRows.Scan(&p.ID, &p.Name, &p.CreatedAt, &serverID); err != nil {
+		var serverID, description sql.NullString
+		if err := pRows.Scan(&p.ID, &p.Name, &description, &p.CreatedAt, &serverID); err != nil {
 			log.Printf("[db] failed to scan project: %v", err)
 			continue
 		}
+		p.Description = description.String
 		p.ServerID = serverID.String
 		if p.ServerID == "" {
 			p.ServerID = "localhost"

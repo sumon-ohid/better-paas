@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -121,6 +122,15 @@ function shouldShowServerBadge(
 function projectServiceLabel(project: ProjectSummary): string {
   if (project.serviceCount === 0) return "No services"
   return `${project.serviceCount} ${project.serviceCount === 1 ? "service" : "services"}`
+}
+
+function projectDescriptionText(project: ProjectSummary): string {
+  const text = project.description?.trim()
+  return text || "No description"
+}
+
+function projectHasDescription(project: ProjectSummary): boolean {
+  return Boolean(project.description?.trim())
 }
 
 function projectTimeMeta(project: ProjectSummary): {
@@ -205,10 +215,10 @@ function CreateNewProjectCard({ onClick }: { onClick: () => void }) {
       <Card className="before:hidden flex flex-1 flex-col justify-center shadow-none">
         <CardHeader className="pb-3">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 transition-colors group-hover:border-primary/30 group-hover:bg-muted/40">
-              <PlusIcon className="h-7 w-7 text-muted-foreground transition-colors group-hover:text-foreground" />
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 transition-colors">
+              <PlusIcon className="h-7 w-7 text-muted-foreground transition-colors" />
             </div>
-            <div className="min-w-0 flex-1 pt-0.5">
+            <div className="min-w-0 flex-1 pt-0.5 ml-2">
               <p className="text-base font-semibold leading-snug text-foreground">
                 Create new project
               </p>
@@ -227,7 +237,10 @@ function CreateNewProjectCard({ onClick }: { onClick: () => void }) {
 function projectMatchesSearch(project: ProjectSummary, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  return project.name.toLowerCase().includes(q)
+  return (
+    project.name.toLowerCase().includes(q) ||
+    (project.description?.toLowerCase().includes(q) ?? false)
+  )
 }
 
 function projectMatchesStatus(project: ProjectSummary, filter: string): boolean {
@@ -269,6 +282,15 @@ function ProjectTableRow({
             <span className="font-semibold text-sm text-foreground truncate block">
               {project.name}
             </span>
+            <p
+              className={`mt-0.5 line-clamp-2 text-xs ${
+                projectHasDescription(project)
+                  ? "text-muted-foreground"
+                  : "italic text-muted-foreground/70"
+              }`}
+            >
+              {projectDescriptionText(project)}
+            </p>
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
               <span className="text-xs text-muted-foreground">
                 {projectServiceLabel(project)}
@@ -559,6 +581,15 @@ function ProjectSummaryCard({
                   </Tooltip>
                 </CardAction>
               </div>
+              <p
+                className={`mb-2 mt-1 line-clamp-2 text-xs leading-relaxed ${
+                  projectHasDescription(project)
+                    ? "text-muted-foreground"
+                    : "italic text-muted-foreground/70"
+                }`}
+              >
+                {projectDescriptionText(project)}
+              </p>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                 <StatusBadgeHover
                   status={project.status}
@@ -642,6 +673,7 @@ function ApplicationsDashboard() {
   const [showPruneModal, setShowPruneModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createName, setCreateName] = useState("")
+  const [createDescription, setCreateDescription] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
 
@@ -712,6 +744,7 @@ function ApplicationsDashboard() {
     try {
       const created = await api.projects.create({
         name,
+        description: createDescription.trim() || undefined,
         serverId:
           activeServerId === "all" || activeServerId === "localhost"
             ? "localhost"
@@ -719,6 +752,7 @@ function ApplicationsDashboard() {
       })
       setShowCreateModal(false)
       setCreateName("")
+      setCreateDescription("")
       router.push(`/project/${created.id}`)
     } catch (err) {
       showToast(
@@ -969,7 +1003,16 @@ function ApplicationsDashboard() {
       </AlertDialog>
 
       {/* Delete Confirm Modal */}
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+      <Dialog
+        open={showCreateModal}
+        onOpenChange={(open) => {
+          setShowCreateModal(open)
+          if (!open) {
+            setCreateName("")
+            setCreateDescription("")
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base">Create new project</DialogTitle>
@@ -977,23 +1020,43 @@ function ApplicationsDashboard() {
               Projects group one or more services. You can add services after creating the project.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 px-6 pb-4">
-            <Label htmlFor="project-name" className="text-sm font-medium">
-              Project name
-            </Label>
-            <Input
-              id="project-name"
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              placeholder="my-app"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateProject()
-              }}
-            />
-            <p className="text-xs text-muted-foreground">
-              Lowercase letters, digits, and hyphens (2–40 characters).
-            </p>
+          <div className="space-y-4 px-6 pb-4">
+            <div className="space-y-2">
+              <Label htmlFor="project-name" className="text-sm font-medium">
+                Project name
+              </Label>
+              <Input
+                id="project-name"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                placeholder="my-app"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) handleCreateProject()
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Lowercase letters, digits, and hyphens (2–40 characters).
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-description" className="text-sm font-medium">
+                Description
+                <span className="ml-1 font-normal text-muted-foreground">(optional)</span>
+              </Label>
+              <Textarea
+                id="project-description"
+                value={createDescription}
+                onChange={(e) => setCreateDescription(e.target.value)}
+                placeholder="What is this project for?"
+                rows={3}
+                maxLength={500}
+                className="resize-y text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Shown on the project card. Up to 500 characters.
+              </p>
+            </div>
           </div>
           <DialogFooter className="shrink-0 border-t border-border">
             <Button variant="outline" onClick={() => setShowCreateModal(false)}>

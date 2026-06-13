@@ -112,10 +112,11 @@ type App struct {
 
 // Project is a user-created workspace that groups one or more services.
 type Project struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"createdAt"`
-	ServerID  string    `json:"serverId"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	ServerID    string    `json:"serverId"`
 }
 
 // ProjectServiceStatus is a lightweight per-service row for project list cards.

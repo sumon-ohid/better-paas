@@ -47,6 +47,7 @@ export interface App {
 export interface Project {
   id: string
   name: string
+  description?: string
   createdAt: string
   serverId?: string
 }
@@ -73,6 +74,7 @@ export interface ProjectDetail extends ProjectSummary {
 
 export interface ProjectCreateRequest {
   name: string
+  description?: string
   serverId?: string
 }
 

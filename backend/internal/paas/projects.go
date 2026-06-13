@@ -184,12 +184,13 @@ func takenProjectNames() map[string]bool {
 
 func dbSaveProject(p Project) error {
 	_, err := sqliteDB.Exec(`
-		INSERT INTO projects (id, name, created_at, server_id)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO projects (id, name, description, created_at, server_id)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name,
+			description=excluded.description,
 			server_id=excluded.server_id
-	`, p.ID, p.Name, p.CreatedAt, p.ServerID)
+	`, p.ID, p.Name, p.Description, p.CreatedAt, p.ServerID)
 	return err
 }
 
@@ -215,7 +216,7 @@ func persistProject(p Project) error {
 	return dbSaveProject(p)
 }
 
-func createEmptyProject(name, serverID string) (Project, error) {
+func createEmptyProject(name, description, serverID string) (Project, error) {
 	if serverID == "" {
 		serverID = "localhost"
 	}
@@ -224,10 +225,11 @@ func createEmptyProject(name, serverID string) (Project, error) {
 	resolved := uniqueProjectName(name, taken)
 	id := generateRandomID()
 	p := Project{
-		ID:        id,
-		Name:      resolved,
-		CreatedAt: time.Now(),
-		ServerID:  serverID,
+		ID:          id,
+		Name:        resolved,
+		Description: strings.TrimSpace(description),
+		CreatedAt:   time.Now(),
+		ServerID:    serverID,
 	}
 	projects = append(projects, p)
 	projectsLock.Unlock()
@@ -410,8 +412,9 @@ func handleProjectCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Name     string `json:"name"`
-		ServerID string `json:"serverId"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		ServerID    string `json:"serverId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "Bad request", http.StatusBadRequest)
@@ -422,8 +425,13 @@ func handleProjectCreate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid name: use 2-40 lowercase letters, digits, or hyphens", http.StatusBadRequest)
 		return
 	}
+	description := strings.TrimSpace(req.Description)
+	if len(description) > 500 {
+		jsonError(w, "description must be 500 characters or fewer", http.StatusBadRequest)
+		return
+	}
 
-	p, err := createEmptyProject(name, req.ServerID)
+	p, err := createEmptyProject(name, description, req.ServerID)
 	if err != nil {
 		jsonError(w, "failed to create project", http.StatusInternalServerError)
 		return
