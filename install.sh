@@ -399,6 +399,16 @@ normalize_data_paths() {
     cp -a "$backend_data"/* "$root_data"/ 2>/dev/null || true
     shopt -u dotglob nullglob
     success "Data migrated to $root_data"
+  else
+    local latest_pre
+    latest_pre="$(ls -dt "$REPO_DIR"/data.pre-restore-* 2>/dev/null | head -1 || true)"
+    if [ -n "$latest_pre" ] && [ -f "$latest_pre/baas.db" ]; then
+      warn "No active database found; recovering from $latest_pre ..."
+      shopt -s dotglob nullglob
+      cp -a "$latest_pre"/* "$root_data"/ 2>/dev/null || true
+      shopt -u dotglob nullglob
+      success "Recovered data from previous restore safety copy"
+    fi
   fi
 
   if [ -d "$backend_builds" ] && [ -n "$(ls -A "$backend_builds" 2>/dev/null || true)" ]; then
@@ -435,9 +445,9 @@ build_frontend() {
   success "Frontend built."
 }
 
-# ── Configure updater restart permissions ────────────────────────────────────
+# ── Configure passwordless systemctl for update/restore helpers ───────────────
 
-configure_updater_sudoers() {
+configure_service_sudoers() {
   if [ "$OS" = "darwin" ]; then
     return
   fi
@@ -445,19 +455,19 @@ configure_updater_sudoers() {
   local systemctl_path
   systemctl_path="$(command -v systemctl || true)"
   if [ -z "$systemctl_path" ]; then
-    warn "systemctl not found; skipping updater sudoers setup."
+    warn "systemctl not found; skipping service sudoers setup."
     return
   fi
 
-  info "Allowing updater to restart Better-PaaS services..."
+  info "Allowing Better-PaaS helpers to manage services without a password..."
   cat > /etc/sudoers.d/better-paas <<EOF
-${SERVICE_USER} ALL=(root) NOPASSWD: ${systemctl_path} restart better-paas-backend, ${systemctl_path} restart better-paas-frontend
+${SERVICE_USER} ALL=(root) NOPASSWD: ${systemctl_path} start better-paas-backend, ${systemctl_path} stop better-paas-backend, ${systemctl_path} restart better-paas-backend, ${systemctl_path} start better-paas-frontend, ${systemctl_path} stop better-paas-frontend, ${systemctl_path} restart better-paas-frontend
 EOF
   chmod 0440 /etc/sudoers.d/better-paas
   if command -v visudo &>/dev/null; then
     visudo -cf /etc/sudoers.d/better-paas >/dev/null
   fi
-  success "Updater restart permissions configured."
+  success "Service management permissions configured."
 }
 
 # ── Create systemd services ───────────────────────────────────────────────────
@@ -528,7 +538,7 @@ EOF
 
   systemctl daemon-reload
   systemctl enable better-paas-backend better-paas-frontend
-  configure_updater_sudoers
+  configure_service_sudoers
   systemctl restart better-paas-backend better-paas-frontend
   success "Systemd services installed and started."
 }

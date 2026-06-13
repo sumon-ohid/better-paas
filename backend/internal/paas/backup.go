@@ -461,12 +461,19 @@ run_systemctl() {
 stop_services() {
   echo "[restore] stopping Better-PaaS services..."
   run_systemctl stop better-paas-frontend || true
-  run_systemctl stop better-paas-backend || true
+  if ! run_systemctl stop better-paas-backend; then
+    echo "[restore] could not stop backend; aborting to avoid corrupting data/"
+    exit 1
+  fi
+  sleep 2
 }
 start_services() {
   echo "[restore] starting Better-PaaS services..."
-  run_systemctl start better-paas-backend
-  run_systemctl start better-paas-frontend
+  if ! run_systemctl start better-paas-backend; then
+    echo "[restore] failed to start backend"
+    exit 1
+  fi
+  run_systemctl start better-paas-frontend || true
 }
 `
 	} else {
