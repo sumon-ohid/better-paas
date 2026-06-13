@@ -1316,7 +1316,7 @@ export default function DeployPage() {
                                               {repo.private ? "private" : "public"}
                                             </span>
                                           </div>
-                                          <p className="truncate text-[11px] text-muted-foreground">
+                                          <p className="truncate mb-2 text-[11px] text-muted-foreground">
                                             {repo.description || "No description"}
                                           </p>
                                         </div>

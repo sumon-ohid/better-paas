@@ -283,7 +283,7 @@ function ProjectTableRow({
               {project.name}
             </span>
             <p
-              className={`mt-0.5 line-clamp-2 text-xs ${
+              className={`line-clamp-2 text-xs mb-2${
                 projectHasDescription(project)
                   ? "text-muted-foreground"
                   : "italic text-muted-foreground/70"

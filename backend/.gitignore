@@ -6,6 +6,7 @@ server
 # Runtime data (database, logs, build workspaces, secrets)
 builds/
 data/
+projects/
 Caddyfile
 
 # Logs

@@ -1,6 +1,7 @@
 # Docker / Compose runtime directories
 builds/
 data/
+projects/
 Caddyfile
 .wrangler
 .DS_Store
