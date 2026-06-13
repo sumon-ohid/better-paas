@@ -118,6 +118,7 @@ func registerBackupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/backups", handleBackupsList)
 	mux.HandleFunc("/api/backups/create", handleBackupCreate)
 	mux.HandleFunc("/api/backups/download", handleBackupDownload)
+	mux.HandleFunc("/api/backups/restore", handleBackupRestore)
 	mux.HandleFunc("/api/backups/delete", handleBackupDelete)
 	mux.HandleFunc("/api/backups/config", handleBackupConfigGet)
 	mux.HandleFunc("/api/backups/config/save", handleBackupConfigSave)

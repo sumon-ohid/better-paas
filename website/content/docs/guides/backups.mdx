@@ -70,10 +70,43 @@ set the interval, and choose how many recent backups to keep.
 
 ## Restoring
 
-To restore, stop Better-PaaS, replace the `data/` directory with the contents of
-a backup archive, and start it again. Because schema migrations are additive and
-applied on boot, a backup from an older version restores cleanly into a newer
-one.
+### From the dashboard
+
+<Steps>
+<Step>
+Go to **Backups** and find the snapshot you want.
+</Step>
+<Step>
+Click **Restore** on that backup. Better-PaaS takes a **new safety backup**
+first, then replaces the current `data/` directory with the snapshot and
+restarts the control plane services.
+</Step>
+<Step>
+Reload the dashboard after a minute. Your previous `data/` folder is kept on
+disk as `data.pre-restore-…` next to the repo if you need to undo manually.
+</Step>
+</Steps>
+
+Restoring rolls back **control-plane state** — apps, settings, deploy history,
+tokens — to what was in the snapshot. User app containers already running on
+Docker are not deleted, but the dashboard only knows about apps recorded in the
+restored database.
+
+### From the terminal
+
+To restore a downloaded archive without the dashboard:
+
+```bash
+sudo systemctl stop better-paas-frontend better-paas-backend
+cd ~/better-paas
+mv data data.manual-backup-$(date +%Y%m%d)
+mkdir data
+tar -xzf /path/to/backup-YYYYMMDD-HHMMSS.tar.gz -C data
+sudo systemctl start better-paas-backend better-paas-frontend
+```
+
+Because schema migrations are additive and applied on boot, a backup from an
+older version restores cleanly into a newer one.
 
 <Callout type="warn" title="Keep at least one off-server copy">
   A backup that only lives on the same server it protects won't help if that

@@ -38,6 +38,7 @@ const InfoIcon = (props: IconProps) => <NucleoIcon {...props} name="info" />
 const ClockIcon = (props: IconProps) => <NucleoIcon {...props} name="activity" />
 const CloudIcon = (props: IconProps) => <NucleoIcon {...props} name="cloud" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
+const RestoreIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -66,6 +67,8 @@ export default function BackupsPage() {
   const [creating, setCreating] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [restoreTarget, setRestoreTarget] = useState<string | null>(null)
+  const [restoring, setRestoring] = useState(false)
 
   // Config (auto backup + offsite storage)
   const [cfg, setCfg] = useState<BackupConfig>(DEFAULT_CONFIG)
@@ -140,6 +143,24 @@ export default function BackupsPage() {
       showToast("Delete failed", "Could not delete backup.", "destructive")
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const handleRestoreConfirm = async () => {
+    if (!restoreTarget) return
+    setRestoring(true)
+    try {
+      await api.backups.restore(restoreTarget)
+      showToast(
+        "Restore started",
+        "A safety backup was taken first. Services are restarting — reload the dashboard in a minute.",
+        "success",
+      )
+      setRestoreTarget(null)
+    } catch (err) {
+      showToast("Restore failed", err instanceof Error ? err.message : "Error", "destructive")
+    } finally {
+      setRestoring(false)
     }
   }
 
@@ -279,6 +300,14 @@ export default function BackupsPage() {
                           >
                             <DownloadIcon className="h-3.5 w-3.5" />
                             Download
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setRestoreTarget(b.name)}
+                            className="h-8 gap-1.5 max-sm:flex-1"
+                          >
+                            <RestoreIcon className="h-3.5 w-3.5" />
+                            Restore
                           </Button>
                           <Button
                             variant="destructive-outline"
@@ -484,7 +513,11 @@ export default function BackupsPage() {
                 <p>Each backup is a gzipped archive of the data directory: the database, encryption key, tokens, and logs.</p>
                 <p>With &ldquo;include database contents&rdquo; on, managed databases are also dumped (Postgres/MySQL via logical dump, Redis as an RDB snapshot) under <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">databases/</code>.</p>
                 <p>Local snapshots are pruned to the &ldquo;keep latest&rdquo; count. Offsite uploads are not pruned automatically.</p>
-                <p>Restoring is manual: stop the server, unpack the archive into <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">data/</code>, and restart.</p>
+                <p>
+                  Use <span className="font-medium text-foreground">Restore</span> to roll back the control plane to a snapshot.
+                  A fresh safety backup is taken first; your previous <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">data/</code> folder
+                  is kept as <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">data.pre-restore-…</code> on disk.
+                </p>
               </FramePanel>
 
               <FramePanel>
@@ -512,6 +545,36 @@ export default function BackupsPage() {
           </aside>
         </div>
       </div>
+
+      {/* Restore confirm */}
+      <AlertDialog open={!!restoreTarget} onOpenChange={(open) => !open && setRestoreTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-warning/10 text-warning sm:mx-0">
+              <RestoreIcon className="h-5 w-5" />
+            </div>
+            <AlertDialogTitle>Restore this backup?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Better-PaaS will take a new safety backup first, then replace the current{" "}
+              <span className="font-mono text-foreground">data/</span> directory with{" "}
+              {restoreTarget ? (
+                <span className="font-mono text-foreground">{restoreTarget}</span>
+              ) : (
+                "this snapshot"
+              )}
+              . Services restart briefly; deployed app containers are not removed, but the dashboard
+              will show whatever apps and settings were in the snapshot.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline">Cancel</Button>} />
+            <Button onClick={handleRestoreConfirm} loading={restoring} className="gap-1.5">
+              <RestoreIcon className="h-3.5 w-3.5" />
+              Restore backup
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirm */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

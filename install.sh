@@ -35,7 +35,7 @@ fi
 
 BACKEND_DIR="$REPO_DIR/backend"
 FRONTEND_DIR="$REPO_DIR/frontend"
-DATA_DIR="$BACKEND_DIR/data"
+DATA_DIR="$REPO_DIR/data"
 SERVICE_USER="${SUDO_USER:-$USER}"
 
 GREEN='\033[0;32m'
@@ -381,12 +381,41 @@ setup_repo() {
   success "Repository ready."
 }
 
+# ── Align data/builds with Docker layout (repo root) ──────────────────────────
+
+normalize_data_paths() {
+  local root_data="$REPO_DIR/data"
+  local backend_data="$BACKEND_DIR/data"
+  local root_builds="$REPO_DIR/builds"
+  local backend_builds="$BACKEND_DIR/builds"
+
+  mkdir -p "$root_data" "$root_builds"
+
+  if [ -f "$root_data/baas.db" ]; then
+    info "Using existing data at $root_data"
+  elif [ -f "$backend_data/baas.db" ]; then
+    info "Migrating control-plane data from $backend_data to $root_data..."
+    shopt -s dotglob nullglob
+    cp -a "$backend_data"/* "$root_data"/ 2>/dev/null || true
+    shopt -u dotglob nullglob
+    success "Data migrated to $root_data"
+  fi
+
+  if [ -d "$backend_builds" ] && [ -n "$(ls -A "$backend_builds" 2>/dev/null || true)" ]; then
+    if [ -z "$(ls -A "$root_builds" 2>/dev/null || true)" ]; then
+      info "Migrating app build cache from $backend_builds to $root_builds..."
+      cp -a "$backend_builds"/. "$root_builds"/
+      success "Build cache migrated to $root_builds"
+    fi
+  fi
+}
+
 # ── Build backend ─────────────────────────────────────────────────────────────
 
 build_backend() {
   info "Building Go backend..."
+  mkdir -p "$DATA_DIR" "$REPO_DIR/builds"
   cd "$BACKEND_DIR"
-  mkdir -p data builds
   go mod download
   # Bake the version (latest git tag, or short commit) into the binary so the
   # dashboard's updater can compare against published releases.
@@ -460,7 +489,7 @@ Requires=docker.service
 [Service]
 Type=simple
 User=${SERVICE_USER}
-WorkingDirectory=${BACKEND_DIR}
+WorkingDirectory=${REPO_DIR}
 Environment=UPDATE_REPO=${UPDATE_REPO_SLUG}
 Environment=PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 ExecStart=${BACKEND_DIR}/server
@@ -556,7 +585,7 @@ create_launchd_services() {
         <string>${BACKEND_DIR}/server</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>${BACKEND_DIR}</string>
+    <string>${REPO_DIR}</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>UPDATE_REPO</key>
@@ -632,7 +661,7 @@ print_summary() {
   echo ""
   echo -e "  ${CYAN}Dashboard:${NC}  http://localhost:3000"
   echo -e "  ${CYAN}API:${NC}        http://localhost:8080"
-  echo -e "  ${CYAN}Logs dir:${NC}   $BACKEND_DIR/data/"
+  echo -e "  ${CYAN}Logs dir:${NC}   $DATA_DIR/"
   echo ""
   print_admin_token
   echo -e "  ${YELLOW}Deployed apps are accessible at:${NC}"
@@ -706,6 +735,8 @@ main() {
   else
     setup_repo
   fi
+
+  normalize_data_paths
 
   build_backend
   build_frontend

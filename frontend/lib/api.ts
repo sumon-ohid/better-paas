@@ -490,6 +490,11 @@ export const api = {
   backups: {
     list: () => req<BackupInfo[]>("/api/backups"),
     create: () => req<BackupInfo>("/api/backups/create", { method: "POST" }),
+    restore: (name: string) =>
+      req<{ status: string; message: string }>("/api/backups/restore", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }),
     delete: (name: string) =>
       req<{ status: string }>("/api/backups/delete", {
         method: "POST",

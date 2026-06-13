@@ -4,8 +4,42 @@ description: Keep Better-PaaS up to date with one-click, self-healing updates.
 icon: RefreshCw
 ---
 
-Better-PaaS can update itself to the latest release with one click — and if an
-update goes wrong, it rolls itself back automatically.
+Better-PaaS can update itself from the dashboard or from your server terminal.
+If an in-app update goes wrong, it rolls itself back automatically.
+
+## Updating from the terminal (recommended)
+
+The easiest and most reliable way to update a git-checkout install is to SSH
+into your server, pull the latest code, and re-run the installer from your
+Better-PaaS directory:
+
+```bash
+cd ~/better-paas
+git pull
+sudo bash install.sh
+```
+
+Replace `~/better-paas` with the path where you cloned the repo, if different.
+The installer rebuilds the backend and frontend, restarts the Better-PaaS
+services, and leaves your repo-root `data/` directory untouched (the same path
+Docker Compose uses). If an older git install kept data under `backend/data/`,
+`install.sh` migrates it automatically.
+
+<Callout type="tip" title="When to use this">
+  Prefer the terminal flow after first install, if the dashboard UI did not
+  change after an in-app update, or whenever you want the same update path
+  the installer uses on a fresh setup.
+</Callout>
+
+<Callout type="warn" title="Services disappeared after install.sh?">
+  That usually means the backend was reading a different `data/` folder than
+  before (for example `backend/data/` vs repo-root `data/` after switching from
+  Docker). Re-run `install.sh` from your clone so paths are aligned, or restore
+  a backup from **Backups → Restore**.
+</Callout>
+
+After `install.sh` finishes, hard-refresh the dashboard in your browser
+(Cmd+Shift+R or Ctrl+Shift+R) so you load the new frontend assets.
 
 ## Updating from the dashboard
 
@@ -43,9 +77,8 @@ flowchart TD
    keeping `server.bak`) and rebuilds the frontend **out-of-band** into
    `.next.new` — the running dashboard keeps serving its current assets,
    untouched, for the entire build.
-4. Atomically swaps the new frontend build in right before restarting, and
-   carries the previous build's hashed CSS/JS files over so browser tabs that
-   are still open don't lose their styles after the update.
+4. Atomically swaps the new frontend build in and restarts the frontend **before**
+   restarting the backend, so the version badge and dashboard UI stay in sync.
 5. Restarts the services and **health-checks** the new build at `/api/health`.
 6. If the new build doesn't come up, it **automatically restores** the previous
    binary, frontend build, and git ref and restarts — so a bad release rolls

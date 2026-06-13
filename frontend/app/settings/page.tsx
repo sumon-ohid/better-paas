@@ -497,8 +497,9 @@ export default function SettingsPage() {
                 <InfoIcon />
                 <AlertTitle>Manual install detected</AlertTitle>
                 <AlertDescription>
-                  One-click updates require a git-checkout install. You can still check for new
-                  versions, but apply them by re-running the installer.
+                  One-click updates require a git-checkout install. Pull the latest code and
+                  run <span className="font-mono">sudo bash install.sh</span> from your install
+                  directory, or update your Docker image if you deploy that way.
                 </AlertDescription>
               </Alert>
             )}
@@ -546,6 +547,45 @@ export default function SettingsPage() {
             <div className="flex gap-1.5 text-xs text-muted-foreground">
               <NucleoIcon name="refresh" className="mt-0.5 size-3 shrink-0" />
               <p>Updates pull the latest release from the configured update source.</p>
+            </div>
+          </FrameFooter>
+        </Frame>
+
+        <Frame className="w-full">
+          <FramePanel>
+            <FrameTitle className="flex items-center gap-2">
+              <TerminalIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              Manual update (recommended)
+            </FrameTitle>
+            <FrameDescription className="text-xs sm:text-sm">
+              SSH into your server, pull the latest code, and re-run the installer. This
+              rebuilds the backend and frontend and restarts services — the easiest and
+              most reliable way to update.
+            </FrameDescription>
+          </FramePanel>
+          <FramePanel className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              From your Better-PaaS install directory on the server:
+            </p>
+            <div className="overflow-x-auto rounded-lg border border-border/40 bg-code p-3 font-mono text-xs whitespace-pre text-foreground/90">
+{`cd ~/better-paas
+git pull
+sudo bash install.sh`}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Replace <span className="font-mono">~/better-paas</span> with your clone path if
+              different. Your <span className="font-mono">data/</span> directory at the repo root
+              is preserved and migrated automatically. When it finishes, hard-refresh the dashboard
+              (Cmd+Shift+R or Ctrl+Shift+R).
+            </p>
+          </FramePanel>
+          <FrameFooter>
+            <div className="flex gap-1.5 text-xs text-muted-foreground">
+              <TerminalIcon className="mt-0.5 size-3 shrink-0" />
+              <p>
+                Use the in-app update above for one-click upgrades, or this terminal flow
+                when you want the same path as a fresh install.
+              </p>
             </div>
           </FrameFooter>
         </Frame>
