@@ -64,8 +64,27 @@ function ProjectDetailPage() {
   }, [projectId, router, showToast])
 
   useEffect(() => {
-    fetchProject()
-  }, [fetchProject])
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const data = await api.projects.get(projectId)
+        if (!cancelled) setProject(data)
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err)
+          showToast("Error", "Project not found.", "destructive")
+          router.push("/")
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [projectId, router, showToast])
 
   useEffect(() => {
     api.projects

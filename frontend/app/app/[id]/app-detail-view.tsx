@@ -152,7 +152,6 @@ export function AppDetailView() {
     allProjects,
     resolvedProjectId,
     projectName,
-    composePrimaryApp,
     isComposeChild,
     deployments,
     isEditingName,

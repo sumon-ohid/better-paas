@@ -147,6 +147,7 @@ export default function DeployPage() {
   const projectId = searchParams.get("projectId") ?? ""
   const { activeServerId } = useActiveServer()
   const [projectName, setProjectName] = useState<string | null>(null)
+  const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null)
 
   // ── Wizard step ────────────────────────────────────────────────────────────
   const [step, setStep] = useState(1)
@@ -262,15 +263,29 @@ export default function DeployPage() {
   }, [activeServerId])
 
   useEffect(() => {
-    if (!projectId) {
-      setProjectName(null)
-      return
-    }
+    if (!projectId) return
+    let cancelled = false
     api.projects
       .get(projectId)
-      .then((p) => setProjectName(p.name))
-      .catch(() => setProjectName(null))
+      .then((p) => {
+        if (!cancelled) {
+          setProjectName(p.name)
+          setLoadedProjectId(projectId)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProjectName(null)
+          setLoadedProjectId(projectId)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
   }, [projectId])
+
+  const displayProjectName =
+    projectId && loadedProjectId === projectId ? projectName : null
 
   // Debounce timer for re-detecting the framework when the Root Directory input
   // is edited by hand.
@@ -403,7 +418,7 @@ export default function DeployPage() {
     } finally {
       setIsDetectingFramework(false)
     }
-  }, [])
+  }, [setDeployRootDir])
 
   const applyUploadFiles = useCallback(
     (files: File[]) => {
@@ -834,7 +849,7 @@ export default function DeployPage() {
             <div className="min-w-0">
               <FrameTitle className="text-base">
                 {projectId
-                  ? `Add service${projectName ? ` to ${projectName}` : ""}`
+                  ? `Add service${displayProjectName ? ` to ${displayProjectName}` : ""}`
                   : "Deploy new service"}
               </FrameTitle>
               <FrameDescription className="text-xs sm:text-sm">
