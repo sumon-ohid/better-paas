@@ -145,12 +145,24 @@ func uploadBackupOffsite(cfg BackupConfig, localPath string) {
 	log.Printf("[backup] uploaded %s to s3://%s/%s", name, target.Bucket, target.objectKey(name))
 }
 
+// checkpointSQLite flushes the WAL into baas.db so backups are self-contained
+// and restores do not depend on matching -wal/-shm sidecar files.
+func checkpointSQLite() {
+	if sqliteDB == nil {
+		return
+	}
+	if _, err := sqliteDB.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		log.Printf("[backup] wal checkpoint: %v", err)
+	}
+}
+
 // createBackup writes a timestamped .tar.gz of the data directory (excluding
 // the backups folder itself) and returns its path.
 func createBackup() (string, error) {
 	if err := os.MkdirAll(backupDir, 0700); err != nil {
 		return "", err
 	}
+	checkpointSQLite()
 	name := fmt.Sprintf("backup-%s.tar.gz", time.Now().Format("20060102-150405"))
 	outPath := filepath.Join(backupDir, name)
 
@@ -502,21 +514,36 @@ echo "=== restore started $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) from %[2]s ==="
 
 REPO="%[3]s"
 BACKUP_NAME="%[2]s"
-BACKUP_ARCHIVE="$REPO/data/backups/$BACKUP_NAME"
 DATA_DIR="$REPO/data"
+STAMP="$(date -u +%%Y%%m%%dT%%H%%M%%SZ)"
+SAFETY_DIR="$REPO/data.pre-restore-$STAMP"
+STAGING_ARCHIVE="$REPO/.restore-staging-$STAMP.tar.gz"
 %[4]s
+
+restore_failed() {
+  echo "[restore] FAILED — attempting to bring services back..."
+  rm -f "$STAGING_ARCHIVE"
+  if [ -d "$SAFETY_DIR" ] && [ ! -f "$DATA_DIR/baas.db" ]; then
+    rm -rf "$DATA_DIR"
+    mv "$SAFETY_DIR" "$DATA_DIR" || true
+    echo "[restore] rolled back to previous data/"
+  fi
+  start_services || true
+}
+trap restore_failed ERR
 
 cd "$REPO" || { echo "[restore] repo dir missing"; exit 1; }
 
-if [ ! -f "$BACKUP_ARCHIVE" ]; then
-  echo "[restore] backup archive missing: $BACKUP_ARCHIVE"
+if [ ! -f "$DATA_DIR/backups/$BACKUP_NAME" ]; then
+  echo "[restore] backup archive missing: $DATA_DIR/backups/$BACKUP_NAME"
   exit 1
 fi
 
+# Copy the archive outside data/ before we move the directory aside.
+cp -f "$DATA_DIR/backups/$BACKUP_NAME" "$STAGING_ARCHIVE"
+
 stop_services
 
-STAMP="$(date -u +%%Y%%m%%dT%%H%%M%%SZ)"
-SAFETY_DIR="$REPO/data.pre-restore-$STAMP"
 if [ -d "$DATA_DIR" ]; then
   mv "$DATA_DIR" "$SAFETY_DIR"
   echo "[restore] previous data preserved at $SAFETY_DIR"
@@ -524,13 +551,19 @@ fi
 mkdir -p "$DATA_DIR"
 
 echo "[restore] unpacking $BACKUP_NAME ..."
-tar -xzf "$BACKUP_ARCHIVE" -C "$DATA_DIR"
+tar -xzf "$STAGING_ARCHIVE" -C "$DATA_DIR"
+rm -f "$STAGING_ARCHIVE"
 
 mkdir -p "$DATA_DIR/backups"
 if [ -d "$SAFETY_DIR/backups" ]; then
   cp -a "$SAFETY_DIR/backups/." "$DATA_DIR/backups/"
 fi
 
+if command -v sqlite3 >/dev/null 2>&1 && [ -f "$DATA_DIR/baas.db" ]; then
+  sqlite3 "$DATA_DIR/baas.db" "PRAGMA wal_checkpoint(TRUNCATE);" || true
+fi
+
+trap - ERR
 start_services
 echo "=== restore finished OK $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) ==="
 `, logPath, shellSafe(backupName), shellSafe(repo), serviceFns)
