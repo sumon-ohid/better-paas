@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,9 +49,18 @@ import {
   detectFrameworkForDir,
   findDockerfile,
   findComposeFile,
+  detectFrameworkFromUpload,
+  detectFrameworkForUploadDir,
+  findDockerfileInUpload,
+  findComposeFileInUpload,
+  deriveUploadAppName,
+  formatUploadSize,
+  uploadDirAsGitHubContent,
+  uploadRelativePath,
+  uploadCommonRootPrefix,
 } from "@/lib/framework-detection"
 import { api } from "@/lib/api"
-import { GitCompareArrows } from "lucide-react"
+import { GitCompareArrows, Archive, File as FileIconLucide } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { useActiveServer } from "@/components/server-context"
 
@@ -67,10 +76,12 @@ function FallbackIcon({ label }: { label: string; color: string }) {
 const fieldLabel = "text-xs font-semibold text-muted-foreground"
 
 const WIZARD_STEPS = [
-  { num: 1, label: "Repository" },
+  { num: 1, label: "Source" },
   { num: 2, label: "Build config" },
   { num: 3, label: "Environment" },
 ] as const
+
+type DeploySource = "github" | "upload"
 
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
@@ -82,6 +93,8 @@ const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
 const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
 const FolderIcon = (props: IconProps) => <NucleoIcon {...props} name="folder" />
 const SearchIcon = (props: IconProps) => <NucleoIcon {...props} name="search" />
+const UploadIcon = (props: React.SVGProps<SVGSVGElement>) => <Archive {...props} />
+const FileIcon = (props: React.SVGProps<SVGSVGElement>) => <FileIconLucide {...props} />
 
 function isValidPublicRepoInput(input: string): boolean {
   const trimmed = input.trim().replace(/\.git$/, "")
@@ -130,12 +143,23 @@ const stepVariants = {
 
 export default function DeployPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const projectId = searchParams.get("projectId") ?? ""
   const { activeServerId } = useActiveServer()
+  const [projectName, setProjectName] = useState<string | null>(null)
 
   // ── Wizard step ────────────────────────────────────────────────────────────
   const [step, setStep] = useState(1)
   // 1 = navigating forward, -1 = navigating back (drives the slide direction)
   const [stepDirection, setStepDirection] = useState(1)
+
+  // ── Deploy source (GitHub vs local upload) ─────────────────────────────────
+  const [deploySource, setDeploySource] = useState<DeploySource>("github")
+  const [uploadFiles, setUploadFiles] = useState<File[]>([])
+  const [uploadDragActive, setUploadDragActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
+  const zipInputRef = useRef<HTMLInputElement>(null)
 
   // ── GitHub connection ──────────────────────────────────────────────────────
   const [gitHubConnected, setGitHubConnected] = useState(false)
@@ -237,6 +261,17 @@ export default function DeployPage() {
       })
   }, [activeServerId])
 
+  useEffect(() => {
+    if (!projectId) {
+      setProjectName(null)
+      return
+    }
+    api.projects
+      .get(projectId)
+      .then((p) => setProjectName(p.name))
+      .catch(() => setProjectName(null))
+  }, [projectId])
+
   // Debounce timer for re-detecting the framework when the Root Directory input
   // is edited by hand.
   const rootDirDetectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -326,6 +361,64 @@ export default function DeployPage() {
     }
   }
 
+  const checkUploadBuildOptions = (files: File[], dir: string) => {
+    const dockerfile = findDockerfileInUpload(files, dir)
+    const compose = findComposeFileInUpload(files, dir)
+    setDockerfileAvailable(!!dockerfile)
+    setDeployDockerfilePath(dockerfile || "Dockerfile")
+    setComposeAvailable(!!compose)
+    setDeployComposePath(compose || "docker-compose.yml")
+    setDeployBuildMethod((m) => {
+      if (m === "dockerfile" && !dockerfile) return "nixpacks"
+      if (m === "compose" && !compose) return "nixpacks"
+      return m
+    })
+  }
+
+  const analyzeUploadSelection = useCallback(async (files: File[]) => {
+    if (files.length === 0) {
+      setDetectedFramework(null)
+      setDockerfileAvailable(false)
+      setComposeAvailable(false)
+      return
+    }
+    setErrorMsg("")
+    setDeployName(deriveUploadAppName(files))
+    setDeployRootDir("")
+
+    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
+      setDetectedFramework(null)
+      setDockerfileAvailable(false)
+      setComposeAvailable(false)
+      setDeployBuildMethod("nixpacks")
+      return
+    }
+
+    setIsDetectingFramework(true)
+    try {
+      const detected = await detectFrameworkFromUpload(files)
+      applyDetectedFramework(detected ? detected.framework : null)
+      if (detected?.rootDir) setDeployRootDir(detected.rootDir)
+      checkUploadBuildOptions(files, detected?.rootDir || "")
+    } finally {
+      setIsDetectingFramework(false)
+    }
+  }, [])
+
+  const applyUploadFiles = useCallback(
+    (files: File[]) => {
+      setUploadFiles(files)
+      setSelectedRepo(null)
+      setShowRepoList(true)
+      setBranches([])
+      setSelectedBranch("")
+      void analyzeUploadSelection(files)
+    },
+    [analyzeUploadSelection],
+  )
+
+  const uploadTotalBytes = uploadFiles.reduce((sum, f) => sum + f.size, 0)
+
   const handleRepoSelect = (repoFullName: string) => {
     const repo = repos.find((r) => r.full_name === repoFullName) || null
     setSelectedRepo(repo)
@@ -399,6 +492,14 @@ export default function DeployPage() {
 
   // ── Folder browser logic ───────────────────────────────────────────────────
   const openFolderBrowser = async () => {
+    if (deploySource === "upload") {
+      if (uploadFiles.length === 0) return
+      setShowFolderBrowser(true)
+      setFolderBrowserPath("")
+      setFolderBrowserBreadcrumbs([])
+      setFolderBrowserContents(uploadDirAsGitHubContent(uploadFiles, ""))
+      return
+    }
     if (!selectedRepo || !selectedBranch) return
     setShowFolderBrowser(true)
     setFolderBrowserPath("")
@@ -407,6 +508,16 @@ export default function DeployPage() {
   }
 
   const loadFolderContents = async (path: string) => {
+    if (deploySource === "upload") {
+      setFolderBrowserLoading(true)
+      try {
+        setFolderBrowserContents(uploadDirAsGitHubContent(uploadFiles, path))
+        setFolderBrowserPath(path)
+      } finally {
+        setFolderBrowserLoading(false)
+      }
+      return
+    }
     if (!selectedRepo || !selectedBranch) return
     setFolderBrowserLoading(true)
     try {
@@ -446,11 +557,24 @@ export default function DeployPage() {
   // (back to root).
   const redetectForRootDir = useCallback(
     async (dir: string) => {
-      if (!selectedRepo || !selectedBranch) return
       const normalized = dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()
 
       setIsDetectingFramework(true)
       try {
+        if (deploySource === "upload") {
+          if (!normalized || normalized === ".") {
+            const detected = await detectFrameworkFromUpload(uploadFiles)
+            applyDetectedFramework(detected ? detected.framework : null)
+          } else {
+            const fwForDir = await detectFrameworkForUploadDir(uploadFiles, normalized)
+            if (fwForDir) applyDetectedFramework(fwForDir)
+          }
+          checkUploadBuildOptions(uploadFiles, normalized)
+          return
+        }
+
+        if (!selectedRepo || !selectedBranch) return
+
         if (!normalized || normalized === ".") {
           // Back to repo root: rerun the full scan (handles monorepos/subdirs).
           const detected = await detectFrameworkByFiles(selectedRepo, selectedBranch)
@@ -468,7 +592,7 @@ export default function DeployPage() {
         setIsDetectingFramework(false)
       }
     },
-    [selectedRepo, selectedBranch],
+    [deploySource, selectedRepo, selectedBranch, uploadFiles],
   )
 
   // Debounced re-detection driven by manual edits to the Root Directory input.
@@ -586,9 +710,15 @@ export default function DeployPage() {
   }
 
   const handleNext = () => {
-    if (step === 1 && (!deployName || !selectedRepo)) {
-      setErrorMsg("App name and repository are required.")
-      return
+    if (step === 1) {
+      if (deploySource === "github" && (!deployName || !selectedRepo)) {
+        setErrorMsg("App name and repository are required.")
+        return
+      }
+      if (deploySource === "upload" && (!deployName || uploadFiles.length === 0)) {
+        setErrorMsg("App name and uploaded files are required.")
+        return
+      }
     }
     setErrorMsg("")
     setStepDirection(1)
@@ -602,8 +732,20 @@ export default function DeployPage() {
   }
 
   const handleDeploy = async () => {
-    if (!deployName || !selectedRepo) {
+    if (!deployName) {
       setErrorMsg("Validation failed. Please verify Step 1 fields.")
+      setStepDirection(-1)
+      setStep(1)
+      return
+    }
+    if (deploySource === "github" && !selectedRepo) {
+      setErrorMsg("Validation failed. Please verify Step 1 fields.")
+      setStepDirection(-1)
+      setStep(1)
+      return
+    }
+    if (deploySource === "upload" && uploadFiles.length === 0) {
+      setErrorMsg("Upload at least one file or folder before deploying.")
       setStepDirection(-1)
       setStep(1)
       return
@@ -616,36 +758,55 @@ export default function DeployPage() {
       }
     })
 
+    const deployPayload = {
+      name: deployName,
+      rootDir: deployRootDir,
+      envVars: envVarsRecord,
+      buildCommand: deployBuildCommand,
+      startCommand: deployStartCommand,
+      installCommand: deployInstallCommand,
+      portOverride: deployPortOverride ? parseInt(deployPortOverride, 10) : 0,
+      memory: deployMemory.trim(),
+      cpus: deployCpus.trim(),
+      healthPath: deployHealthPath.trim(),
+      domains: deployDomains
+        .split(/[\n,]/)
+        .map((d) => d.trim())
+        .filter(Boolean),
+      volumes: deployVolumes
+        .split(/[\n,]/)
+        .map((v) => v.trim())
+        .filter(Boolean),
+      buildMethod: deployBuildMethod,
+      dockerfilePath: deployBuildMethod === "dockerfile" ? deployDockerfilePath.trim() || "Dockerfile" : undefined,
+      composePath: deployBuildMethod === "compose" ? deployComposePath.trim() || "docker-compose.yml" : undefined,
+      serverId: selectedServerId,
+    }
+
     try {
       setIsDeploying(true)
-      const newApp = await api.apps.deploy({
-        name: deployName,
-        gitRepo: selectedRepo.clone_url,
-        branch: selectedBranch,
-        rootDir: deployRootDir,
-        envVars: envVarsRecord,
-        buildCommand: deployBuildCommand,
-        startCommand: deployStartCommand,
-        installCommand: deployInstallCommand,
-        portOverride: deployPortOverride ? parseInt(deployPortOverride, 10) : 0,
-        memory: deployMemory.trim(),
-        cpus: deployCpus.trim(),
-        healthPath: deployHealthPath.trim(),
-        domains: deployDomains
-          .split(/[\n,]/)
-          .map((d) => d.trim())
-          .filter(Boolean),
-        volumes: deployVolumes
-          .split(/[\n,]/)
-          .map((v) => v.trim())
-          .filter(Boolean),
-        autoDeploy: deployAutoDeploy,
-        buildMethod: deployBuildMethod,
-        dockerfilePath: deployBuildMethod === "dockerfile" ? deployDockerfilePath.trim() || "Dockerfile" : undefined,
-        composePath: deployBuildMethod === "compose" ? deployComposePath.trim() || "docker-compose.yml" : undefined,
-        serverId: selectedServerId,
-      })
-      router.push(`/logs?appId=${newApp.id}&mode=build`)
+      let newApp
+      if (deploySource === "upload") {
+        const uploadConfig = projectId ? { ...deployPayload, projectId } : deployPayload
+        newApp = projectId
+          ? await api.projects.deployServiceUpload(uploadConfig, uploadFiles)
+          : await api.apps.deployUpload(uploadConfig, uploadFiles)
+      } else {
+        const gitPayload = {
+          ...deployPayload,
+          gitRepo: selectedRepo!.clone_url,
+          branch: selectedBranch,
+          autoDeploy: deployAutoDeploy,
+        }
+        newApp = projectId
+          ? await api.projects.deployService({ ...gitPayload, projectId })
+          : await api.apps.deploy(gitPayload)
+      }
+      if (projectId) {
+        router.push(`/project/${projectId}`)
+      } else {
+        router.push(`/logs?appId=${newApp.id}&mode=build`)
+      }
     } catch (err) {
       console.error(err)
       setErrorMsg(
@@ -660,7 +821,7 @@ export default function DeployPage() {
     <main className="relative h-dvh bg-background text-foreground flex flex-col items-center overflow-y-auto p-4">
       {/* Close (desktop only) — return to the dashboard */}
       <button
-        onClick={() => router.push("/")}
+        onClick={() => router.push(projectId ? `/project/${projectId}` : "/")}
         aria-label="Close"
         className="absolute right-5 top-5 z-10 hidden h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-background/80 text-muted-foreground backdrop-blur-sm transition-colors hover:border-primary/30 hover:text-foreground md:flex"
       >
@@ -671,9 +832,15 @@ export default function DeployPage() {
         <Frame className="w-full">
           <FramePanel className="shrink-0 space-y-4 !py-4">
             <div className="min-w-0">
-              <FrameTitle className="text-base">Deploy new service</FrameTitle>
+              <FrameTitle className="text-base">
+                {projectId
+                  ? `Add service${projectName ? ` to ${projectName}` : ""}`
+                  : "Deploy new service"}
+              </FrameTitle>
               <FrameDescription className="text-xs sm:text-sm">
-                {step === 1 && "Choose a repository and where to deploy it."}
+                {step === 1 && (projectId
+                  ? "Choose a GitHub repository or upload files for the new service."
+                  : "Connect GitHub or upload files from your machine.")}
                 {step === 2 && "Configure how your app is built and started."}
                 {step === 3 && "Set runtime environment variables (optional)."}
               </FrameDescription>
@@ -735,7 +902,263 @@ export default function DeployPage() {
             {/* ── STEP 1: Repository Selection ─────────────────────────────── */}
             {step === 1 && (
               <div className="max-h-[calc(100vh-400px)] space-y-5 overflow-y-auto">
-                {!gitHubConnected && !selectedRepo && (
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { id: "github" as const, label: "GitHub", icon: "github" },
+                      { id: "upload" as const, label: "Upload", icon: "upload" },
+                    ] as const
+                  ).map((option) => {
+                    const active = deploySource === option.id
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => {
+                          setDeploySource(option.id)
+                          setErrorMsg("")
+                        }}
+                        className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                          active
+                            ? "border-primary/40 bg-primary/5 font-medium text-foreground"
+                            : "border-border/80 text-muted-foreground hover:bg-accent/30"
+                        }`}
+                      >
+                        {option.id === "github" ? (
+                          <>
+                            <GithubLight className="h-4 w-4 dark:hidden" />
+                            <GithubDark className="hidden h-4 w-4 dark:block" />
+                          </>
+                        ) : (
+                          <UploadIcon className="h-4 w-4" />
+                        )}
+                        {option.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {deploySource === "upload" && (
+                  <div className="space-y-4">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || [])
+                        if (files.length > 0) applyUploadFiles(files)
+                        e.target.value = ""
+                      }}
+                    />
+                    <input
+                      ref={folderInputRef}
+                      type="file"
+                      className="hidden"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || [])
+                        if (files.length > 0) applyUploadFiles(files)
+                        e.target.value = ""
+                      }}
+                      {...({ webkitdirectory: "", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+                    />
+                    <input
+                      ref={zipInputRef}
+                      type="file"
+                      accept=".zip,application/zip"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) applyUploadFiles([file])
+                        e.target.value = ""
+                      }}
+                    />
+
+                    <div
+                      onDragEnter={(e) => {
+                        e.preventDefault()
+                        setUploadDragActive(true)
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        setUploadDragActive(true)
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault()
+                        setUploadDragActive(false)
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        setUploadDragActive(false)
+                        const files = Array.from(e.dataTransfer.files || [])
+                        if (files.length > 0) applyUploadFiles(files)
+                      }}
+                      className={`rounded-xl border border-dashed px-4 py-8 text-center transition-colors ${
+                        uploadDragActive
+                          ? "border-primary/50 bg-primary/5"
+                          : "border-border bg-muted/10"
+                      }`}
+                    >
+                      <UploadIcon className="mx-auto mb-3 h-8 w-8 text-muted-foreground/60" />
+                      <p className="text-sm font-semibold text-foreground">
+                        Drop files or a project folder here
+                      </p>
+                      <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+                        Single static files, full app directories, or a{" "}
+                        <code className="font-mono text-foreground/80">.zip</code> archive.
+                        Framework detection runs automatically.
+                      </p>
+                      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          Choose files
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => folderInputRef.current?.click()}
+                        >
+                          Choose folder
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => zipInputRef.current?.click()}
+                        >
+                          Upload .zip
+                        </Button>
+                      </div>
+                    </div>
+
+                    {uploadFiles.length > 0 && (
+                      <div className="space-y-3 rounded-lg border border-border/80 bg-muted/10 px-3 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground">Upload ready</p>
+                            <p className="text-xs text-muted-foreground">
+                              {uploadFiles.length} file{uploadFiles.length === 1 ? "" : "s"} ·{" "}
+                              {formatUploadSize(uploadTotalBytes)}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => {
+                              setUploadFiles([])
+                              setDetectedFramework(null)
+                              setDockerfileAvailable(false)
+                              setComposeAvailable(false)
+                            }}
+                            className="shrink-0 text-xs text-muted-foreground"
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                        <div className="max-h-28 space-y-1 overflow-y-auto rounded-md border border-border/60 bg-background/50 px-2 py-2 font-mono text-[11px] text-muted-foreground">
+                          {uploadFiles.slice(0, 8).map((file, i) => {
+                            const strip = uploadCommonRootPrefix(uploadFiles)
+                            const shown = (() => {
+                              const raw = uploadRelativePath(file)
+                              if (strip && (raw === strip || raw.startsWith(`${strip}/`))) {
+                                return raw.slice(strip.length).replace(/^\//, "") || raw
+                              }
+                              return raw
+                            })()
+                            return (
+                              <div key={`${shown}-${i}`} className="flex items-center gap-2 truncate">
+                                <FileIcon className="h-3 w-3 shrink-0 opacity-60" />
+                                <span className="truncate">{shown}</span>
+                              </div>
+                            )
+                          })}
+                          {uploadFiles.length > 8 && (
+                            <p className="pt-1 text-[10px] text-muted-foreground/80">
+                              +{uploadFiles.length - 8} more files
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-4 border-t border-border/50 pt-4">
+                      <div className="space-y-1.5">
+                        <Label className={fieldLabel}>App name</Label>
+                        <Input
+                          value={deployName}
+                          onChange={(e) =>
+                            setDeployName(
+                              e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                            )
+                          }
+                          placeholder="my-app"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className={fieldLabel}>Target server</Label>
+                        <Select
+                          value={selectedServerId}
+                          onValueChange={(v) => setSelectedServerId(v ?? "localhost")}
+                        >
+                          <SelectTrigger className="h-9 w-full text-sm">
+                            <span className="truncate">{selectedServerLabel}</span>
+                          </SelectTrigger>
+                          <SelectPopup>
+                            {servers.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.isLocal ? "Localhost" : `${s.name} (${s.ip})`}
+                              </SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {(isDetectingFramework || detectedFramework) && uploadFiles.length > 0 && (
+                      <div className="flex items-center gap-2.5 rounded-lg bg-muted/25 px-3 py-2.5">
+                        {isDetectingFramework ? (
+                          <>
+                            <RefreshIcon className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                            <div>
+                              <p className="text-xs font-medium text-foreground">
+                                Scanning uploaded files…
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                Detecting framework from project files
+                              </p>
+                            </div>
+                          </>
+                        ) : detectedFramework ? (
+                          <>
+                            {detectedFramework.icon ? (
+                              <detectedFramework.icon className="h-5 w-5 shrink-0" />
+                            ) : (
+                              <FallbackIcon label={detectedFramework.name} color="" />
+                            )}
+                            <div>
+                              <p className="text-xs font-medium text-foreground">
+                                {detectedFramework.name} detected
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                Build and start commands will be pre-filled on the next step.
+                              </p>
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {deploySource === "github" && !gitHubConnected && !selectedRepo && (
                   <div className="flex flex-col items-center gap-4 py-6 text-center">
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted/30">
                       <GithubLight className="h-5 w-5 dark:hidden" />
@@ -766,7 +1189,7 @@ export default function DeployPage() {
                   </div>
                 )}
 
-                {gitHubConnected && (
+                {deploySource === "github" && gitHubConnected && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
@@ -910,7 +1333,7 @@ export default function DeployPage() {
                   </div>
                 )}
 
-                {selectedRepo && (
+                {deploySource === "github" && selectedRepo && (
                   <div className="space-y-4 border-t border-border/50 pt-5">
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/30">
@@ -1194,7 +1617,11 @@ export default function DeployPage() {
                           <button
                             type="button"
                             onClick={openFolderBrowser}
-                            disabled={!selectedRepo || !selectedBranch}
+                            disabled={
+                              deploySource === "upload"
+                                ? uploadFiles.length === 0
+                                : !selectedRepo || !selectedBranch
+                            }
                             className="text-[11px] text-primary hover:underline disabled:pointer-events-none disabled:opacity-40"
                           >
                             Browse…
@@ -1326,6 +1753,7 @@ export default function DeployPage() {
                       </p>
                     </div>
 
+                    {deploySource === "github" && (
                     <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border/80 px-3 py-2.5 transition-colors hover:bg-accent/20">
                       <input
                         type="checkbox"
@@ -1341,6 +1769,7 @@ export default function DeployPage() {
                         </p>
                       </div>
                     </label>
+                    )}
                 </div>
               </div>
             )}
@@ -1573,7 +2002,12 @@ export default function DeployPage() {
               <Button
                 type="button"
                 onClick={handleNext}
-                disabled={step === 1 && !selectedRepo}
+                disabled={
+                  step === 1 &&
+                  (deploySource === "github"
+                    ? !selectedRepo
+                    : uploadFiles.length === 0 || !deployName)
+                }
                 size="sm"
                 className="gap-1.5"
               >
@@ -1750,13 +2184,12 @@ export default function DeployPage() {
         <DialogContent className="flex max-h-[75vh] max-w-md flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2.5 text-base">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40">
-                <FolderIcon className="h-4 w-4 text-chart-4" />
-              </span>
               Select root directory
             </DialogTitle>
             <DialogDescription>
-              {selectedRepo && selectedBranch ? (
+              {deploySource === "upload" ? (
+                "Pick the folder inside your upload that contains the app entrypoint."
+              ) : selectedRepo && selectedBranch ? (
                 <>
                   Browsing{" "}
                   <span className="font-medium text-foreground">{selectedRepo.name}</span> on{" "}
@@ -1782,7 +2215,7 @@ export default function DeployPage() {
                 }`}
               >
                 <NucleoIcon name="house" className="h-3 w-3" />
-                <span>repository root</span>
+                <span>{deploySource === "upload" ? "upload root" : "repository root"}</span>
               </button>
               {folderBrowserBreadcrumbs.map((crumb, i) => (
                 <React.Fragment key={i}>
@@ -1859,7 +2292,7 @@ export default function DeployPage() {
               }}
               className="text-xs text-muted-foreground"
             >
-              Use repository root
+              Use repo root
             </Button>
             <div className="flex gap-2">
               <DialogClose

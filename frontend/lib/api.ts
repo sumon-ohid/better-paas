@@ -4,6 +4,10 @@ import type {
   App,
   Server,
   DeployRequest,
+  ProjectSummary,
+  ProjectDetail,
+  ProjectCreateRequest,
+  ProjectServiceDeployRequest,
   DeploymentRecord,
   UpdateRequest,
   GitHubContent,
@@ -14,6 +18,7 @@ import type {
   CatalogDeployRequest,
   ImageDeployRequest,
   DockerfileDeployRequest,
+  UploadDeployConfig,
   CronJob,
   NotificationConfig,
   DbQueryResult,
@@ -95,6 +100,49 @@ async function req<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+async function uploadReq<T>(path: string, formData: FormData): Promise<T> {
+  const token = getToken()
+  const headers: Record<string, string> = {}
+  if (token) headers["Authorization"] = `Bearer ${token}`
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  })
+  if (!res.ok) {
+    const body = await res.text()
+    let message = body || `HTTP ${res.status}`
+    try {
+      const parsed = JSON.parse(body) as { error?: unknown }
+      if (typeof parsed.error === "string" && parsed.error.trim()) {
+        message = parsed.error
+      }
+    } catch {
+      // Plain-text error bodies are fine as-is.
+    }
+    throw new ApiError(message, res.status)
+  }
+  return res.json() as Promise<T>
+}
+
+function buildUploadFormData(config: UploadDeployConfig, files: File[]): FormData {
+  const formData = new FormData()
+  formData.append("config", JSON.stringify(config))
+  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
+    formData.append("archive", files[0], files[0].name)
+    return formData
+  }
+  for (const file of files) {
+    formData.append("files", file)
+    formData.append(
+      "paths",
+      (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
+    )
+  }
+  return formData
+}
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 export const authApi = {
@@ -113,6 +161,8 @@ export const api = {
     list: () => req<App[]>("/api/apps"),
     deploy: (data: DeployRequest) =>
       req<App>("/api/deploy", { method: "POST", body: JSON.stringify(data) }),
+    deployUpload: (config: UploadDeployConfig, files: File[]) =>
+      uploadReq<App>("/api/deploy/upload", buildUploadFormData(config, files)),
     stop: (id: string) =>
       req<{ status: string }>("/api/apps/stop", {
         method: "POST",
@@ -258,6 +308,39 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ domain }),
       }),
+  },
+
+  // ── Projects ─────────────────────────────────────────────────────────────────
+
+  projects: {
+    list: () => req<ProjectSummary[]>("/api/projects"),
+    get: (id: string) =>
+      req<ProjectDetail>(`/api/projects/get?id=${encodeURIComponent(id)}`),
+    create: (data: ProjectCreateRequest) =>
+      req<ProjectSummary>("/api/projects/create", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    rename: (id: string, name: string) =>
+      req<ProjectSummary>("/api/projects/rename", {
+        method: "POST",
+        body: JSON.stringify({ id, name }),
+      }),
+    delete: (id: string) =>
+      req<{ status: string }>("/api/projects/delete", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
+    deployService: (data: ProjectServiceDeployRequest) =>
+      req<App>("/api/projects/services/deploy", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    deployServiceUpload: (config: UploadDeployConfig, files: File[]) =>
+      uploadReq<App>(
+        "/api/projects/services/deploy/upload",
+        buildUploadFormData(config, files),
+      ),
   },
 
   // ── App catalog (one-click deploys) ─────────────────────────────────────────

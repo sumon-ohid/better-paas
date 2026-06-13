@@ -12,6 +12,9 @@ import (
 // WebSocket upgrades are exempt (they are long-lived streams).
 const maxRequestBody = 2 << 20 // 2 MiB
 
+// maxUploadBody is applied to file/directory deploy uploads (see upload.go).
+// Upload routes get their own cap inside limitBody so large projects can deploy.
+
 func limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// WebSocket upgrades are long-lived streams (exempt). The GitHub webhook
@@ -20,7 +23,11 @@ func limitBody(next http.Handler) http.Handler {
 		if r.Body != nil &&
 			!strings.HasPrefix(r.URL.Path, "/ws/") &&
 			!strings.HasPrefix(r.URL.Path, "/api/webhooks/") {
-			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
+			limit := maxRequestBody
+			if strings.HasSuffix(r.URL.Path, "/upload") {
+				limit = maxUploadBody
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, int64(limit))
 		}
 		next.ServeHTTP(w, r)
 	})

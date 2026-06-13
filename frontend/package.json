@@ -3,6 +3,12 @@
   "version": "0.0.1",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@11.1.2",
+  "pnpm": {
+    "overrides": {
+      "postcss": ">=8.5.10"
+    }
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",

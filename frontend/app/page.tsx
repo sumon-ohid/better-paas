@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal"
 import { AppShell, useToast } from "@/components/app-shell"
-import { StatusBadge, StatusDot } from "@/components/status-badge"
-import { compareByStatusPriority } from "@/lib/status"
+import {
+  DeployedTimeHover,
+  StatusBadgeHover,
+} from "@/components/hover-previews"
 import { useActiveServer } from "@/components/server-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,24 +27,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "@/components/ui/menu"
-import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group"
@@ -60,12 +44,23 @@ import {
   AlertDialogDescription,
   AlertDialogClose,
 } from "@/components/ui/alert-dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { api } from "@/lib/api"
-import { getAppUrl } from "@/lib/utils"
-import type { App } from "@/lib/types"
+import type { ProjectSummary } from "@/lib/types"
+import { Docker } from "@/components/ui/svgs/docker"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
-import { Docker } from "@/components/ui/svgs/docker"
+import { IconFolder } from "nucleo-isometric"
 import {
   Card,
   CardAction,
@@ -73,37 +68,16 @@ import {
   CardFrameFooter,
   CardHeader,
   CardTitle,
-  CardPanel,
 } from "@/components/ui/card"
 import { Frame, FrameFooter } from "@/components/ui/frame"
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  type SortingState,
-  useReactTable,
-} from "@tanstack/react-table"
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
-
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
-const GlobeIcon = (props: IconProps) => <NucleoIcon {...props} name="web" />
-const GitBranchIcon = (props: IconProps) => <NucleoIcon {...props} name="branch" />
-const GitCommitIcon = (props: IconProps) => <NucleoIcon {...props} name="git-commit" />
-const LayersIcon = (props: IconProps) => <NucleoIcon {...props} name="layers" />
-const PlayIcon = (props: IconProps) => <NucleoIcon {...props} name="play" />
-const SquareIcon = (props: IconProps) => <NucleoIcon {...props} name="square" />
-const TerminalIcon = (props: IconProps) => <NucleoIcon {...props} name="terminal" />
 const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
-const ExternalLinkIcon = (props: IconProps) => <NucleoIcon {...props} name="external" />
-const LinkIcon = (props: IconProps) => <NucleoIcon {...props} name="link" />
-const NoUrlIcon = (props: IconProps) => <NucleoIcon {...props} name="link-2-off" />
-const EyeIcon = (props: IconProps) => <NucleoIcon {...props} name="eye" />
-const RefreshIcon = (props: IconProps) => <NucleoIcon {...props} name="refresh" />
-const MoreIcon = (props: IconProps) => <NucleoIcon {...props} name="more-horizontal" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
 const GridIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
 const ListIcon = (props: IconProps) => <NucleoIcon {...props} name="list" />
+const ChevronRightIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="chevron-right" />
+)
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -123,17 +97,6 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
-function isGitHubRepo(gitRepo: string): boolean {
-  return gitRepo.includes("github.com")
-}
-
-function extractRepoName(gitRepo: string): string {
-  const cleaned = gitRepo.replace(/\.git$/, "").replace(/^https?:\/\//, "")
-  const parts = cleaned.split("/")
-  if (parts.length >= 2) return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`
-  return cleaned
-}
-
 const STATUS_FILTERS = ["all", "running", "building", "stopped", "failed"] as const
 
 function filterLabel(f: string) {
@@ -142,418 +105,337 @@ function filterLabel(f: string) {
   return f.charAt(0).toUpperCase() + f.slice(1)
 }
 
-// ── Repo cell (shared between table + cards) ──────────────────────────────────
+function projectServerId(project: ProjectSummary): string {
+  return project.serverId?.trim() || "localhost"
+}
 
-// SourceLink shows where an app came from. Git-based apps link out to their
-// repository; image-based (catalog) apps have no repo, so we surface the Docker
-// image instead. Apps with neither fall back to a neutral placeholder so the
-// badge never renders empty.
-function RepoLink({ gitRepo, image }: { gitRepo: string; image?: string }) {
-  if (!gitRepo) {
-    if (image) {
-      return (
-        <span
-          title={image}
-          className="inline-flex mt-1 max-w-full items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2.5 py-1 text-xs font-mono text-muted-foreground"
-        >
-          <Docker className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{image}</span>
-        </span>
-      )
+function shouldShowServerBadge(
+  project: ProjectSummary,
+  activeServerId: string,
+): boolean {
+  const sid = projectServerId(project)
+  if (activeServerId === "all") return true
+  if (activeServerId === "localhost") return sid !== "localhost"
+  return sid !== activeServerId
+}
+
+function projectServiceLabel(project: ProjectSummary): string {
+  if (project.serviceCount === 0) return "No services"
+  return `${project.serviceCount} ${project.serviceCount === 1 ? "service" : "services"}`
+}
+
+function projectDescriptionText(project: ProjectSummary): string {
+  const text = project.description?.trim()
+  return text || "No description"
+}
+
+function projectHasDescription(project: ProjectSummary): boolean {
+  return Boolean(project.description?.trim())
+}
+
+function projectTimeMeta(project: ProjectSummary): {
+  label: string
+  at: string
+  dateStr: string
+} {
+  if (project.serviceCount > 0 && project.lastServiceAt) {
+    return {
+      label: "Last service",
+      at: formatRelativeTime(project.lastServiceAt),
+      dateStr: project.lastServiceAt,
     }
-    return (
-      <span className="inline-flex max-w-full mt-1 items-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/20 px-2.5 py-1 text-xs font-mono text-muted-foreground/70">
-        <GitBranchIcon className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate">No repository</span>
-      </span>
-    )
   }
-  return (
-    <a
-      href={gitRepo}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      title={gitRepo}
-      className="inline-flex max-w-full mt-1 items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2.5 py-1 text-xs font-mono text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-    >
-      {isGitHubRepo(gitRepo) ? (
-        <>
-          <GithubLight className="h-3.5 w-3.5 shrink-0 dark:hidden" />
-          <GithubDark className="h-3.5 w-3.5 shrink-0 hidden dark:block" />
-        </>
-      ) : (
-        <GitBranchIcon className="h-3.5 w-3.5 shrink-0" />
-      )}
-      <span className="truncate">{extractRepoName(gitRepo)}</span>
-    </a>
-  )
+  return {
+    label: "Created",
+    at: formatRelativeTime(project.createdAt),
+    dateStr: project.createdAt,
+  }
 }
 
-// BranchBadge renders the deployed git branch. Image-based apps have no branch,
-// so it renders nothing rather than an empty pill.
-function BranchBadge({ branch }: { branch: string }) {
-  if (!branch) return null
-  return (
-    <Badge variant="outline" size="sm" className="gap-1 rounded-lg font-mono py-2.5 px-1.5">
-      <GitBranchIcon className="h-3 w-3" />
-      {branch}
-    </Badge>
-  )
+function projectServiceStatuses(
+  project: ProjectSummary,
+): { id: string; name: string; status: string }[] {
+  return (project.serviceStatuses ?? []).map((service) => ({
+    id: service.id,
+    name: service.name,
+    status: service.status,
+  }))
 }
 
-function UrlLink({ url }: { url: string | undefined }) {
-  if (!url) return <span className="text-sm text-muted-foreground font-mono">—</span>
-  const displayUrl = url.replace(/^https?:\/\//, "")
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      title={displayUrl}
-      className="flex min-w-0 items-center gap-1 text-sm font-mono hover:underline transition-colors"
-    >
-      <LinkIcon className="h-3 w-3 shrink-0 opacity-60" />
-      <span className="truncate">{displayUrl}</span>
-      <ExternalLinkIcon className="h-3 w-3 shrink-0 opacity-60" />
-    </a>
-  )
-}
+function ProjectServerBadge({ serverId }: { serverId?: string }) {
+  const { servers } = useActiveServer()
 
-// ── Row action menu (shared) ──────────────────────────────────────────────────
+  const sid = serverId?.trim() || "localhost"
+  const server =
+    sid === "localhost"
+      ? servers.find((s) => s.isLocal)
+      : servers.find((s) => s.id === sid)
 
-function AppActionsMenu({
-  app,
-  onDelete,
-  onToggle,
-  onRedeploy,
-}: {
-  app: App
-  onDelete: (app: App) => void
-  onToggle: (action: "stop" | "start") => void
-  onRedeploy: (noCache: boolean) => void
-}) {
-  const router = useRouter()
+  const isLocal = sid === "localhost" || server?.isLocal
+  const label = isLocal ? "local" : (server?.name ?? sid)
+  const description = isLocal
+    ? "Deployed on this machine"
+    : server
+      ? `${server.name} · ${server.ip}`
+      : sid
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <Tooltip>
+      <TooltipTrigger
         render={
+          <Badge
+            variant="outline"
+            size="sm"
+            className="shrink-0 font-mono text-[10px] text-muted-foreground"
+          />
+        }
+      >
+        {label}
+      </TooltipTrigger>
+      <TooltipContent>{description}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function CreateNewProjectCard({ onClick }: { onClick: () => void }) {
+  return (
+    <Frame
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="Create new project"
+      className="group flex h-full min-h-[8.5rem] flex-col cursor-pointer border border-dashed border-border/80 bg-muted/10 transition-colors hover:border-primary/40 hover:bg-muted/20"
+    >
+      <Card className="before:hidden flex flex-1 flex-col justify-center shadow-none">
+        <CardHeader className="pb-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 transition-colors">
+              <PlusIcon className="h-7 w-7 text-muted-foreground transition-colors" />
+            </div>
+            <div className="min-w-0 flex-1 pt-0.5 ml-2">
+              <p className="text-base font-semibold leading-snug text-foreground">
+                Create new project
+              </p>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Start empty, then add services
+              </p>
+            </div>
+            <ChevronRightIcon className="mt-4 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+          </div>
+        </CardHeader>
+      </Card>
+    </Frame>
+  )
+}
+
+function projectMatchesSearch(project: ProjectSummary, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return (
+    project.name.toLowerCase().includes(q) ||
+    (project.description?.toLowerCase().includes(q) ?? false)
+  )
+}
+
+function projectMatchesStatus(project: ProjectSummary, filter: string): boolean {
+  if (filter === "all") return true
+  return project.status === filter
+}
+
+function projectMatchesServer(project: ProjectSummary, serverId: string): boolean {
+  if (serverId === "all") return true
+  const sid = project.serverId || "localhost"
+  return sid === serverId
+}
+
+function ProjectTableRow({
+  project,
+  onOpen,
+  onDelete,
+  onAddService,
+  onViewLogs,
+  activeServerId,
+}: {
+  project: ProjectSummary
+  onOpen: () => void
+  onDelete: () => void
+  onAddService: () => void
+  onViewLogs: () => void
+  activeServerId: string
+}) {
+  const timeMeta = projectTimeMeta(project)
+
+  return (
+    <TableRow className="cursor-pointer" onClick={onOpen}>
+      <TableCell>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted/50 text-muted-foreground">
+            <IconFolder className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <span className="font-semibold text-sm text-foreground truncate block">
+              {project.name}
+            </span>
+            <p
+              className={`mt-0.5 line-clamp-2 text-xs ${
+                projectHasDescription(project)
+                  ? "text-muted-foreground"
+                  : "italic text-muted-foreground/70"
+              }`}
+            >
+              {projectDescriptionText(project)}
+            </p>
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <span className="text-xs text-muted-foreground">
+                {projectServiceLabel(project)}
+              </span>
+              {project.status === "failed" && project.focusServiceId ? (
+                <Button
+                  variant="link"
+                  size="xs"
+                  className="h-auto min-h-0 px-0 py-0 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onViewLogs()
+                  }}
+                >
+                  View logs
+                </Button>
+              ) : null}
+            </div>
+          </div>
+          {shouldShowServerBadge(project, activeServerId) ? (
+            <ProjectServerBadge serverId={project.serverId} />
+          ) : null}
+        </div>
+      </TableCell>
+      <TableCell>
+        <StatusBadgeHover
+          status={project.status}
+          services={projectServiceStatuses(project)}
+        />
+      </TableCell>
+      <TableCell>
+        <ProjectSourceIcons project={project} compact />
+      </TableCell>
+      <TableCell>
+        <DeployedTimeHover
+          dateStr={timeMeta.dateStr}
+          label={timeMeta.label}
+          relative={timeMeta.at}
+          size="sm"
+        />
+      </TableCell>
+      <TableCell onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-0.5">
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={`Actions for ${app.name}`}
-            onClick={(e) => e.stopPropagation()}
+            onClick={onAddService}
+            aria-label={`Add service to ${project.name}`}
           >
-            <MoreIcon className="h-4 w-4" />
+            <PlusIcon className="h-4 w-4 text-muted-foreground" />
           </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem onClick={() => router.push(`/app/${app.id}`)}>
-          <EyeIcon className="text-muted-foreground" />
-          View details
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push(`/app/${app.id}?tab=logs`)}>
-          <TerminalIcon className="text-muted-foreground" />
-          View logs
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {app.status === "running" ? (
-          <DropdownMenuItem onClick={() => onToggle("stop")}>
-            <SquareIcon className="text-warning" />
-            Stop container
-          </DropdownMenuItem>
-        ) : app.status === "stopped" ? (
-          <DropdownMenuItem onClick={() => onToggle("start")}>
-            <PlayIcon className="text-success" />
-            Start container
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <RefreshIcon className="text-muted-foreground" />
-            Redeploy
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-48">
-            <DropdownMenuItem onClick={() => onRedeploy(false)}>
-              Default build
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRedeploy(true)}>
-              Clear cache & deploy
-            </DropdownMenuItem>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={() => onDelete(app)}>
-          <Trash2Icon />
-          Delete project
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onDelete}
+            aria-label={`Delete ${project.name}`}
+          >
+            <Trash2Icon className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   )
 }
 
-function useAppActions() {
-  const { showToast } = useToast()
-
-  const toggle = useCallback(
-    async (app: App, action: "stop" | "start") => {
-      try {
-        if (action === "stop") await api.apps.stop(app.id)
-        else await api.apps.start(app.id)
-        showToast(
-          action === "stop" ? "Stopped" : "Started",
-          `${app.name} ${action}ed.`,
-          action === "stop" ? "warning" : "success",
-        )
-      } catch {
-        showToast("Error", `Failed to ${action} ${app.name}.`, "destructive")
-      }
-    },
-    [showToast],
-  )
-
-  const redeploy = useCallback(
-    async (app: App, noCache: boolean = false) => {
-      try {
-        await api.apps.redeploy(app.id, noCache)
-        showToast("Redeploying", `${app.name} rebuild triggered.`, "success")
-      } catch {
-        showToast("Error", "Redeploy failed.", "destructive")
-      }
-    },
-    [showToast],
-  )
-
-  return { toggle, redeploy }
-}
-
-// ── Columns for list view ─────────────────────────────────────────────────────
-
-function createAppColumns(
-  router: ReturnType<typeof useRouter>,
-  actions: ReturnType<typeof useAppActions>
-): ColumnDef<App>[] {
-  return [
-    {
-      accessorKey: "name",
-      header: "Project",
-      size: 220,
-      cell: ({ row }) => {
-        const app = row.original
-        return (
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="font-semibold text-sm text-foreground truncate">
-              {app.name}
-            </span>
-            {app.vulnerabilitiesCount ? (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        router.push(`/app/${app.id}?tab=vulnerabilities`)
-                      }}
-                      className="flex cursor-pointer items-center text-amber-500 hover:text-amber-600 transition-colors shrink-0"
-                    >
-                      <NucleoIcon name="circle-alert" className="h-4 w-4" />
-                    </span>
-                  }
-                />
-                <TooltipContent>{app.vulnerabilitiesCount} package vulnerabilities detected. Click to view.</TooltipContent>
-              </Tooltip>
-            ) : null}
-            {app.composeService && (
-              <span
-                title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
-                className="inline-flex items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
-              >
-                <Docker className="h-3 w-3" />
-                {app.composeService}
-              </span>
-            )}
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      size: 110,
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
-    },
-    {
-      accessorKey: "url",
-      header: "URL",
-      size: 200,
-      cell: ({ row }) => <UrlLink url={getAppUrl(row.original)} />,
-    },
-    {
-      accessorKey: "gitRepo",
-      header: "Repository",
-      size: 220,
-      cell: ({ row }) => (
-        <RepoLink gitRepo={row.original.gitRepo} image={row.original.image} />
-      ),
-    },
-    {
-      accessorKey: "branch",
-      header: "Branch",
-      size: 120,
-      cell: ({ row }) => <BranchBadge branch={row.original.branch} />,
-    },
-    {
-      accessorKey: "createdAt",
-      header: "Deployed",
-      size: 110,
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground tabular-nums">
-          {formatRelativeTime(row.original.createdAt)}
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      header: () => <span className="sr-only">Actions</span>,
-      size: 60,
-      enableSorting: false,
-      cell: ({ row }) => {
-        const app = row.original
-        const { toggle, redeploy } = actions
-        return (
-          <div className="text-right">
-            <AppActionsMenu
-              app={app}
-              onDelete={() => {}}
-              onToggle={(action) => toggle(app, action)}
-              onRedeploy={(noCache) => redeploy(app, noCache)}
-            />
-          </div>
-        )
-      },
-    },
-  ]
-}
+const TABLE_COLUMN_COUNT = 5
 
 function AppTable({
-  apps,
+  projects,
+  counts,
   loading,
   isEmpty,
-  noAppsAtAll,
-  onRowClick,
+  noProjectsAtAll,
+  onOpenProject,
+  onDelete,
+  onAddService,
+  onViewLogs,
+  onCreateProject,
+  activeServerId,
 }: {
-  apps: App[]
+  projects: ProjectSummary[]
+  counts: { services: number; projects: number }
   loading: boolean
   isEmpty: boolean
-  noAppsAtAll: boolean
-  onRowClick: (app: App) => void
+  noProjectsAtAll: boolean
+  onOpenProject: (project: ProjectSummary) => void
+  onDelete: (project: ProjectSummary) => void
+  onAddService: (project: ProjectSummary) => void
+  onViewLogs: (project: ProjectSummary) => void
+  onCreateProject: () => void
+  activeServerId: string
 }) {
-  const router = useRouter()
-  const [sorting, setSorting] = useState<SortingState>([])
-  const actions = useAppActions()
-
-  const columns = useMemo(
-    () => createAppColumns(router, actions),
-    [router, actions]
-  )
-
-  /* eslint-disable react-hooks/incompatible-library */
-  const table = useReactTable({
-    data: apps,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    enableSortingRemoval: false,
-    onSortingChange: setSorting,
-    state: { sorting },
-  })
-  /* eslint-enable react-hooks/incompatible-library */
-
-  const rows = table.getRowModel().rows
-
   return (
     <CardFrame className="w-full">
       <Table variant="card" className="table-fixed">
         <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow className="hover:bg-transparent" key={headerGroup.id}>
-              {headerGroup.headers.map((header) => {
-                const columnSize = header.column.getSize()
-                return (
-                  <TableHead
-                    key={header.id}
-                    style={columnSize ? { width: `${columnSize}px` } : undefined}
-                  >
-                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                      <div
-                        className="flex h-full cursor-pointer select-none items-center justify-between gap-2"
-                        onClick={header.column.getToggleSortingHandler()}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault()
-                            header.column.getToggleSortingHandler()?.(e)
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
-                      >
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                        {{
-                          asc: (
-                            <ChevronUpIcon
-                              aria-hidden="true"
-                              className="size-4 shrink-0 opacity-80"
-                            />
-                          ),
-                          desc: (
-                            <ChevronDownIcon
-                              aria-hidden="true"
-                              className="size-4 shrink-0 opacity-80"
-                            />
-                          ),
-                        }[header.column.getIsSorted() as string] ?? null}
-                      </div>
-                    ) : (
-                      flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )
-                    )}
-                  </TableHead>
-                )
-              })}
-            </TableRow>
-          ))}
+          <TableRow className="hover:bg-transparent">
+            <TableHead style={{ width: "240px" }}>Name</TableHead>
+            <TableHead style={{ width: "120px" }}>Status</TableHead>
+            <TableHead style={{ width: "180px" }}>Deployed with</TableHead>
+            <TableHead style={{ width: "130px" }}>Activity</TableHead>
+            <TableHead style={{ width: "72px" }}>
+              <span className="sr-only">Actions</span>
+            </TableHead>
+          </TableRow>
         </TableHeader>
         <TableBody>
           {loading ? (
             <LoadingRows />
-          ) : isEmpty ? (
-            <TableRow>
-                <TableCell className="h-24 text-center" colSpan={columns.length}>
-                <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
-              </TableCell>
-            </TableRow>
           ) : (
-            rows.map((row) => (
+            <>
               <TableRow
-                className="group cursor-pointer"
-                data-state={row.getIsSelected() ? "selected" : undefined}
-                key={row.id}
-                onClick={() => onRowClick(row.original)}
+                className="cursor-pointer border-dashed bg-muted/10 hover:bg-muted/20"
+                onClick={onCreateProject}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+                <TableCell colSpan={TABLE_COLUMN_COUNT} className="text-center">
+                  <div className="flex items-center justify-center gap-2.5 py-1 text-sm font-medium text-muted-foreground">
+                    <PlusIcon className="h-4 w-4" />
+                    Create new project
+                  </div>
+                </TableCell>
               </TableRow>
-            ))
+              {projects.map((project) => (
+                <ProjectTableRow
+                  key={project.id}
+                  project={project}
+                  activeServerId={activeServerId}
+                  onOpen={() => onOpenProject(project)}
+                  onDelete={() => onDelete(project)}
+                  onAddService={() => onAddService(project)}
+                  onViewLogs={() => onViewLogs(project)}
+                />
+              ))}
+              {isEmpty && (
+                <TableRow>
+                  <TableCell className="h-20 text-center" colSpan={TABLE_COLUMN_COUNT}>
+                    <p className="text-sm text-muted-foreground">
+                      {noProjectsAtAll
+                        ? "No projects yet. Create one above."
+                        : "No projects match the current filters."}
+                    </p>
+                  </TableCell>
+                </TableRow>
+              )}
+            </>
           )}
         </TableBody>
       </Table>
@@ -562,9 +444,13 @@ function AppTable({
           <div className="flex items-center justify-between gap-2">
             <p className="text-muted-foreground text-sm">
               <strong className="font-medium text-foreground">
-                {apps.length}
+                {counts.services}
               </strong>{" "}
-              {apps.length === 1 ? "service" : "services"} deployed
+              {counts.services === 1 ? "service" : "services"} in{" "}
+              <strong className="font-medium text-foreground">
+                {counts.projects}
+              </strong>{" "}
+              {counts.projects === 1 ? "project" : "projects"}
             </p>
           </div>
         </CardFrameFooter>
@@ -573,210 +459,184 @@ function AppTable({
   )
 }
 
-// ── Desktop table row ─────────────────────────────────────────────────────────
-
-// ── Mobile card (responsive) ──────────────────────────────────────────────────
-
-function AppCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
-  const router = useRouter()
-  const { toggle, redeploy } = useAppActions()
+function ProjectSourceIcons({
+  project,
+  compact = false,
+}: {
+  project: ProjectSummary
+  compact?: boolean
+}) {
+  if (!project.hasGit && !project.hasDocker) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {compact
+          ? project.serviceCount === 0
+            ? "Empty"
+            : "—"
+          : project.serviceCount === 0
+            ? "Empty project"
+            : "No deploy source"}
+      </span>
+    )
+  }
 
   return (
-    <Frame
-      onClick={() => router.push(`/app/${app.id}`)}
-      className="cursor-pointer border border-transparent transition-colors"
-    >
-      <Card className="before:hidden shadow-none">
-        <CardHeader>
-          <div className="flex min-w-0 items-center gap-2.5">
-            <StatusDot status={app.status} />
-            <CardTitle className="truncate text-base">{app.name}</CardTitle>
-            {app.composeService && (
+    <div className="flex min-w-0 items-center gap-1.5">
+      {!compact ? (
+        <span className="shrink-0 text-xs text-muted-foreground">Deployed with</span>
+      ) : null}
+      {project.hasGit ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
               <span
-                title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
-                className="inline-flex shrink-0 items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
-              >
-                <Docker className="h-3 w-3" />
-                {app.composeService}
-              </span>
-            )}
-          </div>
-          <CardAction onClick={(e) => e.stopPropagation()}>
-            <AppActionsMenu
-              app={app}
-              onDelete={onDelete}
-              onToggle={(action) => toggle(app, action)}
-              onRedeploy={(noCache) => redeploy(app, noCache)}
-            />
-          </CardAction>
-        </CardHeader>
-        <CardPanel>
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge status={app.status} />
-            <BranchBadge branch={app.branch} />
-            {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        router.push(`/app/${app.id}?tab=vulnerabilities`)
-                      }}
-                      className="inline-flex cursor-pointer items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
-                    >
-                      <NucleoIcon name="circle-alert" className="h-3 w-3 animate-pulse" />
-                      <span>
-                        {app.vulnerabilitiesCount}{" "}
-                        {app.vulnerabilitiesCount === 1
-                          ? "vulnerability"
-                          : "vulnerabilities"}
-                      </span>
-                    </span>
-                  }
-                />
-                <TooltipContent>
-                  {app.vulnerabilitiesCount} package{" "}
-                  {app.vulnerabilitiesCount === 1 ? "vulnerability" : "vulnerabilities"}{" "}
-                  detected. Click card to view details.
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
-          </div>
-
-          <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3" onClick={(e) => e.stopPropagation()}>
-            {getAppUrl(app) ? (
-              <UrlLink url={getAppUrl(app)} />
-            ) : (
-              <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
-                <NoUrlIcon className="h-3 w-3 shrink-0 opacity-60" />
-                No URL assigned
-              </span>
-            )}
-            <RepoLink gitRepo={app.gitRepo} image={app.image} />
-          </div>
-        </CardPanel>
-      </Card>
-      <FrameFooter className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">Deployed</span>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {formatRelativeTime(app.createdAt)}
-        </span>
-      </FrameFooter>
-    </Frame>
+                className="inline-flex opacity-70 transition-opacity hover:opacity-100"
+                aria-label="Git deployments"
+              />
+            }
+          >
+            <GithubLight className="h-3.5 w-3.5 dark:hidden" />
+            <GithubDark className="hidden h-3.5 w-3.5 dark:block" />
+          </TooltipTrigger>
+          <TooltipContent>Git repository</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {project.hasDocker ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                className="inline-flex opacity-70 transition-opacity hover:opacity-100"
+                aria-label="Docker deployments"
+              />
+            }
+          >
+            <Docker className="h-3.5 w-3.5" />
+          </TooltipTrigger>
+          <TooltipContent>Docker image / Dockerfile / Compose</TooltipContent>
+        </Tooltip>
+      ) : null}
+    </div>
   )
 }
 
-// ── Desktop grid card (card view) ─────────────────────────────────────────────
+// ── Compose project card (one card per project, click to reveal services) ─────
 
-function AppGridCard({ app, onDelete }: { app: App; onDelete: (app: App) => void }) {
-  const router = useRouter()
-  const { toggle, redeploy } = useAppActions()
+function ProjectSummaryCard({
+  project,
+  onOpen,
+  onAddService,
+  onViewLogs,
+  activeServerId,
+}: {
+  project: ProjectSummary
+  onOpen: () => void
+  onAddService: () => void
+  onViewLogs: () => void
+  activeServerId: string
+}) {
+  const timeMeta = projectTimeMeta(project)
 
   return (
     <Frame
-      onClick={() => router.push(`/app/${app.id}`)}
-      className="group cursor-pointer border border-transparent transition-colors"
+      className="group flex h-full flex-col cursor-pointer border border-transparent transition-all hover:border-border/60 hover:bg-muted/10"
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open project ${project.name}`}
     >
-      <Card className="before:hidden shadow-none">
-        <CardHeader>
-          <div className="flex min-w-0 items-center gap-2.5">
-            <StatusDot status={app.status} />
-            <CardTitle className="truncate text-base">{app.name}</CardTitle>
-            {app.composeService && (
-              <span
-                title={`Compose service${app.composeWeb ? " (web-facing)" : ""}`}
-                className="inline-flex shrink-0 items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-mono text-sky-600 dark:text-sky-400"
-              >
-                <Docker className="h-3 w-3" />
-                {app.composeService}
-              </span>
-            )}
-          </div>
-          <CardAction onClick={(e) => e.stopPropagation()}>
-            <AppActionsMenu
-              app={app}
-              onDelete={onDelete}
-              onToggle={(action) => toggle(app, action)}
-              onRedeploy={() => redeploy(app)}
-            />
-          </CardAction>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <StatusBadge status={app.status} />
-            <BranchBadge branch={app.branch} />
-            {app.vulnerabilitiesCount !== undefined && app.vulnerabilitiesCount > 0 ? (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        router.push(`/app/${app.id}?tab=vulnerabilities`)
-                      }}
-                      className="inline-flex h-5.5 cursor-pointer items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+      <Card className="before:hidden flex flex-1 flex-col shadow-none">
+        <CardHeader className="pb-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground transition-colors group-hover:bg-muted/70">
+              <IconFolder className="h-10 w-10" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <CardTitle className="min-w-0 truncate text-base leading-snug">
+                  {project.name}
+                </CardTitle>
+                <CardAction onClick={(e) => e.stopPropagation()}>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={onAddService}
+                          aria-label={`Add service to ${project.name}`}
+                          className="shrink-0 border border-border/60 bg-muted/60 text-foreground/80 hover:bg-muted hover:text-foreground"
+                        />
+                      }
                     >
-                      <NucleoIcon name="circle-alert" className="h-3 w-3 animate-pulse" />
-                      <span>
-                        {app.vulnerabilitiesCount}{" "}
-                        {app.vulnerabilitiesCount === 1
-                          ? "vulnerability"
-                          : "vulnerabilities"}
-                      </span>
-                    </span>
-                  }
+                      <PlusIcon className="h-4 w-4" />
+                    </TooltipTrigger>
+                    <TooltipContent>Add service</TooltipContent>
+                  </Tooltip>
+                </CardAction>
+              </div>
+              <p
+                className={`mb-2 mt-1 line-clamp-2 text-xs leading-relaxed ${
+                  projectHasDescription(project)
+                    ? "text-muted-foreground"
+                    : "italic text-muted-foreground/70"
+                }`}
+              >
+                {projectDescriptionText(project)}
+              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <StatusBadgeHover
+                  status={project.status}
+                  services={projectServiceStatuses(project)}
                 />
-                <TooltipContent>
-                  {app.vulnerabilitiesCount} package{" "}
-                  {app.vulnerabilitiesCount === 1 ? "vulnerability" : "vulnerabilities"}{" "}
-                  detected. Click card to view details.
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
+                <span className="text-xs text-muted-foreground" aria-hidden>
+                  ·
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {projectServiceLabel(project)}
+                </span>
+                {project.status === "failed" && project.focusServiceId ? (
+                  <Button
+                    variant="link"
+                    size="xs"
+                    className="h-auto min-h-0 px-0 py-0 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onViewLogs()
+                    }}
+                  >
+                    View logs
+                  </Button>
+                ) : null}
+                {shouldShowServerBadge(project, activeServerId) ? (
+                  <>
+                    <span className="text-xs text-muted-foreground" aria-hidden>
+                      ·
+                    </span>
+                    <ProjectServerBadge serverId={project.serverId} />
+                  </>
+                ) : null}
+              </div>
+            </div>
           </div>
         </CardHeader>
-        <CardPanel>
-          <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
-            {getAppUrl(app) ? (
-              <UrlLink url={getAppUrl(app)} />
-            ) : (
-              <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
-                <NoUrlIcon className="h-3 w-3 shrink-0 opacity-60" />
-                No URL assigned
-              </span>
-            )}
-            <RepoLink gitRepo={app.gitRepo} image={app.image} />
-          </div>
-
-          {app.composeService ? (
-            <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
-              <Docker className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-              <span className="line-clamp-1 min-w-0">
-                Compose service{app.composeWeb ? "" : " · internal"}
-              </span>
-            </div>
-          ) : app.activeCommitMsg ? (
-            <div
-              className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground"
-              title={app.activeCommitMsg}
-            >
-              <GitCommitIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-              <span className="line-clamp-1 min-w-0">{app.activeCommitMsg}</span>
-            </div>
-          ) : !app.gitRepo ? (
-            <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
-              <LayersIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-              <span className="line-clamp-1 min-w-0">
-                {app.catalogId ? "Deployed from catalog" : "Prebuilt image deployment"}
-              </span>
-            </div>
-          ) : null}
-        </CardPanel>
       </Card>
-      <FrameFooter className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">Deployed</span>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {formatRelativeTime(app.createdAt)}
-        </span>
+      <FrameFooter className="flex items-center justify-between gap-2">
+        <ProjectSourceIcons project={project} />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <DeployedTimeHover
+            dateStr={timeMeta.dateStr}
+            label={timeMeta.label}
+            relative={timeMeta.at}
+          />
+          <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+        </div>
       </FrameFooter>
     </Frame>
   )
@@ -789,7 +649,7 @@ function LoadingRows() {
     <>
       {Array.from({ length: 4 }).map((_, i) => (
         <TableRow key={i}>
-          {Array.from({ length: 7 }).map((__, j) => (
+          {Array.from({ length: TABLE_COLUMN_COUNT }).map((__, j) => (
             <TableCell key={j} className="py-3.5">
               <Skeleton className="h-4 w-full max-w-[120px]" />
             </TableCell>
@@ -805,12 +665,16 @@ function ApplicationsDashboard() {
   const { showToast } = useToast()
   const { activeServerId } = useActiveServer()
 
-  const [apps, setApps] = useState<App[]>([])
+  const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [deleteTarget, setDeleteTarget] = useState<App | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ProjectSummary | null>(null)
   const [showPruneModal, setShowPruneModal] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createName, setCreateName] = useState("")
+  const [createDescription, setCreateDescription] = useState("")
+  const [isCreating, setIsCreating] = useState(false)
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
 
   // Restore the saved desktop view preference (card is the default).
@@ -825,12 +689,37 @@ function ApplicationsDashboard() {
     localStorage.setItem("apps-view-mode", mode)
   }, [])
 
-  const fetchApps = useCallback(async () => {
+  const openProject = useCallback(
+    (project: ProjectSummary) => {
+      router.push(`/project/${project.id}`)
+    },
+    [router],
+  )
+
+  const addServiceToProject = useCallback(
+    (project: ProjectSummary) => {
+      router.push(`/deploy?projectId=${project.id}`)
+    },
+    [router],
+  )
+
+  const viewProjectLogs = useCallback(
+    (project: ProjectSummary) => {
+      if (project.focusServiceId) {
+        router.push(`/logs?appId=${project.focusServiceId}&mode=build`)
+        return
+      }
+      openProject(project)
+    },
+    [router, openProject],
+  )
+
+  const fetchProjects = useCallback(async () => {
     try {
-      const data = await api.apps.list()
-      setApps(data)
+      const data = await api.projects.list()
+      setProjects(data)
     } catch (err) {
-      console.error("Failed to fetch apps", err)
+      console.error("Failed to fetch projects", err)
     } finally {
       setLoading(false)
     }
@@ -838,25 +727,52 @@ function ApplicationsDashboard() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchApps()
-  }, [fetchApps])
+    fetchProjects()
+  }, [fetchProjects])
 
-  // Poll while building
   useEffect(() => {
-    const hasBuildingApp = apps.some((a) => a.status === "building")
-    if (!hasBuildingApp) return
-    const interval = setInterval(fetchApps, 2500)
+    const hasBuilding = projects.some((p) => p.status === "building")
+    if (!hasBuilding) return
+    const interval = setInterval(fetchProjects, 2500)
     return () => clearInterval(interval)
-  }, [apps, fetchApps])
+  }, [projects, fetchProjects])
 
-  const handleDeleteApp = async (id: string) => {
+  const handleCreateProject = async () => {
+    const name = createName.trim()
+    if (!name) return
+    setIsCreating(true)
     try {
-      await api.apps.delete(id)
-      showToast("App deleted", "Application container and workspace permanently removed.", "success")
-      setDeleteTarget(null)
-      fetchApps()
+      const created = await api.projects.create({
+        name,
+        description: createDescription.trim() || undefined,
+        serverId:
+          activeServerId === "all" || activeServerId === "localhost"
+            ? "localhost"
+            : activeServerId,
+      })
+      setShowCreateModal(false)
+      setCreateName("")
+      setCreateDescription("")
+      router.push(`/project/${created.id}`)
     } catch (err) {
-      showToast("Error", "Failed to delete application.", "destructive")
+      showToast(
+        "Error",
+        err instanceof Error ? err.message : "Failed to create project.",
+        "destructive",
+      )
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleDeleteProject = async (id: string) => {
+    try {
+      await api.projects.delete(id)
+      showToast("Project deleted", "Project and all services removed.", "success")
+      setDeleteTarget(null)
+      fetchProjects()
+    } catch (err) {
+      showToast("Error", "Failed to delete project.", "destructive")
       console.error(err)
     }
   }
@@ -873,43 +789,45 @@ function ApplicationsDashboard() {
     }
   }
 
-  // Filter + sort so attention-worthy states (building, failed) surface first.
-  const filteredApps = apps
-    .filter((app) => {
-      const matchesSearch =
-        app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        app.gitRepo.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesStatus = statusFilter === "all" || app.status === statusFilter
-      
-      const appServerId = app.serverId || "localhost"
-      const targetServerId = activeServerId === "all" ? "all" : (activeServerId === "localhost" ? "localhost" : activeServerId)
-      const matchesServer = targetServerId === "all" || appServerId === targetServerId
+  const targetServerId =
+    activeServerId === "all"
+      ? "all"
+      : activeServerId === "localhost"
+        ? "localhost"
+        : activeServerId
 
-      return matchesSearch && matchesStatus && matchesServer
-    })
-    .sort((a, b) => {
-      // Keep compose-group rows adjacent (grouped by project, primary first),
-      // while preserving status-priority ordering across groups/standalone apps.
-      if (a.composeProject && b.composeProject && a.composeProject === b.composeProject) {
-        if (a.composePrimary !== b.composePrimary) return a.composePrimary ? -1 : 1
-        return (a.composeService || "").localeCompare(b.composeService || "")
-      }
-      return compareByStatusPriority(a.status, b.status)
-    })
+  const filteredProjects = useMemo(
+    () =>
+      projects.filter(
+        (project) =>
+          projectMatchesSearch(project, searchQuery) &&
+          projectMatchesStatus(project, statusFilter) &&
+          projectMatchesServer(project, targetServerId),
+      ),
+    [projects, searchQuery, statusFilter, targetServerId],
+  )
 
-  const isEmpty = !loading && filteredApps.length === 0
-  const noAppsAtAll = !loading && apps.length === 0
+  const projectCounts = useMemo(
+    () => ({
+      projects: filteredProjects.length,
+      services: filteredProjects.reduce((n, p) => n + p.serviceCount, 0),
+    }),
+    [filteredProjects],
+  )
+
+  const isEmpty = !loading && filteredProjects.length === 0
+  const noProjectsAtAll = !loading && projects.length === 0
 
   return (
-    <AppShell appCount={apps.length}>
+    <AppShell appCount={projectCounts.services}>
       <div className="space-y-1 m-4 md:mx-6">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
-            Deployed Services
+            Projects
           </h2>
         </div>
         <p className="text-xs text-muted-foreground sm:text-sm">
-          Manage your deployed services. You can filter by what&apos;s running, building, paused or failed to deploy.
+          Each project groups one or more services. Open a project to manage its services.
         </p>
       </div>
       {/* Subheader toolbar */}
@@ -992,11 +910,17 @@ function ApplicationsDashboard() {
         {/* Desktop list (table) view */}
         <div className={`hidden ${viewMode === "list" ? "md:block" : ""}`}>
           <AppTable
-            apps={filteredApps}
+            projects={filteredProjects}
+            counts={projectCounts}
             loading={loading}
             isEmpty={isEmpty}
-            noAppsAtAll={noAppsAtAll}
-            onRowClick={(app) => router.push(`/app/${app.id}`)}
+            noProjectsAtAll={noProjectsAtAll}
+            activeServerId={activeServerId}
+            onOpenProject={openProject}
+            onDelete={(project) => setDeleteTarget(project)}
+            onAddService={addServiceToProject}
+            onViewLogs={viewProjectLogs}
+            onCreateProject={() => setShowCreateModal(true)}
           />
         </div>
 
@@ -1005,17 +929,21 @@ function ApplicationsDashboard() {
           {loading ? (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-44 w-full rounded-xl" />
+                <Skeleton key={i} className="h-40 w-full rounded-xl" />
               ))}
-            </div>
-          ) : isEmpty ? (
-            <div className="du-card rounded-xl">
-              <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-              {filteredApps.map((app) => (
-                <AppGridCard key={app.id} app={app} onDelete={(a) => setDeleteTarget(a)} />
+              <CreateNewProjectCard onClick={() => setShowCreateModal(true)} />
+              {filteredProjects.map((project) => (
+                <ProjectSummaryCard
+                  key={project.id}
+                  project={project}
+                  activeServerId={activeServerId}
+                  onOpen={() => openProject(project)}
+                  onAddService={() => addServiceToProject(project)}
+                  onViewLogs={() => viewProjectLogs(project)}
+                />
               ))}
             </div>
           )}
@@ -1025,16 +953,22 @@ function ApplicationsDashboard() {
         <div className="space-y-3 md:hidden">
           {loading ? (
             Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full rounded-xl" />
+              <Skeleton key={i} className="h-40 w-full rounded-xl" />
             ))
-          ) : isEmpty ? (
-            <div className="du-card rounded-xl">
-              <DashboardEmpty noAppsAtAll={noAppsAtAll} onDeploy={() => router.push("/deploy")} />
-            </div>
           ) : (
-            filteredApps.map((app) => (
-              <AppCard key={app.id} app={app} onDelete={(a) => setDeleteTarget(a)} />
-            ))
+            <>
+              <CreateNewProjectCard onClick={() => setShowCreateModal(true)} />
+              {filteredProjects.map((project) => (
+                <ProjectSummaryCard
+                  key={project.id}
+                  project={project}
+                  activeServerId={activeServerId}
+                  onOpen={() => openProject(project)}
+                  onAddService={() => addServiceToProject(project)}
+                  onViewLogs={() => viewProjectLogs(project)}
+                />
+              ))}
+            </>
           )}
         </div>
       </div>
@@ -1069,45 +1003,86 @@ function ApplicationsDashboard() {
       </AlertDialog>
 
       {/* Delete Confirm Modal */}
+      <Dialog
+        open={showCreateModal}
+        onOpenChange={(open) => {
+          setShowCreateModal(open)
+          if (!open) {
+            setCreateName("")
+            setCreateDescription("")
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Create new project</DialogTitle>
+            <DialogDescription>
+              Projects group one or more services. You can add services after creating the project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 px-6 pb-4">
+            <div className="space-y-2">
+              <Label htmlFor="project-name" className="text-sm font-medium">
+                Project name
+              </Label>
+              <Input
+                id="project-name"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                placeholder="my-app"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) handleCreateProject()
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Lowercase letters, digits, and hyphens (2–40 characters).
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-description" className="text-sm font-medium">
+                Description
+                <span className="ml-1 font-normal text-muted-foreground">(optional)</span>
+              </Label>
+              <Textarea
+                id="project-description"
+                value={createDescription}
+                onChange={(e) => setCreateDescription(e.target.value)}
+                placeholder="What is this project for?"
+                rows={3}
+                maxLength={500}
+                className="resize-y text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Shown on the project card. Up to 500 characters.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="shrink-0 border-t border-border">
+            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateProject}
+              disabled={isCreating || !createName.trim()}
+              className="gap-1.5"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Create project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <DeleteConfirmModal
         isOpen={!!deleteTarget}
         appName={deleteTarget?.name ?? ""}
-        onConfirm={() => (deleteTarget ? handleDeleteApp(deleteTarget.id) : Promise.resolve())}
+        onConfirm={() =>
+          deleteTarget ? handleDeleteProject(deleteTarget.id) : Promise.resolve()
+        }
         onCancel={() => setDeleteTarget(null)}
       />
     </AppShell>
-  )
-}
-
-function DashboardEmpty({
-  noAppsAtAll,
-  onDeploy,
-}: {
-  noAppsAtAll: boolean
-  onDeploy: () => void
-}) {
-  return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <GlobeIcon />
-        </EmptyMedia>
-        <EmptyTitle>{noAppsAtAll ? "No applications yet" : "No matches"}</EmptyTitle>
-        <EmptyDescription>
-          {noAppsAtAll
-            ? "Deploy your first service to see it appear here."
-            : "No applications match the current filters."}
-        </EmptyDescription>
-      </EmptyHeader>
-      {noAppsAtAll && (
-        <EmptyContent>
-          <Button onClick={onDeploy} className="gap-1.5">
-            <PlusIcon className="h-4 w-4" />
-            Deploy a service
-          </Button>
-        </EmptyContent>
-      )}
-    </Empty>
   )
 }
 

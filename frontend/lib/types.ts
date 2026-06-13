@@ -40,6 +40,46 @@ export interface App {
   activeCommit?: string
   activeCommitMsg?: string
   vulnerabilitiesCount?: number
+  projectId?: string
+  serviceName?: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  description?: string
+  createdAt: string
+  serverId?: string
+}
+
+export interface ProjectServiceStatus {
+  id: string
+  name: string
+  status: string
+}
+
+export interface ProjectSummary extends Project {
+  serviceCount: number
+  status: string
+  hasGit?: boolean
+  hasDocker?: boolean
+  lastServiceAt?: string
+  focusServiceId?: string
+  serviceStatuses?: ProjectServiceStatus[]
+}
+
+export interface ProjectDetail extends ProjectSummary {
+  services: App[]
+}
+
+export interface ProjectCreateRequest {
+  name: string
+  description?: string
+  serverId?: string
+}
+
+export interface ProjectServiceDeployRequest extends DeployRequest {
+  projectId: string
 }
 
 export interface Vulnerability {
@@ -110,6 +150,11 @@ export interface DeployRequest {
   dockerfilePath?: string
   composePath?: string
   serverId?: string
+}
+
+/** Deploy config sent inside multipart upload (no git fields). */
+export type UploadDeployConfig = Omit<DeployRequest, "gitRepo" | "branch" | "gitToken" | "autoDeploy"> & {
+  projectId?: string
 }
 
 export interface UpdateRequest {

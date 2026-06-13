@@ -102,6 +102,46 @@ type App struct {
 	// ServerID is the ID of the Server where this app is deployed.
 	// Defaults to "localhost" (the local machine).
 	ServerID string `json:"serverId"`
+
+	// ── Project grouping ──────────────────────────────────────────────────────
+	// Every service belongs to a Project. The project owns the on-disk workspace
+	// at projects/<projectId>/; services are the runnable App rows inside it.
+	ProjectID   string `json:"projectId,omitempty"`
+	ServiceName string `json:"serviceName,omitempty"` // display name within the project (e.g. "web")
+}
+
+// Project is a user-created workspace that groups one or more services.
+type Project struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	ServerID    string    `json:"serverId"`
+}
+
+// ProjectServiceStatus is a lightweight per-service row for project list cards.
+type ProjectServiceStatus struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+// ProjectSummary is returned by the projects list API.
+type ProjectSummary struct {
+	Project
+	ServiceCount    int                    `json:"serviceCount"`
+	Status          string                 `json:"status"` // aggregate across services
+	HasGit          bool                   `json:"hasGit"`    // any service deploys from a Git repo
+	HasDocker       bool                   `json:"hasDocker"` // any service uses images / Dockerfile / Compose
+	LastServiceAt   *time.Time             `json:"lastServiceAt,omitempty"`
+	FocusServiceID  string                 `json:"focusServiceId,omitempty"` // service driving aggregate status
+	ServiceStatuses []ProjectServiceStatus `json:"serviceStatuses,omitempty"`
+}
+
+// ProjectDetail is a project plus its services.
+type ProjectDetail struct {
+	ProjectSummary
+	Services []App `json:"services"`
 }
 
 // containerName returns the name of the container currently serving the app,
@@ -272,6 +312,9 @@ const maxBuildLogLines = 5000
 var (
 	appsLock sync.Mutex
 	apps     = []App{}
+
+	projectsLock sync.Mutex
+	projects     = []Project{}
 
 	buildLogsLock sync.RWMutex
 	buildLogs     = make(map[string][]string)

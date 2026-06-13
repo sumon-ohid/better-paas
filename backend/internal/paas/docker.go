@@ -448,10 +448,23 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		localLog("✔ Docker image built successfully!")
 	} else {
 		buildDir := filepath.Join("builds", app.ID)
-		if trigger == "local" {
-			localLog(fmt.Sprintf("✨ Using existing local build directory for app: %s (local package update)", app.Name))
+		if trigger == "local" || isUploadSource(app.GitRepo) {
+			if isUploadSource(app.GitRepo) {
+				localLog(fmt.Sprintf("✨ Using uploaded source for app: %s", app.Name))
+				commitMsg = "Uploaded source"
+			} else {
+				localLog(fmt.Sprintf("✨ Using existing local build directory for app: %s (local package update)", app.Name))
+				commitMsg = "Local build with package updates"
+			}
+			if _, err := os.Stat(buildDir); err != nil {
+				localLog("✖ Uploaded source not found on disk. Upload files again to redeploy.")
+				finish("failed", "")
+				return
+			}
 			commitSHA = gitHeadCommit(buildDir)
-			commitMsg = "Local build with package updates"
+			if commitSHA == "" && isUploadSource(app.GitRepo) {
+				commitSHA = ""
+			}
 		} else {
 			// ── 1. Clone repository ──────────────────────────────────────────────
 			localLog(fmt.Sprintf("✨ Initializing environment for app: %s", app.Name))
@@ -646,6 +659,14 @@ func buildWithNixpacks(app *App, buildDir, buildSubDir, image string, noCache bo
 		if c := reconcilePkgManagerCmd(startCmd, pm); c != startCmd {
 			localLog(fmt.Sprintf("🚀 Adjusted start command for detected package manager (%s): %q → %q", pm, startCmd, c))
 			startCmd = c
+		}
+		// Nixpacks ships pnpm 9 via nix; lockfiles with workspace overrides need the
+		// pnpm version that generated them (via Corepack) or frozen install fails.
+		if pm == "pnpm" && isDefaultPnpmInstall(installCmd) {
+			if pinned := pnpmFrozenInstallCommand(buildSubDir); pinned != installCmd {
+				localLog(fmt.Sprintf("📦 Using Corepack-pinned pnpm install: %q", pinned))
+				installCmd = pinned
+			}
 		}
 	}
 
@@ -1284,6 +1305,7 @@ func finishDeployment(app App, deployLogs []string, status string, startedAt tim
 // Nixpacks still provisions the correct package-manager binary.
 func patchPackageJSON(appID, buildDir string, logger func(string)) {
 	ensureValidPnpmWorkspace(buildDir, logger)
+	ensurePnpmBuildCompat(buildDir, logger)
 
 	// Patch the root manifest and capture workspace globs.
 	rootPkg, _ := patchSinglePackageJSON(filepath.Join(buildDir, "package.json"))
@@ -1346,6 +1368,243 @@ func patchSinglePackageJSON(pkgPath string) (map[string]interface{}, bool) {
 		}
 	}
 	return pkg, true
+}
+
+type pnpmLockfileMeta struct {
+	LockfileVersion  string
+	AutoInstallPeers bool
+	Overrides        map[string]string
+}
+
+// ensurePnpmBuildCompat aligns packageManager, .npmrc, workspace overrides, and
+// nixpacks.toml with pnpm-lock.yaml so Nixpacks' frozen install succeeds.
+func ensurePnpmBuildCompat(buildDir string, logger func(string)) {
+	lockPath := filepath.Join(buildDir, "pnpm-lock.yaml")
+	if _, err := os.Stat(lockPath); err != nil {
+		return
+	}
+	meta := readPnpmLockfileMeta(lockPath)
+
+	if meta.AutoInstallPeers {
+		ensureNpmrcLine(buildDir, "auto-install-peers=true")
+	}
+
+	version := pinnedPnpmVersion(buildDir)
+	if version == "" {
+		version = pnpmVersionForLockfile(meta.LockfileVersion)
+	}
+	if version != "" {
+		if wrote := ensurePackageManagerField(buildDir, version); wrote && logger != nil {
+			logger(fmt.Sprintf("📌 Set packageManager to pnpm@%s for Nixpacks/Corepack", version))
+		}
+	}
+
+	if len(meta.Overrides) > 0 {
+		if synced := syncPnpmWorkspaceOverridesFromLockfile(buildDir, meta.Overrides); synced && logger != nil {
+			logger("📌 Synced pnpm-workspace.yaml overrides from lockfile")
+		}
+	}
+
+	if version != "" {
+		if wrote := ensureNixpacksPnpmInstall(buildDir, version); wrote && logger != nil {
+			logger(fmt.Sprintf("📌 Wrote nixpacks.toml with pnpm@%s install phase", version))
+		}
+	}
+}
+
+func readPnpmLockfileMeta(lockPath string) pnpmLockfileMeta {
+	meta := pnpmLockfileMeta{Overrides: map[string]string{}}
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		return meta
+	}
+	inSettings := false
+	inOverrides := false
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
+			inSettings = false
+			inOverrides = false
+		}
+		if strings.HasPrefix(trimmed, "lockfileVersion:") {
+			meta.LockfileVersion = strings.TrimSpace(strings.TrimPrefix(trimmed, "lockfileVersion:"))
+			meta.LockfileVersion = strings.Trim(meta.LockfileVersion, `"'`)
+			continue
+		}
+		if trimmed == "settings:" {
+			inSettings = true
+			inOverrides = false
+			continue
+		}
+		if trimmed == "overrides:" {
+			inOverrides = true
+			inSettings = false
+			continue
+		}
+		if inSettings && strings.HasPrefix(trimmed, "autoInstallPeers:") {
+			val := strings.TrimSpace(strings.TrimPrefix(trimmed, "autoInstallPeers:"))
+			meta.AutoInstallPeers = val == "true"
+			continue
+		}
+		if inOverrides && (strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")) {
+			if pkg, ver, ok := strings.Cut(trimmed, ":"); ok {
+				meta.Overrides[strings.TrimSpace(pkg)] = strings.Trim(strings.TrimSpace(ver), `"'`)
+			}
+		}
+	}
+	return meta
+}
+
+func pnpmVersionForLockfile(lockfileVersion string) string {
+	major := strings.Split(strings.TrimSpace(lockfileVersion), ".")[0]
+	switch major {
+	case "10", "11":
+		return "10.12.1"
+	case "9":
+		return "9.15.9"
+	default:
+		return "9.15.9"
+	}
+}
+
+func ensureNpmrcLine(buildDir, line string) {
+	path := filepath.Join(buildDir, ".npmrc")
+	existing := ""
+	if data, err := os.ReadFile(path); err == nil {
+		existing = string(data)
+		for _, l := range strings.Split(existing, "\n") {
+			if strings.TrimSpace(l) == line {
+				return
+			}
+		}
+	}
+	content := strings.TrimRight(existing, "\n")
+	if content != "" {
+		content += "\n"
+	}
+	content += line + "\n"
+	_ = os.WriteFile(path, []byte(content), 0644)
+}
+
+func ensurePackageManagerField(buildDir, version string) bool {
+	pkgPath := filepath.Join(buildDir, "package.json")
+	data, err := os.ReadFile(pkgPath)
+	if err != nil {
+		return false
+	}
+	var pkg map[string]interface{}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return false
+	}
+	want := "pnpm@" + version
+	if pm, ok := pkg["packageManager"].(string); ok && strings.TrimSpace(pm) == want {
+		return false
+	}
+	pkg["packageManager"] = want
+	updated, err := json.MarshalIndent(pkg, "", "  ")
+	if err != nil {
+		return false
+	}
+	return os.WriteFile(pkgPath, updated, 0644) == nil
+}
+
+func syncPnpmWorkspaceOverridesFromLockfile(buildDir string, lockOverrides map[string]string) bool {
+	workspacePath := ""
+	for _, name := range []string{"pnpm-workspace.yaml", "pnpm-workspace.yml"} {
+		p := filepath.Join(buildDir, name)
+		if _, err := os.Stat(p); err == nil {
+			workspacePath = p
+			break
+		}
+	}
+	if workspacePath == "" {
+		workspacePath = filepath.Join(buildDir, "pnpm-workspace.yaml")
+	}
+
+	var existing string
+	if data, err := os.ReadFile(workspacePath); err == nil {
+		existing = string(data)
+	}
+
+	lines := strings.Split(existing, "\n")
+	var filtered []string
+	inOverridesBlock := false
+	currentOverrides := make(map[string]string)
+	for _, line := range lines {
+		trimmed := strings.TrimRight(line, " \t")
+		if trimmed == "overrides:" {
+			inOverridesBlock = true
+			continue
+		}
+		if inOverridesBlock {
+			if len(trimmed) > 0 && (trimmed[0] == ' ' || trimmed[0] == '\t') {
+				if pkg, ver, ok := strings.Cut(strings.TrimSpace(trimmed), ":"); ok {
+					currentOverrides[strings.TrimSpace(pkg)] = strings.Trim(strings.TrimSpace(ver), `"'`)
+				}
+				continue
+			}
+			inOverridesBlock = false
+		}
+		filtered = append(filtered, line)
+	}
+	for len(filtered) > 0 && strings.TrimSpace(filtered[len(filtered)-1]) == "" {
+		filtered = filtered[:len(filtered)-1]
+	}
+
+	merged := make(map[string]string, len(lockOverrides)+len(currentOverrides))
+	for k, v := range currentOverrides {
+		merged[k] = v
+	}
+	changed := len(currentOverrides) != len(lockOverrides)
+	for k, v := range lockOverrides {
+		if merged[k] != v {
+			changed = true
+		}
+		merged[k] = v
+	}
+	if !changed && existing != "" {
+		return false
+	}
+
+	content := strings.Join(filtered, "\n")
+	if !strings.Contains(content, "packages:") {
+		content += "\n\npackages:\n  - '.'"
+	}
+	content += "\n\noverrides:"
+	for pkg, ver := range merged {
+		content += fmt.Sprintf("\n  %s: \"%s\"", pkg, ver)
+	}
+	content += "\n"
+	return os.WriteFile(workspacePath, []byte(content), 0644) == nil
+}
+
+func ensureNixpacksPnpmInstall(buildDir, version string) bool {
+	path := filepath.Join(buildDir, "nixpacks.toml")
+	if _, err := os.Stat(path); err == nil {
+		return false
+	}
+	content := fmt.Sprintf(`# Auto-generated by Better-PaaS so Nixpacks uses the pnpm version
+# that matches pnpm-lock.yaml (avoids ERR_PNPM_LOCKFILE_CONFIG_MISMATCH).
+[phases.install]
+cmds = [
+  "corepack enable",
+  "corepack prepare pnpm@%s --activate",
+  "pnpm install --frozen-lockfile",
+]
+`, version)
+	return os.WriteFile(path, []byte(content), 0644) == nil
+}
+
+func isDefaultPnpmInstall(cmd string) bool {
+	switch strings.TrimSpace(cmd) {
+	case "", "pnpm install", "pnpm i", "pnpm install --frozen-lockfile":
+		return true
+	default:
+		return false
+	}
 }
 
 // ensureValidPnpmWorkspace checks if a pnpm-workspace.yaml file is present but

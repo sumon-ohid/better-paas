@@ -18,6 +18,7 @@ func initDB() {
 	// data/ holds secrets (DB with tokens); keep it owner-only.
 	os.MkdirAll("data", 0700)
 	os.MkdirAll(filepath.Join("data", "logs"), 0755)
+	os.MkdirAll("projects", 0755)
 
 	// Initialize the at-rest encryption key before any secret is read or
 	// written below (migrateFromJSON / loadStateFromDB touch token columns).
@@ -47,6 +48,7 @@ func initDB() {
 
 	migrateFromJSON()
 	loadStateFromDB()
+	migrateAppsToProjectsIfNeeded()
 }
 
 func runMigrations() error {
@@ -150,10 +152,23 @@ CREATE TABLE IF NOT EXISTS meta (
 		{"apps", "server_id", "TEXT DEFAULT 'localhost'"},
 		{"addons", "server_id", "TEXT DEFAULT 'localhost'"},
 		{"apps", "vulnerabilities_count", "INTEGER DEFAULT 0"},
+		{"apps", "project_id", "TEXT"},
+		{"apps", "service_name", "TEXT"},
+		{"projects", "description", "TEXT"},
 	}
 	for _, c := range addColumns {
 		// SQLite has no "ADD COLUMN IF NOT EXISTS"; ignore the duplicate error.
 		_, _ = sqliteDB.Exec("ALTER TABLE " + c.table + " ADD COLUMN " + c.col + " " + c.def)
+	}
+
+	if _, err := sqliteDB.Exec(`
+		CREATE TABLE IF NOT EXISTS projects (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			created_at DATETIME NOT NULL,
+			server_id TEXT DEFAULT 'localhost'
+		)`); err != nil {
+		return err
 	}
 
 	if err := migrateAppsUniqueConstraint(); err != nil {
@@ -395,7 +410,7 @@ func loadStateFromDB() {
 	apps = []App{}
 	buildLogs = make(map[string][]string)
 
-	rows, err := sqliteDB.Query(`SELECT id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override, domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, server_id, vulnerabilities_count FROM apps`)
+	rows, err := sqliteDB.Query(`SELECT id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override, domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, server_id, vulnerabilities_count, project_id, service_name FROM apps`)
 	if err != nil {
 		log.Printf("[db] failed to load apps: %v", err)
 		return
@@ -414,8 +429,9 @@ func loadStateFromDB() {
 		var autoDeploy sql.NullBool
 		var serverID sql.NullString
 		var vulnerabilitiesCount sql.NullInt64
+		var projectID, serviceName sql.NullString
 		err := rows.Scan(&a.ID, &a.Name, &a.Status, &a.GitRepo, &a.Branch, &a.Port, &a.URL, &a.CreatedAt, &a.GitToken, &a.RootDir, &envJSON, &a.BuildCommand, &a.StartCommand, &a.InstallCommand, &a.PortOverride,
-			&domainsJSON, &memory, &cpus, &volumesJSON, &healthPath, &activeContainer, &activeImage, &activeDeployID, &secretKeysJSON, &webhookSecret, &autoDeploy, &buildMethod, &dockerfilePath, &composePath, &composeProject, &composeService, &composeWeb, &composePrimary, &image, &catalogID, &dockerfileContent, &serverID, &vulnerabilitiesCount)
+			&domainsJSON, &memory, &cpus, &volumesJSON, &healthPath, &activeContainer, &activeImage, &activeDeployID, &secretKeysJSON, &webhookSecret, &autoDeploy, &buildMethod, &dockerfilePath, &composePath, &composeProject, &composeService, &composeWeb, &composePrimary, &image, &catalogID, &dockerfileContent, &serverID, &vulnerabilitiesCount, &projectID, &serviceName)
 		if err != nil {
 			log.Printf("[db] failed to scan app: %v", err)
 			continue
@@ -456,6 +472,8 @@ func loadStateFromDB() {
 			a.ServerID = "localhost"
 		}
 		a.VulnerabilitiesCount = int(vulnerabilitiesCount.Int64)
+		a.ProjectID = projectID.String
+		a.ServiceName = serviceName.String
 		if strings.Contains(a.URL, ".sslip.io") {
 			a.URL = defaultAppURL(a.ID, a.ServerID)
 		}
@@ -468,6 +486,29 @@ func loadStateFromDB() {
 	githubToken = decryptSecret(tok)
 
 	log.Printf("[db] Loaded %d apps from SQLite", len(apps))
+
+	projects = []Project{}
+	pRows, err := sqliteDB.Query(`SELECT id, name, description, created_at, server_id FROM projects ORDER BY created_at DESC`)
+	if err != nil {
+		log.Printf("[db] failed to load projects: %v", err)
+		return
+	}
+	defer pRows.Close()
+	for pRows.Next() {
+		var p Project
+		var serverID, description sql.NullString
+		if err := pRows.Scan(&p.ID, &p.Name, &description, &p.CreatedAt, &serverID); err != nil {
+			log.Printf("[db] failed to scan project: %v", err)
+			continue
+		}
+		p.Description = description.String
+		p.ServerID = serverID.String
+		if p.ServerID == "" {
+			p.ServerID = "localhost"
+		}
+		projects = append(projects, p)
+	}
+	log.Printf("[db] Loaded %d projects from SQLite", len(projects))
 }
 
 // ---------------------------------------------------------------------------
@@ -495,8 +536,8 @@ func dbSaveAppTx(tx *sql.Tx, app App) error {
 	encWebhook := encryptSecret(app.WebhookSecret)
 	_, err := tx.Exec(`
 		INSERT INTO apps (id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override,
-			domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, server_id, vulnerabilities_count)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, server_id, vulnerabilities_count, project_id, service_name)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name,
 			status=excluded.status,
@@ -533,9 +574,11 @@ func dbSaveAppTx(tx *sql.Tx, app App) error {
 			catalog_id=excluded.catalog_id,
 			dockerfile_content=excluded.dockerfile_content,
 			server_id=excluded.server_id,
-			vulnerabilities_count=excluded.vulnerabilities_count
+			vulnerabilities_count=excluded.vulnerabilities_count,
+			project_id=excluded.project_id,
+			service_name=excluded.service_name
 	`, app.ID, app.Name, app.Status, app.GitRepo, app.Branch, app.Port, app.URL, app.CreatedAt, encToken, app.RootDir, string(envJSON), app.BuildCommand, app.StartCommand, app.InstallCommand, app.PortOverride,
-		string(domainsJSON), app.Memory, app.CPUs, string(volumesJSON), app.HealthPath, app.ActiveContainer, app.ActiveImage, app.ActiveDeployID, string(secretKeysJSON), encWebhook, app.AutoDeploy, app.BuildMethod, app.DockerfilePath, app.ComposePath, app.ComposeProject, app.ComposeService, app.ComposeWeb, app.ComposePrimary, app.Image, app.CatalogID, app.DockerfileContent, app.ServerID, app.VulnerabilitiesCount)
+		string(domainsJSON), app.Memory, app.CPUs, string(volumesJSON), app.HealthPath, app.ActiveContainer, app.ActiveImage, app.ActiveDeployID, string(secretKeysJSON), encWebhook, app.AutoDeploy, app.BuildMethod, app.DockerfilePath, app.ComposePath, app.ComposeProject, app.ComposeService, app.ComposeWeb, app.ComposePrimary, app.Image, app.CatalogID, app.DockerfileContent, app.ServerID, app.VulnerabilitiesCount, app.ProjectID, app.ServiceName)
 	return err
 }
 

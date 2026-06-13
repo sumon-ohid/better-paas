@@ -499,11 +499,15 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 		Image:         tpl.Image,
 		StartCommand:  tpl.StartCommand,
 		CatalogID:     tpl.ID,
+		ProjectID:     appID,
+		ServiceName:   name,
 		WebhookSecret: generateRandomID() + generateRandomID(),
 	}
 	newApp.URL = defaultAppURL(newApp.ID, serverID)
 	apps = append(apps, newApp)
 	appsLock.Unlock()
+
+	ensureProjectForApp(newApp, name)
 
 	if err := dbSaveApp(newApp); err != nil {
 		log.Printf("[db] failed to save catalog app: %v", err)
@@ -737,8 +741,16 @@ func startCustomDeploy(w http.ResponseWriter, newApp App, trigger string) {
 	}
 	newApp.Name = uniqueAppName(newApp.Name, taken)
 	newApp.URL = defaultAppURL(newApp.ID, newApp.ServerID)
+	if newApp.ProjectID == "" {
+		newApp.ProjectID = newApp.ID
+	}
+	if newApp.ServiceName == "" {
+		newApp.ServiceName = newApp.Name
+	}
 	apps = append(apps, newApp)
 	appsLock.Unlock()
+
+	ensureProjectForApp(newApp, newApp.Name)
 
 	if err := dbSaveApp(newApp); err != nil {
 		log.Printf("[db] failed to save custom app: %v", err)

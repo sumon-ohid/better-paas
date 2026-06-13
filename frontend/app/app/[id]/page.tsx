@@ -18,6 +18,7 @@ import type {
   LogEntry,
   GitHubContent,
   Vulnerability,
+  ProjectSummary,
 } from "@/lib/types"
 import {
   makeRepoRef,
@@ -26,6 +27,10 @@ import {
   findDockerfile,
   type Framework,
 } from "@/lib/framework-detection"
+import {
+  getComposeServices,
+  resolveComposePrimary,
+} from "@/lib/app-groups"
 import { AppDetailProvider } from "./app-detail-context"
 import { AppDetailView } from "./app-detail-view"
 import type { AppTab } from "./app-detail-types"
@@ -39,6 +44,8 @@ function AppDetailPage() {
   const { showToast } = useToast()
 
   const [app, setApp] = useState<App | null>(null)
+  const [allApps, setAllApps] = useState<App[]>([])
+  const [allProjects, setAllProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [deployments, setDeployments] = useState<DeploymentRecord[]>([])
 
@@ -130,13 +137,19 @@ function AppDetailPage() {
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
-      const [appsData, deplData] = await Promise.all([
+      const [appsData, deplData, projectsData] = await Promise.all([
         api.apps.list(),
         api.deployments.history().catch(() => [] as DeploymentRecord[]),
+        api.projects.list().catch(() => [] as ProjectSummary[]),
       ])
       const found = appsData.find((a) => a.id === appId) ?? null
+      setAllApps(appsData)
+      setAllProjects(projectsData)
       setApp(found)
-      setDeployments(deplData.filter((d) => d.appId === appId))
+      const deploymentAppId = found
+        ? resolveComposePrimary(found, appsData).id
+        : appId
+      setDeployments(deplData.filter((d) => d.appId === deploymentAppId))
 
       if (found) {
         setGitRepo(found.gitRepo || "")
@@ -762,11 +775,30 @@ function AppDetailPage() {
     )
   }
 
+  const projectServices = getComposeServices(app, allApps)
+  const composePrimaryApp = resolveComposePrimary(app, allApps)
+  const isComposeChild =
+    Boolean(app.composeProject) &&
+    !app.composePrimary &&
+    projectServices.length > 1
+  const resolvedProjectId =
+    app.projectId || composePrimaryApp.id
+  const projectName =
+    allProjects.find((p) => p.id === resolvedProjectId)?.name ||
+    composePrimaryApp.name ||
+    app.name
+
   return (
     <AppDetailProvider
       value={{
         app,
         setApp,
+        allApps,
+        allProjects,
+        resolvedProjectId,
+        projectName,
+        composePrimaryApp,
+        isComposeChild,
         router,
         appId,
         deployments,

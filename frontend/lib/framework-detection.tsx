@@ -339,3 +339,292 @@ export async function findComposeFile(repo: GitHubRepo, branch: string, dir: str
   }
   return null
 }
+
+// ── Local upload detection (deploy wizard file upload) ───────────────────────
+
+export type UploadFileEntry = { path: string; file: File }
+
+export function uploadEntriesFromFiles(files: FileList | File[]): UploadFileEntry[] {
+  return Array.from(files).map((file) => ({
+    path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
+    file,
+  }))
+}
+
+export function uploadRelativePath(file: File): string {
+  return (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+}
+
+// When every path shares one top-level folder (typical folder picker result),
+// strip it so detection matches the backend upload layout.
+export function uploadCommonRootPrefix(files: File[]): string {
+  const paths = files.map(uploadRelativePath)
+  if (paths.length === 0) return ""
+  let root = ""
+  for (const p of paths) {
+    const seg = p.split("/")[0]
+    if (!seg) return ""
+    if (root === "") root = seg
+    else if (root !== seg) return ""
+  }
+  return root
+}
+
+function effectiveUploadPath(file: File, stripRoot: string): string {
+  let path = uploadRelativePath(file)
+  if (stripRoot && (path === stripRoot || path.startsWith(`${stripRoot}/`))) {
+    path = path.slice(stripRoot.length).replace(/^\//, "")
+  }
+  return path
+}
+
+function normalizeUploadDir(dir: string): string {
+  return dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()
+}
+
+export function listUploadDirectory(files: File[], dir: string): Array<{ name: string; type: "file" | "dir" }> {
+  const stripRoot = uploadCommonRootPrefix(files)
+  const normDir = normalizeUploadDir(dir)
+  const prefix = normDir ? `${normDir}/` : ""
+  const children = new Map<string, "file" | "dir">()
+
+  for (const file of files) {
+    const path = effectiveUploadPath(file, stripRoot)
+    if (normDir && !path.startsWith(prefix)) continue
+    const rest = normDir ? path.slice(prefix.length) : path
+    if (!rest) continue
+    const slash = rest.indexOf("/")
+    if (slash === -1) {
+      children.set(rest, "file")
+    } else {
+      children.set(rest.slice(0, slash), "dir")
+    }
+  }
+
+  return Array.from(children.entries())
+    .map(([name, type]) => ({ name, type }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function uploadDirAsGitHubContent(files: File[], dir: string): GitHubContent[] {
+  return listUploadDirectory(files, dir).map((item) => ({
+    name: item.name,
+    path: dir ? `${normalizeUploadDir(dir)}/${item.name}` : item.name,
+    type: item.type === "dir" ? "dir" : "file",
+  }))
+}
+
+async function readUploadTextFile(files: File[], relPath: string): Promise<string | null> {
+  const target = relPath.replace(/^\.\//, "")
+  const stripRoot = uploadCommonRootPrefix(files)
+  for (const file of files) {
+    if (effectiveUploadPath(file, stripRoot) === target) {
+      try {
+        return await file.text()
+      } catch {
+        return null
+      }
+    }
+  }
+  return null
+}
+
+async function detectInUploadDir(files: File[], dir: string): Promise<DirMatch | null> {
+  const items = listUploadDirectory(files, dir)
+  const fileNames = new Set(items.filter((i) => i.type === "file").map((i) => i.name.toLowerCase()))
+  const join = (name: string) => (dir ? `${normalizeUploadDir(dir)}/${name}` : name)
+  const high = (id: string): DirMatch | null => {
+    const f = fw(id)
+    return f ? { framework: f, confidence: "high" } : null
+  }
+
+  if (fileNames.has("next.config.js") || fileNames.has("next.config.ts") || fileNames.has("next.config.mjs") || fileNames.has("next.config.cjs"))
+    return high("nextjs")
+  if (fileNames.has("svelte.config.js") || fileNames.has("svelte.config.ts")) return high("svelte")
+  if (fileNames.has("astro.config.mjs") || fileNames.has("astro.config.js") || fileNames.has("astro.config.ts")) return high("astro")
+  if (fileNames.has("remix.config.js") || fileNames.has("remix.config.mjs")) return high("remix")
+  if (fileNames.has("vite.config.js") || fileNames.has("vite.config.ts") || fileNames.has("vite.config.mjs")) return high("vite")
+
+  if (fileNames.has("package.json")) {
+    const raw = await readUploadTextFile(files, join("package.json"))
+    if (raw) {
+      try {
+        const pkg = JSON.parse(raw)
+        const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }
+        const depNames = Object.keys(deps).map((d) => d.toLowerCase())
+        const has = (n: string) => depNames.includes(n)
+
+        if (has("next")) return high("nextjs")
+        if (has("@sveltejs/kit")) return high("svelte")
+        if (has("astro")) return high("astro")
+        if (has("@remix-run/dev") || has("@remix-run/react") || has("remix")) return high("remix")
+        if (has("react-scripts")) return high("react")
+        if (has("vite")) return high("vite")
+        if (has("@nestjs/core") || has("@nestjs/cli") || has("express") || has("fastify") || has("koa") || has("@hapi/hapi")) return high("node")
+
+        const scripts = (pkg.scripts || {}) as Record<string, string>
+        const scriptText = Object.values(scripts).join(" ").toLowerCase()
+        if (/(^|[\s&|;])next(\s|$|\s+(build|start|dev))/.test(scriptText)) return high("nextjs")
+        if (/(^|[\s&|;])astro(\s|$)/.test(scriptText)) return high("astro")
+        if (/(^|[\s&|;])remix(\s|$)/.test(scriptText)) return high("remix")
+        if (/(^|[\s&|;])vite(\s|$)/.test(scriptText)) return high("vite")
+
+        if (depNames.length > 0 || Object.keys(scripts).length > 0) {
+          const f = fw("node")
+          return f ? { framework: f, confidence: "low" } : null
+        }
+      } catch {
+        // fall through
+      }
+    }
+  }
+
+  if (fileNames.has("requirements.txt")) {
+    const content = ((await readUploadTextFile(files, join("requirements.txt"))) || "").toLowerCase()
+    if (content.includes("django")) return high("django")
+    if (content.includes("flask")) return high("flask")
+    if (content.includes("fastapi")) return high("fastapi")
+    return high("python")
+  }
+  if (fileNames.has("pyproject.toml")) {
+    const content = ((await readUploadTextFile(files, join("pyproject.toml"))) || "").toLowerCase()
+    if (content.includes("django")) return high("django")
+    if (content.includes("flask")) return high("flask")
+    if (content.includes("fastapi")) return high("fastapi")
+    return high("python")
+  }
+
+  if (fileNames.has("go.mod")) return high("go")
+  if (fileNames.has("cargo.toml")) return high("rust")
+  if (fileNames.has("composer.json")) return high("php")
+  if (fileNames.has("gemfile")) return high("ruby")
+  if (fileNames.has("mix.exs")) return high("elixir")
+  if (fileNames.has("pom.xml") || fileNames.has("build.gradle")) return high("java")
+  if ([...fileNames].some((f) => f.endsWith(".csproj") || f.endsWith(".sln"))) return high("dotnet")
+
+  if (fileNames.has("bun.lockb")) return high("bun")
+  if (fileNames.has("deno.json") || fileNames.has("deno.jsonc")) return high("deno")
+
+  if (fileNames.has("index.html") || fileNames.has("index.htm")) return high("staticfile")
+
+  if (files.length === 1 && items.length === 1 && items[0].type === "file") {
+    const ext = items[0].name.split(".").pop()?.toLowerCase() || ""
+    if (["html", "htm", "css", "js", "mjs", "json", "svg", "txt", "md"].includes(ext)) {
+      return high("staticfile")
+    }
+  }
+
+  return null
+}
+
+export async function detectFrameworkFromUpload(files: File[]): Promise<DetectionResult | null> {
+  if (files.length === 0) return null
+  try {
+    const rootItems = listUploadDirectory(files, "")
+    const rootContents: GitHubContent[] = rootItems.map((item) => ({
+      name: item.name,
+      path: item.name,
+      type: item.type === "dir" ? "dir" : "file",
+    }))
+    let rootPkg: Record<string, unknown> | null = null
+    if (rootItems.some((i) => i.name.toLowerCase() === "package.json" && i.type === "file")) {
+      const raw = await readUploadTextFile(files, "package.json")
+      if (raw) {
+        try {
+          rootPkg = JSON.parse(raw)
+        } catch {
+          rootPkg = null
+        }
+      }
+    }
+    const monorepo = isWorkspaceRoot(rootContents, rootPkg)
+    const rootMatch = await detectInUploadDir(files, "")
+
+    if (rootMatch && rootMatch.confidence === "high" && rootMatch.framework.id !== "node") {
+      return { framework: rootMatch.framework, rootDir: "" }
+    }
+
+    const candidates: string[] = []
+    for (const c of ["frontend", "client", "web", "app", "www", "ui", "site", "apps/web", "apps/frontend"]) {
+      const norm = c.replace(/^\.\//, "").trim()
+      if (listUploadDirectory(files, norm).length > 0 && !candidates.includes(norm)) candidates.push(norm)
+    }
+
+    for (const dir of candidates.slice(0, 12)) {
+      if (listUploadDirectory(files, dir).length === 0) continue
+      const sub = await detectInUploadDir(files, dir)
+      if (sub && sub.confidence === "high" && sub.framework.id !== "node") {
+        return { framework: sub.framework, rootDir: monorepo ? "" : dir }
+      }
+    }
+    if (rootMatch) return { framework: rootMatch.framework, rootDir: "" }
+  } catch (err) {
+    console.error("[FrameworkScan] upload error:", err)
+  }
+  return null
+}
+
+export async function detectFrameworkForUploadDir(files: File[], dir: string): Promise<Framework | null> {
+  const normalized = normalizeUploadDir(dir)
+  if (listUploadDirectory(files, normalized).length === 0) return null
+  const match = await detectInUploadDir(files, normalized)
+  return match ? match.framework : null
+}
+
+export function findDockerfileInUpload(files: File[], dir: string): string | null {
+  const normDir = normalizeUploadDir(dir)
+  const stripRoot = uploadCommonRootPrefix(files)
+  const dirPrefix = normDir ? `${normDir}/` : ""
+
+  let exact: string | null = null
+  let variant: string | null = null
+
+  for (const file of files) {
+    const path = effectiveUploadPath(file, stripRoot)
+    if (normDir) {
+      if (!path.startsWith(dirPrefix)) continue
+    }
+    const rel = normDir ? path.slice(dirPrefix.length) : path
+    if (rel.includes("/")) continue
+    const lower = rel.toLowerCase()
+    if (lower === "dockerfile") exact = rel
+    else if (!variant && lower.startsWith("dockerfile")) variant = rel
+  }
+
+  return exact || variant
+}
+
+export function findComposeFileInUpload(files: File[], dir: string): string | null {
+  const normDir = normalizeUploadDir(dir)
+  const stripRoot = uploadCommonRootPrefix(files)
+  const dirPrefix = normDir ? `${normDir}/` : ""
+
+  for (const file of files) {
+    const path = effectiveUploadPath(file, stripRoot)
+    if (normDir) {
+      if (!path.startsWith(dirPrefix)) continue
+    }
+    const rel = normDir ? path.slice(dirPrefix.length) : path
+    if (rel.includes("/")) continue
+    const lower = rel.toLowerCase()
+    for (const candidate of composeFileNames) {
+      if (lower === candidate) return rel
+    }
+  }
+  return null
+}
+
+export function deriveUploadAppName(files: File[]): string {
+  if (files.length === 0) return "app"
+  const firstPath = uploadRelativePath(files[0])
+  const base =
+    firstPath.includes("/") ? firstPath.split("/")[0] : firstPath.replace(/\.[^.]+$/, "")
+  const cleaned = base.toLowerCase().replace(/[^a-z0-9-]/g, "")
+  return cleaned || "app"
+}
+
+export function formatUploadSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
