@@ -7,11 +7,12 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 go build -ldflags "-X paas/internal/paas.version=docker" -o better-paas-backend .
 
 # Stage 2: Build the Next.js Frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /src/frontend
-RUN npm install -g pnpm
-COPY frontend/package.json frontend/pnpm-lock.yaml* ./
-RUN pnpm install --no-frozen-lockfile
+ENV CI=true
+RUN corepack enable && corepack prepare pnpm@11.1.2 --activate
+COPY frontend/package.json frontend/pnpm-lock.yaml* frontend/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 RUN pnpm build
 
@@ -46,9 +47,9 @@ RUN curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --de
 RUN curl -sSL https://nixpacks.com/install.sh | bash
 
 # Install Node.js and pnpm (required to run the frontend server)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
-    npm install -g pnpm && \
+    corepack enable && corepack prepare pnpm@11.1.2 --activate && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy backend binary

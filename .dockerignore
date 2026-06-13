@@ -1,0 +1,31 @@
+# Git and editor noise
+.git
+.github
+.DS_Store
+
+# Local release tooling
+release.sh
+
+# Runtime / local data
+builds/
+data/
+Caddyfile
+.wrangler
+
+# Frontend build artifacts and deps (reinstalled in the image)
+frontend/node_modules
+frontend/.next
+frontend/.turbo
+frontend/pnpm-debug.log*
+
+# Website (not part of the app image)
+website/node_modules
+website/.next
+website/dist
+
+# Test fixtures
+test-projects/**/node_modules
+
+# Docs and misc
+*.md
+!README.md
