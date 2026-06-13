@@ -192,6 +192,8 @@ export function AppDetailView() {
     setDockerfilePath,
     portOverride,
     setPortOverride,
+    autoDeploy,
+    setAutoDeploy,
     installCommand,
     setInstallCommand,
     buildCommand,
@@ -1042,6 +1044,25 @@ export function AppDetailView() {
                             />
                           </Field>
                         </div>
+                      )}
+
+                      {app.gitRepo?.includes("github.com") && (
+                        <label className="flex cursor-pointer items-start gap-2.5 border-t border-border pt-4">
+                          <input
+                            type="checkbox"
+                            checked={autoDeploy}
+                            onChange={(e) => setAutoDeploy(e.target.checked)}
+                            className="mt-0.5 h-4 w-4 accent-primary"
+                          />
+                          <div>
+                            <p className="text-xs font-medium text-foreground">
+                              Auto-deploy on git push
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              Redeploy when you push to the configured branch.
+                            </p>
+                          </div>
+                        </label>
                       )}
                     </CardPanel>
                   </Card>

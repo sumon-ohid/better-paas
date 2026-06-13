@@ -93,6 +93,7 @@ function AppDetailPage() {
   const [startCommand, setStartCommand] = useState("")
   const [installCommand, setInstallCommand] = useState("")
   const [portOverride, setPortOverride] = useState("")
+  const [autoDeploy, setAutoDeploy] = useState(false)
   const [buildMethod, setBuildMethod] = useState<
     "nixpacks" | "dockerfile" | "compose"
   >("nixpacks")
@@ -159,6 +160,7 @@ function AppDetailPage() {
         setStartCommand(found.startCommand || "")
         setInstallCommand(found.installCommand || "")
         setPortOverride(found.portOverride ? String(found.portOverride) : "")
+        setAutoDeploy(!!found.autoDeploy)
         setBuildMethod(
           found.buildMethod === "dockerfile"
             ? "dockerfile"
@@ -482,6 +484,7 @@ function AppDetailPage() {
                   ? dockerfilePath.trim() || "Dockerfile"
                   : undefined,
             }),
+        autoDeploy,
       })
       showToast("Settings Saved", "Application configuration updated.")
       setEnvMode("list")
@@ -840,6 +843,8 @@ function AppDetailPage() {
         setDockerfilePath,
         portOverride,
         setPortOverride,
+        autoDeploy,
+        setAutoDeploy,
         installCommand,
         setInstallCommand,
         buildCommand,

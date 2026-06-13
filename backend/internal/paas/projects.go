@@ -726,6 +726,10 @@ func handleProjectServiceDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonOK(w, newApp.Public())
+
+	if gitToken != "" && req.AutoDeploy {
+		scheduleGitHubWebhookSetup(newApp, webhookPublicBaseURL(r), gitToken)
+	}
 	go runPaaSDeployment(newApp, gitURL, deployID, logFile)
 }
 

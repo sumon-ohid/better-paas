@@ -30,7 +30,7 @@ type ConnectionStep = "intro" | "paste"
 const STEPS = [
   { n: 1, title: "Create a token", desc: "Generate a PAT with repo and admin:repo_hook scopes." },
   { n: 2, title: "Paste it here", desc: "Your token is saved on your server and never leaves it." },
-  { n: 3, title: "Browse and deploy", desc: "Pick any repo, select a branch, and go." },
+  { n: 3, title: "Browse and deploy", desc: "Pick a repo and branch — push webhooks are registered automatically." },
 ]
 
 export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConnectModalProps) {

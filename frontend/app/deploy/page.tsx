@@ -213,7 +213,7 @@ export default function DeployPage() {
   const [deployHealthPath, setDeployHealthPath] = useState("")
   const [deployDomains, setDeployDomains] = useState("")
   const [deployVolumes, setDeployVolumes] = useState("")
-  const [deployAutoDeploy, setDeployAutoDeploy] = useState(false)
+  const [deployAutoDeploy, setDeployAutoDeploy] = useState(true)
 
   // ── Detected framework ─────────────────────────────────────────────────────
   const [detectedFramework, setDetectedFramework] = useState<(typeof FRAMEWORKS)[0] | null>(null)
@@ -1779,8 +1779,8 @@ export default function DeployPage() {
                       <div>
                         <p className="text-xs font-medium text-foreground">Auto-deploy on push</p>
                         <p className="text-[11px] text-muted-foreground">
-                          Redeploy when you push to this branch. Set up the webhook after
-                          deploying.
+                          Redeploy when you push to this branch. With GitHub
+                          connected, the webhook is created automatically.
                         </p>
                       </div>
                     </label>

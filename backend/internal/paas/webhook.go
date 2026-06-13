@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -39,7 +40,7 @@ func handleGitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appID := strings.TrimPrefix(r.URL.Path, "/api/webhooks/github/")
+	appID := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/webhooks/github/"), "/")
 	if appID == "" || strings.Contains(appID, "/") {
 		jsonError(w, "Missing app id", http.StatusBadRequest)
 		return
@@ -157,4 +158,50 @@ func triggerAutoDeploy(app App) {
 	rebuildCaddyfile()
 
 	go runDeployment(app, normalizeGitURL(app.GitRepo), deployID, logFile, "webhook", "", false)
+}
+
+// resolvedGitHubToken returns the per-app git token, falling back to the
+// globally configured GitHub token from Settings.
+func resolvedGitHubToken(app App) string {
+	if tok := strings.TrimSpace(app.GitToken); tok != "" {
+		return tok
+	}
+	githubTokenLock.RLock()
+	defer githubTokenLock.RUnlock()
+	return githubToken
+}
+
+// scheduleGitHubWebhookSetup registers or updates the repo webhook on GitHub
+// in the background. On success it enables AutoDeploy for the app.
+func scheduleGitHubWebhookSetup(app App, publicBaseURL, gitToken string) {
+	if gitToken == "" || app.GitRepo == "" || app.WebhookSecret == "" {
+		return
+	}
+	slug := parseGitHubRepoSlug(app.GitRepo)
+	if slug == "" {
+		return
+	}
+	go func(a App, tok, baseURL, repoSlug string) {
+		hookURL := fmt.Sprintf("%s/api/webhooks/github/%s", strings.TrimSuffix(baseURL, "/"), a.ID)
+		log.Printf("[webhook] Auto-configuring webhook for app %s (%s)", a.ID, a.Name)
+		hookID, action, err := ensureGitHubRepoWebhook(tok, repoSlug, hookURL, a.WebhookSecret)
+		if err != nil {
+			log.Printf("[webhook] Failed to auto-configure webhook for app %s: %v", a.ID, err)
+			return
+		}
+		log.Printf("[webhook] Webhook auto-configured for app %s: hook ID %d, action %s", a.ID, hookID, action)
+
+		appsLock.Lock()
+		for i := range apps {
+			if apps[i].ID == a.ID {
+				apps[i].AutoDeploy = true
+				a = apps[i]
+				break
+			}
+		}
+		appsLock.Unlock()
+		if err := dbSaveApp(a); err != nil {
+			log.Printf("[db] failed to save app after auto-configuring webhook: %v", err)
+		}
+	}(app, gitToken, publicBaseURL, slug)
 }
