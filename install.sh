@@ -341,22 +341,23 @@ do_install_node() {
 install_node() {
   if command -v node &>/dev/null; then
     NODE_VER=$(node --version | sed 's/v//')
-    if version_ge "$NODE_VER" "18.17.0"; then
-      info "Node.js already installed: v${NODE_VER} (meets requirement >= 18.17.0)"
+    if version_ge "$NODE_VER" "22.13.0"; then
+      info "Node.js already installed: v${NODE_VER} (meets requirement >= 22.13.0)"
     else
-      warn "Installed Node.js version v${NODE_VER} is older than required 18.17.0."
+      warn "Installed Node.js version v${NODE_VER} is older than required 22.13.0."
       do_install_node
     fi
   else
     do_install_node
   fi
 
-  if ! command -v pnpm &>/dev/null; then
+  corepack enable 2>/dev/null || true
+  if ! corepack prepare pnpm@11.1.2 --activate 2>/dev/null; then
     info "Installing pnpm..."
     if [ "$OS" = "darwin" ]; then
-      brew install pnpm || npm install -g pnpm@latest
+      brew install pnpm || npm install -g pnpm@11.1.2
     else
-      npm install -g pnpm@latest
+      npm install -g pnpm@11.1.2
     fi
   fi
   success "Node.js and pnpm ready."

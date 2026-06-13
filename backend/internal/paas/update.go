@@ -412,16 +412,27 @@ if ! go build -ldflags "-s -w -X paas/internal/paas.version=%[2]s" -o server.new
   git -C "$REPO" checkout -f "$PREV_REF" || true
   exit 1
 fi
-# Keep a rollback copy, then atomically swap the new binary in.
-cp -f server server.bak 2>/dev/null || true
-mv -f server.new server
 
-echo "[updater] building frontend..."
+echo "[updater] preparing frontend toolchain..."
 cd "$FRONTEND" || exit 1
+if ! node -e "const v=process.versions.node.split('.').map(Number);process.exit(v[0]>22||(v[0]===22&&v[1]>=13)?0:1)" 2>/dev/null; then
+  echo "[updater] Node.js 22.13+ is required (found $(node -v 2>/dev/null || echo unknown))"
+  rm -f "$BACKEND/server.new"
+  git -C "$REPO" checkout -f "$PREV_REF" || true
+  exit 1
+fi
+corepack enable 2>/dev/null || true
+if ! corepack prepare pnpm@11.1.2 --activate; then
+  echo "[updater] failed to activate pnpm@11.1.2 via corepack"
+  rm -f "$BACKEND/server.new"
+  git -C "$REPO" checkout -f "$PREV_REF" || true
+  exit 1
+fi
+
+echo "[updater] installing frontend dependencies..."
 if ! pnpm install --frozen-lockfile; then
-  echo "[updater] frontend deps failed; rolling back before restart"
-  cd "$BACKEND" || exit 1
-  [ -f server.bak ] && mv -f server.bak server
+  echo "[updater] frontend deps failed; rolling back"
+  rm -f "$BACKEND/server.new"
   git -C "$REPO" checkout -f "$PREV_REF" || true
   exit 1
 fi
@@ -437,47 +448,51 @@ if [ "$FRONTEND_OOB" -eq 1 ]; then
   echo "[updater] building frontend out-of-band into .next.new ..."
   rm -rf "$FRONTEND_NEW_BUILD"
   if ! NEXT_DIST_DIR=".next.new" pnpm build; then
-    echo "[updater] frontend build failed; rolling back before restart"
+    echo "[updater] frontend build failed; rolling back"
     rm -rf "$FRONTEND_NEW_BUILD"
-    cd "$BACKEND" || exit 1
-    [ -f server.bak ] && mv -f server.bak server
+    rm -f "$BACKEND/server.new"
     git -C "$REPO" checkout -f "$PREV_REF" || true
     exit 1
   fi
 else
   prepare_frontend_build
   if ! pnpm build; then
-    echo "[updater] frontend build failed; rolling back before restart"
+    echo "[updater] frontend build failed; rolling back"
     restore_frontend_build
-    cd "$BACKEND" || exit 1
-    [ -f server.bak ] && mv -f server.bak server
+    rm -f "$BACKEND/server.new"
     git -C "$REPO" checkout -f "$PREV_REF" || true
     exit 1
   fi
 fi
 
-if ! restart_backend; then
-  echo "[updater] backend restart failed; rolling back"
-  restore_frontend_build
-  rm -rf "$FRONTEND_NEW_BUILD"
-  cd "$BACKEND" || exit 1
-  [ -f server.bak ] && mv -f server.bak server
-  git -C "$REPO" checkout -f "$PREV_REF" || true
-  exit 1
-fi
-# Promote the new frontend build at the last possible moment, immediately
-# before the frontend restarts, so the swap window is milliseconds instead of
-# the entire build duration.
+# Promote and restart the frontend BEFORE swapping the backend binary.
+# The dashboard marks the update complete when the backend restarts; if the
+# frontend were still on the old .next at that moment, operators would keep
+# seeing the previous UI even though the version badge already changed.
 if [ "$FRONTEND_OOB" -eq 1 ]; then
   swap_frontend_build
 fi
 if ! start_frontend; then
   echo "[updater] frontend restart failed; rolling back"
   restore_frontend_build
-  cd "$BACKEND" || exit 1
+  rm -rf "$FRONTEND_NEW_BUILD"
+  rm -f "$BACKEND/server.new"
+  git -C "$REPO" checkout -f "$PREV_REF" || true
+  exit 1
+fi
+
+echo "[updater] swapping backend binary and restarting..."
+cd "$BACKEND" || exit 1
+cp -f server server.bak 2>/dev/null || true
+mv -f server.new server
+if ! restart_backend; then
+  echo "[updater] backend restart failed; rolling back"
+  restore_frontend_build
+  rm -rf "$FRONTEND_NEW_BUILD"
   [ -f server.bak ] && mv -f server.bak server
   git -C "$REPO" checkout -f "$PREV_REF" || true
   restart_backend || true
+  start_frontend || true
   exit 1
 fi
 
@@ -550,8 +565,9 @@ func launchDetachedUpdater(scriptPath string) {
 	time.Sleep(2 * time.Second)
 }
 
-// resetUpdateStateOnBoot clears a stale "running" marker after a successful
-// restart, so the dashboard reflects that the new version is live.
+// resetUpdateStateOnBoot clears a stale "running" marker left behind when the
+// updater restarts the backend. The frontend is promoted before that restart,
+// so "completed" here means both tiers should already be on the new build.
 func resetUpdateStateOnBoot() {
 	if dbGetMeta(updateStateMetaKey) == "running" {
 		_ = dbSetMeta(updateStateMetaKey, "completed")
