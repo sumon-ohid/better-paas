@@ -44,14 +44,12 @@ import {
   AlertDialogDescription,
   AlertDialogClose,
 } from "@/components/ui/alert-dialog"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
@@ -64,9 +62,11 @@ import { IconFolder } from "nucleo-isometric"
 import {
   Card,
   CardAction,
+  CardFooter,
   CardFrame,
   CardFrameFooter,
   CardHeader,
+  CardPanel,
   CardTitle,
 } from "@/components/ui/card"
 import { Frame, FrameFooter } from "@/components/ui/frame"
@@ -131,6 +131,16 @@ function projectDescriptionText(project: ProjectSummary): string {
 
 function projectHasDescription(project: ProjectSummary): boolean {
   return Boolean(project.description?.trim())
+}
+
+const PROJECT_DESCRIPTION_MAX = 100
+
+function normalizeProjectNameInput(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
 }
 
 function projectTimeMeta(project: ProjectSummary): {
@@ -285,8 +295,8 @@ function ProjectTableRow({
             <p
               className={`line-clamp-2 text-xs mb-2${
                 projectHasDescription(project)
-                  ? "text-muted-foreground"
-                  : "italic text-muted-foreground/70"
+                  ? " text-muted-foreground"
+                  : " italic text-muted-foreground/70"
               }`}
             >
               {projectDescriptionText(project)}
@@ -1013,64 +1023,139 @@ function ApplicationsDashboard() {
           }
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-base">Create new project</DialogTitle>
-            <DialogDescription>
-              Projects group one or more services. You can add services after creating the project.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 px-6 pb-4">
-            <div className="space-y-2">
-              <Label htmlFor="project-name" className="text-sm font-medium">
-                Project name
-              </Label>
-              <Input
-                id="project-name"
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                placeholder="my-app"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) handleCreateProject()
-                }}
-              />
-              <p className="text-xs text-muted-foreground">
-                Lowercase letters, digits, and hyphens (2–40 characters).
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="project-description" className="text-sm font-medium">
-                Description
-                <span className="ml-1 font-normal text-muted-foreground">(optional)</span>
-              </Label>
-              <Textarea
-                id="project-description"
-                value={createDescription}
-                onChange={(e) => setCreateDescription(e.target.value)}
-                placeholder="What is this project for?"
-                rows={3}
-                maxLength={500}
-                className="resize-y text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                Shown on the project card. Up to 500 characters.
-              </p>
-            </div>
-          </div>
-          <DialogFooter className="shrink-0 border-t border-border">
-            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateProject}
-              disabled={isCreating || !createName.trim()}
-              className="gap-1.5"
-            >
-              <PlusIcon className="h-4 w-4" />
-              Create project
-            </Button>
-          </DialogFooter>
+        <DialogContent
+          className="max-w-lg border-0 bg-transparent p-0 shadow-none before:hidden [&::after]:hidden"
+          closeProps={{ className: "absolute end-3.5 top-3.5 z-10" }}
+        >
+          <Frame className="w-full border border-border/80 bg-muted/55 p-1 shadow-xs/5 dark:border-border/35 dark:bg-muted/25 dark:shadow-none">
+            <Card className="border-0 bg-background shadow-none before:hidden after:hidden dark:bg-card">
+              <CardHeader className="">
+                <div className="flex items-start gap-3 pr-8">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/30">
+                    <IconFolder className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <DialogTitle className="text-lg font-semibold leading-snug">
+                      Create new project
+                    </DialogTitle>
+                    <DialogDescription className="text-sm leading-relaxed">
+                      Group services under one project.
+                    </DialogDescription>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardPanel className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="project-name"
+                    className="text-xs font-semibold text-muted-foreground"
+                  >
+                    Project name
+                  </Label>
+                  <InputGroup>
+                    <InputGroupAddon align="inline-start">
+                      <IconFolder className="h-4 w-4 opacity-70" />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      id="project-name"
+                      value={createName}
+                      onChange={(e) =>
+                        setCreateName(normalizeProjectNameInput(e.target.value))
+                      }
+                      placeholder="my-app"
+                      className="font-mono text-sm"
+                      autoFocus
+                      aria-invalid={
+                        createName.length > 0 &&
+                        (createName.length < 2 || createName.length > 40)
+                          ? true
+                          : undefined
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) handleCreateProject()
+                      }}
+                    />
+                  </InputGroup>
+                  <p className="text-[11px] text-muted-foreground">
+                    Lowercase letters, digits, and hyphens · spaces become hyphens · 2–40 characters
+                    {createName.length > 0 ? (
+                      <span
+                        className={
+                          createName.length >= 2 && createName.length <= 40
+                            ? " text-foreground/70"
+                            : " text-destructive"
+                        }
+                      >
+                        {" "}
+                        · {createName.length}/40
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="project-description"
+                    className="text-xs font-semibold text-muted-foreground"
+                  >
+                    Description
+                    <span className="ml-1 font-normal normal-case">
+                      (optional)
+                    </span>
+                  </Label>
+                  <Textarea
+                    id="project-description"
+                    value={createDescription}
+                    onChange={(e) => setCreateDescription(e.target.value)}
+                    placeholder="What is this project for?"
+                    rows={3}
+                    maxLength={PROJECT_DESCRIPTION_MAX}
+                    className="max-h-32 min-h-20 resize-y overflow-y-auto text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Shown on the project card
+                    {createDescription.length > 0
+                      ? ` · ${createDescription.length}/${PROJECT_DESCRIPTION_MAX}`
+                      : ` · up to ${PROJECT_DESCRIPTION_MAX} characters`}
+                  </p>
+                </div>
+
+                <div className="flex gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-[11px] leading-snug text-muted-foreground">
+                  <NucleoIcon
+                    name="info"
+                    className="h-3.5 w-3.5 shrink-0 text-primary"
+                  />
+                  <span>
+                    After creating the project, add services from Git, Docker, or
+                    the catalog.
+                  </span>
+                </div>
+              </CardPanel>
+
+              <CardFooter className="justify-end gap-2 mt-4">
+                <DialogClose
+                  render={
+                    <Button variant="ghost" disabled={isCreating}>
+                      Cancel
+                    </Button>
+                  }
+                />
+                <Button
+                  onClick={handleCreateProject}
+                  disabled={
+                    isCreating ||
+                    createName.length < 2 ||
+                    createName.length > 40
+                  }
+                  loading={isCreating}
+                  className="gap-1.5"
+                >
+                  Create project
+                </Button>
+              </CardFooter>
+            </Card>
+          </Frame>
         </DialogContent>
       </Dialog>
 

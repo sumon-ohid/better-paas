@@ -426,8 +426,8 @@ func handleProjectCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	description := strings.TrimSpace(req.Description)
-	if len(description) > 500 {
-		jsonError(w, "description must be 500 characters or fewer", http.StatusBadRequest)
+	if len(description) > 100 {
+		jsonError(w, "description must be 100 characters or fewer", http.StatusBadRequest)
 		return
 	}
 
