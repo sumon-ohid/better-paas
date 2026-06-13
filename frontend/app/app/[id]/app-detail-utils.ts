@@ -28,6 +28,17 @@ export function githubCommitUrl(gitRepo: string, commit: string): string {
   return `https://github.com/${repoPath}/commit/${commit}`
 }
 
+// githubBranchUrl builds a link to a branch on GitHub from the app's git repo URL.
+export function githubBranchUrl(gitRepo: string, branch: string): string {
+  if (!branch || !gitRepo.includes("github.com")) return ""
+  const repoPath = gitRepo
+    .replace(/\.git$/, "")
+    .replace(/^git@github\.com:/, "")
+    .replace(/^https?:\/\/github\.com\//, "")
+    .replace(/^github\.com\//, "")
+  return `https://github.com/${repoPath}/tree/${encodeURIComponent(branch)}`
+}
+
 export type EnvVar = { key: string; value: string }
 
 export const serializeEnvVars = (

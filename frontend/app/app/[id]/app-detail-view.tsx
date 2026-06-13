@@ -84,6 +84,7 @@ import { Nix } from "@/components/ui/svgs/nix"
 import { useAppDetail } from "./app-detail-context"
 import {
   githubCommitUrl,
+  githubBranchUrl,
   lineColor,
   timeAgo,
 } from "./app-detail-utils"
@@ -276,6 +277,9 @@ export function AppDetailView() {
   const overviewCommitUrl = overviewCommit
     ? githubCommitUrl(app.gitRepo, overviewCommit)
     : ""
+  const overviewBranchUrl = app.branch
+    ? githubBranchUrl(app.gitRepo, app.branch)
+    : ""
   const overviewDomains = (
     app.domains && app.domains.length > 0 ? app.domains : [app.url]
   ).filter(Boolean)
@@ -382,10 +386,51 @@ export function AppDetailView() {
                   </Badge>
                 )}
                 {app.branch && (
-                  <span className="inline-flex shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground">
-                    <GitBranchIcon className="h-3 w-3" />
-                    {app.branch}
-                  </span>
+                  <div className="flex min-w-0 items-center gap-1.5 text-xs">
+                    <span className="shrink-0 text-muted-foreground">
+                      Current Branch
+                    </span>
+                    {overviewBranchUrl ? (
+                      <a
+                        href={overviewBranchUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-w-0 items-center gap-1 font-mono text-foreground transition-colors hover:text-primary"
+                      >
+                        <GitBranchIcon className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{app.branch}</span>
+                      </a>
+                    ) : (
+                      <span className="inline-flex min-w-0 items-center gap-1 font-mono text-muted-foreground">
+                        <GitBranchIcon className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{app.branch}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+                {overviewCommitMsg && (
+                  <div className="flex min-w-0 items-center gap-1.5 text-xs">
+                    {overviewCommitUrl ? (
+                      <a
+                        href={overviewCommitUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-w-0 items-center gap-1 text-muted-foreground transition-colors hover:text-primary"
+                        title={overviewCommit}
+                      >
+                        <GitCommitIcon className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{overviewCommitMsg}</span>
+                      </a>
+                    ) : (
+                      <span
+                        className="inline-flex min-w-0 items-center gap-1 text-muted-foreground"
+                        title={overviewCommit || undefined}
+                      >
+                        <GitCommitIcon className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{overviewCommitMsg}</span>
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
 
