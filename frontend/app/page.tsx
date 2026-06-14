@@ -381,7 +381,7 @@ function ProjectTableRow({
               {project.name}
             </span>
             <p
-              className={`line-clamp-2 text-xs mb-2${
+              className={`line-clamp-2 text-xs${
                 projectHasDescription(project)
                   ? " text-muted-foreground"
                   : " italic text-muted-foreground/70"
@@ -389,24 +389,6 @@ function ProjectTableRow({
             >
               {projectDescriptionText(project)}
             </p>
-            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-              <span className="text-xs text-muted-foreground">
-                {projectServiceLabel(project)}
-              </span>
-              {project.status === "failed" && project.focusServiceId ? (
-                <Button
-                  variant="link"
-                  size="xs"
-                  className="h-auto min-h-0 px-0 py-0 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onViewLogs()
-                  }}
-                >
-                  View logs
-                </Button>
-              ) : null}
-            </div>
           </div>
           {shouldShowServerBadge(project, activeServerId) ? (
             <ProjectServerBadge serverId={project.serverId} />
@@ -421,6 +403,26 @@ function ProjectTableRow({
       </TableCell>
       <TableCell>
         <ProjectSourceIcons project={project} compact />
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex flex-col items-end gap-0.5">
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {projectServiceLabel(project)}
+          </span>
+          {project.status === "failed" && project.focusServiceId ? (
+            <Button
+              variant="link"
+              size="xs"
+              className="h-auto min-h-0 px-0 py-0 text-xs text-muted-foreground hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation()
+                onViewLogs()
+              }}
+            >
+              View logs
+            </Button>
+          ) : null}
+        </div>
       </TableCell>
       <TableCell>
         <DeployedTimeHover
@@ -444,7 +446,7 @@ function ProjectTableRow({
   )
 }
 
-const TABLE_COLUMN_COUNT = 5
+const TABLE_COLUMN_COUNT = 6
 
 function AppTable({
   projects,
@@ -481,6 +483,9 @@ function AppTable({
             <TableHead style={{ width: "240px" }}>Name</TableHead>
             <TableHead style={{ width: "120px" }}>Status</TableHead>
             <TableHead style={{ width: "180px" }}>Deployed with</TableHead>
+            <TableHead className="text-right" style={{ width: "96px" }}>
+              Services
+            </TableHead>
             <TableHead style={{ width: "130px" }}>Activity</TableHead>
             <TableHead style={{ width: "72px" }}>
               <span className="sr-only">Actions</span>
