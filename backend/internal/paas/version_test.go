@@ -133,6 +133,17 @@ func TestLocalHealthURL(t *testing.T) {
 	}
 }
 
+func TestLocalFrontendURL(t *testing.T) {
+	t.Setenv("FRONTEND_PORT", "")
+	if got := localFrontendURL(); got != "http://127.0.0.1:3000" {
+		t.Errorf("default frontend URL = %q", got)
+	}
+	t.Setenv("FRONTEND_PORT", "3100")
+	if got := localFrontendURL(); got != "http://127.0.0.1:3100" {
+		t.Errorf("custom frontend URL = %q", got)
+	}
+}
+
 func TestUpdateScriptPreservesFrontendBuildOnRollback(t *testing.T) {
 	tmp := t.TempDir()
 	oldWd, err := os.Getwd()
@@ -172,7 +183,12 @@ func TestUpdateScriptPreservesFrontendBuildOnRollback(t *testing.T) {
 		`FRONTEND_PREV_BUILD="$FRONTEND/.next.pre-update"`,
 		"prepare_frontend_build",
 		"restore_frontend_build",
+		"restore_frontend_deps",
 		"discard_previous_frontend_build",
+		"stop_frontend",
+		"frontend_ready",
+		"rollback_early",
+		"rollback_full",
 		`mv ".next" "$FRONTEND_PREV_BUILD"`,
 		`mv "$FRONTEND_PREV_BUILD" ".next"`,
 	} {

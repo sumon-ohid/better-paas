@@ -263,12 +263,13 @@ func writeUpdateScript(targetRef string) (string, error) {
 	frontendDir := filepath.Join(repo, "frontend")
 	logPath, _ := filepath.Abs(updateLogFile)
 	healthURL := localHealthURL()
+	frontendURL := localFrontendURL()
 
 	// systemctl is used on Linux; on macOS/dev we relaunch via nohup.
 	useSystemd := commandExists("systemctl") && fileExists("/etc/systemd/system/better-paas-backend.service")
 
-	// restartBackend / startFrontend are emitted as bash functions so the
-	// health-check step can restart the backend again during rollback.
+	// Service control helpers are emitted as bash functions so rollback paths
+	// can stop/start/restart each tier independently.
 	var restartFns string
 	if useSystemd {
 		restartFns = `
@@ -288,9 +289,13 @@ restart_backend() {
   echo "[updater] restarting backend service..."
   run_systemctl restart better-paas-backend
 }
+stop_frontend() {
+  echo "[updater] stopping frontend service..."
+  run_systemctl stop better-paas-frontend || true
+}
 start_frontend() {
-  echo "[updater] restarting frontend service..."
-  run_systemctl restart better-paas-frontend
+  echo "[updater] starting frontend service..."
+  run_systemctl start better-paas-frontend
 }
 `
 	} else {
@@ -300,11 +305,14 @@ restart_backend() {
   pkill -f "%[1]s/server" 2>/dev/null || true
   ( cd "%[1]s" && nohup ./server > "%[1]s/server.log" 2>&1 & )
 }
-start_frontend() {
-  echo "[updater] relaunching frontend (dev/macOS)..."
+stop_frontend() {
+  echo "[updater] stopping frontend (dev/macOS)..."
   pkill -f "next-server" 2>/dev/null || true
   pkill -f "next start" 2>/dev/null || true
   lsof -t -i :3000 | xargs kill -9 2>/dev/null || true
+}
+start_frontend() {
+  echo "[updater] starting frontend (dev/macOS)..."
   ( cd "%[2]s" && nohup pnpm start > "%[2]s/frontend.log" 2>&1 & )
 }
 `, backendDir, frontendDir)
@@ -324,6 +332,7 @@ FRONTEND="%[5]s"
 FRONTEND_PREV_BUILD="$FRONTEND/.next.pre-update"
 FRONTEND_NEW_BUILD="$FRONTEND/.next.new"
 HEALTH_URL="%[7]s"
+FRONTEND_URL="%[8]s"
 %[6]s
 
 # Legacy in-place build: moves the live .next aside before building. Only used
@@ -342,12 +351,23 @@ prepare_frontend_build() {
 # requesting /_next/static/<old-hash>.css|js; keeping those files around
 # prevents unstyled pages after an update.
 swap_frontend_build() {
-  cd "$FRONTEND" || exit 1
+  cd "$FRONTEND" || return 1
+  if [ ! -d "$FRONTEND_NEW_BUILD" ]; then
+    echo "[updater] missing out-of-band build at $FRONTEND_NEW_BUILD"
+    return 1
+  fi
   rm -rf "$FRONTEND_PREV_BUILD"
   if [ -d ".next" ]; then
     mv ".next" "$FRONTEND_PREV_BUILD"
   fi
-  mv "$FRONTEND_NEW_BUILD" ".next"
+  if ! mv "$FRONTEND_NEW_BUILD" ".next"; then
+    echo "[updater] failed to promote $FRONTEND_NEW_BUILD to .next"
+    if [ -d "$FRONTEND_PREV_BUILD" ]; then
+      rm -rf ".next"
+      mv "$FRONTEND_PREV_BUILD" ".next" || true
+    fi
+    return 1
+  fi
   if [ -d "$FRONTEND_PREV_BUILD/static" ]; then
     mkdir -p ".next/static"
     cp -a -n "$FRONTEND_PREV_BUILD/static/." ".next/static/" 2>/dev/null || \
@@ -356,7 +376,7 @@ swap_frontend_build() {
 }
 
 restore_frontend_build() {
-  cd "$FRONTEND" || exit 1
+  cd "$FRONTEND" || return 1
   if [ -d "$FRONTEND_PREV_BUILD" ]; then
     rm -rf ".next"
     mv "$FRONTEND_PREV_BUILD" ".next"
@@ -364,8 +384,41 @@ restore_frontend_build() {
   fi
 }
 
+restore_frontend_deps() {
+  cd "$FRONTEND" || return 1
+  corepack enable 2>/dev/null || true
+  corepack prepare pnpm@11.1.2 --activate 2>/dev/null || true
+  echo "[updater] reinstalling frontend deps for current git ref..."
+  pnpm install --frozen-lockfile
+}
+
 discard_previous_frontend_build() {
   rm -rf "$FRONTEND_PREV_BUILD"
+}
+
+rollback_early() {
+  echo "[updater] rolling back before services were swapped: $1"
+  rm -f "$BACKEND/server.new"
+  rm -rf "$FRONTEND_NEW_BUILD"
+  git -C "$REPO" checkout -f "$PREV_REF" || echo "[updater] WARN: could not restore git ref"
+  restore_frontend_deps || echo "[updater] WARN: could not restore frontend deps"
+  start_frontend || true
+}
+
+rollback_full() {
+  echo "[updater] rolling back after partial swap: $1"
+  cd "$BACKEND" || true
+  if [ -f server.bak ]; then
+    mv -f server.bak server
+    echo "[updater] restored previous server binary."
+  fi
+  rm -f "$BACKEND/server.new"
+  rm -rf "$FRONTEND_NEW_BUILD"
+  git -C "$REPO" checkout -f "$PREV_REF" || echo "[updater] WARN: could not restore git ref"
+  restore_frontend_build || true
+  restore_frontend_deps || echo "[updater] WARN: could not restore frontend deps"
+  restart_backend || true
+  start_frontend || true
 }
 
 # health_has_version: returns 0 when the backend is healthy and reports the expected version.
@@ -374,6 +427,18 @@ health_has_version() {
   for _ in $(seq 1 30); do
     body="$(curl -fsS --max-time 3 "$HEALTH_URL" 2>/dev/null || true)"
     if printf '%%s' "$body" | grep -Fq "\"version\":\"$expected_version\""; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+# frontend_ready: returns 0 when the dashboard responds on loopback.
+frontend_ready() {
+  for _ in $(seq 1 30); do
+    code="$(curl -s -o /dev/null -w '%%{http_code}' --max-time 3 "$FRONTEND_URL" 2>/dev/null || echo 000)"
+    if [ "$code" != "000" ] && [ "$code" -lt 500 ]; then
       return 0
     fi
     sleep 2
@@ -402,14 +467,23 @@ if ! git fetch --all --tags --prune; then echo "[updater] git fetch failed"; exi
 PREV_REF="$(git rev-parse HEAD)"
 echo "[updater] current ref: $PREV_REF"
 
+# Stop the dashboard before mutating the checkout or node_modules. next start
+# needs node_modules at runtime; installing deps while it is running can leave
+# old .next paired with new node_modules and break the UI.
+stop_frontend
+
 echo "[updater] checking out %[2]s..."
-if ! git checkout -f "%[2]s"; then echo "[updater] checkout failed"; exit 1; fi
+if ! git checkout -f "%[2]s"; then
+  echo "[updater] checkout failed"
+  start_frontend || true
+  exit 1
+fi
 
 echo "[updater] building backend..."
 cd "$BACKEND" || exit 1
 if ! go build -ldflags "-s -w -X paas/internal/paas.version=%[2]s" -o server.new .; then
   echo "[updater] backend build failed; keeping current server"
-  git -C "$REPO" checkout -f "$PREV_REF" || true
+  rollback_early "backend build failed"
   exit 1
 fi
 
@@ -417,23 +491,20 @@ echo "[updater] preparing frontend toolchain..."
 cd "$FRONTEND" || exit 1
 if ! node -e "const v=process.versions.node.split('.').map(Number);process.exit(v[0]>22||(v[0]===22&&v[1]>=13)?0:1)" 2>/dev/null; then
   echo "[updater] Node.js 22.13+ is required (found $(node -v 2>/dev/null || echo unknown))"
-  rm -f "$BACKEND/server.new"
-  git -C "$REPO" checkout -f "$PREV_REF" || true
+  rollback_early "unsupported Node.js version"
   exit 1
 fi
 corepack enable 2>/dev/null || true
 if ! corepack prepare pnpm@11.1.2 --activate; then
   echo "[updater] failed to activate pnpm@11.1.2 via corepack"
-  rm -f "$BACKEND/server.new"
-  git -C "$REPO" checkout -f "$PREV_REF" || true
+  rollback_early "pnpm activation failed"
   exit 1
 fi
 
 echo "[updater] installing frontend dependencies..."
 if ! pnpm install --frozen-lockfile; then
   echo "[updater] frontend deps failed; rolling back"
-  rm -f "$BACKEND/server.new"
-  git -C "$REPO" checkout -f "$PREV_REF" || true
+  rollback_early "frontend dependency install failed"
   exit 1
 fi
 # Prefer an out-of-band build: the live frontend keeps serving its current
@@ -449,18 +520,15 @@ if [ "$FRONTEND_OOB" -eq 1 ]; then
   rm -rf "$FRONTEND_NEW_BUILD"
   if ! NEXT_DIST_DIR=".next.new" pnpm build; then
     echo "[updater] frontend build failed; rolling back"
-    rm -rf "$FRONTEND_NEW_BUILD"
-    rm -f "$BACKEND/server.new"
-    git -C "$REPO" checkout -f "$PREV_REF" || true
+    rollback_early "frontend build failed"
     exit 1
   fi
 else
   prepare_frontend_build
   if ! pnpm build; then
     echo "[updater] frontend build failed; rolling back"
-    restore_frontend_build
-    rm -f "$BACKEND/server.new"
-    git -C "$REPO" checkout -f "$PREV_REF" || true
+    restore_frontend_build || true
+    rollback_early "frontend build failed"
     exit 1
   fi
 fi
@@ -470,14 +538,21 @@ fi
 # frontend were still on the old .next at that moment, operators would keep
 # seeing the previous UI even though the version badge already changed.
 if [ "$FRONTEND_OOB" -eq 1 ]; then
-  swap_frontend_build
+  if ! swap_frontend_build; then
+    rollback_early "frontend build swap failed"
+    exit 1
+  fi
 fi
 if ! start_frontend; then
-  echo "[updater] frontend restart failed; rolling back"
-  restore_frontend_build
-  rm -rf "$FRONTEND_NEW_BUILD"
-  rm -f "$BACKEND/server.new"
-  git -C "$REPO" checkout -f "$PREV_REF" || true
+  echo "[updater] frontend start failed; rolling back"
+  rollback_full "frontend start failed"
+  exit 1
+fi
+
+echo "[updater] verifying frontend at $FRONTEND_URL ..."
+if ! frontend_ready; then
+  echo "[updater] frontend did not become ready; rolling back"
+  rollback_full "frontend health check failed"
   exit 1
 fi
 
@@ -487,16 +562,11 @@ cp -f server server.bak 2>/dev/null || true
 mv -f server.new server
 if ! restart_backend; then
   echo "[updater] backend restart failed; rolling back"
-  restore_frontend_build
-  rm -rf "$FRONTEND_NEW_BUILD"
-  [ -f server.bak ] && mv -f server.bak server
-  git -C "$REPO" checkout -f "$PREV_REF" || true
-  restart_backend || true
-  start_frontend || true
+  rollback_full "backend restart failed"
   exit 1
 fi
 
-echo "[updater] verifying health at $HEALTH_URL ..."
+echo "[updater] verifying backend health at $HEALTH_URL ..."
 if health_has_version "%[2]s"; then
   echo "[updater] new version is healthy."
   discard_previous_frontend_build
@@ -505,23 +575,15 @@ if health_has_version "%[2]s"; then
 fi
 
 echo "[updater] NEW VERSION FAILED HEALTH CHECK — rolling back."
-cd "$BACKEND" || exit 1
-if [ -f server.bak ]; then
-  mv -f server.bak server
-  echo "[updater] restored previous server binary."
-fi
-git -C "$REPO" checkout -f "$PREV_REF" || echo "[updater] WARN: could not restore previous ref"
-restore_frontend_build
-restart_backend
-start_frontend
-if health_any; then
+rollback_full "backend health check failed"
+if health_any && frontend_ready; then
   echo "[updater] rollback healthy; staying on previous version."
 else
   echo "[updater] WARN: rollback did not pass health check — manual intervention needed."
 fi
 echo "=== update ROLLED BACK $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) ==="
 exit 1
-`, logPath, shellSafe(targetRef), shellSafe(repo), shellSafe(backendDir), shellSafe(frontendDir), restartFns, shellSafe(healthURL))
+`, logPath, shellSafe(targetRef), shellSafe(repo), shellSafe(backendDir), shellSafe(frontendDir), restartFns, shellSafe(healthURL), shellSafe(frontendURL))
 
 	path := filepath.Join("data", "run-update.sh")
 	if err := os.WriteFile(path, []byte(script), 0700); err != nil {
@@ -542,6 +604,15 @@ func localHealthURL() string {
 		}
 	}
 	return fmt.Sprintf("http://127.0.0.1:%s/api/health", port)
+}
+
+// localFrontendURL returns a loopback URL for the dashboard health probe.
+func localFrontendURL() string {
+	port := "3000"
+	if v := strings.TrimSpace(os.Getenv("FRONTEND_PORT")); v != "" {
+		port = v
+	}
+	return fmt.Sprintf("http://127.0.0.1:%s", port)
 }
 
 // launchDetachedUpdater starts the updater script fully detached so it survives

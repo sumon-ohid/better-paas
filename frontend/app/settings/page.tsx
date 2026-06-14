@@ -184,11 +184,19 @@ export default function SettingsPage() {
   const [savingDomain, setSavingDomain] = useState(false)
 
   const pollUpdateProgress = useCallback(async () => {
+    let errorRetries = 0
+    const maxErrorRetries = 120
+
     const poll = async () => {
       try {
         const p = await api.system.updateStatus()
         setUpdateProgress(p)
-        if (p.inProgress) {
+        errorRetries = 0
+        const stillRunning =
+          p.inProgress ||
+          p.state === "running" ||
+          p.state === "starting"
+        if (stillRunning) {
           setTimeout(poll, 1500)
         } else {
           setPollingUpdate(false)
@@ -202,7 +210,13 @@ export default function SettingsPage() {
           }
         }
       } catch {
-        setPollingUpdate(false)
+        // The backend restarts mid-update; keep polling through brief outages.
+        errorRetries++
+        if (errorRetries < maxErrorRetries) {
+          setTimeout(poll, 1500)
+        } else {
+          setPollingUpdate(false)
+        }
       }
     }
     await poll()
