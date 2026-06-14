@@ -1,20 +1,10 @@
 "use client"
 
-import type React from "react"
 import { NucleoIcon } from "@/components/nucleo-icons"
-import { Button } from "@/components/ui/button"
 import {
-  Card,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card"
-import {
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Frame } from "@/components/ui/frame"
+  FramedDialogActions,
+  FRAMED_DIALOG_FRAME_CLASS,
+} from "@/components/framed-dialog"
 import {
   InputGroup,
   InputGroupAddon,
@@ -23,11 +13,16 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { IconFolder } from "nucleo-isometric"
-import { cn } from "@/lib/utils"
 
 export const PROJECT_DESCRIPTION_MAX = 100
 export const PROJECT_NAME_MIN = 2
 export const PROJECT_NAME_MAX = 40
+export const PROJECT_FORM_DIALOG_FRAME_CLASS = FRAMED_DIALOG_FRAME_CLASS
+
+export {
+  FramedDialog as ProjectFormDialog,
+  FramedDialogHeader as ProjectFormDialogHeader,
+} from "@/components/framed-dialog"
 
 const PROJECT_NAME_HINT =
   "Lowercase letters, digits, and hyphens · spaces become hyphens · 2–40 characters"
@@ -42,62 +37,6 @@ export function normalizeProjectNameInput(value: string): string {
 
 export function isValidProjectName(name: string): boolean {
   return name.length >= PROJECT_NAME_MIN && name.length <= PROJECT_NAME_MAX
-}
-
-export const PROJECT_FORM_DIALOG_FRAME_CLASS = "bg-background/50"
-
-export function ProjectFormDialog({
-  frameClassName = PROJECT_FORM_DIALOG_FRAME_CLASS,
-  children,
-}: {
-  frameClassName?: string
-  children: React.ReactNode
-}) {
-  return (
-    <DialogContent
-      className="max-w-lg border-0 bg-transparent p-0 shadow-none before:hidden [&::after]:hidden"
-      closeProps={{ className: "absolute end-3.5 top-3.5 z-10" }}
-    >
-      <Frame
-        className={cn(
-          "w-full border border-border/80 p-1 shadow-xs/5 dark:border-border/35 dark:bg-muted/25 dark:shadow-none",
-          frameClassName,
-        )}
-      >
-        <Card className="border-0 bg-background shadow-none before:hidden after:hidden dark:bg-card">
-          {children}
-        </Card>
-      </Frame>
-    </DialogContent>
-  )
-}
-
-export function ProjectFormDialogHeader({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode
-  title: string
-  description: string
-}) {
-  return (
-    <CardHeader>
-      <div className="flex items-start gap-3 pr-8">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/30">
-          {icon}
-        </div>
-        <div className="min-w-0 space-y-0.5">
-          <DialogTitle className="text-lg font-semibold leading-snug">
-            {title}
-          </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">
-            {description}
-          </DialogDescription>
-        </div>
-      </div>
-    </CardHeader>
-  )
 }
 
 export function ProjectNameField({
@@ -219,22 +158,13 @@ export function ProjectFormDialogFooter({
   submitClassName?: string
 }) {
   return (
-    <CardFooter className="mt-4 justify-end gap-2">
-      <DialogClose
-        render={
-          <Button variant="ghost" disabled={cancelDisabled}>
-            Cancel
-          </Button>
-        }
-      />
-      <Button
-        onClick={onSubmit}
-        disabled={submitDisabled}
-        loading={submitLoading}
-        className={submitClassName}
-      >
-        {submitLabel}
-      </Button>
-    </CardFooter>
+    <FramedDialogActions
+      cancelDisabled={cancelDisabled}
+      submitLabel={submitLabel}
+      submitDisabled={submitDisabled}
+      submitLoading={submitLoading}
+      onSubmit={onSubmit}
+      submitClassName={submitClassName}
+    />
   )
 }

@@ -25,6 +25,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  FramedDialog,
+  FramedDialogBody,
+  FramedDialogFooter,
+  FramedDialogHeader,
+} from "@/components/framed-dialog"
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -426,19 +432,15 @@ export function AddServerWizard({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <ServerIcon className="h-4 w-4 text-muted-foreground" />
-            Add Remote Server
-          </DialogTitle>
-          <DialogDescription>
-            Connect a VPS or cloud server to deploy apps on it.
-          </DialogDescription>
-        </DialogHeader>
+      <FramedDialog scrollable>
+        <FramedDialogHeader
+          icon={<ServerIcon className="h-5 w-5 text-muted-foreground" />}
+          title="Add Remote Server"
+          description="Connect a VPS or cloud server to deploy apps on it."
+        />
 
         {/* Step indicator */}
-        <div className="mx-auto mb-3 flex w-full max-w-[420px] items-center justify-center gap-1.5 pt-1 sm:justify-between sm:gap-2">
+        <div className="mx-auto -mt-2 mb-3 flex w-full shrink-0 items-center justify-between gap-2 px-6 pb-2">
           {([1, 2, 3] as WizardStep[]).map((s, i) => (
             <React.Fragment key={s}>
               <div className="flex shrink-0 items-center gap-1.5">
@@ -471,17 +473,17 @@ export function AddServerWizard({
                       : "Test Connection"}
                 </span>
               </div>
-              {i < 2 && <div className="h-px w-3 bg-border sm:flex-1" />}
+              {i < 2 && <div className="h-px min-w-4 flex-1 bg-border" />}
             </React.Fragment>
           ))}
         </div>
 
-        <DialogPanel className="space-y-4 pt-2">
+        <FramedDialogBody className="space-y-4">
           {/* Step 1: Server info */}
           {step === 1 && (
             <div className="animate-in fade-in-50 space-y-4 duration-200">
               {error && (
-                <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
                   {error}
                 </div>
               )}
@@ -491,7 +493,7 @@ export function AddServerWizard({
                 onValueChange={(value) => {
                   if (value === "manual" || value === "cloud") setMode(value)
                 }}
-                className="gap-4"
+                className="gap-3"
               >
                 <TabsList className="w-full [&>[data-slot=tabs-tab]]:flex-1">
                   <TabsTab value="manual">Manual SSH</TabsTab>
@@ -499,6 +501,39 @@ export function AddServerWizard({
                 </TabsList>
 
                 <div className="grid gap-3 sm:grid-cols-2">
+                  {mode === "cloud" ? (
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label className="text-xs font-semibold text-muted-foreground">
+                        Provider
+                      </Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {CLOUD_PROVIDERS.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => selectProvider(item.id)}
+                            className={`flex flex-col items-center gap-1.5 rounded-lg px-2 py-2.5 text-center transition-colors ${
+                              provider === item.id
+                                ? "bg-primary/10 ring-1 ring-primary/40"
+                                : "bg-muted/25 hover:bg-muted/40"
+                            }`}
+                          >
+                            <ProviderLogo
+                              provider={item.id}
+                              className="h-7 w-7"
+                            />
+                            <span className="text-xs font-semibold text-foreground">
+                              {item.name}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        {providerConfig.description}
+                      </p>
+                    </div>
+                  ) : null}
+
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label className="text-xs font-semibold text-muted-foreground">
                       Server Name <span className="text-destructive">*</span>
@@ -587,33 +622,6 @@ export function AddServerWizard({
                         >
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5 sm:col-span-2">
-                              <div className="grid gap-2 sm:grid-cols-3">
-                                {CLOUD_PROVIDERS.map((item) => (
-                                  <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => selectProvider(item.id)}
-                                    className={`min-h-[112px] rounded-lg border p-3 text-left transition-colors ${
-                                      provider === item.id
-                                        ? "border-primary bg-primary/10"
-                                        : "border-border bg-muted/10 hover:border-primary/40 hover:bg-muted/20"
-                                    }`}
-                                  >
-                                    <ProviderLogo
-                                      provider={item.id}
-                                      className="h-9 w-9"
-                                    />
-                                    <div className="mt-3 text-sm font-semibold text-foreground">
-                                      {item.name}
-                                    </div>
-                                    <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                                      {item.description}
-                                    </div>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="space-y-1.5 sm:col-span-2">
                               <div className="flex items-center justify-between gap-3">
                                 <Label className="text-xs font-semibold text-muted-foreground">
                                   {providerConfig.name} Token{" "}
@@ -700,7 +708,7 @@ export function AddServerWizard({
                                 </SelectContent>
                               </Select>
                             </div>
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5 sm:col-span-2">
                               <Label className="text-xs font-semibold text-muted-foreground">
                                 Image
                               </Label>
@@ -712,11 +720,11 @@ export function AddServerWizard({
                                 className="font-mono text-sm"
                               />
                             </div>
-                            <div className="rounded-lg border border-border bg-muted/15 px-3 py-2 text-xs leading-relaxed text-muted-foreground sm:col-span-2">
+                            <p className="text-[11px] leading-relaxed text-muted-foreground sm:col-span-2">
                               Better PaaS will create the VM, install your SSH
-                              key, run cloud-init to install Docker, and then
-                              save the server with the returned public IP.
-                            </div>
+                              key, run cloud-init to install Docker, and save
+                              the server with the returned public IP.
+                            </p>
                           </div>
                         </motion.div>
                       )}
@@ -743,20 +751,18 @@ export function AddServerWizard({
           {/* Step 2: Public key */}
           {step === 2 && (
             <div className="animate-in fade-in-50 space-y-4 duration-200">
-              <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
-                <div className="flex items-start gap-2.5">
-                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <KeyIcon className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      SSH Key Generated
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      We generated a secure Ed25519 key pair. Add the public key
-                      below to your server.
-                    </p>
-                  </div>
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <KeyIcon className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    SSH Key Generated
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    We generated a secure Ed25519 key pair. Add the public key
+                    below to your server.
+                  </p>
                 </div>
               </div>
 
@@ -765,7 +771,7 @@ export function AddServerWizard({
                   Public Key (paste into your server)
                 </Label>
                 <div className="relative">
-                  <pre className="max-h-28 overflow-x-auto overflow-y-auto rounded-lg border border-border bg-[#090a0f] p-3 pr-12 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-green-400">
+                  <pre className="max-h-28 overflow-x-auto overflow-y-auto rounded-lg bg-[#090a0f] p-3 pr-12 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-green-400">
                     {publicKey || "Generating…"}
                   </pre>
                   <button
@@ -788,7 +794,7 @@ export function AddServerWizard({
                   Quick install command — run this on your server terminal:
                 </Label>
                 <div className="relative">
-                  <pre className="overflow-x-auto rounded-lg border border-border bg-[#090a0f] p-3 pr-12 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-slate-200">
+                  <pre className="overflow-x-auto rounded-lg bg-[#090a0f] p-3 pr-12 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-slate-200">
                     {`echo '${publicKey}' >> ~/.ssh/authorized_keys`}
                   </pre>
                   <button
@@ -816,12 +822,12 @@ export function AddServerWizard({
           {/* Step 3: Test connection */}
           {step === 3 && (
             <div className="animate-in fade-in-50 space-y-4 duration-200">
-              <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4 text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <div className="space-y-2 text-center">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   {mode === "cloud" ? (
-                    <ProviderLogo provider={provider} className="h-8 w-8" />
+                    <ProviderLogo provider={provider} className="h-7 w-7" />
                   ) : (
-                    <ServerIcon className="h-6 w-6" />
+                    <ServerIcon className="h-5 w-5" />
                   )}
                 </div>
                 <div>
@@ -837,10 +843,10 @@ export function AddServerWizard({
 
               {testResult && (
                 <div
-                  className={`rounded-lg border px-4 py-3 text-sm ${
+                  className={`rounded-lg px-4 py-3 text-sm ${
                     testResult.status === "connected"
-                      ? "border-success/30 bg-success/10 text-success"
-                      : "border-destructive/30 bg-destructive/10 text-destructive"
+                      ? "bg-success/10 text-success"
+                      : "bg-destructive/10 text-destructive"
                   }`}
                 >
                   {testResult.status === "connected" ? (
@@ -890,13 +896,16 @@ export function AddServerWizard({
               </p>
             </div>
           )}
-        </DialogPanel>
+        </FramedDialogBody>
 
-        <DialogFooter className="gap-2">
+        <FramedDialogFooter
+          pinned
+          className="gap-2 [&>button]:flex-1 !justify-normal"
+        >
           {step === 1 && (
             <>
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={handleClose}
                 className="flex-1"
               >
@@ -916,7 +925,7 @@ export function AddServerWizard({
           {step === 2 && (
             <>
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => {
                   if (createdServer) {
                     api.servers.delete(createdServer.id).catch((err) => {
@@ -944,7 +953,7 @@ export function AddServerWizard({
           {step === 3 && (
             <>
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => {
                   if (mode === "cloud") {
                     if (createdServer) {
@@ -973,8 +982,8 @@ export function AddServerWizard({
               </Button>
             </>
           )}
-        </DialogFooter>
-      </DialogContent>
+        </FramedDialogFooter>
+      </FramedDialog>
     </Dialog>
   )
 }
