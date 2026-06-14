@@ -3,20 +3,18 @@
 import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Dialog } from "@/components/ui/dialog"
 import {
-  Dialog,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogPanel,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog"
+  FramedDialog,
+  FramedDialogBody,
+  FramedDialogFooter,
+  FramedDialogHeader,
+} from "@/components/framed-dialog"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
 import { GithubDark } from "@/components/ui/svgs/githubDark"
-import { Eye, EyeOff, RefreshCw } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 import { api } from "@/lib/api"
 
 interface GitHubConnectModalProps {
@@ -28,20 +26,48 @@ interface GitHubConnectModalProps {
 type ConnectionStep = "intro" | "paste"
 
 const STEPS = [
-  { n: 1, title: "Create a token", desc: "Generate a PAT with repo and admin:repo_hook scopes." },
-  { n: 2, title: "Paste it here", desc: "Your token is saved on your server and never leaves it." },
-  { n: 3, title: "Browse and deploy", desc: "Pick a repo and branch — push webhooks are registered automatically." },
-]
+  {
+    title: "Create a token",
+    description: (
+      <>
+        Generate a PAT with{" "}
+        <code className="font-mono text-[11px] text-foreground/80">repo</code> and{" "}
+        <code className="font-mono text-[11px] text-foreground/80">admin:repo_hook</code>{" "}
+        scopes.
+      </>
+    ),
+  },
+  {
+    title: "Paste it here",
+    description: "Your token is saved on your server and never leaves it.",
+  },
+  {
+    title: "Browse and deploy",
+    description:
+      "Pick a repo and branch — push webhooks are registered automatically.",
+  },
+] as const
 
-export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConnectModalProps) {
+const githubTokenUrl =
+  "https://github.com/settings/tokens/new?description=BaaS+Deploy+Token&scopes=repo,read:user,admin:repo_hook"
+
+export function GitHubConnectModal({
+  isOpen,
+  onClose,
+  onConnected,
+}: GitHubConnectModalProps) {
   const [step, setStep] = useState<ConnectionStep>("intro")
   const [token, setToken] = useState("")
   const [showToken, setShowToken] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState("")
 
-  const githubTokenUrl =
-    "https://github.com/settings/tokens/new?description=BaaS+Deploy+Token&scopes=repo,read:user,admin:repo_hook"
+  const resetState = () => {
+    setStep("intro")
+    setToken("")
+    setError("")
+    setShowToken(false)
+  }
 
   const handleSave = async () => {
     if (!token.trim()) {
@@ -53,7 +79,6 @@ export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConne
     setError("")
 
     try {
-      // Validate token first
       const res = await fetch("https://api.github.com/user", {
         headers: {
           Authorization: `Bearer ${token.trim()}`,
@@ -62,22 +87,16 @@ export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConne
       })
 
       if (!res.ok) {
-        if (res.status === 401) {
-          setError("Invalid token. Please check and try again.")
-        } else {
-          setError(`GitHub API error: ${res.status}`)
-        }
-        setIsSaving(false)
+        setError(
+          res.status === 401
+            ? "Invalid token. Please check and try again."
+            : `GitHub API error: ${res.status}`,
+        )
         return
       }
 
-      // Save to backend
       await api.git.saveToken(token.trim())
-
-      // Reset and notify
-      setStep("intro")
-      setToken("")
-      setError("")
+      resetState()
       onConnected()
       onClose()
     } catch (err) {
@@ -85,12 +104,6 @@ export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConne
     } finally {
       setIsSaving(false)
     }
-  }
-
-  const resetState = () => {
-    setStep("intro")
-    setToken("")
-    setError("")
   }
 
   return (
@@ -103,80 +116,56 @@ export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConne
         }
       }}
     >
-      <DialogPopup className="max-w-md">
-        <DialogHeader>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40">
-              <GithubLight className="h-5 w-5 dark:hidden" />
-              <GithubDark className="hidden h-5 w-5 dark:block" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-base">Connect GitHub</DialogTitle>
-              <DialogDescription className="text-xs">
-                Secure access to your repositories
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+      <FramedDialog contentClassName="max-w-md">
+        <FramedDialogHeader
+          icon={
+            <>
+              <GithubLight className="h-6 w-6 dark:hidden" />
+              <GithubDark className="hidden h-6 w-6 dark:block" />
+            </>
+          }
+          title="Connect GitHub"
+          description="Secure access to your repositories"
+        />
 
-        <DialogPanel>
+        <FramedDialogBody>
           {step === "intro" ? (
-            <div className="space-y-5 animate-in fade-in-50">
-              <div className="space-y-3">
-                {STEPS.map((s) => (
-                  <div key={s.n} className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                      <span className="text-xs font-bold text-primary">{s.n}</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{s.title}</p>
-                      <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                        {s.title === "Create a token" ? (
-                          <>
-                            Generate a PAT with{" "}
-                            <code className="rounded bg-muted px-1 py-0.5 text-[10px]">repo</code>{" "}
-                            and{" "}
-                            <code className="rounded bg-muted px-1 py-0.5 text-[10px]">admin:repo_hook</code>{" "}
-                            scopes.
-                          </>
-                        ) : (
-                          s.desc
-                        )}
-                      </p>
-                    </div>
+            <ol className="space-y-4">
+              {STEPS.map((item, index) => (
+                <li key={item.title} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    {index < STEPS.length - 1 ? (
+                      <span
+                        aria-hidden
+                        className="mt-2.5 w-px flex-1 min-h-3 bg-border/70"
+                      />
+                    ) : null}
                   </div>
-                ))}
-              </div>
-
-              <div className="space-y-2 pt-1">
-                <a
-                  href={githubTokenUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-foreground text-sm font-semibold text-background transition-colors hover:bg-foreground/90"
-                >
-                  <GithubLight className="hidden h-5 w-5 dark:block" />
-                  <GithubDark className="h-5 w-5 dark:hidden" />
-                  Generate Token on GitHub
-                  <NucleoIcon name="external" className="h-3 w-3 opacity-60" />
-                </a>
-
-                <Button
-                  onClick={() => setStep("paste")}
-                  variant="outline"
-                  className="h-9 w-full text-sm"
-                >
-                  I already have a token
-                </Button>
-              </div>
-            </div>
+                  <div className="min-w-0 pb-1">
+                    <p className="text-sm font-medium text-foreground">
+                      {item.title}
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                      {item.description}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           ) : (
-            <div className="space-y-1.5 animate-in fade-in-50">
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Personal Access Token
-              </label>
+            <div className="space-y-2">
+              <Label
+                htmlFor="github-token"
+                className="text-xs font-semibold text-muted-foreground"
+              >
+                Personal access token
+              </Label>
               <div className="relative">
                 <Input
+                  id="github-token"
                   type={showToken ? "text" : "password"}
                   value={token}
                   onChange={(e) => {
@@ -187,6 +176,7 @@ export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConne
                   className="h-9 pr-10 font-mono text-sm"
                   autoComplete="off"
                   autoFocus
+                  aria-invalid={error ? true : undefined}
                 />
                 <button
                   type="button"
@@ -194,33 +184,67 @@ export function GitHubConnectModal({ isOpen, onClose, onConnected }: GitHubConne
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                   aria-label={showToken ? "Hide token" : "Show token"}
                 >
-                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showToken ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
-              {error && <p className="mt-1 text-[11px] text-destructive-foreground">{error}</p>}
+              {error ? (
+                <p className="text-[11px] text-destructive">{error}</p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Paste a classic or fine-grained token with repository access.
+                </p>
+              )}
             </div>
           )}
-        </DialogPanel>
+        </FramedDialogBody>
 
-        {step === "paste" && (
-          <DialogFooter>
-            <Button onClick={() => setStep("intro")} variant="outline" className="h-9 text-sm">
+        {step === "intro" ? (
+          <FramedDialogFooter
+            pinned
+            className="flex-col items-stretch gap-2 sm:flex-col"
+          >
+            <Button
+              render={
+                <a
+                  href={githubTokenUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              }
+              className="w-full gap-2"
+            >
+              <GithubLight className="hidden h-4 w-4 dark:block" />
+              <GithubDark className="h-4 w-4 dark:hidden" />
+              Generate token on GitHub
+              <NucleoIcon name="external" className="h-3.5 w-3.5 opacity-70" />
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setStep("paste")}
+              className="w-full"
+            >
+              I already have a token
+            </Button>
+          </FramedDialogFooter>
+        ) : (
+          <FramedDialogFooter pinned>
+            <Button variant="ghost" onClick={() => setStep("intro")}>
               Back
             </Button>
             <Button
               onClick={handleSave}
               disabled={isSaving || !token.trim()}
-              className="h-9 gap-1.5 text-sm"
+              loading={isSaving}
             >
-              {isSaving && <RefreshCw className="h-3 w-3 animate-spin" />}
-              {isSaving ? "Saving..." : "Save Token"}
+              Save token
             </Button>
-          </DialogFooter>
+          </FramedDialogFooter>
         )}
-
-        {/* Hidden close target so Esc / backdrop close work through the primitive */}
-        <DialogClose className="sr-only">Close</DialogClose>
-      </DialogPopup>
+      </FramedDialog>
     </Dialog>
   )
 }
