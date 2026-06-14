@@ -51,15 +51,16 @@ import {
   AlertDialogDescription,
   AlertDialogClose,
 } from "@/components/ui/alert-dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { Dialog } from "@/components/ui/dialog"
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
+  isValidProjectName,
+  ProjectCreateInfoCallout,
+  ProjectDescriptionField,
+  ProjectFormDialog,
+  ProjectFormDialogFooter,
+  ProjectFormDialogHeader,
+  ProjectNameField,
+} from "@/components/project-form-dialog"
 import { api } from "@/lib/api"
 import type { ProjectSummary } from "@/lib/types"
 import { Docker } from "@/components/ui/svgs/docker"
@@ -68,7 +69,6 @@ import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { IconFolder } from "nucleo-isometric"
 import {
   Card,
-  CardFooter,
   CardFrame,
   CardFrameFooter,
   CardHeader,
@@ -164,16 +164,6 @@ function projectCardFooterLabel(project: ProjectSummary): string {
   if (project.hasDocker) return "Docker deploy"
   if (project.serviceCount === 0) return "No services yet"
   return "Custom deploy"
-}
-
-const PROJECT_DESCRIPTION_MAX = 100
-
-function normalizeProjectNameInput(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/-+/g, "-")
 }
 
 function projectTimeMeta(project: ProjectSummary): {
@@ -870,7 +860,7 @@ function ApplicationsDashboard() {
   const handleUpdateProject = async () => {
     if (!editTarget) return
     const name = editName.trim()
-    if (name.length < 2 || name.length > 40) return
+    if (!isValidProjectName(name)) return
     setIsSavingEdit(true)
     try {
       await api.projects.update(
@@ -1136,7 +1126,6 @@ function ApplicationsDashboard() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Confirm Modal */}
       <Dialog
         open={showCreateModal}
         onOpenChange={(open) => {
@@ -1147,140 +1136,36 @@ function ApplicationsDashboard() {
           }
         }}
       >
-        <DialogContent
-          className="max-w-lg border-0 bg-transparent p-0 shadow-none before:hidden [&::after]:hidden"
-          closeProps={{ className: "absolute end-3.5 top-3.5 z-10" }}
-        >
-          <Frame className="w-full border border-border/80 bg-muted/55 p-1 shadow-xs/5 dark:border-border/35 dark:bg-muted/25 dark:shadow-none">
-            <Card className="border-0 bg-background shadow-none before:hidden after:hidden dark:bg-card">
-              <CardHeader className="">
-                <div className="flex items-start gap-3 pr-8">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/30">
-                    <IconFolder className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <DialogTitle className="text-lg font-semibold leading-snug">
-                      Create new project
-                    </DialogTitle>
-                    <DialogDescription className="text-sm leading-relaxed">
-                      Group services under one project.
-                    </DialogDescription>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardPanel className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="project-name"
-                    className="text-xs font-semibold text-muted-foreground"
-                  >
-                    Project name
-                  </Label>
-                  <InputGroup>
-                    <InputGroupAddon align="inline-start">
-                      <IconFolder className="h-4 w-4 opacity-70" />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      id="project-name"
-                      value={createName}
-                      onChange={(e) =>
-                        setCreateName(normalizeProjectNameInput(e.target.value))
-                      }
-                      placeholder="my-app"
-                      className="font-mono text-sm"
-                      autoFocus
-                      aria-invalid={
-                        createName.length > 0 &&
-                        (createName.length < 2 || createName.length > 40)
-                          ? true
-                          : undefined
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) handleCreateProject()
-                      }}
-                    />
-                  </InputGroup>
-                  <p className="text-[11px] text-muted-foreground">
-                    Lowercase letters, digits, and hyphens · spaces become hyphens · 2–40 characters
-                    {createName.length > 0 ? (
-                      <span
-                        className={
-                          createName.length >= 2 && createName.length <= 40
-                            ? " text-foreground/70"
-                            : " text-destructive"
-                        }
-                      >
-                        {" "}
-                        · {createName.length}/40
-                      </span>
-                    ) : null}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="project-description"
-                    className="text-xs font-semibold text-muted-foreground"
-                  >
-                    Description
-                    <span className="ml-1 font-normal normal-case">
-                      (optional)
-                    </span>
-                  </Label>
-                  <Textarea
-                    id="project-description"
-                    value={createDescription}
-                    onChange={(e) => setCreateDescription(e.target.value)}
-                    placeholder="What is this project for?"
-                    rows={3}
-                    maxLength={PROJECT_DESCRIPTION_MAX}
-                    className="max-h-32 min-h-20 resize-y overflow-y-auto text-sm"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Shown on the project card
-                    {createDescription.length > 0
-                      ? ` · ${createDescription.length}/${PROJECT_DESCRIPTION_MAX}`
-                      : ` · up to ${PROJECT_DESCRIPTION_MAX} characters`}
-                  </p>
-                </div>
-
-                <div className="flex gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-[11px] leading-snug text-muted-foreground">
-                  <NucleoIcon
-                    name="info"
-                    className="h-3.5 w-3.5 shrink-0 text-primary"
-                  />
-                  <span>
-                    After creating the project, add services from Git, Docker, or
-                    the catalog.
-                  </span>
-                </div>
-              </CardPanel>
-
-              <CardFooter className="justify-end gap-2 mt-4">
-                <DialogClose
-                  render={
-                    <Button variant="ghost" disabled={isCreating}>
-                      Cancel
-                    </Button>
-                  }
-                />
-                <Button
-                  onClick={handleCreateProject}
-                  disabled={
-                    isCreating ||
-                    createName.length < 2 ||
-                    createName.length > 40
-                  }
-                  loading={isCreating}
-                  className="gap-1.5"
-                >
-                  Create project
-                </Button>
-              </CardFooter>
-            </Card>
-          </Frame>
-        </DialogContent>
+        <ProjectFormDialog>
+          <ProjectFormDialogHeader
+            icon={<IconFolder className="h-8 w-8 text-muted-foreground" />}
+            title="Create new project"
+            description="Group services under one project."
+          />
+          <CardPanel className="space-y-4 py-2">
+            <ProjectNameField
+              id="project-name"
+              value={createName}
+              onChange={setCreateName}
+              onSubmit={handleCreateProject}
+              autoFocus
+            />
+            <ProjectDescriptionField
+              id="project-description"
+              value={createDescription}
+              onChange={setCreateDescription}
+            />
+            <ProjectCreateInfoCallout />
+          </CardPanel>
+          <ProjectFormDialogFooter
+            cancelDisabled={isCreating}
+            submitLabel="Create project"
+            submitDisabled={isCreating || !isValidProjectName(createName)}
+            submitLoading={isCreating}
+            onSubmit={handleCreateProject}
+            submitClassName="gap-1.5"
+          />
+        </ProjectFormDialog>
       </Dialog>
 
       <Dialog
@@ -1293,128 +1178,34 @@ function ApplicationsDashboard() {
           }
         }}
       >
-        <DialogContent
-          className="max-w-lg border-0 bg-transparent p-0 shadow-none before:hidden [&::after]:hidden"
-          closeProps={{ className: "absolute end-3.5 top-3.5 z-10" }}
-        >
-          <Frame className="w-full border border-border/80 bg-muted/55 p-1 shadow-xs/5 dark:border-border/35 dark:bg-muted/25 dark:shadow-none">
-            <Card className="border-0 bg-background shadow-none before:hidden after:hidden dark:bg-card">
-              <CardHeader className="">
-                <div className="flex items-start gap-3 pr-8">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/30">
-                    <EditIcon className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <DialogTitle className="text-lg font-semibold leading-snug">
-                      Edit project
-                    </DialogTitle>
-                    <DialogDescription className="text-sm leading-relaxed">
-                      Update the project name and description.
-                    </DialogDescription>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardPanel className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="edit-project-name"
-                    className="text-xs font-semibold text-muted-foreground"
-                  >
-                    Project name
-                  </Label>
-                  <InputGroup>
-                    <InputGroupAddon align="inline-start">
-                      <IconFolder className="h-4 w-4 opacity-70" />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      id="edit-project-name"
-                      value={editName}
-                      onChange={(e) =>
-                        setEditName(normalizeProjectNameInput(e.target.value))
-                      }
-                      placeholder="my-app"
-                      className="font-mono text-sm"
-                      autoFocus
-                      aria-invalid={
-                        editName.length > 0 &&
-                        (editName.length < 2 || editName.length > 40)
-                          ? true
-                          : undefined
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) handleUpdateProject()
-                      }}
-                    />
-                  </InputGroup>
-                  <p className="text-[11px] text-muted-foreground">
-                    Lowercase letters, digits, and hyphens · spaces become hyphens · 2–40 characters
-                    {editName.length > 0 ? (
-                      <span
-                        className={
-                          editName.length >= 2 && editName.length <= 40
-                            ? " text-foreground/70"
-                            : " text-destructive"
-                        }
-                      >
-                        {" "}
-                        · {editName.length}/40
-                      </span>
-                    ) : null}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="edit-project-description"
-                    className="text-xs font-semibold text-muted-foreground"
-                  >
-                    Description
-                    <span className="ml-1 font-normal normal-case">
-                      (optional)
-                    </span>
-                  </Label>
-                  <Textarea
-                    id="edit-project-description"
-                    value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    placeholder="What is this project for?"
-                    rows={3}
-                    maxLength={PROJECT_DESCRIPTION_MAX}
-                    className="max-h-32 min-h-20 resize-y overflow-y-auto text-sm"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Shown on the project card
-                    {editDescription.length > 0
-                      ? ` · ${editDescription.length}/${PROJECT_DESCRIPTION_MAX}`
-                      : ` · up to ${PROJECT_DESCRIPTION_MAX} characters`}
-                  </p>
-                </div>
-              </CardPanel>
-
-              <CardFooter className="mt-4 justify-end gap-2">
-                <DialogClose
-                  render={
-                    <Button variant="ghost" disabled={isSavingEdit}>
-                      Cancel
-                    </Button>
-                  }
-                />
-                <Button
-                  onClick={handleUpdateProject}
-                  disabled={
-                    isSavingEdit ||
-                    editName.length < 2 ||
-                    editName.length > 40
-                  }
-                  loading={isSavingEdit}
-                >
-                  Save changes
-                </Button>
-              </CardFooter>
-            </Card>
-          </Frame>
-        </DialogContent>
+        <ProjectFormDialog>
+          <ProjectFormDialogHeader
+            icon={<EditIcon className="h-5 w-5 text-muted-foreground" />}
+            title="Edit project"
+            description="Update the project name and description."
+          />
+          <CardPanel className="space-y-4 py-2">
+            <ProjectNameField
+              id="edit-project-name"
+              value={editName}
+              onChange={setEditName}
+              onSubmit={handleUpdateProject}
+              autoFocus
+            />
+            <ProjectDescriptionField
+              id="edit-project-description"
+              value={editDescription}
+              onChange={setEditDescription}
+            />
+          </CardPanel>
+          <ProjectFormDialogFooter
+            cancelDisabled={isSavingEdit}
+            submitLabel="Save changes"
+            submitDisabled={isSavingEdit || !isValidProjectName(editName)}
+            submitLoading={isSavingEdit}
+            onSubmit={handleUpdateProject}
+          />
+        </ProjectFormDialog>
       </Dialog>
 
       <DeleteConfirmModal
