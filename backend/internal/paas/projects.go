@@ -449,8 +449,9 @@ func handleProjectRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
+		ID          string  `json:"id"`
+		Name        string  `json:"name"`
+		Description *string `json:"description,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "Bad request", http.StatusBadRequest)
@@ -459,6 +460,13 @@ func handleProjectRename(w http.ResponseWriter, r *http.Request) {
 	if req.ID == "" || !validAppName(strings.TrimSpace(req.Name)) {
 		jsonError(w, "invalid id or name", http.StatusBadRequest)
 		return
+	}
+	if req.Description != nil {
+		description := strings.TrimSpace(*req.Description)
+		if len(description) > 100 {
+			jsonError(w, "description must be 100 characters or fewer", http.StatusBadRequest)
+			return
+		}
 	}
 
 	projectsLock.Lock()
@@ -478,6 +486,9 @@ func handleProjectRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target.Name = uniqueProjectName(strings.TrimSpace(req.Name), taken)
+	if req.Description != nil {
+		target.Description = strings.TrimSpace(*req.Description)
+	}
 	projectsLock.Unlock()
 
 	if err := dbSaveProject(*target); err != nil {

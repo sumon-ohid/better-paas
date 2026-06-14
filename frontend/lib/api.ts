@@ -326,6 +326,11 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ id, name }),
       }),
+    update: (id: string, name: string, description: string) =>
+      req<ProjectSummary>("/api/projects/rename", {
+        method: "POST",
+        body: JSON.stringify({ id, name, description }),
+      }),
     delete: (id: string) =>
       req<{ status: string }>("/api/projects/delete", {
         method: "POST",

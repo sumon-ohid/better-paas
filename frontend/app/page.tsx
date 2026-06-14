@@ -13,6 +13,13 @@ import { useActiveServer } from "@/components/server-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/menu"
+import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
@@ -73,6 +80,10 @@ import { Frame, FrameFooter } from "@/components/ui/frame"
 type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const Trash2Icon = (props: IconProps) => <NucleoIcon {...props} name="trash" />
 const PlusIcon = (props: IconProps) => <NucleoIcon {...props} name="plus" />
+const EditIcon = (props: IconProps) => <NucleoIcon {...props} name="edit" />
+const MoreIcon = (props: IconProps) => (
+  <NucleoIcon {...props} name="more-horizontal" />
+)
 const GridIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
 const ListIcon = (props: IconProps) => <NucleoIcon {...props} name="list" />
 const ChevronRightIcon = (props: IconProps) => (
@@ -264,9 +275,73 @@ function projectMatchesServer(project: ProjectSummary, serverId: string): boolea
   return sid === serverId
 }
 
+function ProjectActionsMenu({
+  project,
+  onAddService,
+  onEdit,
+  onDelete,
+  triggerClassName,
+}: {
+  project: ProjectSummary
+  onAddService: () => void
+  onEdit: () => void
+  onDelete: () => void
+  triggerClassName?: string
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Actions for ${project.name}`}
+            onClick={(e) => e.stopPropagation()}
+            className={triggerClassName}
+          >
+            <MoreIcon className="h-4 w-4" />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation()
+            onAddService()
+          }}
+        >
+          <PlusIcon className="text-muted-foreground" />
+          Add service
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation()
+            onEdit()
+          }}
+        >
+          <EditIcon className="text-muted-foreground" />
+          Edit project
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+        >
+          <Trash2Icon />
+          Delete project
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function ProjectTableRow({
   project,
   onOpen,
+  onEdit,
   onDelete,
   onAddService,
   onViewLogs,
@@ -274,6 +349,7 @@ function ProjectTableRow({
 }: {
   project: ProjectSummary
   onOpen: () => void
+  onEdit: () => void
   onDelete: () => void
   onAddService: () => void
   onViewLogs: () => void
@@ -343,23 +419,13 @@ function ProjectTableRow({
         />
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-end gap-0.5">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onAddService}
-            aria-label={`Add service to ${project.name}`}
-          >
-            <PlusIcon className="h-4 w-4 text-muted-foreground" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onDelete}
-            aria-label={`Delete ${project.name}`}
-          >
-            <Trash2Icon className="h-4 w-4 text-muted-foreground" />
-          </Button>
+        <div className="flex items-center justify-end">
+          <ProjectActionsMenu
+            project={project}
+            onAddService={onAddService}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
         </div>
       </TableCell>
     </TableRow>
@@ -375,6 +441,7 @@ function AppTable({
   isEmpty,
   noProjectsAtAll,
   onOpenProject,
+  onEdit,
   onDelete,
   onAddService,
   onViewLogs,
@@ -387,6 +454,7 @@ function AppTable({
   isEmpty: boolean
   noProjectsAtAll: boolean
   onOpenProject: (project: ProjectSummary) => void
+  onEdit: (project: ProjectSummary) => void
   onDelete: (project: ProjectSummary) => void
   onAddService: (project: ProjectSummary) => void
   onViewLogs: (project: ProjectSummary) => void
@@ -429,6 +497,7 @@ function AppTable({
                   project={project}
                   activeServerId={activeServerId}
                   onOpen={() => onOpenProject(project)}
+                  onEdit={() => onEdit(project)}
                   onDelete={() => onDelete(project)}
                   onAddService={() => onAddService(project)}
                   onViewLogs={() => onViewLogs(project)}
@@ -535,12 +604,16 @@ function ProjectSourceIcons({
 function ProjectSummaryCard({
   project,
   onOpen,
+  onEdit,
+  onDelete,
   onAddService,
   onViewLogs,
   activeServerId,
 }: {
   project: ProjectSummary
   onOpen: () => void
+  onEdit: () => void
+  onDelete: () => void
   onAddService: () => void
   onViewLogs: () => void
   activeServerId: string
@@ -572,23 +645,17 @@ function ProjectSummaryCard({
                 <CardTitle className="min-w-0 truncate text-base leading-snug">
                   {project.name}
                 </CardTitle>
-                <CardAction onClick={(e) => e.stopPropagation()}>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={onAddService}
-                          aria-label={`Add service to ${project.name}`}
-                          className="shrink-0 border border-border/60 bg-muted/60 text-foreground/80 hover:bg-muted hover:text-foreground"
-                        />
-                      }
-                    >
-                      <PlusIcon className="h-4 w-4" />
-                    </TooltipTrigger>
-                    <TooltipContent>Add service</TooltipContent>
-                  </Tooltip>
+                <CardAction
+                  onClick={(e) => e.stopPropagation()}
+                  className="-mr-1.5 -mt-0.5"
+                >
+                  <ProjectActionsMenu
+                    project={project}
+                    onAddService={onAddService}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    triggerClassName="shrink-0 border border-transparent bg-transparent text-muted-foreground transition-colors hover:border-border/60 hover:bg-muted/60 hover:text-foreground"
+                  />
                 </CardAction>
               </div>
               <p
@@ -680,6 +747,10 @@ function ApplicationsDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [deleteTarget, setDeleteTarget] = useState<ProjectSummary | null>(null)
+  const [editTarget, setEditTarget] = useState<ProjectSummary | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
   const [showPruneModal, setShowPruneModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createName, setCreateName] = useState("")
@@ -772,6 +843,39 @@ function ApplicationsDashboard() {
       )
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const openEditProject = useCallback((project: ProjectSummary) => {
+    setEditTarget(project)
+    setEditName(project.name)
+    setEditDescription(project.description?.trim() ?? "")
+  }, [])
+
+  const handleUpdateProject = async () => {
+    if (!editTarget) return
+    const name = editName.trim()
+    if (name.length < 2 || name.length > 40) return
+    setIsSavingEdit(true)
+    try {
+      await api.projects.update(
+        editTarget.id,
+        name,
+        editDescription.trim(),
+      )
+      setEditTarget(null)
+      setEditName("")
+      setEditDescription("")
+      showToast("Project updated", `"${name}" saved.`, "success")
+      fetchProjects()
+    } catch (err) {
+      showToast(
+        "Error",
+        err instanceof Error ? err.message : "Failed to update project.",
+        "destructive",
+      )
+    } finally {
+      setIsSavingEdit(false)
     }
   }
 
@@ -927,6 +1031,7 @@ function ApplicationsDashboard() {
             noProjectsAtAll={noProjectsAtAll}
             activeServerId={activeServerId}
             onOpenProject={openProject}
+            onEdit={openEditProject}
             onDelete={(project) => setDeleteTarget(project)}
             onAddService={addServiceToProject}
             onViewLogs={viewProjectLogs}
@@ -951,6 +1056,8 @@ function ApplicationsDashboard() {
                   project={project}
                   activeServerId={activeServerId}
                   onOpen={() => openProject(project)}
+                  onEdit={() => openEditProject(project)}
+                  onDelete={() => setDeleteTarget(project)}
                   onAddService={() => addServiceToProject(project)}
                   onViewLogs={() => viewProjectLogs(project)}
                 />
@@ -974,6 +1081,8 @@ function ApplicationsDashboard() {
                   project={project}
                   activeServerId={activeServerId}
                   onOpen={() => openProject(project)}
+                  onEdit={() => openEditProject(project)}
+                  onDelete={() => setDeleteTarget(project)}
                   onAddService={() => addServiceToProject(project)}
                   onViewLogs={() => viewProjectLogs(project)}
                 />
@@ -1152,6 +1261,140 @@ function ApplicationsDashboard() {
                   className="gap-1.5"
                 >
                   Create project
+                </Button>
+              </CardFooter>
+            </Card>
+          </Frame>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!editTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditTarget(null)
+            setEditName("")
+            setEditDescription("")
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-lg border-0 bg-transparent p-0 shadow-none before:hidden [&::after]:hidden"
+          closeProps={{ className: "absolute end-3.5 top-3.5 z-10" }}
+        >
+          <Frame className="w-full border border-border/80 bg-muted/55 p-1 shadow-xs/5 dark:border-border/35 dark:bg-muted/25 dark:shadow-none">
+            <Card className="border-0 bg-background shadow-none before:hidden after:hidden dark:bg-card">
+              <CardHeader className="">
+                <div className="flex items-start gap-3 pr-8">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/30">
+                    <EditIcon className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <DialogTitle className="text-lg font-semibold leading-snug">
+                      Edit project
+                    </DialogTitle>
+                    <DialogDescription className="text-sm leading-relaxed">
+                      Update the project name and description.
+                    </DialogDescription>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardPanel className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="edit-project-name"
+                    className="text-xs font-semibold text-muted-foreground"
+                  >
+                    Project name
+                  </Label>
+                  <InputGroup>
+                    <InputGroupAddon align="inline-start">
+                      <IconFolder className="h-4 w-4 opacity-70" />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      id="edit-project-name"
+                      value={editName}
+                      onChange={(e) =>
+                        setEditName(normalizeProjectNameInput(e.target.value))
+                      }
+                      placeholder="my-app"
+                      className="font-mono text-sm"
+                      autoFocus
+                      aria-invalid={
+                        editName.length > 0 &&
+                        (editName.length < 2 || editName.length > 40)
+                          ? true
+                          : undefined
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) handleUpdateProject()
+                      }}
+                    />
+                  </InputGroup>
+                  <p className="text-[11px] text-muted-foreground">
+                    Lowercase letters, digits, and hyphens · spaces become hyphens · 2–40 characters
+                    {editName.length > 0 ? (
+                      <span
+                        className={
+                          editName.length >= 2 && editName.length <= 40
+                            ? " text-foreground/70"
+                            : " text-destructive"
+                        }
+                      >
+                        {" "}
+                        · {editName.length}/40
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="edit-project-description"
+                    className="text-xs font-semibold text-muted-foreground"
+                  >
+                    Description
+                    <span className="ml-1 font-normal normal-case">
+                      (optional)
+                    </span>
+                  </Label>
+                  <Textarea
+                    id="edit-project-description"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="What is this project for?"
+                    rows={3}
+                    maxLength={PROJECT_DESCRIPTION_MAX}
+                    className="max-h-32 min-h-20 resize-y overflow-y-auto text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Shown on the project card
+                    {editDescription.length > 0
+                      ? ` · ${editDescription.length}/${PROJECT_DESCRIPTION_MAX}`
+                      : ` · up to ${PROJECT_DESCRIPTION_MAX} characters`}
+                  </p>
+                </div>
+              </CardPanel>
+
+              <CardFooter className="mt-4 justify-end gap-2">
+                <DialogClose
+                  render={
+                    <Button variant="ghost" disabled={isSavingEdit}>
+                      Cancel
+                    </Button>
+                  }
+                />
+                <Button
+                  onClick={handleUpdateProject}
+                  disabled={
+                    isSavingEdit ||
+                    editName.length < 2 ||
+                    editName.length > 40
+                  }
+                  loading={isSavingEdit}
+                >
+                  Save changes
                 </Button>
               </CardFooter>
             </Card>
