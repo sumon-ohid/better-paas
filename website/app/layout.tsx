@@ -3,6 +3,7 @@ import './global.css';
 import { Inter } from 'next/font/google';
 import type { Metadata } from 'next';
 import { appName, appDescription, appTagline, siteUrl } from '@/lib/shared';
+import { DocumentScrollGuard } from '@/components/document-scroll-guard';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -86,7 +87,7 @@ export default function Layout({ children }: LayoutProps<'/'>) {
   };
 
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
+    <html lang="en" className={inter.className} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script
           type="application/ld+json"
@@ -94,6 +95,7 @@ export default function Layout({ children }: LayoutProps<'/'>) {
         />
       </head>
       <body className="flex flex-col min-h-screen">
+        <DocumentScrollGuard />
         <RootProvider>{children}</RootProvider>
       </body>
     </html>

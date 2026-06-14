@@ -657,7 +657,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
                 <span className="font-semibold">Read-only demo</span>
                 <span className="text-muted-foreground">
                   {" "}
-                  — sample data only. Install Better-PaaS on your server to deploy for real.
+                  - Install Better-PaaS on your server to deploy for real.
                 </span>
               </span>
               <a

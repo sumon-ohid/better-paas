@@ -266,7 +266,9 @@
     background: rgba(255, 255, 255, 0.16);
   }
 
-  html {
+  /* Lock document scroll only while the demo shell is mounted — avoids sticky
+     overflow:hidden on marketing pages after client nav away from /demo. */
+  html:has(.demo-dashboard) {
     @apply font-sans scroll-smooth;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     font-size: 16.5px;
@@ -274,12 +276,19 @@
     height: 100%;
   }
 
-  body {
+  html:has(.demo-dashboard) body {
     @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
     height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
     letter-spacing: -0.006em;
+  }
+
+  .demo-dashboard {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
   h1 {
