@@ -36,6 +36,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group"
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
 import type { GitHubRepo, GitHubContent, Server } from "@/lib/types"
 import { GitHubConnectModal } from "@/components/github-connect-modal"
 import { GithubLight } from "@/components/ui/svgs/githubLight"
@@ -917,44 +918,29 @@ export default function DeployPage() {
             {/* ── STEP 1: Repository Selection ─────────────────────────────── */}
             {step === 1 && (
               <div className="max-h-[calc(100vh-400px)] space-y-5 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      { id: "github" as const, label: "GitHub", icon: "github" },
-                      { id: "upload" as const, label: "Upload", icon: "upload" },
-                    ] as const
-                  ).map((option) => {
-                    const active = deploySource === option.id
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => {
-                          setDeploySource(option.id)
-                          setErrorMsg("")
-                        }}
-                        className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-                          active
-                            ? "border-primary/40 bg-primary/5 font-medium text-foreground"
-                            : "border-border/80 text-muted-foreground hover:bg-accent/30"
-                        }`}
-                      >
-                        {option.id === "github" ? (
-                          <>
-                            <GithubLight className="h-4 w-4 dark:hidden" />
-                            <GithubDark className="hidden h-4 w-4 dark:block" />
-                          </>
-                        ) : (
-                          <UploadIcon className="h-4 w-4" />
-                        )}
-                        {option.label}
-                      </button>
-                    )
-                  })}
-                </div>
+                <Tabs
+                  value={deploySource}
+                  onValueChange={(value) => {
+                    if (value === "github" || value === "upload") {
+                      setDeploySource(value)
+                      setErrorMsg("")
+                    }
+                  }}
+                  className="gap-4"
+                >
+                  <TabsList className="w-full [&>[data-slot=tabs-tab]]:flex-1">
+                    <TabsTab value="github">
+                      <GithubLight className="h-4 w-4 dark:hidden" />
+                      <GithubDark className="hidden h-4 w-4 dark:block" />
+                      GitHub
+                    </TabsTab>
+                    <TabsTab value="upload">
+                      <UploadIcon className="h-4 w-4" />
+                      Upload
+                    </TabsTab>
+                  </TabsList>
 
-                {deploySource === "upload" && (
-                  <div className="space-y-4">
+                  <TabsPanel value="upload" className="space-y-4">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -1170,10 +1156,10 @@ export default function DeployPage() {
                         ) : null}
                       </div>
                     )}
-                  </div>
-                )}
+                  </TabsPanel>
 
-                {deploySource === "github" && !gitHubConnected && !selectedRepo && (
+                  <TabsPanel value="github" className="space-y-4">
+                {!gitHubConnected && !selectedRepo && (
                   <div className="flex flex-col items-center gap-4 py-6 text-center">
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted/30">
                       <GithubLight className="h-5 w-5 dark:hidden" />
@@ -1197,14 +1183,14 @@ export default function DeployPage() {
                     <button
                       type="button"
                       onClick={() => setShowPublicRepoModal(true)}
-                      className="text-xs text-muted-foreground transition-colors hover:text-primary"
+                      className="text-xs text-muted-foreground transition-colors hover:cursor-pointer hover:text-primary"
                     >
                       Or deploy a public repository without signing in →
                     </button>
                   </div>
                 )}
 
-                {deploySource === "github" && gitHubConnected && (
+                {gitHubConnected && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
@@ -1348,7 +1334,7 @@ export default function DeployPage() {
                   </div>
                 )}
 
-                {deploySource === "github" && selectedRepo && (
+                {selectedRepo && (
                   <div className="space-y-4 border-t border-border/50 pt-5">
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/30">
@@ -1495,6 +1481,8 @@ export default function DeployPage() {
                     )}
                   </div>
                 )}
+                  </TabsPanel>
+                </Tabs>
               </div>
             )}
 
