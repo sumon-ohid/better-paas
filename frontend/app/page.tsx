@@ -68,7 +68,6 @@ import { GithubDark } from "@/components/ui/svgs/githubDark"
 import { IconFolder } from "nucleo-isometric"
 import {
   Card,
-  CardAction,
   CardFooter,
   CardFrame,
   CardFrameFooter,
@@ -142,6 +141,29 @@ function projectDescriptionText(project: ProjectSummary): string {
 
 function projectHasDescription(project: ProjectSummary): boolean {
   return Boolean(project.description?.trim())
+}
+
+function projectDescriptionMirrorsName(project: ProjectSummary): boolean {
+  const desc = project.description?.trim().toLowerCase()
+  const name = project.name.trim().toLowerCase()
+  if (!desc || !name) return false
+  if (desc === name) return true
+  const normalize = (value: string) => value.replace(/[-_\s]/g, "")
+  return normalize(desc) === normalize(name)
+}
+
+function projectCardDescription(project: ProjectSummary): string | null {
+  const text = project.description?.trim()
+  if (!text || projectDescriptionMirrorsName(project)) return null
+  return text
+}
+
+function projectCardFooterLabel(project: ProjectSummary): string {
+  if (project.hasGit && project.hasDocker) return "Git & Docker"
+  if (project.hasGit) return "Git repository"
+  if (project.hasDocker) return "Docker deploy"
+  if (project.serviceCount === 0) return "No services yet"
+  return "Custom deploy"
 }
 
 const PROJECT_DESCRIPTION_MAX = 100
@@ -547,14 +569,8 @@ function ProjectSourceIcons({
 }) {
   if (!project.hasGit && !project.hasDocker) {
     return (
-      <span className="text-xs text-muted-foreground">
-        {compact
-          ? project.serviceCount === 0
-            ? "Empty"
-            : "—"
-          : project.serviceCount === 0
-            ? "Empty project"
-            : "No deploy source"}
+      <span className="truncate text-xs text-muted-foreground">
+        {projectCardFooterLabel(project)}
       </span>
     )
   }
@@ -619,10 +635,11 @@ function ProjectSummaryCard({
   activeServerId: string
 }) {
   const timeMeta = projectTimeMeta(project)
+  const description = projectCardDescription(project)
 
   return (
     <Frame
-      className="group flex h-full flex-col cursor-pointer border border-transparent transition-all hover:border-border/60 hover:bg-muted/10"
+      className="group flex h-full min-h-[9.5rem] flex-col cursor-pointer border border-transparent transition-all hover:border-border/60 hover:bg-muted/10"
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -634,78 +651,76 @@ function ProjectSummaryCard({
       tabIndex={0}
       aria-label={`Open project ${project.name}`}
     >
-      <Card className="before:hidden flex flex-1 flex-col shadow-none">
-        <CardHeader className="pb-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground transition-colors group-hover:bg-muted/70">
-              <IconFolder className="h-10 w-10" />
+      <Card className="before:hidden relative flex flex-1 flex-col shadow-none">
+        <CardHeader className="!grid-cols-1 gap-3 pb-3">
+          <div
+            className="absolute end-4 top-4 z-10 -mr-0.5 opacity-70 transition-opacity group-hover:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ProjectActionsMenu
+              project={project}
+              onAddService={onAddService}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              triggerClassName="shrink-0 border border-transparent bg-transparent text-muted-foreground transition-colors hover:border-border/60 hover:bg-muted/60 hover:text-foreground"
+            />
+          </div>
+
+          <div className="flex min-w-0 items-start gap-2.5 pe-8">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-muted/40 text-muted-foreground transition-colors group-hover:border-border/70 group-hover:bg-muted/55">
+              <IconFolder className="h-[18px] w-[18px]" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-start justify-between gap-2">
-                <CardTitle className="min-w-0 truncate text-base leading-snug">
-                  {project.name}
-                </CardTitle>
-                <CardAction
-                  onClick={(e) => e.stopPropagation()}
-                  className="-mr-1.5 -mt-0.5"
-                >
-                  <ProjectActionsMenu
-                    project={project}
-                    onAddService={onAddService}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    triggerClassName="shrink-0 border border-transparent bg-transparent text-muted-foreground transition-colors hover:border-border/60 hover:bg-muted/60 hover:text-foreground"
-                  />
-                </CardAction>
-              </div>
-              <p
-                className={`mb-2 mt-1 line-clamp-2 text-xs leading-relaxed ${
-                  projectHasDescription(project)
-                    ? "text-muted-foreground"
-                    : "italic text-muted-foreground/70"
-                }`}
+              <CardTitle
+                className="min-w-0 truncate font-mono text-[15px] font-semibold leading-tight tracking-tight"
+                title={project.name}
               >
-                {projectDescriptionText(project)}
-              </p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                <StatusBadgeHover
-                  status={project.status}
-                  services={projectServiceStatuses(project)}
-                />
-                <span className="text-xs text-muted-foreground" aria-hidden>
-                  ·
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {projectServiceLabel(project)}
-                </span>
-                {project.status === "failed" && project.focusServiceId ? (
-                  <Button
-                    variant="link"
-                    size="xs"
-                    className="h-auto min-h-0 px-0 py-0 text-xs text-muted-foreground hover:text-foreground"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onViewLogs()
-                    }}
-                  >
-                    View logs
-                  </Button>
-                ) : null}
-                {shouldShowServerBadge(project, activeServerId) ? (
-                  <>
-                    <span className="text-xs text-muted-foreground" aria-hidden>
-                      ·
-                    </span>
-                    <ProjectServerBadge serverId={project.serverId} />
-                  </>
-                ) : null}
-              </div>
+                {project.name}
+              </CardTitle>
+              {description ? (
+                <p
+                  className="mt-1 line-clamp-1 text-xs leading-relaxed text-muted-foreground"
+                  title={description}
+                >
+                  {description}
+                </p>
+              ) : project.serviceCount === 0 ? (
+                <p className="mt-1 line-clamp-1 text-xs italic text-muted-foreground/65">
+                  Ready for your first service
+                </p>
+              ) : null}
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadgeHover
+              status={project.status}
+              services={projectServiceStatuses(project)}
+            />
+            <span className="text-xs text-muted-foreground">
+              {projectServiceLabel(project)}
+            </span>
+            {project.status === "failed" && project.focusServiceId ? (
+              <Button
+                variant="link"
+                size="xs"
+                className="h-auto min-h-0 px-0 py-0 text-xs text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onViewLogs()
+                }}
+              >
+                View logs
+              </Button>
+            ) : null}
+            {shouldShowServerBadge(project, activeServerId) ? (
+              <ProjectServerBadge serverId={project.serverId} />
+            ) : null}
           </div>
         </CardHeader>
       </Card>
-      <FrameFooter className="flex items-center justify-between gap-2">
-        <ProjectSourceIcons project={project} />
+      <FrameFooter className="flex items-center justify-between gap-3 border-t border-border/40 pt-2.5">
+        <ProjectSourceIcons project={project} compact />
         <div className="flex shrink-0 items-center gap-1.5">
           <DeployedTimeHover
             dateStr={timeMeta.dateStr}
