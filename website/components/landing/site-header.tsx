@@ -8,7 +8,7 @@ import { useSearchContext } from 'fumadocs-ui/contexts/search';
 import { ArrowRight, Menu, Moon, Search, Sun, X } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { GithubIcon } from '@/components/landing/github-icon';
-import { githubUrl } from '@/lib/shared';
+import { githubUrl, demoUrl } from '@/lib/shared';
 
 /* ──────────────────────────────────────────────────────────────────────────
  * SiteHeader — a custom, Linear-style top bar for the marketing pages.
@@ -22,13 +22,37 @@ import { githubUrl } from '@/lib/shared';
  *   · collapses into an animated sheet menu on mobile.
  * ────────────────────────────────────────────────────────────────────────── */
 
-const NAV_LINKS: { label: string; href: string }[] = [
+const NAV_LINKS: { label: string; href: string; external?: boolean }[] = [
+  { label: 'Demo', href: demoUrl },
   { label: 'Product', href: '/platform' },
   { label: 'Catalog', href: '/catalog' },
   { label: 'Security', href: '/docs/security' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Sponsor', href: '/sponsorships' },
 ];
+
+function NavItem({
+  link,
+  className,
+  children,
+}: {
+  link: (typeof NAV_LINKS)[number];
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (link.external) {
+    return (
+      <a href={link.href} target="_blank" rel="noopener noreferrer" className={className}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={link.href} className={className}>
+      {children}
+    </Link>
+  );
+}
 
 function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -104,11 +128,11 @@ export function SiteHeader() {
         {/* Center nav — desktop */}
         <nav className="hidden flex-1 items-center justify-center gap-7 md:flex">
           {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
+            <NavItem
+              key={link.label}
+              link={link}
               className={`relative py-2 text-sm font-medium transition-colors ${
-                isActive(link.href)
+                !link.external && isActive(link.href)
                   ? 'text-fd-foreground'
                   : 'text-fd-muted-foreground hover:text-fd-foreground'
               }`}
@@ -116,10 +140,10 @@ export function SiteHeader() {
               {link.label}
               <span
                 className={`absolute inset-x-0 -bottom-px h-px bg-fd-foreground transition-transform duration-300 ${
-                  isActive(link.href) ? 'scale-x-100' : 'scale-x-0'
+                  !link.external && isActive(link.href) ? 'scale-x-100' : 'scale-x-0'
                 }`}
               />
-            </Link>
+            </NavItem>
           ))}
         </nav>
 
@@ -194,18 +218,18 @@ export function SiteHeader() {
           <div className="bp-fade-up relative z-40 border-b border-fd-border bg-fd-background px-6 pb-6 pt-2">
             <nav className="flex flex-col">
               {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
+                <NavItem
+                  key={link.label}
+                  link={link}
                   className={`flex items-center justify-between rounded-lg px-3 py-3 text-sm transition-colors ${
-                    isActive(link.href)
+                    !link.external && isActive(link.href)
                       ? 'bg-fd-accent text-fd-foreground'
                       : 'text-fd-muted-foreground hover:bg-fd-accent/60 hover:text-fd-foreground'
                   }`}
                 >
                   {link.label}
                   <ArrowRight className="size-4 opacity-50" />
-                </Link>
+                </NavItem>
               ))}
             </nav>
 

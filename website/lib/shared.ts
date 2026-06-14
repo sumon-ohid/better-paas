@@ -18,3 +18,6 @@ export const githubUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}
 
 export const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://better-paas.com';
 
+/** Interactive dashboard demo served from the marketing site. */
+export const demoUrl = '/demo';
+

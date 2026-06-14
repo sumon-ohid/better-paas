@@ -1,0 +1,257 @@
+"use client"
+
+import React, { useState, useEffect, useCallback, Suspense } from "react"
+import { useParams } from "next/navigation"
+import { useAppRouter } from "@/dashboard/lib/app-router"
+import { Button } from "@/dashboard/components/ui/button"
+import { BreadcrumbPage } from "@/dashboard/components/ui/breadcrumb"
+import { AppShell, useToast } from "@/dashboard/components/app-shell"
+import { StatusBadge } from "@/dashboard/components/status-badge"
+import { DeleteConfirmModal } from "@/dashboard/components/delete-confirm-modal"
+import {
+  BreadcrumbHeaderRow,
+  BreadcrumbRenameIconButton,
+  BreadcrumbRenameInput,
+  ProjectBreadcrumb,
+} from "@/dashboard/components/project-breadcrumb"
+import { ProjectServicesOverview } from "@/dashboard/components/project-services-overview"
+import { NucleoIcon } from "@/dashboard/components/nucleo-icons"
+import { api } from "@/dashboard/lib/api"
+import type { ProjectDetail, ProjectSummary } from "@/dashboard/lib/types"
+
+type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
+const EditIcon = (props: IconProps) => <NucleoIcon {...props} name="edit" />
+const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
+const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
+
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMin = Math.floor((now.getTime() - date.getTime()) / 60000)
+  if (diffMin < 1) return "just now"
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour}h ago`
+  const diffDay = Math.floor(diffHour / 24)
+  if (diffDay < 7) return `${diffDay}d ago`
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+function ProjectDetailPage() {
+  const router = useAppRouter()
+  const params = useParams()
+  const projectId = params.id as string
+  const { showToast } = useToast()
+
+  const [project, setProject] = useState<ProjectDetail | null>(null)
+  const [allProjects, setAllProjects] = useState<ProjectSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [renameValue, setRenameValue] = useState("")
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+
+  const fetchProject = useCallback(async () => {
+    try {
+      const data = await api.projects.get(projectId)
+      setProject(data)
+    } catch (err) {
+      console.error(err)
+      showToast("Error", "Project not found.", "destructive")
+      router.push("/")
+    } finally {
+      setLoading(false)
+    }
+  }, [projectId, router, showToast])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const data = await api.projects.get(projectId)
+        if (!cancelled) setProject(data)
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err)
+          showToast("Error", "Project not found.", "destructive")
+          router.push("/")
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [projectId, router, showToast])
+
+  useEffect(() => {
+    api.projects
+      .list()
+      .then(setAllProjects)
+      .catch((err) => console.error("Failed to load projects", err))
+  }, [])
+
+  useEffect(() => {
+    const building = project?.services.some((s) => s.status === "building")
+    if (!building) return
+    const interval = setInterval(fetchProject, 2500)
+    return () => clearInterval(interval)
+  }, [project, fetchProject])
+
+  const cancelRename = () => {
+    setIsEditingName(false)
+    setRenameValue(project?.name ?? "")
+  }
+
+  const handleRename = async () => {
+    const name = renameValue.trim()
+    if (!name || !project) return
+    if (name === project.name) {
+      cancelRename()
+      return
+    }
+    setIsRenaming(true)
+    try {
+      const updated = await api.projects.rename(project.id, name)
+      setProject((prev) =>
+        prev ? { ...prev, name: updated.name } : prev,
+      )
+      setIsEditingName(false)
+      showToast("Renamed", `Project is now "${updated.name}".`, "success")
+    } catch {
+      showToast("Error", "Failed to rename project.", "destructive")
+    } finally {
+      setIsRenaming(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      await api.projects.delete(projectId)
+      showToast("Deleted", "Project and all services removed.", "success")
+      router.push("/")
+    } catch {
+      showToast("Error", "Failed to delete project.", "destructive")
+    }
+  }
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
+          Loading project…
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (!project) return null
+
+  const addService = () => router.push(`/deploy?projectId=${project.id}`)
+
+  return (
+    <AppShell appCount={project.serviceCount}>
+      <div className="space-y-3 m-4 md:mx-6">
+        <BreadcrumbHeaderRow
+          trailing={
+            <>
+              <StatusBadge status={project.status} />
+              {!isEditingName ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => {
+                    setRenameValue(project.name)
+                    setIsEditingName(true)
+                  }}
+                  aria-label="Rename project"
+                >
+                  <EditIcon className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </>
+          }
+        >
+          <ProjectBreadcrumb
+            projects={allProjects}
+            currentProjectId={projectId}
+            projectCrumb={
+              isEditingName ? (
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <BreadcrumbRenameInput
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    autoFocus
+                    disabled={isRenaming}
+                    aria-label="Project name"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void handleRename()
+                      if (e.key === "Escape") cancelRename()
+                    }}
+                  />
+                  <BreadcrumbRenameIconButton
+                    onClick={() => void handleRename()}
+                    disabled={isRenaming}
+                    label="Save name"
+                    variant="success"
+                  >
+                    <CheckIcon className="h-3.5 w-3.5" />
+                  </BreadcrumbRenameIconButton>
+                  <BreadcrumbRenameIconButton
+                    onClick={cancelRename}
+                    disabled={isRenaming}
+                    label="Cancel rename"
+                  >
+                    <XIcon className="h-3.5 w-3.5" />
+                  </BreadcrumbRenameIconButton>
+                </div>
+              ) : (
+                <BreadcrumbPage>{project.name}</BreadcrumbPage>
+              )
+            }
+          />
+        </BreadcrumbHeaderRow>
+
+        <p className="text-xs text-muted-foreground sm:text-sm">
+          {project.serviceCount}{" "}
+          {project.serviceCount === 1 ? "service" : "services"} · Created{" "}
+          {formatRelativeTime(project.createdAt)}
+        </p>
+      </div>
+
+      <div className="p-4 md:p-6">
+        <ProjectServicesOverview
+          services={project.services}
+          loading={loading}
+          onRefresh={fetchProject}
+          onAddService={addService}
+          onDeleteProject={() => setShowDeleteModal(true)}
+        />
+      </div>
+
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        appName={project.name}
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteModal(false)}
+      />
+    </AppShell>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <ProjectDetailPage />
+    </Suspense>
+  )
+}
