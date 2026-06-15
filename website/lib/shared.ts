@@ -1,8 +1,7 @@
 export const appName = 'Better-PaaS';
-export const appTagline =
-  'Self-hosted platform for apps, databases, and agents';
+export const appTagline = 'Vercel-like deploys on a server you own';
 export const appDescription =
-  'Better-PaaS is a self-hosted platform-as-a-service. Push your code to Git and it builds, runs, and serves your apps with automatic HTTPS, managed databases, zero-downtime deploys, and a clean dashboard.';
+  'Better-PaaS is the open-source deployment platform for indie hackers who want Vercel-like deploys without the platform tax. Push code to Git, get automatic HTTPS, and run databases on any cheap VPS you control.';
 
 export const docsRoute = '/docs';
 export const docsImageRoute = '/og/docs';
