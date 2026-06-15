@@ -1,0 +1,195 @@
+---
+title: Deploy Next.js on Hetzner for $5
+icon: Rocket
+---
+
+This guide walks you through deploying a production-ready Next.js app on a
+$5/month Hetzner VPS using Better-PaaS. By the end, you will have:
+
+- A live Next.js app running in a Docker container
+- Automatic HTTPS on your custom domain
+- A Postgres database attached to your app
+- A flat, predictable hosting bill
+
+## What you need
+
+- A Hetzner account (or any VPS that runs Ubuntu/Debian)
+- A Next.js app in a Git repository
+- A domain name you can point at your server
+- About 15 minutes
+
+<Callout type="info" title="Hetzner pricing">
+  Hetzner&apos;s CX21 plan (2 vCPU / 4 GB RAM) is roughly €4.51/month at the time
+  of writing and is plenty for a small Next.js app plus a Postgres database.
+  Prices vary by region and currency.
+</Callout>
+
+## Step 1 — Create a Hetzner server
+
+1. Log in to the [Hetzner Cloud Console](https://console.hetzner.cloud/).
+2. Create a new project (or use an existing one).
+3. Click **Add Server**.
+4. Choose a location close to your users.
+5. Select **Ubuntu 24.04** or **Debian 12** as the operating system.
+6. Pick the **CX21** type (2 vCPU, 4 GB RAM).
+7. Add your SSH key so you can log in.
+8. Create the server.
+
+Once the server is running, copy its public IPv4 address.
+
+## Step 2 — Open the firewall
+
+Better-PaaS needs the following ports open:
+
+| Port | Purpose |
+| --- | --- |
+| 22 | SSH access |
+| 80 | HTTP and Let&apos;s Encrypt validation |
+| 443 | HTTPS traffic |
+| 3000 | Default dashboard port |
+| 8080 | Default API port |
+
+In the Hetzner console, go to **Firewalls**, create a firewall with those inbound
+TCP rules, and apply it to your server.
+
+## Step 3 — Install Better-PaaS
+
+SSH into your server and run the installer:
+
+```bash
+ssh root@YOUR_SERVER_IP
+curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | bash
+```
+
+The installer installs Docker, Caddy, Go, Node.js, pnpm, and Nixpacks, then
+builds the Better-PaaS dashboard and API. This takes a few minutes.
+
+When it finishes, it prints an admin token. Copy it somewhere safe.
+
+<Callout type="warning" title="Save the admin token">
+  The installer prints the admin bearer token only once. You can also read it
+  later from `backend/data/admin_token.txt` on the server.
+</Callout>
+
+## Step 4 — Log in to the dashboard
+
+Open your browser and visit:
+
+```
+http://YOUR_SERVER_IP:3000
+```
+
+Paste the admin token and sign in. You should see the Better-PaaS dashboard.
+
+## Step 5 — Prepare your Next.js app
+
+Better-PaaS uses Nixpacks to detect and build Next.js apps automatically. Make
+sure your repository has these:
+
+- `package.json` with a `build` script
+- A `start` script that starts the production server
+- A lockfile (`package-lock.json`, `pnpm-lock.yaml`, or `yarn.lock`)
+- Your app listens on the `PORT` environment variable
+
+A typical `package.json` looks like this:
+
+```json
+{
+  "scripts": {
+    "build": "next build",
+    "start": "next start"
+  }
+}
+```
+
+<Callout type="info" title="PORT variable">
+  Next.js reads `PORT` automatically with `next start`. If you hard-code a port,
+  override it in the deploy wizard or update your start command to
+  `next start -p $PORT`.
+</Callout>
+
+## Step 6 — Deploy the app
+
+1. In the Better-PaaS dashboard, click **Deploy a service**.
+2. Choose **Git** and paste your repository URL, e.g.
+   `https://github.com/yourname/my-nextjs-app`.
+3. Select the `main` branch.
+4. Nixpacks detects Next.js automatically. Leave the build and start commands
+   blank unless you need to override them.
+5. Click **Deploy**.
+
+Better-PaaS clones the repo, builds a Docker image, starts the container, and
+runs a health check. The first deploy may take 60–120 seconds.
+
+When it is healthy, the dashboard shows the container status as **Running**.
+
+## Step 7 — Add a Postgres database
+
+1. Go to the **Databases** section and click **Create database**.
+2. Choose **Postgres**.
+3. Give it a name, e.g. `myapp-db`.
+4. Better-PaaS creates the container and injects a `DATABASE_URL` environment
+   variable into any app you attach it to.
+5. Open your app settings, go to **Environment variables**, and attach the
+   database. The connection string is added automatically.
+
+## Step 8 — Add your domain and HTTPS
+
+1. In your domain registrar or DNS provider, create an `A` record pointing your
+   domain (e.g. `app.yourdomain.com`) to your Hetzner server IP.
+2. In Better-PaaS, open your app and go to **Domains**.
+3. Click **Add domain** and enter `app.yourdomain.com`.
+4. Better-PaaS tells Caddy to request a free Let&apos;s Encrypt certificate.
+
+After DNS propagates (usually within minutes), your app is live on
+`https://app.yourdomain.com`.
+
+<Callout type="info" title="DNS can take time">
+  If HTTPS does not work immediately, check that DNS has propagated with
+  `dig app.yourdomain.com` or an online DNS checker.
+</Callout>
+
+## Step 9 — Enable auto-deploy on git push
+
+1. Open your app in the dashboard and go to **Settings**.
+2. Copy the webhook URL.
+3. In your GitHub repo, go to **Settings → Webhooks → Add webhook**.
+4. Paste the URL and choose **Just the push event**.
+5. Add the webhook.
+
+Now every push to `main` redeploys your app automatically.
+
+See [auto-deploy on git push](/docs/guides/auto-deploy) for more details.
+
+## Cost breakdown
+
+| Item | Cost |
+| --- | --- |
+| Hetzner CX21 VPS | ~$5.35/month |
+| Better-PaaS control plane | $0 (open source) |
+| Let&apos;s Encrypt certificate | $0 |
+| Bandwidth | Included in VPS limits |
+| **Total** | **~$5.35/month** |
+
+This single server can host multiple apps and databases. A second side project
+adds almost no cost.
+
+## Next steps
+
+<Cards>
+  <Card
+    title="Environment variables"
+    href="/docs/guides/environment-variables"
+    description="Manage secrets and app config safely."
+  />
+  <Card
+    title="Custom domains"
+    href="/docs/guides/custom-domains"
+    description="Route multiple domains to your apps."
+  />
+  <Card
+    title="Backups"
+    href="/docs/guides/backups"
+    description="Snapshot your data and config."
+  />
+</Cards>

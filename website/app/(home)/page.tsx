@@ -103,7 +103,7 @@ function Hero({
               as="h1"
               className="bp-display max-w-4xl text-[2rem] font-normal text-fd-foreground sm:text-[3.25rem] md:text-[4rem]"
             >
-              The self-hosted platform for apps, databases, and agents
+              Deploy like Vercel on a server you actually own
             </TextEffect>
 
             <AnimatedGroup
@@ -120,8 +120,9 @@ function Hero({
               className="mt-7 max-w-2xl"
             >
               <p className="text-base leading-7 text-fd-muted-foreground sm:text-md">
-                Deploy from Git, manage services, and run production workloads on servers you
-                control.
+                Better-PaaS gives indie hackers and solo founders the Vercel experience - git push,
+                automatic HTTPS, databases, and rollbacks - on any cheap VPS. No usage limits, no
+                vendor lock-in, no surprise bills.
               </p>
             </AnimatedGroup>
           </div>
@@ -166,6 +167,15 @@ function Hero({
           className="mt-9 w-full max-w-md"
         >
           <InstallLine />
+          <div className="mt-4 flex items-center gap-4 text-sm">
+            <Link
+              href="/vercel-alternative"
+              className="inline-flex items-center gap-1.5 text-fd-muted-foreground transition-colors hover:text-fd-foreground"
+            >
+              See why developers switch from Vercel
+              <ArrowRight className="size-3.5" />
+            </Link>
+          </div>
         </AnimatedGroup>
 
         {/* Product demo */}
@@ -936,11 +946,11 @@ function CallToAction() {
                 Start shipping
               </p>
               <h2 className="bp-display mt-3 max-w-2xl text-[clamp(2rem,7.8vw,2.8rem)] font-normal leading-[1.08] tracking-[-0.035em] text-[#121722] dark:text-[#f4f4f5]">
-                Own your deployment pipeline
+                Stop renting your deploys
               </h2>
               <p className="bp-balance mt-5 max-w-xl text-[clamp(0.92rem,3.2vw,1.1rem)] font-light leading-[1.5] tracking-[-0.006em] text-[#394355] dark:text-[#dfdfe2]">
-                Spin up {appName} on a $5 VPS and deploy as many apps as your server can hold.
-                Free, open source, yours forever.
+                Spin up {appName} on a $5 VPS and get Vercel-like deploys without the platform
+                tax. Free, open source, yours forever.
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
                 <Link

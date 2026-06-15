@@ -2,6 +2,7 @@
   "title": "Guides",
   "icon": "BookOpen",
   "pages": [
+    "deploy-nextjs-hetzner",
     "deploying-an-app",
     "ai-agents",
     "app-catalog",

@@ -20,6 +20,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/privacy',
     '/sponsorships',
     '/terms',
+    '/vercel-alternative',
+    '/indie-hackers',
+    '/cost-calculator',
   ].map((path) => ({
     url: `${siteUrl}${path}`,
     lastModified: new Date(),
