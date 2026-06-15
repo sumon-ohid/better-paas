@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, BookOpen, CheckCircle, GitBranch, HelpCircle, ChevronRight, Calendar, X, Check, AlertCircle, User } from 'lucide-react';
 import { Eyebrow, IconTile } from '@/components/landing/primitives';
-import { appName, siteUrl } from '@/lib/shared';
+import { appName, githubUrl, siteUrl } from '@/lib/shared';
 import { getSeoUrl, type SeoPage } from '@/lib/seo/content';
 
 export function SeoLandingPage({ page }: { page: SeoPage }) {
@@ -302,8 +302,9 @@ function buildJsonLd(page: SeoPage, url: string) {
     datePublished: page.datePublished,
     dateModified: page.dateModified,
     author: {
-      '@type': 'Organization',
-      name: appName,
+      '@type': 'Person',
+      name: 'Better-PaaS maintainers',
+      url: githubUrl,
     },
     publisher: {
       '@type': 'Organization',

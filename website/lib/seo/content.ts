@@ -1,4 +1,5 @@
 import { appName } from '@/lib/shared';
+import { getUniqueEnrichment } from '@/lib/seo/unique-content';
 
 export type SeoFamily =
   | 'alternatives'
@@ -172,7 +173,7 @@ export const seoHubs: SeoHub[] = [
 ];
 
 const launchDate = '2025-01-15';
-const lastUpdated = '2025-06-11';
+const lastUpdated = '2026-06-15';
 
 const competitors = [
   { slug: 'heroku', name: 'Heroku', angle: 'hosted dynos and add-ons', choose: 'you want a mature hosted platform and do not need server ownership' },
@@ -745,6 +746,26 @@ function comparePage(left: string, right: (typeof competitors)[number]): SeoPage
 
 function deployAppPage(app: (typeof appCatalog)[number]): SeoPage {
   const [slug, name, purpose, category, note] = app;
+  const details = catalogOperationalDetails[slug];
+  const catalogSections: SeoSection[] = details
+    ? [
+        {
+          title: 'Catalog image and ports',
+          body: `Better-PaaS deploys ${name} from ${details.image} on container port ${details.port}${details.healthPath ? ` with health checks against ${details.healthPath}` : ''}.`,
+          bullets: [
+            `Image: ${details.image}`,
+            `Port: ${details.port}`,
+            ...(details.volumes?.length ? [`Volumes: ${details.volumes.join(', ')}`] : []),
+            ...(details.env?.length ? [`Key env vars: ${details.env.join(', ')}`] : []),
+            ...(details.addons?.length ? [`Add-ons: ${details.addons.join(', ')}`] : []),
+          ],
+        },
+        ...(details.notes
+          ? [{ title: 'Production notes for this catalog app', body: details.notes }]
+          : []),
+      ]
+    : [];
+
   return {
     family: 'deploy',
     slug,
@@ -757,6 +778,7 @@ function deployAppPage(app: (typeof appCatalog)[number]): SeoPage {
     primaryKeyword: `deploy ${name} on VPS`,
     secondaryKeywords: [`self-host ${name}`, `${name} Docker deploy`, `${name} HTTPS VPS`],
     sections: [
+      ...catalogSections,
       { title: `Why host ${name} with ${appName}`, body: `Better-PaaS is designed for apps like ${name}: small services that need reliable routing, a domain, persistent data, and quick redeploys without manually editing reverse proxy files.` },
       { title: 'Deployment checklist', body: `Before going live, decide the domain, persistent volume, backup cadence, and any environment variables ${name} needs. For ${name}, pay special attention to ${note}.`, bullets: ['Choose the app catalog template or Docker image', 'Add required environment variables', 'Attach a persistent volume if data must survive redeploys', 'Deploy and inspect logs', 'Add a custom domain after the app is healthy'] },
       { title: 'Operations after launch', body: `Watch logs during the first deploy, confirm storage survives a redeploy, and include the app data in server backups. If the service exposes an admin area, use a strong password and restrict access where appropriate.` },
@@ -906,14 +928,12 @@ function glossaryPage(item: (typeof glossary)[number]): SeoPage {
     summary: definition,
     primaryKeyword: `what is ${name}`,
     secondaryKeywords: [`${name} meaning`, `${name} deployment`, `${name} self hosting`],
-    sections: [
-      { title: 'Plain-English definition', body: definition },
-      { title: 'Why developers care', body: `${name} matters because deployment platforms are built from small operational concepts. Understanding the term makes it easier to debug apps, choose tools, and operate a server safely.` },
-      { title: `How ${appName} uses the concept`, body: `Better-PaaS uses practical deployment primitives so you can deploy apps without memorizing every low-level command. When this concept appears in the dashboard or docs, it is tied to running real apps on your own infrastructure.` },
-    ],
+    sections: [{ title: 'Definition', body: definition }],
     faqs: [
-      { question: `Is ${name} only relevant to Better-PaaS?`, answer: 'No. The term is common across developer platforms, cloud hosting, Docker, and self-hosting.' },
-      { question: `Do I need to understand ${name} before using Better-PaaS?`, answer: 'Usually not deeply. Better-PaaS handles many details, but knowing the basics helps when debugging.' },
+      {
+        question: `Is ${name} only relevant to Better-PaaS?`,
+        answer: `No. ${name} appears across Docker, cloud platforms, and self-hosted tooling. Better-PaaS exposes the concept in deploy logs, dashboard fields, or docs when it affects your app.`,
+      },
     ],
     related: ['/glossary', '/docs', '/features/git-deployments', '/deploy', quickstart],
     schemaType: 'DefinedTerm',
@@ -1079,37 +1099,14 @@ const rawSeoPages: SeoPage[] = [
 ];
 
 function enrichForIndexing(page: SeoPage): SeoPage {
-  const key = `${page.family}/${page.slug}`;
-  const additions = [
-    ...universalDepthSections(page),
-    ...familyDepthSections(page),
-    ...(priorityDepthSections[key] ?? []),
-  ];
-  const faqs = [
-    ...page.faqs,
-    ...familyDepthFaqs(page),
-    ...(priorityDepthFaqs[key] ?? []),
-  ];
-
+  const unique = getUniqueEnrichment(page);
   return {
     ...page,
-    summary: `${page.summary} This page is written as a practical reference, not just a keyword landing page: it covers search intent, setup considerations, operational tradeoffs, and the next internal docs to read before deploying.`,
-    sections: dedupeSections([...page.sections, ...additions]),
-    faqs: dedupeFaqs(faqs),
+    dateModified: lastUpdated,
+    lastReviewed: lastUpdated,
+    sections: dedupeSections([...page.sections, ...unique.sections]),
+    faqs: dedupeFaqs([...page.faqs, ...unique.faqs]),
   };
-}
-
-function universalDepthSections(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'How this connects to the Better-PaaS workflow',
-      body: `This page is part of a broader deployment workflow: install the control plane, connect a Git repository or choose a catalog image, configure environment variables, deploy the container, inspect logs, attach a custom domain, and add backups for stateful data. That sequence matters because most hosting decisions are not isolated. A platform choice affects how you debug failed builds, rotate secrets, recover from bad deploys, and keep apps running after the first launch.`,
-    },
-    {
-      title: 'Practical next step',
-      body: `If you are using this page to make a decision, turn it into a small test. Deploy one non-critical app, add a temporary domain, force one redeploy, read the logs, and confirm you understand where data is stored. A short trial reveals more than a feature checklist because it tests the full path from source or image to a live HTTPS endpoint.`,
-    },
-  ];
 }
 
 function dedupeSections(sections: SeoSection[]) {
@@ -1131,404 +1128,6 @@ function dedupeFaqs(faqs: SeoFAQ[]) {
     return true;
   });
 }
-
-function familyDepthSections(page: SeoPage): SeoSection[] {
-  switch (page.family) {
-    case 'alternatives':
-      return alternativeDepth(page);
-    case 'compare':
-      return comparisonDepth(page);
-    case 'deploy':
-      return deployDepth(page);
-    case 'use-cases':
-      return useCaseDepth(page);
-    case 'features':
-      return featureDepth(page);
-    case 'integrations':
-      return integrationDepth(page);
-    case 'glossary':
-      return glossaryDepth(page);
-    case 'fix':
-      return fixDepth(page);
-    case 'best':
-      return bestDepth(page);
-    case 'templates':
-      return templateDepth(page);
-    case 'examples':
-      return exampleDepth(page);
-    default:
-      return [];
-  }
-}
-
-function alternativeDepth(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'Quick decision guide',
-      body: `Use this page when you are evaluating ${page.primaryKeyword} because you want a deployment workflow that is closer to Heroku than raw SSH, but still runs on infrastructure you control. The strongest reason to choose ${appName} is not novelty; it is the combination of Git deploys, Docker isolation, automatic HTTPS, database add-ons, logs, and rollbacks without moving the workload to a hosted platform account.`,
-      bullets: [
-        'Choose Better-PaaS when server ownership and predictable VPS cost matter.',
-        'Choose a hosted platform when you prefer someone else to operate the runtime.',
-        'Choose Kubernetes-class tooling only when one server is no longer enough.',
-        'Choose manual Docker Compose when you want YAML control more than a product workflow.',
-      ],
-    },
-    {
-      title: 'What to compare before switching',
-      body: `A real migration decision should compare more than feature names. Check how each platform handles private repositories, secret storage, health checks, rollback history, HTTPS certificates, database persistence, deploy logs, and failure recovery. Also compare what happens after the first successful deploy: who patches the server, who backs up the database, who notices disk pressure, and who owns incident response.`,
-      bullets: [
-        'Runtime ownership: hosted account, VPS, private cloud, or cluster.',
-        'State handling: database add-ons, volumes, backups, and restore path.',
-        'Release safety: health checks, rollback, logs, and failed deploy visibility.',
-        'Cost model: seat pricing, usage-based billing, platform markup, or raw server cost.',
-      ],
-    },
-    {
-      title: 'Best-fit workloads',
-      body: `${appName} is strongest for small to medium web apps, APIs, internal tools, automation services, dashboards, side projects, and one-click open-source apps. It is less appropriate for workloads that require multi-region active-active hosting, advanced autoscaling, complex service mesh behavior, or a large operations team already standardized on Kubernetes.`,
-    },
-  ];
-}
-
-function comparisonDepth(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'Comparison criteria',
-      body: `The useful way to read this comparison is by deployment model. ${appName} runs as a self-hosted control plane on your server. Competitors may be hosted platforms, cluster tools, or manual Docker workflows. That means feature parity is not the only question; the real question is which operating model you want to live with every week.`,
-      bullets: [
-        'Who owns the server and runtime?',
-        'How are build failures and runtime failures surfaced?',
-        'Can you restore from a bad deploy quickly?',
-        'Can your database and file storage be backed up independently?',
-        'Does the pricing still make sense after adding multiple small apps?',
-      ],
-    },
-    {
-      title: 'Operational tradeoffs',
-      body: `A hosted platform can be easier because fewer infrastructure decisions land on your desk. A self-hosted platform can be better when you care about data location, predictable cost, and avoiding platform lock-in. ${appName} intentionally sits between raw server administration and full cloud abstraction: it gives you an app dashboard while preserving access to Docker, Caddy, server logs, and environment configuration.`,
-    },
-    {
-      title: 'Migration checklist',
-      body: `Before migrating, list every app dependency and verify it has a place in the new workflow. The common migration path is to deploy a non-production copy first, compare behavior, then move DNS only after logs, health checks, background jobs, file storage, and database connections are confirmed.`,
-      bullets: [
-        'Export current environment variables and secrets.',
-        'Identify database engines and connection strings.',
-        'Check framework build/start commands.',
-        'Deploy a staging copy and inspect logs.',
-        'Move the custom domain after the new app is healthy.',
-      ],
-    },
-  ];
-}
-
-function deployDepth(page: SeoPage): SeoSection[] {
-  const details = catalogOperationalDetails[page.slug];
-  const operational = details
-    ? [
-        {
-          title: 'Better-PaaS catalog settings',
-          body: `For the one-click catalog flow, Better-PaaS treats this as a prebuilt image deployment. The catalog configuration uses image ${details.image}, listens on container port ${details.port}${details.healthPath ? `, and probes ${details.healthPath} for health checks` : ''}. These details matter because the platform can only switch traffic safely after the container starts and responds as expected.`,
-          bullets: [
-            `Docker image: ${details.image}`,
-            `Container port: ${details.port}`,
-            details.healthPath ? `Health path: ${details.healthPath}` : 'Health check: TCP or default app response',
-            details.volumes?.length ? `Persistent paths: ${details.volumes.join(', ')}` : 'Persistence: treat as stateless unless you add storage',
-            details.env?.length ? `Important env vars: ${details.env.join(', ')}` : 'Environment variables: optional or app-specific',
-            details.addons?.length ? `Required add-ons: ${details.addons.join(', ')}` : 'Required add-ons: none for the basic starter',
-          ],
-        },
-        {
-          title: 'Production notes',
-          body: details.notes ?? `For production use, confirm the container starts after redeploy, verify the public domain, and add backups for any data directory. Even simple catalog apps become important once a team depends on them.`,
-        },
-      ]
-    : [];
-
-  return [
-    ...operational,
-    {
-      title: 'Pre-launch checklist',
-      body: `A deploy page should answer what a developer does before exposing the app publicly. For ${page.primaryKeyword}, the basics are: confirm the app listens on the expected port, keep secrets in environment variables, attach persistent storage for stateful data, test a redeploy, and add a domain only after the app is healthy.`,
-      bullets: [
-        'Confirm build or image startup succeeds.',
-        'Inspect live logs for startup warnings.',
-        'Set required environment variables before first production deploy.',
-        'Attach Postgres, Redis, MySQL, or volumes when the app stores data.',
-        'Verify HTTPS after DNS points at the server.',
-      ],
-    },
-    {
-      title: 'What makes this different from manual Docker',
-      body: `Manual Docker can run the same app, but you still need to manage routing, TLS certificates, release history, log access, and rollback behavior. Better-PaaS wraps those repeat tasks into the deployment workflow so the app can be maintained from a dashboard while still running as a normal Docker container on your VPS.`,
-    },
-    {
-      title: 'Common failure modes',
-      body: `Most deployment failures come from one of four places: the app does not listen on the expected port, a required env var is missing, persistent storage was not mounted, or the custom domain points somewhere else. Better-PaaS helps narrow this down through logs, health checks, and deployment history.`,
-      bullets: [
-        'Port mismatch or hard-coded localhost binding.',
-        'Missing secret, database URL, or public URL.',
-        'State lost because a required volume was not mounted.',
-        'DNS has not propagated to the Better-PaaS server.',
-      ],
-    },
-  ];
-}
-
-function useCaseDepth(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'Recommended architecture',
-      body: `A practical ${page.primaryKeyword} setup starts with one well-sized VPS, Better-PaaS as the control plane, Git repositories for source deploys, Docker images for catalog apps, Caddy for routing, and a backup habit for control-plane data plus application state. This is intentionally simpler than a cluster and more repeatable than hand-maintained SSH scripts.`,
-      bullets: [
-        'One primary server for the control plane and workloads.',
-        'Git repository deploys for custom apps.',
-        'Catalog or image deploys for common open-source services.',
-        'Custom domains routed through Caddy with HTTPS.',
-        'Backups for databases, volumes, logs, and configuration.',
-      ],
-    },
-    {
-      title: 'When this use case is ready for production',
-      body: `Do not judge readiness by the first successful deploy alone. A production-ready setup should have a tested rollback, a backup and restore plan, documented env vars, known server capacity, and a clear owner for updates. If the app is client-facing or revenue-critical, run a staging deploy before moving DNS.`,
-    },
-    {
-      title: 'Growth path',
-      body: `Many teams begin with one server and a few apps. As traffic grows, you can separate databases, move heavy workloads to dedicated servers, add monitoring, or graduate specific workloads to a managed platform. The value of Better-PaaS is that the early workflow stays understandable while you learn which services actually need more infrastructure.`,
-    },
-  ];
-}
-
-function featureDepth(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'How this feature affects indexable deployment content',
-      body: `${page.h1} is not only a product feature; it changes the practical advice on deployment pages. For Google and for developers, the page needs to explain what the feature does, what assumptions it makes, what can go wrong, and which docs help users solve the next problem.`,
-    },
-    {
-      title: 'Configuration questions to answer',
-      body: `Before relying on ${page.primaryKeyword}, answer the operational questions that usually create support issues. These are the details that make a feature page useful rather than promotional.`,
-      bullets: [
-        'What input does the user need to provide?',
-        'What default does Better-PaaS choose?',
-        'What failure state appears in logs or the dashboard?',
-        'What related guide should the user read next?',
-      ],
-    },
-    {
-      title: 'Related workflows',
-      body: `This feature usually connects to app deployment, environment variables, logs, routing, rollback behavior, and server maintenance. Treat it as one part of a release workflow instead of an isolated checkbox.`,
-    },
-  ];
-}
-
-function integrationDepth(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'Integration checklist',
-      body: `A good ${page.primaryKeyword} setup should be easy to verify. Check credentials, network access, app health, logs, and the failure path before depending on the integration in production.`,
-      bullets: [
-        'Use least-privilege credentials where possible.',
-        'Store secrets as environment variables or encrypted platform values.',
-        'Confirm the integration still works after redeploy.',
-        'Document who owns token rotation and troubleshooting.',
-      ],
-    },
-    {
-      title: 'Security considerations',
-      body: `Integrations often introduce the highest-risk values in a deployment: Git tokens, webhooks, database URLs, notification endpoints, or DNS credentials. Better-PaaS redacts secret env vars in API responses, but you should still rotate tokens, avoid over-broad scopes, and keep dashboard access limited.`,
-    },
-    {
-      title: 'Debug path',
-      body: `When the integration fails, check the external service first, then Better-PaaS configuration, then container logs. For example, a webhook issue might be caused by the Git provider delivery status, the wrong branch, a stale secret, or an unreachable dashboard URL.`,
-    },
-  ];
-}
-
-function glossaryDepth(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'Example in a deployment workflow',
-      body: `In a Better-PaaS workflow, ${page.primaryKeyword.replace(/^what is /, '')} appears when a developer connects a repository, deploys a container, attaches a domain, configures secrets, or debugs an app that did not start correctly. The term is useful because it describes a concrete part of getting code live on a server.`,
-    },
-    {
-      title: 'Common confusion',
-      body: `People often mix this term with adjacent deployment concepts. The safest way to understand it is to ask what layer it belongs to: source code, build step, container runtime, routing, storage, security, or operations. That mental model makes troubleshooting much faster.`,
-    },
-    {
-      title: 'Related terms to learn next',
-      body: 'Read the related glossary and feature pages when the term appears in an error message, dashboard field, or deployment guide.',
-      bullets: ['Docker container', 'environment variable', 'reverse proxy', 'custom domain', 'rollback'],
-    },
-    {
-      title: 'Why this term shows up during debugging',
-      body: `Deployment problems usually become easier once you can name the layer that failed. If the issue involves ${page.primaryKeyword.replace(/^what is /, '')}, look for the part of the workflow where source code becomes a build, a build becomes a container, a container becomes a routed service, or a routed service becomes a public HTTPS app. That vocabulary helps you search logs, docs, and support threads with more precision.`,
-    },
-  ];
-}
-
-function fixDepth(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'How to isolate the layer',
-      body: `For ${page.primaryKeyword}, separate the problem into layers. If the build never finishes, inspect repository and dependency output. If the container starts but traffic fails, inspect port binding, health checks, and Caddy routing. If the app works locally but not on the public domain, inspect DNS, HTTPS, and environment-specific URLs.`,
-      bullets: [
-        'Build layer: dependencies, lockfiles, build scripts, framework detection.',
-        'Runtime layer: start command, port, env vars, file permissions.',
-        'Network layer: container port, health check, reverse proxy, DNS.',
-        'State layer: database connection, volume path, migrations, secrets.',
-      ],
-    },
-    {
-      title: 'Evidence to collect before changing settings',
-      body: `Before editing multiple settings, capture the current failure evidence. Read the latest deployment log, note the exact error, confirm whether the old deployment still works, and identify the last change. This makes the fix faster and prevents accidental regressions.`,
-    },
-    {
-      title: 'Escalation path',
-      body: `If the issue persists, try a minimal test app on the same server. If the test app deploys, the problem is likely app-specific. If the test app fails too, inspect server resources, Docker state, Caddy routing, firewall rules, and dashboard API reachability.`,
-    },
-    {
-      title: 'What a good fix looks like',
-      body: `A good fix should be narrow and repeatable. Change one cause, redeploy once, and compare the new log output with the old log output. If the problem involves credentials, rotate only the affected secret. If it involves storage, verify the volume path before deleting or recreating containers. If it involves DNS or HTTPS, wait for DNS propagation and confirm the server can receive traffic on ports 80 and 443.`,
-    },
-  ];
-}
-
-function bestDepth(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'Shortlist categories',
-      body: `Most lists of ${page.primaryKeyword} are confusing because they compare unlike tools. Separate them into hosted PaaS, self-hosted PaaS, Docker management UIs, Kubernetes platforms, and traditional hosting control panels. Better-PaaS belongs in the self-hosted PaaS category.`,
-      bullets: [
-        'Hosted PaaS: easiest operations, less server control.',
-        'Self-hosted PaaS: more control, more responsibility.',
-        'Docker management UI: container control, less app workflow.',
-        'Kubernetes platform: powerful, heavier operational model.',
-        'Traditional hosting panel: broad hosting admin, less Git-native deployment.',
-      ],
-    },
-    {
-      title: 'Ranking criteria',
-      body: `A useful tool list should rank by workflow fit rather than brand recognition. For small teams, the most important criteria are deploy speed, rollback safety, HTTPS setup, database support, log visibility, backup story, and whether the monthly cost stays predictable as apps multiply.`,
-    },
-    {
-      title: 'Who should pick Better-PaaS',
-      body: `Pick Better-PaaS if you want one server to host several apps with a Git-based workflow, automatic domains, simple database add-ons, and a dashboard. Skip it if you want a fully managed cloud, if your company already mandates Kubernetes, or if you need multi-region autoscaling on day one.`,
-    },
-  ];
-}
-
-function templateDepth(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'Why use a template',
-      body: `Templates remove the guesswork from deployment. Instead of configuring Docker, Caddy, and databases manually, you start with a proven stack that Better-PaaS understands. This reduces the time from repository to live app and lowers the chance of misconfiguration.`,
-      bullets: ['Pre-configured build and start commands', 'Known-working database pairings', 'Tested volume and environment variable setup', 'HTTPS and domain routing included'],
-    },
-    {
-      title: 'When to move beyond the template',
-      body: `A template is a starting point, not a ceiling. Once your app grows, you may need to add services, tune resource limits, split databases to dedicated servers, or customize the Dockerfile. Better-PaaS supports all of these without locking you into the template.`,
-    },
-    {
-      title: 'Production readiness checklist',
-      body: `Before depending on this template for production traffic, verify that backups, monitoring, and rollback behavior are tested. A template gets you live quickly; production readiness requires operational habits.`,
-      bullets: ['Test a redeploy and confirm zero-downtime behavior', 'Set up database backups', 'Document environment variables and secrets', 'Verify log streaming and health checks', 'Plan server scaling before traffic spikes'],
-    },
-  ];
-}
-
-function exampleDepth(page: SeoPage): SeoSection[] {
-  return [
-    {
-      title: 'What makes this example useful',
-      body: `Real-world examples show how Better-PaaS handles the messy details: environment variables, database connections, volume mounts, custom domains, and HTTPS. This example is based on the actual deployment workflow, not a theoretical setup.`,
-      bullets: ['Concrete deployment steps', 'Known-working configuration', 'Common pitfalls and how to avoid them', 'Production recommendations'],
-    },
-    {
-      title: 'How to adapt this example',
-      body: `Every app is different, but the deployment pattern is often similar. Use this example as a starting point, then adjust environment variables, resource limits, and domain settings to match your specific requirements.`,
-    },
-    {
-      title: 'Production considerations',
-      body: `Before relying on this example for production, verify backups, health checks, log monitoring, and a rollback plan. Examples get you live quickly; production readiness requires operational discipline.`,
-      bullets: ['Set up automated backups', 'Configure health check endpoints', 'Monitor logs and resource usage', 'Document environment variables', 'Test rollback behavior'],
-    },
-  ];
-}
-
-const priorityDepthSections: Record<string, SeoSection[]> = {
-  'alternatives/heroku': [
-    {
-      title: 'Heroku migration notes',
-      body: 'The closest Better-PaaS mental model to Heroku is: Git repository in, containerized app out, domain routed after health checks. The differences are operational. Heroku owns dynos and add-ons; Better-PaaS runs on your VPS, so you own server size, Docker cleanup, backups, and updates.',
-      bullets: ['Map Heroku config vars to Better-PaaS env vars.', 'Replace add-ons with Postgres, Redis, MySQL, or external services.', 'Check that the app listens on PORT.', 'Move DNS only after logs and health checks look clean.'],
-    },
-  ],
-  'alternatives/coolify': [
-    {
-      title: 'Coolify alternative angle',
-      body: 'Coolify and Better-PaaS are both self-hosted deployment tools, so this page should not pretend the difference is hosted vs self-hosted. The main evaluation areas are interface preference, resource footprint, app catalog coverage, update process, and how much of the workflow you want the platform to automate.',
-    },
-  ],
-  'deploy/nextjs': [
-    {
-      title: 'Next.js-specific checks',
-      body: 'For Next.js, confirm the repository has a package manager lockfile, a working build script, and a start script suitable for production. If the app uses image optimization, API routes, or server rendering, test the production build locally or in staging before moving the public domain.',
-      bullets: ['Use npm, pnpm, or yarn consistently.', 'Set NEXT_PUBLIC_* variables at build time when needed.', 'Confirm the app binds to the platform PORT.', 'Review server-only env vars separately from browser-exposed variables.'],
-    },
-  ],
-  'deploy/n8n': [
-    {
-      title: 'n8n webhook and domain notes',
-      body: 'n8n is especially sensitive to its public URL because external webhooks need to call back into the instance. Set N8N_HOST, N8N_PROTOCOL, and WEBHOOK_URL to match the HTTPS domain once DNS and Caddy routing are working.',
-    },
-  ],
-  'deploy/wordpress': [
-    {
-      title: 'WordPress production notes',
-      body: 'For WordPress, the deploy itself is only the beginning. The index-worthy advice is operational: use a real database plan, back up wp-content and the database, avoid untrusted plugins, and test updates before applying them to a client or production site.',
-    },
-  ],
-  'fix/port-environment-variable': [
-    {
-      title: 'What PORT means in Better-PaaS',
-      body: 'Better-PaaS routes traffic to the container port the platform expects. Apps that hard-code 3000, 5000, or localhost can look healthy locally and fail in production. Read PORT from the environment and bind to 0.0.0.0 when the framework requires an explicit host.',
-    },
-  ],
-};
-
-function familyDepthFaqs(page: SeoPage): SeoFAQ[] {
-  return [
-    {
-      question: `Is this ${page.eyebrow.toLowerCase()} guidance enough for production?`,
-      answer: `Use it as a practical starting point, then verify the production details for your app: domains, secrets, storage, database backups, server capacity, logs, rollback behavior, and update ownership.`,
-    },
-    {
-      question: 'What should I read next?',
-      answer: `Start with the related links on this page, especially the Better-PaaS quickstart and the most relevant deployment or troubleshooting guide. Search intent pages work best when they lead to a real next action.`,
-    },
-  ];
-}
-
-const priorityDepthFaqs: Record<string, SeoFAQ[]> = {
-  'alternatives/heroku': [
-    {
-      question: 'Can Better-PaaS replace Heroku config vars?',
-      answer: 'Yes. Better-PaaS supports environment variables and redacted secrets, but you need to recreate them explicitly during migration.',
-    },
-  ],
-  'deploy/n8n': [
-    {
-      question: 'Why do n8n webhooks fail after deployment?',
-      answer: 'The public webhook URL often does not match the actual HTTPS domain. Set N8N_HOST, N8N_PROTOCOL, and WEBHOOK_URL after the custom domain is working.',
-    },
-  ],
-  'deploy/wordpress': [
-    {
-      question: 'Is one-container WordPress enough for production?',
-      answer: 'It can work for small sites, but production WordPress should have database backups, persistent wp-content storage, plugin update discipline, and a tested restore path.',
-    },
-  ],
-};
 
 export const seoPages: SeoPage[] = rawSeoPages.map(enrichForIndexing);
 
