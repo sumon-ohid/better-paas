@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
 import {
   Activity,
   Archive,
+  ArrowRight,
   ChevronDown,
   Clock,
   Database,
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react';
 import { LogoMark } from '@/components/logo';
 import { cn } from '@/lib/cn';
+import { demoUrl } from '@/lib/shared';
 import { BranchBadge, Kbd, RepoPill, StatusBadge, StatusDot } from './primitives';
 
 type AppStatus = 'running' | 'building' | 'stopped' | 'failed';
@@ -150,14 +152,6 @@ const APPS: DemoApp[] = [
   },
 ];
 
-const FILTERS: { label: string; status: AppStatus | null }[] = [
-  { label: 'All', status: null },
-  { label: 'Running', status: 'running' },
-  { label: 'Building', status: 'building' },
-  { label: 'Paused', status: 'stopped' },
-  { label: 'Failed', status: 'failed' },
-];
-
 const panel =
   'border border-fd-border/70 bg-[color-mix(in_oklab,var(--color-fd-card)_74%,transparent)]';
 const mutedPanel =
@@ -227,45 +221,17 @@ function AppGridCard({ app }: { app: DemoApp }) {
   );
 }
 
-function AppListRow({ app }: { app: DemoApp }) {
-  return (
-    <div className={cn(panel, 'flex items-center gap-3 rounded-lg px-3.5 py-2.5 sm:px-4 sm:py-3')}>
-      <div className="flex min-w-0 flex-1 items-center gap-2.5">
-        <StatusDot status={app.status} className="opacity-80" />
-        <span className="truncate text-sm font-semibold text-fd-foreground/90">{app.name}</span>
-      </div>
-      <div className="hidden w-24 shrink-0 sm:block">
-        <StatusBadge status={app.status} className="bg-fd-muted/35 text-fd-muted-foreground" />
-      </div>
-      <span className="hidden w-36 shrink-0 truncate font-mono text-xs text-fd-muted-foreground md:block">
-        {app.url === '—' ? '—' : app.url}
-      </span>
-      <span className="hidden w-36 shrink-0 truncate font-mono text-xs text-fd-muted-foreground lg:block">
-        {app.repo}
-      </span>
-      <span className="hidden shrink-0 text-xs tabular-nums text-fd-muted-foreground sm:block">
-        {app.deployed}
-      </span>
-      <MoreHorizontal className="size-4 shrink-0 text-fd-muted-foreground/45" />
-    </div>
-  );
-}
-
 /* ────────────────────────────────────────────────────────────────────────── *
  * The dashboard preview
  * ────────────────────────────────────────────────────────────────────────── */
 
 export function ProductDemo() {
-  const [filter, setFilter] = useState<string>('All');
-  const [view, setView] = useState<'grid' | 'list'>('grid');
-
-  const activeStatus = FILTERS.find((f) => f.label === filter)?.status ?? null;
-  const visibleApps = activeStatus ? APPS.filter((a) => a.status === activeStatus) : APPS;
-
   return (
-    <div
+    <Link
+      href={demoUrl}
+      aria-label="Open interactive demo"
       className={cn(
-        'overflow-hidden rounded-[1.35rem] border border-fd-border/70',
+        'group/demo relative block cursor-pointer overflow-hidden rounded-[1.35rem] border border-fd-border/70 transition-[border-color,box-shadow] hover:border-fd-border hover:shadow-md',
         'bg-[linear-gradient(180deg,color-mix(in_oklab,var(--color-fd-card)_82%,transparent),color-mix(in_oklab,var(--color-fd-card)_55%,transparent))]',
       )}
     >
@@ -359,8 +325,7 @@ export function ProductDemo() {
             <div className="flex min-w-0 items-center gap-2.5">
               <PanelLeft className="size-4 shrink-0 text-fd-muted-foreground/65" />
               <div className="hidden h-4 w-px bg-fd-border sm:block" />
-              <button
-                type="button"
+              <span
                 className={cn(
                   mutedPanel,
                   'hidden items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs text-fd-muted-foreground/80 sm:inline-flex',
@@ -369,9 +334,9 @@ export function ProductDemo() {
                 <Server className="size-3.5 opacity-70" />
                 <span className="font-medium text-fd-foreground/85">localhost</span>
                 <ChevronDown className="size-3 opacity-60" />
-              </button>
+              </span>
             </div>
-            <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-fd-foreground px-2.5 text-xs font-semibold text-fd-background transition-opacity hover:opacity-90 sm:px-3">
+            <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-fd-foreground px-2.5 text-xs font-semibold text-fd-background transition-opacity group-hover/demo:opacity-90 sm:px-3">
               <Plus className="size-3.5" />
               <span className="hidden sm:inline">Deploy service</span>
               <span className="sm:hidden">Deploy</span>
@@ -408,20 +373,18 @@ export function ProductDemo() {
             </div>
 
             <div className={cn(mutedPanel, 'flex items-center gap-0.5 rounded-lg p-0.5')}>
-              {FILTERS.map((f) => (
-                <button
-                  key={f.label}
-                  type="button"
-                  onClick={() => setFilter(f.label)}
+              {['All', 'Running', 'Building', 'Paused', 'Failed'].map((label) => (
+                <span
+                  key={label}
                   className={cn(
-                    'cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                    filter === f.label
+                    'rounded-md px-2.5 py-1 text-xs font-medium',
+                    label === 'All'
                       ? 'bg-fd-card text-fd-foreground'
-                      : 'text-fd-muted-foreground/70 hover:text-fd-foreground',
+                      : 'text-fd-muted-foreground/70',
                   )}
                 >
-                  {f.label}
-                </button>
+                  {label}
+                </span>
               ))}
             </div>
 
@@ -432,68 +395,39 @@ export function ProductDemo() {
                   'hidden items-center gap-0.5 rounded-lg p-0.5 md:flex',
                 )}
               >
-                <button
-                  type="button"
-                  onClick={() => setView('grid')}
-                  aria-label="Grid view"
-                  className={cn(
-                    'flex size-7 cursor-pointer items-center justify-center rounded-md transition-colors',
-                    view === 'grid'
-                      ? 'bg-fd-card text-fd-foreground'
-                      : 'text-fd-muted-foreground/70 hover:text-fd-foreground',
-                  )}
-                >
+                <span className="flex size-7 items-center justify-center rounded-md bg-fd-card text-fd-foreground">
                   <LayoutGrid className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView('list')}
-                  aria-label="List view"
-                  className={cn(
-                    'flex size-7 cursor-pointer items-center justify-center rounded-md transition-colors',
-                    view === 'list'
-                      ? 'bg-fd-card text-fd-foreground'
-                      : 'text-fd-muted-foreground/70 hover:text-fd-foreground',
-                  )}
-                >
+                </span>
+                <span className="flex size-7 items-center justify-center rounded-md text-fd-muted-foreground/70">
                   <List className="size-4" />
-                </button>
+                </span>
               </div>
-              <button
-                type="button"
+              <span
                 className={cn(
                   mutedPanel,
-                  'hidden h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-fd-muted-foreground/80 transition-colors hover:text-fd-foreground lg:inline-flex',
+                  'hidden h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-fd-muted-foreground/80 lg:inline-flex',
                 )}
               >
                 <Layers className="size-3.5 opacity-70" />
                 Prune Docker
-              </button>
+              </span>
             </div>
           </div>
 
           {/* Content */}
           <div className="flex-1 overflow-hidden border-t border-fd-border/40 p-3 sm:p-5">
-            {visibleApps.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-fd-muted-foreground">
-                No applications match this filter.
-              </div>
-            ) : view === 'grid' ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3.5 lg:grid-cols-2 2xl:grid-cols-3">
-                {visibleApps.map((app) => (
-                  <AppGridCard key={app.name} app={app} />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {visibleApps.map((app) => (
-                  <AppListRow key={app.name} app={app} />
-                ))}
-              </div>
-            )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3.5 lg:grid-cols-2 2xl:grid-cols-3">
+              {APPS.map((app) => (
+                <AppGridCard key={app.name} app={app} />
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      <span className="pointer-events-none absolute bottom-4 right-4 z-20 inline-flex items-center gap-1.5 rounded-full bg-fd-foreground/90 px-4 py-2 text-xs font-semibold text-fd-background shadow-lg backdrop-blur-sm transition-opacity group-hover/demo:opacity-95 sm:bottom-5 sm:right-5">
+        Try interactive demo
+        <ArrowRight className="size-3.5" />
+      </span>
+    </Link>
   );
 }

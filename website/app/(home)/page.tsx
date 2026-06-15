@@ -15,7 +15,7 @@ import {
   Rocket,
 } from 'lucide-react';
 import { LogoMark } from '@/components/logo';
-import { appName, gitConfig, githubUrl, demoUrl } from '@/lib/shared';
+import { appName, gitConfig, githubUrl } from '@/lib/shared';
 import { ProductDemo } from '@/components/landing/product-demo';
 import { FeatureShowcase } from '@/components/landing/feature-showcase';
 import { TechMarquee } from '@/components/landing/tech-marquee';
@@ -200,13 +200,6 @@ function Hero({
             <div className="relative w-full rounded-[1.5rem] bg-[#f8fbff]/92 p-2 dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)] shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)]">
               <ProductDemo />
             </div>
-            <Link
-              href={demoUrl}
-              className="absolute bottom-6 right-6 z-20 inline-flex items-center gap-1.5 rounded-full bg-fd-foreground/90 px-4 py-2 text-xs font-semibold text-fd-background shadow-lg backdrop-blur-sm transition-opacity hover:opacity-90 sm:bottom-8 sm:right-8"
-            >
-              Try interactive demo
-              <ArrowRight className="size-3.5" />
-            </Link>
           </div>
         </div>
       </div>
