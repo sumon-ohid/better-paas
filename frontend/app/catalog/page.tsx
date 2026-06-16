@@ -90,6 +90,7 @@ const iconUrlOverrides: Record<string, string> = {
   seonaut: "https://seonaut.org/favicon.ico",
   seopanel: "https://raw.githubusercontent.com/seopanel/Seo-Panel-Docs/master/_static/seo_lg.png",
   openui: "https://cdn.jsdelivr.net/npm/simple-icons/icons/weightsandbiases.svg",
+  trypost: "https://trypost.it/images/trypost/logo-light.png",
 }
 
 function iconUrl(slug: string): string {

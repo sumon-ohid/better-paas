@@ -423,7 +423,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	if len(req.Domains) > 0 {
 		appURL = "https://" + req.Domains[0]
 	}
-	if tpl.ID == "mixpost" {
+	if tpl.ID == "mixpost" || tpl.ID == "trypost" {
 		autoEnv["APP_URL"] = appURL
 	}
 	if tpl.ID == "seonaut" {
@@ -438,7 +438,7 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 			val = strings.TrimSpace(ov)
 		}
 		if val == "" && e.Generate {
-			if tpl.ID == "mixpost" && e.Key == "APP_KEY" {
+			if e.Key == "APP_KEY" {
 				val = laravelAppKey()
 			} else {
 				val = addonPassword() // 24-char hex secret
@@ -618,6 +618,21 @@ func catalogTemplateAddonEnv(templateID string, addon Addon, password string) ma
 		} else if addon.Type == "redis" {
 			out["REDIS_HOST"] = base["REDIS_HOST"]
 			out["REDIS_PORT"] = "6379"
+			out["REDIS_PASSWORD"] = base["REDIS_PASSWORD"]
+		}
+	case "trypost":
+		if addon.Type == "postgres" {
+			out["DB_HOST"] = base["POSTGRES_HOST"]
+			out["DB_PORT"] = "5432"
+			out["DB_DATABASE"] = base["POSTGRES_DB"]
+			out["DB_USERNAME"] = base["POSTGRES_USER"]
+			out["DB_PASSWORD"] = base["POSTGRES_PASSWORD"]
+			out["DB_CONNECTION"] = "pgsql"
+		} else if addon.Type == "redis" {
+			out["REDIS_URL"] = base["REDIS_URL"]
+			out["REDIS_HOST"] = base["REDIS_HOST"]
+			out["REDIS_PORT"] = "6379"
+			out["REDIS_USERNAME"] = "default"
 			out["REDIS_PASSWORD"] = base["REDIS_PASSWORD"]
 		}
 	case "matomo":
