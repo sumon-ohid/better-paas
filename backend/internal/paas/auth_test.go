@@ -246,10 +246,12 @@ func TestRequestOriginAllowedDefaultsToSameHostname(t *testing.T) {
 
 func TestPublicPathsStayNarrow(t *testing.T) {
 	want := map[string]bool{
-		"/api/health":              true,
-		"/api/auth/verify":         true,
-		"/api/track":               true,
-		"/api/analytics/script.js": true,
+		"/api/health":                   true,
+		"/.well-known/better-paas.json": true,
+		"/api/auth/verify":              true,
+		"/api/connect/agent/exchange":   true,
+		"/api/track":                    true,
+		"/api/analytics/script.js":      true,
 	}
 	if len(publicPaths) != len(want) {
 		t.Fatalf("publicPaths length = %d, want %d: %#v", len(publicPaths), len(want), publicPaths)

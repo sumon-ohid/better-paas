@@ -136,6 +136,7 @@ func registerSystemRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/system/update/status", scoped(handleUpdateStatus, ScopeSystemManage))
 	mux.HandleFunc("/api/system/update/apply", scoped(handleUpdateApply, ScopeSystemManage))
 	mux.HandleFunc("/api/health", handleHealth)
+	mux.HandleFunc("/.well-known/better-paas.json", handleWellKnown)
 	mux.HandleFunc("/api/auth/verify", handleAuthVerify)
 	mux.HandleFunc("/api/auth/ws-ticket", handleAuthWSTicket)
 	mux.HandleFunc("/api/system/onboarding", adminGate(handleOnboardingGet))
@@ -167,6 +168,9 @@ func registerAgentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/agents/create", adminGate(handleAgentCreate))
 	mux.HandleFunc("/api/agents/delete", adminGate(handleAgentDelete))
 	mux.HandleFunc("/api/agents/rotate", adminGate(handleAgentRotate))
+
+	mux.HandleFunc("/api/connect/agent/approve", adminGate(handleConnectAgentApprove))
+	mux.HandleFunc("/api/connect/agent/exchange", handleConnectAgentExchange)
 }
 
 func registerAuditRoutes(mux *http.ServeMux) {

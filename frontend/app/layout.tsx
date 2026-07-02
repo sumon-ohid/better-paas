@@ -3,9 +3,7 @@ import { Geist_Mono, Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ToastProvider } from "@/components/ui/toast"
-import { AuthGate } from "@/components/auth-gate"
-import { ServerProvider } from "@/components/server-context"
-import { OnboardingGate } from "@/components/onboarding-gate"
+import { AppShellGate } from "@/components/app-shell-gate"
 import { cn } from "@/lib/utils";
 
 const interHeading = Inter({subsets:['latin'],variable:'--font-heading'});
@@ -41,11 +39,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <ToastProvider>
-            <AuthGate>
-              <ServerProvider>
-                <OnboardingGate>{children}</OnboardingGate>
-              </ServerProvider>
-            </AuthGate>
+            <AppShellGate>{children}</AppShellGate>
           </ToastProvider>
         </ThemeProvider>
       </body>

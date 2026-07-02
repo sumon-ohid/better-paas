@@ -35,8 +35,10 @@ func limitBody(next http.Handler) http.Handler {
 
 // publicPaths are reachable without an admin token.
 var publicPaths = map[string]bool{
-	"/api/health":      true,
-	"/api/auth/verify": true,
+	"/api/health":                   true,
+	"/.well-known/better-paas.json": true,
+	"/api/auth/verify":              true,
+	"/api/connect/agent/exchange":   true,
 	// Analytics ingestion + the embeddable tracking script run on third-party
 	// deployed sites, which never carry the admin token.
 	"/api/track":               true,
