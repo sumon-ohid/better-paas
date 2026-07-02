@@ -8,9 +8,10 @@ Better-PaaS now supports **scoped agent tokens** — separate credentials for ma
 
 This means you can let Claude Code deploy from your terminal, a GitHub Action push on every commit, or a monitoring script check health — all without sharing your admin password.
 
-<Callout type="info">
-  Agent tokens are a **machine-to-machine** authentication system. They work
-  alongside your existing admin token — nothing changes for dashboard sign-in.
+<Callout type="info" title="Fastest path: use the paas CLI">
+  Run `paas connect https://your-dashboard-url` on your laptop. Sign in in the
+  browser, pick a permission profile, and you're done — no curl, no copying admin
+  tokens locally. See the full guide: [PaaS CLI — Connect from Your Machine](/docs/guides/paas-cli).
 </Callout>
 
 ---
@@ -41,9 +42,26 @@ Your admin token is the master key. Agent tokens are **scoped copies** designed 
 
 ## Creating an agent token
 
-Agent tokens can only be created by the admin. There is no dashboard UI yet — use the API directly with `curl` or any HTTP client.
+### Option A — Browser connect (recommended)
 
-### 1. Get your admin token
+Use the [paas CLI](/docs/guides/paas-cli) on your local machine:
+
+```bash
+paas connect https://paas.example.com
+```
+
+Sign in with your admin token in the browser, choose a profile (**Observer**,
+**Deployer**, or **Operator**), and authorize. A scoped `bpagt_…` token is saved
+to `~/.paas/config.json`.
+
+Your admin token is used only in the browser session — it is **not** stored on
+your laptop.
+
+### Option B — API with curl (advanced)
+
+Create tokens manually when you need custom scope lists or headless CI.
+
+**1. Get your admin token**
 
 ```bash title="On your server"
 cd ~/better-paas/backend && ./server token
@@ -55,7 +73,7 @@ Or read it from the file:
 cat backend/data/admin_token.txt
 ```
 
-### 2. Create the agent
+**2. Create the agent**
 
 ```bash
 ADMIN_TOKEN="your-admin-token-here"
@@ -299,6 +317,11 @@ The token is wrong, expired, or the agent was deleted. Reprint the admin token w
 ## Next steps
 
 <Cards>
+  <Card
+    title="PaaS CLI"
+    href="/docs/guides/paas-cli"
+    description="Connect from your laptop with paas connect — browser authorization, no curl."
+  />
   <Card
     title="AI Agent API Guide"
     href="/docs/guides/ai-agents"

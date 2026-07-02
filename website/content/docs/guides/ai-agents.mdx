@@ -9,9 +9,12 @@ Better-PaaS is designed to be fully programmable. This guide gives AI coding age
 <Callout type="info">
   You can authenticate with either your **admin token** or a **scoped agent token**.
   Agent tokens are recommended for any automated tool — they can be limited to
-  specific actions and revoked independently. See [Agent Access & Audit Logs](/docs/guides/agent-access)
-  for how to create them.
+  specific actions and revoked independently.
 </Callout>
+
+**Recommended:** connect from your laptop with the [paas CLI](/docs/guides/paas-cli)
+(`paas connect <dashboard-url>`). For manual token creation and scope reference,
+see [Agent Access & Audit Logs](/docs/guides/agent-access).
 
 ---
 
@@ -40,7 +43,14 @@ cd ~/better-paas/backend && ./server token
 
 ### Agent token (recommended for automation)
 
-Create a scoped token via the API:
+**Fastest:** use the [paas CLI](/docs/guides/paas-cli):
+
+```bash
+paas connect https://paas.example.com
+paas status
+```
+
+**Manual:** create a scoped token via the API:
 
 ```bash
 curl -X POST http://localhost:8080/api/agents/create \
@@ -452,6 +462,11 @@ Then set `healthPath: "/health"` when deploying.
 ## Related guides
 
 <Cards>
+  <Card
+    title="PaaS CLI"
+    href="/docs/guides/paas-cli"
+    description="Browser-based connect flow for local AI tools and scripts."
+  />
   <Card
     title="Agent Access & Audit Logs"
     href="/docs/guides/agent-access"

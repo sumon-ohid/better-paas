@@ -162,6 +162,34 @@ journalctl -u better-paas-backend -f
 curl http://localhost:8080/api/health
 ```
 
+## The paas CLI won't connect
+
+See the full [CLI troubleshooting guide](/docs/guides/paas-cli#troubleshooting).
+Common fixes:
+
+<Accordions>
+<Accordion title="Browser opens localhost:3000 on production">
+Update Better-PaaS to the latest release and redeploy the **frontend** so
+`/connect/agent` and `/.well-known/better-paas.json` exist. Temporarily:
+`paas connect https://your-domain --ui https://your-domain`
+</Accordion>
+
+<Accordion title="/connect/agent returns 404">
+The authorize page ships with the dashboard. Rebuild and redeploy the frontend
+from a current Better-PaaS release.
+</Accordion>
+
+<Accordion title="CLI can't find the API (split dashboard/API hosts)">
+Set `NEXT_PUBLIC_API_URL` at frontend build time and redeploy. Verify:
+`curl https://your-dashboard/.well-known/better-paas.json`
+</Accordion>
+
+<Accordion title="Headless server / no browser">
+Use legacy mode: `paas connect <url> --legacy` (prompts for admin token in the
+terminal; only the agent token is saved locally).
+</Accordion>
+</Accordions>
+
 ## Still stuck?
 
 Open an issue on [GitHub](https://github.com/sumon-ohid/better-paas) with your

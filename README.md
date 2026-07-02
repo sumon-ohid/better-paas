@@ -118,6 +118,19 @@ pnpm build
 pnpm start
 ```
 
+#### paas CLI (your laptop)
+
+Connect AI tools and scripts to a running Better-PaaS instance without cloning
+the repo:
+
+```bash
+go install github.com/sumon-ohid/better-paas/backend/cmd/paas@latest
+export PATH="$PATH:$(go env GOPATH)/bin"
+paas connect https://your-dashboard-url
+```
+
+Requires Go 1.22+. See [CLI docs](https://better-paas.com/docs/guides/paas-cli).
+
 #### Docker Compose (Alternative / Recommended for Containers)
 If you prefer to run `better-paas` inside Docker, you can build and run it using the included Docker Compose setup:
 ```bash

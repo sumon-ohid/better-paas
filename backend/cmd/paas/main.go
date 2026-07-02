@@ -50,7 +50,7 @@ Examples:
   paas status
 
 Setup:
-  1. Install:  go install ./cmd/paas   (from the better-paas repo)
+  1. Install:  go install github.com/sumon-ohid/better-paas/backend/cmd/paas@latest
   2. Connect:  paas connect <your-dashboard-url>
   3. Use:      paas status
 
