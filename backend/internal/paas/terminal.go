@@ -48,7 +48,7 @@ type terminalClientMsg struct {
 }
 
 func handleTerminalWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(w, r) {
+	if !wsAuthOK(w, r, ScopeAppsWrite) {
 		return
 	}
 	appID := r.URL.Query().Get("appId")
@@ -304,7 +304,7 @@ func handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 var hostShellCandidates = []string{"/bin/bash", "/bin/zsh", "/bin/sh"}
 
 func handleHostTerminalWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(w, r) {
+	if !wsAuthOK(w, r, ScopeSystemManage) {
 		return
 	}
 	serverId := r.URL.Query().Get("serverId")

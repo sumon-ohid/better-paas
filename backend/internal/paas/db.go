@@ -1120,6 +1120,7 @@ func dbSaveAgent(a Agent) error {
 		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name,
+			token_hash=excluded.token_hash,
 			scopes=excluded.scopes,
 			last_used_at=excluded.last_used_at
 	`, a.ID, a.Name, a.TokenHash, string(scopesJSON), a.CreatedAt, nullTime(a.LastUsedAt))

@@ -48,7 +48,7 @@ func wsSend(conn *websocket.Conn, message string) error {
 // ---------------------------------------------------------------------------
 
 func handleLogsWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(w, r) {
+	if !wsAuthOK(w, r, ScopeLogsRead, ScopeAppsRead) {
 		return
 	}
 	appID := r.URL.Query().Get("appId")
@@ -137,7 +137,7 @@ func handleLogsWS(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(w, r) {
+	if !wsAuthOK(w, r, ScopeLogsRead, ScopeAppsRead) {
 		return
 	}
 	appID := r.URL.Query().Get("appId")
@@ -319,7 +319,7 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 func handleStatsWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(w, r) {
+	if !wsAuthOK(w, r, ScopeMetricsRead, ScopeAppsRead) {
 		return
 	}
 	serverID := r.URL.Query().Get("serverId")

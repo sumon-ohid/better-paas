@@ -39,7 +39,32 @@ var (
 
 type wsTicket struct {
 	expiresAt time.Time
-	used      bool
+	isAdmin   bool
+	scopes    []string
+}
+
+func (t wsTicket) hasScope(s string) bool {
+	if t.isAdmin {
+		return true
+	}
+	for _, sc := range t.scopes {
+		if sc == s {
+			return true
+		}
+	}
+	return false
+}
+
+func (t wsTicket) hasAnyScope(scopes ...string) bool {
+	if t.isAdmin {
+		return true
+	}
+	for _, s := range scopes {
+		if t.hasScope(s) {
+			return true
+		}
+	}
+	return false
 }
 
 var (
@@ -98,6 +123,27 @@ func actorHasScope(r *http.Request, s string) bool {
 		}
 	}
 	return false
+}
+
+func actorHasAnyScope(r *http.Request, scopes ...string) bool {
+	if actorIsAdmin(r) {
+		return true
+	}
+	for _, s := range scopes {
+		if actorHasScope(r, s) {
+			return true
+		}
+	}
+	return false
+}
+
+func actorHasAllScopes(r *http.Request, scopes ...string) bool {
+	for _, s := range scopes {
+		if !actorHasScope(r, s) {
+			return false
+		}
+	}
+	return true
 }
 
 // secureToken returns a 32-byte cryptographically random hex string.
@@ -222,12 +268,15 @@ func validAgentToken(tok string) *Agent {
 	hash := hashToken(tok)
 	agentsLock.RLock()
 	defer agentsLock.RUnlock()
-	for _, a := range agentsMap {
-		if subtle.ConstantTimeCompare([]byte(a.TokenHash), []byte(hash)) == 1 {
-			return &a
-		}
+	a, ok := agentsMap[hash]
+	if !ok {
+		return nil
 	}
-	return nil
+	if subtle.ConstantTimeCompare([]byte(a.TokenHash), []byte(hash)) != 1 {
+		return nil
+	}
+	copy := a
+	return &copy
 }
 
 // loadAgentsIntoMemory refreshes the in-memory agent cache from the DB.
@@ -251,47 +300,62 @@ func loadAgentsIntoMemory() {
 // WebSocket upgrades. Browsers cannot attach Authorization headers to WS
 // handshakes, and putting the long-lived admin token in the URL leaks it into
 // access logs. A ticket limits that exposure to a single handshake.
-func issueWSTicket() string {
+func issueWSTicket(actor *actorInfo) string {
+	entry := wsTicket{expiresAt: time.Now().Add(60 * time.Second), isAdmin: true}
+	if actor != nil {
+		entry.isAdmin = actor.kind == actorAdmin
+		if !entry.isAdmin {
+			entry.scopes = append([]string(nil), actor.scopes...)
+		}
+	}
 	ticket := secureToken()
 	wsTicketLock.Lock()
-	wsTickets[ticket] = wsTicket{expiresAt: time.Now().Add(60 * time.Second)}
+	wsTickets[ticket] = entry
 	wsTicketLock.Unlock()
 	return ticket
 }
 
-func consumeWSTicket(ticket string) bool {
+func consumeWSTicket(ticket string) (wsTicket, bool) {
 	if ticket == "" {
-		return false
+		return wsTicket{}, false
 	}
 	now := time.Now()
 	wsTicketLock.Lock()
 	defer wsTicketLock.Unlock()
 	entry, ok := wsTickets[ticket]
 	if !ok {
-		return false
+		return wsTicket{}, false
 	}
 	delete(wsTickets, ticket)
-	return !entry.used && now.Before(entry.expiresAt)
+	if now.After(entry.expiresAt) {
+		return wsTicket{}, false
+	}
+	return entry, true
 }
 
 func sweepWSTickets() {
 	now := time.Now()
 	wsTicketLock.Lock()
 	for ticket, entry := range wsTickets {
-		if entry.used || now.After(entry.expiresAt) {
+		if now.After(entry.expiresAt) {
 			delete(wsTickets, ticket)
 		}
 	}
 	wsTicketLock.Unlock()
 }
 
-// wsAuthOK validates a short-lived ticket for a WebSocket upgrade. On failure
-// it writes the HTTP status before the upgrade handshake and returns false.
-func wsAuthOK(w http.ResponseWriter, r *http.Request) bool {
-	if consumeWSTicket(r.URL.Query().Get("ticket")) {
+// wsAuthOK validates a one-use WebSocket ticket and checks that the ticket
+// bearer has at least one of the required scopes (admin tickets bypass).
+func wsAuthOK(w http.ResponseWriter, r *http.Request, scopes ...string) bool {
+	entry, ok := consumeWSTicket(r.URL.Query().Get("ticket"))
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return false
+	}
+	if len(scopes) == 0 || entry.hasAnyScope(scopes...) {
 		return true
 	}
-	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	http.Error(w, "Forbidden: missing scope "+scopes[0], http.StatusForbidden)
 	return false
 }
 
@@ -305,7 +369,7 @@ func handleAuthWSTicket(w http.ResponseWriter, r *http.Request) {
 	}
 	sweepWSTickets()
 	jsonOK(w, map[string]interface{}{
-		"ticket":    issueWSTicket(),
+		"ticket":    issueWSTicket(actorFromRequest(r)),
 		"expiresIn": 60,
 	})
 }
