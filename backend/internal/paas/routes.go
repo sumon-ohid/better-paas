@@ -17,12 +17,15 @@ func newRouter() *http.ServeMux {
 	registerSystemRoutes(mux)
 	registerAnalyticsRoutes(mux)
 	registerWebSocketRoutes(mux)
+	registerAgentRoutes(mux)
+	registerAuditRoutes(mux)
 
 	return mux
 }
 
 func registerAppRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/apps", handleApps)
+	mux.HandleFunc("/api/apps/get", handleGetApp)
 	mux.HandleFunc("/api/deploy", handleDeploy)
 	mux.HandleFunc("/api/deploy/upload", handleDeployUpload)
 	mux.HandleFunc("/api/apps/stop", handleStop)
@@ -86,6 +89,7 @@ func registerCatalogRoutes(mux *http.ServeMux) {
 
 func registerAddonRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/addons", handleAddons)
+	mux.HandleFunc("/api/addons/get", handleGetAddon)
 	mux.HandleFunc("/api/addons/create", handleAddonCreate)
 	mux.HandleFunc("/api/addons/delete", handleAddonDelete)
 	mux.HandleFunc("/api/addons/attach", handleAddonAttach)
@@ -157,3 +161,27 @@ func registerWebSocketRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/ws/terminal", handleTerminalWS)
 	mux.HandleFunc("/ws/host-terminal", handleHostTerminalWS)
 }
+
+func registerAgentRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/api/agents", adminGate(handleAgentsList))
+	mux.HandleFunc("/api/agents/create", adminGate(handleAgentCreate))
+	mux.HandleFunc("/api/agents/delete", adminGate(handleAgentDelete))
+	mux.HandleFunc("/api/agents/rotate", adminGate(handleAgentRotate))
+}
+
+func registerAuditRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/api/audit-logs", adminGate(handleAuditLogs))
+}
+
+// adminGate wraps a handler so only the admin token (not agent tokens) can
+// access it. Use this for sensitive management endpoints.
+func adminGate(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !actorIsAdmin(r) {
+			jsonError(w, "Forbidden: admin token required", http.StatusForbidden)
+			return
+		}
+		h(w, r)
+	}
+}
+

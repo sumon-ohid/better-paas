@@ -46,6 +46,14 @@ func initDB() {
 		log.Fatalf("[db] failed to run servers migrations: %v", err)
 	}
 
+	if err := runAgentMigrations(); err != nil {
+		log.Fatalf("[db] failed to run agent migrations: %v", err)
+	}
+
+	if err := runAuditMigrations(); err != nil {
+		log.Fatalf("[db] failed to run audit migrations: %v", err)
+	}
+
 	migrateFromJSON()
 	loadStateFromDB()
 	migrateAppsToProjectsIfNeeded()
@@ -1057,4 +1065,167 @@ func dbCountAppsOnServer(serverID string) (int, error) {
 	var count int
 	err := sqliteDB.QueryRow(`SELECT COUNT(*) FROM apps WHERE server_id = ?`, serverID).Scan(&count)
 	return count, err
+}
+
+// ---------------------------------------------------------------------------
+// Agent migrations & CRUD
+// ---------------------------------------------------------------------------
+
+func runAgentMigrations() error {
+	schema := `
+CREATE TABLE IF NOT EXISTS agents (
+	id TEXT PRIMARY KEY,
+	name TEXT NOT NULL,
+	token_hash TEXT NOT NULL UNIQUE,
+	scopes TEXT NOT NULL,
+	created_at DATETIME NOT NULL,
+	last_used_at DATETIME
+);
+`
+	if _, err := sqliteDB.Exec(schema); err != nil {
+		return err
+	}
+	return nil
+}
+
+func dbLoadAgents() ([]Agent, error) {
+	rows, err := sqliteDB.Query(`SELECT id, name, token_hash, scopes, created_at, last_used_at FROM agents ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []Agent
+	for rows.Next() {
+		var a Agent
+		var scopesJSON string
+		var lastUsed sql.NullTime
+		err := rows.Scan(&a.ID, &a.Name, &a.TokenHash, &scopesJSON, &a.CreatedAt, &lastUsed)
+		if err != nil {
+			continue
+		}
+		_ = json.Unmarshal([]byte(scopesJSON), &a.Scopes)
+		if lastUsed.Valid {
+			a.LastUsedAt = lastUsed.Time
+		}
+		result = append(result, a)
+	}
+	return result, nil
+}
+
+func dbSaveAgent(a Agent) error {
+	scopesJSON, _ := json.Marshal(a.Scopes)
+	_, err := sqliteDB.Exec(`
+		INSERT INTO agents (id, name, token_hash, scopes, created_at, last_used_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			name=excluded.name,
+			scopes=excluded.scopes,
+			last_used_at=excluded.last_used_at
+	`, a.ID, a.Name, a.TokenHash, string(scopesJSON), a.CreatedAt, nullTime(a.LastUsedAt))
+	return err
+}
+
+func dbDeleteAgent(id string) error {
+	_, err := sqliteDB.Exec(`DELETE FROM agents WHERE id = ?`, id)
+	return err
+}
+
+func dbGetAgentByTokenHash(hash string) (*Agent, error) {
+	var a Agent
+	var scopesJSON string
+	var lastUsed sql.NullTime
+	err := sqliteDB.QueryRow(`SELECT id, name, token_hash, scopes, created_at, last_used_at FROM agents WHERE token_hash = ?`, hash).
+		Scan(&a.ID, &a.Name, &a.TokenHash, &scopesJSON, &a.CreatedAt, &lastUsed)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	_ = json.Unmarshal([]byte(scopesJSON), &a.Scopes)
+	if lastUsed.Valid {
+		a.LastUsedAt = lastUsed.Time
+	}
+	return &a, nil
+}
+
+func dbUpdateAgentLastUsed(id string, t time.Time) error {
+	_, err := sqliteDB.Exec(`UPDATE agents SET last_used_at = ? WHERE id = ?`, t, id)
+	return err
+}
+
+func nullTime(t time.Time) interface{} {
+	if t.IsZero() {
+		return nil
+	}
+	return t
+}
+
+// ---------------------------------------------------------------------------
+// Audit log migrations & CRUD
+// ---------------------------------------------------------------------------
+
+func runAuditMigrations() error {
+	schema := `
+CREATE TABLE IF NOT EXISTS audit_logs (
+	id TEXT PRIMARY KEY,
+	actor_type TEXT NOT NULL,
+	actor_id TEXT,
+	action TEXT NOT NULL,
+	resource_type TEXT,
+	resource_id TEXT,
+	payload_summary TEXT,
+	outcome TEXT NOT NULL,
+	ip_address TEXT,
+	created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_type, actor_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
+`
+	if _, err := sqliteDB.Exec(schema); err != nil {
+		return err
+	}
+	return nil
+}
+
+func dbCreateAuditLog(entry AuditLog) error {
+	_, err := sqliteDB.Exec(`
+		INSERT INTO audit_logs (id, actor_type, actor_id, action, resource_type, resource_id, payload_summary, outcome, ip_address, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, entry.ID, entry.ActorType, entry.ActorID, entry.Action, entry.ResourceType, entry.ResourceID, entry.PayloadSummary, entry.Outcome, entry.IPAddress, entry.CreatedAt)
+	return err
+}
+
+func dbLoadAuditLogs(limit int) ([]AuditLog, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := sqliteDB.Query(`
+		SELECT id, actor_type, actor_id, action, resource_type, resource_id, payload_summary, outcome, ip_address, created_at
+		FROM audit_logs
+		ORDER BY created_at DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []AuditLog
+	for rows.Next() {
+		var e AuditLog
+		var actorID, resourceID, payload, ip sql.NullString
+		err := rows.Scan(&e.ID, &e.ActorType, &actorID, &e.Action, &e.ResourceType, &resourceID, &payload, &e.Outcome, &ip, &e.CreatedAt)
+		if err != nil {
+			continue
+		}
+		e.ActorID = actorID.String
+		e.ResourceID = resourceID.String
+		e.PayloadSummary = payload.String
+		e.IPAddress = ip.String
+		result = append(result, e)
+	}
+	return result, nil
 }

@@ -95,6 +95,34 @@ func handleApps(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/apps/get?id=<appID>
+// ---------------------------------------------------------------------------
+
+func handleGetApp(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		jsonError(w, "Missing id", http.StatusBadRequest)
+		return
+	}
+	app := findApp(id)
+	if app == nil {
+		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+	// Enrich with latest deployment info.
+	clone := app.Public()
+	if dep, err := dbGetLatestDeployment(clone.ID); err == nil && dep != nil {
+		clone.ActiveCommit = dep.Commit
+		clone.ActiveCommitMsg = dep.CommitMsg
+	}
+	jsonOK(w, clone)
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/deploy
 // ---------------------------------------------------------------------------
 

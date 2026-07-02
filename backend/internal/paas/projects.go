@@ -244,12 +244,20 @@ func createEmptyProject(name, description, serverID string) (Project, error) {
 }
 
 // migrateAppsToProjectsIfNeeded backfills projects for apps deployed before the
-// Project model existed.
+// Project model existed, and repairs apps whose projectId points at a missing
+// project row (e.g. after a partial write or manual DB edit).
 func migrateAppsToProjectsIfNeeded() {
 	appsLock.Lock()
 	defer appsLock.Unlock()
 	projectsLock.Lock()
 	defer projectsLock.Unlock()
+
+	projectByID := make(map[string]Project, len(projects))
+	for _, p := range projects {
+		projectByID[p.ID] = p
+	}
+
+	repaired := repairMissingProjectRecords(projectByID)
 
 	needsMigration := false
 	for _, a := range apps {
@@ -259,12 +267,10 @@ func migrateAppsToProjectsIfNeeded() {
 		}
 	}
 	if !needsMigration {
+		if repaired > 0 {
+			log.Printf("[db] Repaired %d missing project records (%d projects total)", repaired, len(projects))
+		}
 		return
-	}
-
-	projectByID := make(map[string]Project, len(projects))
-	for _, p := range projects {
-		projectByID[p.ID] = p
 	}
 
 	composeBuckets := map[string][]int{}
@@ -340,7 +346,71 @@ func migrateAppsToProjectsIfNeeded() {
 		_ = dbSaveApp(apps[i])
 	}
 
+	if repaired > 0 {
+		log.Printf("[db] Repaired %d missing project records during app→project migration", repaired)
+	}
 	log.Printf("[db] Migrated %d apps to projects (%d projects total)", len(apps), len(projects))
+}
+
+// repairMissingProjectRecords creates project rows for apps that already have a
+// projectId but no matching entry in the projects table.
+func repairMissingProjectRecords(projectByID map[string]Project) int {
+	orphans := make(map[string][]App)
+	for _, a := range apps {
+		pid := strings.TrimSpace(a.ProjectID)
+		if pid == "" {
+			continue
+		}
+		if _, ok := projectByID[pid]; ok {
+			continue
+		}
+		orphans[pid] = append(orphans[pid], a)
+	}
+
+	repaired := 0
+	for pid, group := range orphans {
+		primary := pickPrimaryAppForProject(pid, group)
+		p := Project{
+			ID:        pid,
+			Name:      primary.Name,
+			CreatedAt: primary.CreatedAt,
+			ServerID:  primary.ServerID,
+		}
+		if p.ServerID == "" {
+			p.ServerID = "localhost"
+		}
+		projects = append(projects, p)
+		projectByID[p.ID] = p
+		_ = ensureProjectDir(p.ID)
+		if err := dbSaveProject(p); err != nil {
+			log.Printf("[db] failed to repair missing project %s: %v", p.ID, err)
+			continue
+		}
+		repaired++
+	}
+	return repaired
+}
+
+// pickPrimaryAppForProject chooses the app whose metadata should seed a
+// backfilled project row for the given project ID.
+func pickPrimaryAppForProject(projectID string, group []App) App {
+	for _, a := range group {
+		if a.ID == projectID {
+			return a
+		}
+	}
+	for _, a := range group {
+		if a.ComposePrimary {
+			return a
+		}
+	}
+	primary := group[0]
+	for _, a := range group[1:] {
+		if a.CreatedAt.Before(primary.CreatedAt) {
+			primary = a
+		}
+	}
+	return primary
 }
 
 // ---------------------------------------------------------------------------

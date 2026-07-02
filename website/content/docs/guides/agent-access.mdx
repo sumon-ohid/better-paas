@@ -1,0 +1,317 @@
+---
+title: Agent Access & Audit Logs
+description: Create scoped agent tokens for AI tools, CI/CD, and automation. Track every action with audit logs.
+icon: KeyRound
+---
+
+Better-PaaS now supports **scoped agent tokens** — separate credentials for machines and AI assistants that are limited to only the actions they need. Every action they take is recorded in an **audit log** you can review.
+
+This means you can let Claude Code deploy from your terminal, a GitHub Action push on every commit, or a monitoring script check health — all without sharing your admin password.
+
+<Callout type="info">
+  Agent tokens are a **machine-to-machine** authentication system. They work
+  alongside your existing admin token — nothing changes for dashboard sign-in.
+</Callout>
+
+---
+
+## What are agent tokens?
+
+Your admin token is the master key. Agent tokens are **scoped copies** designed for specific jobs:
+
+- **Scoped**: Each token can only do what you allow. A log-reader agent can't delete apps.
+- **Revocable**: Delete a token instantly without changing your admin password.
+- **Auditable**: Every action appears in the audit log with the agent's name.
+- **Free**: Create as many as you need. No per-seat pricing.
+
+---
+
+## When to use them
+
+| Situation | Use this scope |
+|-----------|----------------|
+| Claude Code or Codex managing deploys from the terminal | `apps:read`, `apps:write`, `deploy:trigger`, `logs:read` |
+| GitHub Actions auto-deploying on push | `apps:read`, `apps:write`, `deploy:trigger` |
+| A monitoring script checking uptime | `apps:read`, `metrics:read` |
+| A teammate who needs to read logs | `apps:read`, `logs:read` |
+| An internal dashboard | `apps:read`, `metrics:read`, `logs:read` |
+| Full automation (dangerous, use carefully) | `apps:read`, `apps:write`, `apps:delete`, plus any others |
+
+---
+
+## Creating an agent token
+
+Agent tokens can only be created by the admin. There is no dashboard UI yet — use the API directly with `curl` or any HTTP client.
+
+### 1. Get your admin token
+
+```bash title="On your server"
+cd ~/better-paas/backend && ./server token
+```
+
+Or read it from the file:
+
+```bash title="On your server"
+cat backend/data/admin_token.txt
+```
+
+### 2. Create the agent
+
+```bash
+ADMIN_TOKEN="your-admin-token-here"
+
+curl -X POST http://localhost:8080/api/agents/create \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Claude Code - Local Dev",
+    "scopes": [
+      "apps:read",
+      "apps:write",
+      "deploy:trigger",
+      "logs:read",
+      "metrics:read",
+      "addons:manage"
+    ]
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "id": "a1b2c3d4e5",
+  "name": "Claude Code - Local Dev",
+  "scopes": ["apps:read", "apps:write", "deploy:trigger", "logs:read", "metrics:read", "addons:manage"],
+  "createdAt": "2026-07-02T14:32:00Z",
+  "token": "bpagt_ac7f83b2...91f4"
+}
+```
+
+<Callout type="warn" title="Copy the token now">
+  The raw `token` is shown **only once** and can never be retrieved again. If
+  you lose it, you must rotate the agent to generate a new one.
+</Callout>
+
+---
+
+## Scope reference
+
+Choose only the scopes an agent needs. This is the **principle of least privilege**.
+
+| Scope | Allows | Example jobs |
+|-------|--------|-------------|
+| `apps:read` | List apps, view details, read runtime logs, view metrics | Monitoring, read-only dashboards |
+| `apps:write` | Deploy, redeploy, stop, start, update, rollback apps | CI/CD, AI deploy assistants |
+| `apps:delete` | Permanently delete apps | Cleanup scripts |
+| `addons:manage` | Create, delete, attach, detach databases and caches | Dev environment provisioning |
+| `servers:manage` | Add or remove target servers | Infrastructure automation |
+| `deploy:trigger` | Create new deployments from Git or upload | Git push auto-deploy |
+| `logs:read` | Read app and build logs | Debugging assistants |
+| `metrics:read` | Read CPU, memory, disk metrics | Monitoring tools |
+| `system:manage` | Docker prune, system updates | Maintenance scripts |
+| `cron:manage` | Create, update, delete, run scheduled jobs | Job schedulers |
+| `backups:manage` | Create, restore, delete backups | Disaster recovery |
+| `notifications:manage` | Configure Slack/webhook notifications | Alert setup |
+| `agent:admin` | Create, delete, rotate agent tokens | Multi-admin delegation |
+
+---
+
+## Using an agent token
+
+Agent tokens work exactly like your admin token — in the `Authorization: Bearer` header.
+
+```bash title="Using an agent token"
+AGENT_TOKEN="bpagt_ac7f83b2...91f4"
+
+# List apps (requires apps:read)
+curl -H "Authorization: Bearer $AGENT_TOKEN" \
+  http://localhost:8080/api/apps
+
+# Get a specific app
+
+curl -H "Authorization: Bearer $AGENT_TOKEN" \
+  "http://localhost:8080/api/apps/get?id=abc123"
+
+# Deploy an app
+
+curl -X POST http://localhost:8080/api/deploy \
+  -H "Authorization: Bearer $AGENT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-api",
+    "gitRepo": "https://github.com/me/my-api",
+    "branch": "main"
+  }'
+
+# Read logs (requires logs:read)
+curl -H "Authorization: Bearer $AGENT_TOKEN" \
+  "http://localhost:8080/api/apps/runtime-logs?id=abc123&lines=50"
+```
+
+If the agent is missing a required scope, the API returns:
+
+```json
+{ "error": "Forbidden: missing scope apps:delete" }
+```
+
+---
+
+## Managing agents
+
+### List all agents
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:8080/api/agents
+```
+
+The response includes metadata — **but never the raw token**:
+
+```json
+[
+  {
+    "id": "a1b2c3d4e5",
+    "name": "Claude Code - Local Dev",
+    "scopes": ["apps:read", "apps:write", ...],
+    "createdAt": "2026-07-02T14:32:00Z",
+    "lastUsedAt": "2026-07-02T15:10:00Z"
+  }
+]
+```
+
+### Rotate a token (if lost or compromised)
+
+```bash
+curl -X POST http://localhost:8080/api/agents/rotate \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "a1b2c3d4e5"}'
+```
+
+You receive a new `token` in the response. The old one stops working instantly.
+
+### Delete an agent
+
+```bash
+curl -X POST http://localhost:8080/api/agents/delete \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "a1b2c3d4e5"}'
+```
+
+---
+
+## Audit logs
+
+Every mutating action — deploys, deletes, stops, addon attaches, and so on — is recorded automatically. This includes actions by the admin token and every agent token.
+
+### Viewing audit logs
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "http://localhost:8080/api/audit-logs?limit=20"
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": "x9y8z7w6v5",
+    "actorType": "agent",
+    "actorId": "a1b2c3d4e5",
+    "action": "app:deploy",
+    "resourceType": "app",
+    "outcome": "success",
+    "ipAddress": "127.0.0.1",
+    "createdAt": "2026-07-02T15:10:00Z"
+  },
+  {
+    "id": "u4t3s2r1q0",
+    "actorType": "admin",
+    "actorId": "admin",
+    "action": "addon:create",
+    "resourceType": "addon",
+    "outcome": "success",
+    "createdAt": "2026-07-02T14:45:00Z"
+  }
+]
+```
+
+### What gets logged?
+
+- **Actor**: The token type — `admin` for the main token, or an agent's ID.
+- **Action**: Human-readable like `app:deploy`, `app:stop`, `addon:attach`.
+- **Resource**: What kind of thing was affected (`app`, `addon`, `server`, etc.).
+- **Outcome**: `success` for authenticated requests.
+- **IP address**: Where the request originated.
+
+### Limits
+
+- Up to **500 entries** per request (`?limit=500`).
+- Logs live in your SQLite database alongside app data.
+- There is no automatic pruning yet.
+
+---
+
+## Security best practices
+
+<Steps>
+
+<Step>
+**Never share the admin token.** Create scoped agents for every tool and person instead.
+</Step>
+
+<Step>
+**Use the minimum scopes.** An auto-deploy script does not need `apps:delete`.
+</Step>
+
+<Step>
+**Rotate tokens regularly.** Especially CI/CD agents that might leak into build logs.
+</Step>
+
+<Step>
+**Monitor audit logs.** Check `/api/audit-logs` weekly to spot unexpected activity.
+</Step>
+
+<Step>
+**Delete unused agents.** If you stop using a tool or retire a server, delete its token.
+</Step>
+
+</Steps>
+
+---
+
+## Troubleshooting
+
+### "Forbidden: admin token required"
+You are using an agent token to access `/api/agents` or `/api/audit-logs`. These endpoints require the admin token.
+
+### "Forbidden: missing scope X"
+The agent was created without the scope needed for this action. Create a new agent with the correct scopes, or rotate the existing one.
+
+### "Unauthorized"
+The token is wrong, expired, or the agent was deleted. Reprint the admin token with `./server token`, or create a fresh agent.
+
+---
+
+## Next steps
+
+<Cards>
+  <Card
+    title="AI Agent API Guide"
+    href="/docs/guides/ai-agents"
+    description="Full API reference for building automation and integrations."
+  />
+  <Card
+    title="Auto-deploy on git push"
+    href="/docs/guides/auto-deploy"
+    description="Connect GitHub webhooks for push-to-deploy."
+  />
+  <Card
+    title="Security"
+    href="/docs/security"
+    description="Encryption, brute-force protection, and hardening."
+  />
+</Cards>

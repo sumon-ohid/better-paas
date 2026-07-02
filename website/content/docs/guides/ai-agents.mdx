@@ -1,175 +1,475 @@
 ---
-title: AI Agent Guide
-description: A complete guide for AI coding agents and LLMs to interact with, build for, and deploy to Better-PaaS.
+title: AI Agent API Guide
+description: A complete reference for AI coding agents, LLMs, and automation tools to interact with the Better-PaaS API.
 icon: Cpu
 ---
 
-Better-PaaS is built to be extremely developer-friendly, which also makes it highly compatible with AI coding agents and Large Language Models (LLMs). This guide provides AI agents (such as Cursor, Copilot, ChatGPT, Claude, and Gemini) with the necessary technical details, architectural context, and API specifications to deploy and manage applications on Better-PaaS.
+Better-PaaS is designed to be fully programmable. This guide gives AI coding agents, CI/CD tools, and automation scripts everything they need to deploy apps, read logs, manage databases, and monitor health — all through a clean JSON REST API.
 
----
-
-## Technical Context
-
-Before executing tasks related to Better-PaaS, AI agents should understand the core technologies:
-
-* **Control Plane**: Written in Go. Exposes a JSON REST API and standard WebSocket endpoints.
-* **Database**: Uses SQLite for configuration, app definitions, and deployment logs.
-* **Routing Layer**: Powered by Caddy, providing automatic SSL certificate generation via Let's Encrypt / ZeroSSL and instant, zero-downtime traffic switching.
-* **Container Layer**: Built on top of standard Docker. Runs app instances in isolated containers.
-* **Builders**: Uses Nixpacks by default to build repositories into images, or falls back to raw `Dockerfile` builds.
-
----
-
-## Authentication & Security
-
-Every API endpoint and WebSocket interface on Better-PaaS is protected. 
-
-* **Admin Token**: Generated automatically on the first run.
-* **Token Locations**:
-  * On the host server at `data/admin_token.txt` (chmod `0600`).
-  * In the server console logs inside a visible banner on startup.
-  * Can be retrieved by running `./server token` via CLI.
-* **HTTP Authentication**: Requires a Bearer token in the request headers:
-  ```
-  Authorization: Bearer <your_admin_token>
-  ```
-* **WebSocket Authentication**: First mint a one-use ticket over authenticated
-  HTTP, then connect with that ticket:
-  ```
-  POST /api/auth/ws-ticket
-  ws://YOUR_SERVER:3000/ws/logs?ticket=<one_use_ticket>
-  ```
-
----
-
-## API Reference for AI Agents
-
-AI agents can interact with the Better-PaaS Go API programmatically. Here are the core endpoints:
-
-### 1. List All Apps
-Retrieve a list of all active apps, status codes, and configuration parameters.
-* **Method**: `GET`
-* **Path**: `/api/apps`
-* **Response Sample**:
-  ```json
-  [
-    {
-      "name": "my-node-app",
-      "status": "running",
-      "gitRepo": "https://github.com/user/my-node-app",
-      "branch": "main",
-      "port": 3000,
-      "domains": ["node-app.example.com"],
-      "createdAt": "2026-06-01T12:00:00Z"
-    }
-  ]
-  ```
-
-### 2. Deploy a Service
-Deploy an application from a Git repository. Better-PaaS clones, builds, and starts it.
-* **Method**: `POST`
-* **Path**: `/api/deploy`
-* **Headers**: `Content-Type: application/json`
-* **Body parameters**:
-  * `name` (string, required): The target app name (must be a valid DNS-safe label: `^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$`).
-  * `gitRepo` (string, required): The clone URL of the Git repository.
-  * `branch` (string, required): The branch to pull code from.
-  * `env` (object, optional): Key-value string pairs representing environment variables.
-* **Request Sample**:
-  ```json
-  {
-    "name": "marketing-site",
-    "gitRepo": "https://github.com/org/marketing",
-    "branch": "main",
-    "env": {
-      "NODE_ENV": "production",
-      "API_TIMEOUT": "5000"
-    }
-  }
-  ```
-
-### 3. Redeploy an Existing App
-Trigger a zero-downtime rebuild and redeployment of a currently configured app using the latest commit from its branch.
-* **Method**: `POST`
-* **Path**: `/api/apps/redeploy`
-* **Body parameters**:
-  * `name` (string, required): The name of the application.
-* **Request Sample**:
-  ```json
-  {
-    "name": "marketing-site"
-  }
-  ```
-
-### 4. Stop / Start / Delete Apps
-Control the running state or remove an application from the server.
-* **Method**: `POST`
-* **Paths**:
-  * Stop app: `/api/apps/stop`
-  * Start app: `/api/apps/start`
-  * Delete app: `/api/apps/delete`
-* **Body parameters**:
-  * `name` (string, required): The name of the application.
-* **Request Sample**:
-  ```json
-  {
-    "name": "marketing-site"
-  }
-  ```
-
-### 5. Create a Database Addon
-Better-PaaS supports instant provisioning of managed database containers.
-* **Method**: `POST`
-* **Path**: `/api/addons/create`
-* **Body parameters**:
-  * `name` (string, required): Name of the database service.
-  * `type` (string, required): Database type (`postgres`, `redis`, `mysql`, `mongodb`).
-* **Request Sample**:
-  ```json
-  {
-    "name": "prod-db",
-    "type": "postgres"
-  }
-  ```
-
-<Callout type="info" title="Automatic Database Integration">
-  When you attach a database addon to an application, Better-PaaS automatically injects standard environment variables (such as `DATABASE_URL` or `REDIS_URL`) into the application container. The app does not need custom networking logic to connect.
+<Callout type="info">
+  You can authenticate with either your **admin token** or a **scoped agent token**.
+  Agent tokens are recommended for any automated tool — they can be limited to
+  specific actions and revoked independently. See [Agent Access & Audit Logs](/docs/guides/agent-access)
+  for how to create them.
 </Callout>
 
 ---
 
-## Guidelines for AI Coding Agents
+## Authentication
 
-If you are an AI agent writing code to be run on Better-PaaS, adhere to the following rules:
+Every API endpoint requires a Bearer token:
 
-### 1. Bind to the Injected Port
-Better-PaaS tells your container which port to listen on by passing the `PORT` environment variable. Do not hardcode port `3000` or `8080`.
-* **Node.js/Express**:
-  ```javascript
-  const port = process.env.PORT || 3000;
-  app.listen(port, '0.0.0.5', () => console.log(`Listening on ${port}`));
-  ```
-* **Python/FastAPI**:
-  ```python
-  import os
-  import uvicorn
-  if __name__ == "__main__":
-      port = int(os.environ.get("PORT", 8000))
-      uvicorn.run("main:app", host="0.0.0.0", port=port)
-  ```
+```
+Authorization: Bearer <token>
+```
 
-### 2. File State & Persistent Volumes
-Containers on Better-PaaS are ephemeral. When a new commit is pushed, a brand new container is spun up.
-* Write logs to stdout/stderr. Better-PaaS automatically aggregates and streams them.
-* For databases (SQLite, SQLite-based queues) or upload directories, declare **Persistent Volumes** via the configuration tab or the API. Mount them under `/data` or `/uploads` to keep files intact between builds.
+**Two token types:**
 
-### 3. Keep Builds Reproducible
-Nixpacks infers languages by looking at lockfiles. Always generate and commit lockfiles:
-* JavaScript: Commit `package-lock.json`, `pnpm-lock.yaml`, or `yarn.lock`.
-* Python: Commit `requirements.txt` or `poetry.lock`.
-* Go: Commit `go.sum`.
+| Token | Use when | Permissions |
+|-------|----------|-------------|
+| **Admin token** | Dashboard login, managing agents, viewing audit logs | Full access to everything |
+| **Agent token** | CI/CD, AI assistants, monitoring scripts, automation | Limited to assigned scopes |
 
-### 4. Zero-Downtime Verification (Health Checks)
-By default, Better-PaaS performs a simple TCP connection test on the app port before routing traffic. To optimize zero-downtime rollouts, configure an HTTP health check path:
-* Expose an endpoint like `GET /health` or `GET /api/health` that returns `200 OK` only when critical sub-systems (like databases) are connected.
-* Set the **Health check path** setting to `/health`. Better-PaaS will query it, verify the status, and gracefully cut over traffic without exposing downtime to users.
+### Admin token
+
+Generated on first run. Retrieve it anytime:
+
+```bash title="On your server"
+cd ~/better-paas/backend && ./server token
+```
+
+### Agent token (recommended for automation)
+
+Create a scoped token via the API:
+
+```bash
+curl -X POST http://localhost:8080/api/agents/create \
+  -H "Authorization: Bearer <admin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Automation",
+    "scopes": ["apps:read", "apps:write", "deploy:trigger", "logs:read"]
+  }'
+```
+
+The response includes a `bpagt_...` token shown **once**. Save it securely.
+
+### WebSocket authentication
+
+WebSocket endpoints (for live logs and stats) authenticate with a short-lived ticket:
+
+```bash
+# Step 1: mint a ticket (requires any valid token)
+curl -X POST http://localhost:8080/api/auth/ws-ticket \
+  -H "Authorization: Bearer <token>"
+# → { "ticket": "abc123...", "expiresIn": 60 }
+
+# Step 2: connect with the ticket
+ws://YOUR_SERVER:8080/ws/logs?ticket=abc123...
+```
+
+---
+
+## Core API Endpoints
+
+### Apps
+
+#### List all apps
+
+```http
+GET /api/apps
+Authorization: Bearer <token>
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": "abc123def4",
+    "name": "my-node-app",
+    "status": "running",
+    "gitRepo": "https://github.com/user/my-node-app",
+    "branch": "main",
+    "port": 3000,
+    "url": "http://abc123def4.192.168.1.10.sslip.io",
+    "domains": ["node-app.example.com"],
+    "createdAt": "2026-06-01T12:00:00Z",
+    "activeCommit": "a1b2c3d",
+    "activeCommitMsg": "feat: add user auth"
+  }
+]
+```
+
+#### Get a single app
+
+```http
+GET /api/apps/get?id=<app-id>
+Authorization: Bearer <token>
+```
+
+Returns full app details including runtime configuration, domains, volumes, and latest deployment info. Same shape as items in the list endpoint.
+
+#### Deploy a new app
+
+```http
+POST /api/deploy
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Body parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | App name (lowercase letters, digits, hyphens; 2–40 chars) |
+| `gitRepo` | string | Yes | Git clone URL |
+| `branch` | string | Yes | Branch to deploy |
+| `envVars` | object | No | Environment variables as key-value strings |
+| `buildCommand` | string | No | Override the build command |
+| `startCommand` | string | No | Override the start command |
+| `domains` | string[] | No | Custom domains |
+| `memory` | string | No | Memory limit (e.g. `"512m"`, `"1g"`) |
+| `cpus` | string | No | CPU limit (e.g. `"0.5"`, `"2"`) |
+| `volumes` | string[] | No | Persistent volumes (`"name:/container/path"`) |
+| `healthPath` | string | No | HTTP health check path (default: TCP probe) |
+
+**Example:**
+
+```json
+{
+  "name": "marketing-site",
+  "gitRepo": "https://github.com/org/marketing",
+  "branch": "main",
+  "envVars": {
+    "NODE_ENV": "production",
+    "API_TIMEOUT": "5000"
+  },
+  "memory": "512m",
+  "healthPath": "/health"
+}
+```
+
+#### Redeploy an existing app
+
+```http
+POST /api/apps/redeploy
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "id": "abc123def4",
+  "noCache": false
+}
+```
+
+#### Stop / Start / Delete
+
+```http
+POST /api/apps/stop
+POST /api/apps/start
+POST /api/apps/delete
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{ "id": "abc123def4" }
+```
+
+#### Rollback
+
+```http
+POST /api/apps/rollback
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "id": "abc123def4",
+  "deploymentId": "dep_xyz789"
+}
+```
+
+#### Update app configuration
+
+```http
+POST /api/apps/update
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "id": "abc123def4",
+  "envVars": { "API_KEY": "new-value" },
+  "memory": "1g",
+  "domains": ["app.example.com"]
+}
+```
+
+#### Runtime logs
+
+```http
+GET /api/apps/runtime-logs?id=<app-id>&lines=100
+Authorization: Bearer <token>
+```
+
+**Response:**
+
+```json
+{
+  "logs": ["line 1", "line 2", "line 3"]
+}
+```
+
+#### Per-app metrics
+
+```http
+GET /api/metrics/apps
+Authorization: Bearer <token>
+```
+
+**Response:**
+
+```json
+[
+  {
+    "appId": "abc123def4",
+    "name": "my-node-app",
+    "cpuPercent": 12.5,
+    "memUsageMb": 128.0,
+    "memLimitMb": 512.0,
+    "memPercent": 25.0
+  }
+]
+```
+
+---
+
+### Add-ons (Databases & Caches)
+
+#### List all add-ons
+
+```http
+GET /api/addons
+Authorization: Bearer <token>
+```
+
+#### Get a single add-on
+
+```http
+GET /api/addons/get?id=<addon-id>
+Authorization: Bearer <token>
+```
+
+#### Create an add-on
+
+```http
+POST /api/addons/create
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "name": "prod-db",
+  "type": "postgres"
+}
+```
+
+Supported types: `postgres`, `redis`, `mysql`.
+
+<Callout type="info">
+  When you attach a database to an app, Better-PaaS automatically injects
+  connection env vars like `DATABASE_URL` and `REDIS_URL` into the app
+  container. No custom networking needed.
+</Callout>
+
+#### Attach / Detach
+
+```http
+POST /api/addons/attach
+POST /api/addons/detach
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "addonId": "addon_123",
+  "appId": "abc123def4"
+}
+```
+
+#### Database operations (Postgres/MySQL only)
+
+```http
+POST /api/addons/db/query
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "addonId": "addon_123",
+  "query": "SELECT * FROM users LIMIT 10"
+}
+```
+
+Other endpoints: `/api/addons/db/tables`, `/api/addons/db/columns`, `/api/addons/db/row/insert`, `/api/addons/db/row/update`, `/api/addons/db/row/delete`.
+
+---
+
+### Projects
+
+```http
+GET    /api/projects
+GET    /api/projects/get?id=<id>
+POST   /api/projects/create       { "name": "my-project" }
+POST   /api/projects/rename       { "id": "...", "name": "new-name" }
+POST   /api/projects/delete       { "id": "..." }
+```
+
+---
+
+### Servers
+
+```http
+GET    /api/servers
+GET    /api/server/info
+POST   /api/servers/create
+POST   /api/servers/delete       { "id": "..." }
+POST   /api/servers/test         { "id": "..." }
+```
+
+---
+
+### Cron Jobs
+
+```http
+GET    /api/cron
+POST   /api/cron/create
+POST   /api/cron/update
+POST   /api/cron/delete
+POST   /api/cron/run             { "id": "..." }
+```
+
+---
+
+### Backups
+
+```http
+GET    /api/backups
+POST   /api/backups/create
+POST   /api/backups/restore
+POST   /api/backups/delete
+```
+
+---
+
+### System
+
+```http
+GET    /api/system/version
+GET    /api/health
+POST   /api/docker/prune
+POST   /api/system/update/apply
+GET    /api/deployments/history
+```
+
+---
+
+## Guidelines for apps deployed on Better-PaaS
+
+### 1. Bind to the injected `PORT`
+
+Better-PaaS passes the `PORT` environment variable. Do not hardcode a port.
+
+**Node.js / Express:**
+
+```javascript
+const port = process.env.PORT || 3000;
+app.listen(port, '0.0.0.0', () => console.log(`Listening on ${port}`));
+```
+
+**Python / FastAPI:**
+
+```python
+import os
+import uvicorn
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
+```
+
+### 2. Containers are ephemeral
+
+Each deploy creates a fresh container. For persistent state:
+
+- **Logs**: Write to stdout/stderr. Better-PaaS captures and streams them automatically.
+- **Files / uploads / SQLite**: Mount a [persistent volume](/docs/guides/volumes) via the API: `"volumes": ["mydata:/data"]`.
+
+### 3. Commit lockfiles
+
+Nixpacks detects your language from lockfiles. Always commit:
+
+- JavaScript: `package-lock.json`, `pnpm-lock.yaml`, or `yarn.lock`
+- Python: `requirements.txt` or `poetry.lock`
+- Go: `go.sum`
+- Ruby: `Gemfile.lock`
+
+### 4. Add a health check endpoint
+
+Better-PaaS does a TCP probe by default. For faster, safer zero-downtime deploys, add an HTTP health endpoint:
+
+```javascript
+app.get('/health', (req, res) => {
+  res.status(200).send('ok');
+});
+```
+
+Then set `healthPath: "/health"` when deploying.
+
+---
+
+## Rate limits and errors
+
+- Failed authentication attempts from an IP trigger an escalating lockout (HTTP `429` with `Retry-After`).
+- Request bodies are capped at 2 MiB.
+- All errors return JSON:
+
+```json
+{ "error": "App not found" }
+```
+
+---
+
+## Related guides
+
+<Cards>
+  <Card
+    title="Agent Access & Audit Logs"
+    href="/docs/guides/agent-access"
+    description="Create scoped tokens and track every action."
+  />
+  <Card
+    title="Deploying an App"
+    href="/docs/guides/deploying-an-app"
+    description="How the deploy pipeline works and how to optimize it."
+  />
+  <Card
+    title="Databases"
+    href="/docs/guides/databases"
+    description="Attach managed Postgres, Redis, and MySQL."
+  />
+  <Card
+    title="Backups"
+    href="/docs/guides/backups"
+    description="Snapshot and restore your data."
+  />
+</Cards>

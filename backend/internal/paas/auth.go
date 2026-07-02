@@ -1,7 +1,9 @@
 package paas
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
@@ -44,6 +46,59 @@ var (
 	wsTicketLock sync.Mutex
 	wsTickets    = make(map[string]wsTicket)
 )
+
+// ---------------------------------------------------------------------------
+// Request Context — actor identification for auth + audit + scopes
+// ---------------------------------------------------------------------------
+
+type actorType string
+
+const (
+	actorAdmin actorType = "admin"
+	actorAgent actorType = "agent"
+)
+
+type actorInfo struct {
+	kind   actorType
+	id     string
+	scopes []string
+}
+
+type actorContextKey struct{}
+
+func withActor(r *http.Request, a *actorInfo) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), actorContextKey{}, a))
+}
+
+func actorFromRequest(r *http.Request) *actorInfo {
+	if v := r.Context().Value(actorContextKey{}); v != nil {
+		if a, ok := v.(*actorInfo); ok {
+			return a
+		}
+	}
+	return nil
+}
+
+func actorIsAdmin(r *http.Request) bool {
+	a := actorFromRequest(r)
+	return a != nil && a.kind == actorAdmin
+}
+
+func actorHasScope(r *http.Request, s string) bool {
+	a := actorFromRequest(r)
+	if a == nil {
+		return false
+	}
+	if a.kind == actorAdmin {
+		return true
+	}
+	for _, sc := range a.scopes {
+		if sc == s {
+			return true
+		}
+	}
+	return false
+}
 
 // secureToken returns a 32-byte cryptographically random hex string.
 func secureToken() string {
@@ -150,7 +205,49 @@ func bearerFromRequest(r *http.Request) string {
 	return ""
 }
 
-// issueWSTicket creates a one-use, short-lived credential for browser
+// ---------------------------------------------------------------------------
+// Agent token validation
+// ---------------------------------------------------------------------------
+
+func hashToken(tok string) string {
+	h := sha256.Sum256([]byte(tok))
+	return hex.EncodeToString(h[:])
+}
+
+// validAgentToken checks the bearer token against in-memory agent tokens.
+func validAgentToken(tok string) *Agent {
+	if tok == "" {
+		return nil
+	}
+	hash := hashToken(tok)
+	agentsLock.RLock()
+	defer agentsLock.RUnlock()
+	for _, a := range agentsMap {
+		if subtle.ConstantTimeCompare([]byte(a.TokenHash), []byte(hash)) == 1 {
+			return &a
+		}
+	}
+	return nil
+}
+
+// loadAgentsIntoMemory refreshes the in-memory agent cache from the DB.
+func loadAgentsIntoMemory() {
+	list, err := dbLoadAgents()
+	if err != nil {
+		log.Printf("[auth] failed to load agents: %v", err)
+		return
+	}
+	agentsLock.Lock()
+	agentsMap = make(map[string]Agent, len(list))
+	for _, a := range list {
+		agentsMap[a.TokenHash] = a
+	}
+	agentsLock.Unlock()
+}
+
+// ---------------------------------------------------------------------------
+// WebSocket ticket helpers
+// ---------------------------------------------------------------------------
 // WebSocket upgrades. Browsers cannot attach Authorization headers to WS
 // handshakes, and putting the long-lived admin token in the URL leaks it into
 // access logs. A ticket limits that exposure to a single handshake.
@@ -226,6 +323,7 @@ type authResult struct {
 	OK         bool          // token was valid
 	LockedOut  bool          // request is currently rate-limited for auth failures
 	RetryAfter time.Duration // how long until the lockout clears (when LockedOut)
+	Actor      *actorInfo    // nil unless authenticated with an agent token
 }
 
 // authenticate validates tok for the request while enforcing the per-IP
@@ -243,7 +341,17 @@ func authenticate(r *http.Request, tok string) authResult {
 
 	if validToken(tok) {
 		authLimiter.recordSuccess(key)
-		return authResult{OK: true}
+		return authResult{OK: true, Actor: &actorInfo{kind: actorAdmin, id: "admin"}}
+	}
+
+	// Check agent tokens (scoped, machine-to-machine).
+	if agent := validAgentToken(tok); agent != nil {
+		authLimiter.recordSuccess(key)
+		// Update last-used timestamp async.
+		go func(id string) {
+			_ = dbUpdateAgentLastUsed(id, time.Now())
+		}(agent.ID)
+		return authResult{OK: true, Actor: &actorInfo{kind: actorAgent, id: agent.ID, scopes: agent.Scopes}}
 	}
 
 	if tok != "" {
@@ -259,9 +367,13 @@ func authenticate(r *http.Request, tok string) authResult {
 
 // httpAuthOK enforces auth for an HTTP request, writing 401 (bad token) or 429
 // with a Retry-After header (locked out). Returns true only when allowed.
+// On success it also stamps the actor into the request context.
 func httpAuthOK(w http.ResponseWriter, r *http.Request, tok string) bool {
 	res := authenticate(r, tok)
 	if res.OK {
+		if res.Actor != nil {
+			*r = *withActor(r, res.Actor)
+		}
 		return true
 	}
 	if res.LockedOut {

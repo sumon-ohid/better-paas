@@ -38,6 +38,45 @@ cd ~/better-paas/backend && ./server token
   commit it, paste it into chats, or put it in client-side code.
 </Callout>
 
+## Agent tokens (scoped access)
+
+Instead of sharing the admin token with every tool and teammate, create **agent
+tokens** — scoped, revocable credentials for machines and automation.
+
+- **Scoped**: Each token is limited to specific actions (e.g. read logs only, or
+  deploy but not delete).
+- **Revocable**: Delete an agent instantly without rotating your admin password.
+- **Auditable**: Every agent action is recorded in the audit log with its name.
+- **Free**: Create as many as you need.
+
+Agent tokens are prefixed with `bpagt_` and are validated via SHA-256 hash —
+only the hash is stored in the database.
+
+<Callout type="info">
+  Agent tokens are the recommended way to authenticate CI/CD pipelines, AI
+  coding assistants, monitoring scripts, and team members who only need
+  read access.
+</Callout>
+
+See [Agent Access & Audit Logs](/docs/guides/agent-access) for how to create,
+rotate, and manage them.
+
+## Audit logs
+
+Every mutating API request is recorded: who (or what) made it, what action was
+taken, what resource was affected, and when. This includes both admin actions
+and all agent token actions.
+
+View logs via the API:
+
+```bash
+curl -H "Authorization: Bearer <admin_token>" \
+  "http://localhost:8080/api/audit-logs?limit=50"
+```
+
+The audit trail is stored in your SQLite database and has no automatic pruning
+yet. Review it regularly, especially after granting new agent tokens.
+
 ## Brute-force protection
 
 Could an attacker just guess the token? No. Repeated bad tokens from an IP

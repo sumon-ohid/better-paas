@@ -64,6 +64,32 @@ func authGate(next http.Handler) http.Handler {
 	})
 }
 
+// scopeGate enforces that the authenticated actor (admin or agent) has the
+// given scope. Admin tokens bypass all scope checks.
+func scopeGate(scope string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !actorHasScope(r, scope) {
+				jsonError(w, "Forbidden: missing scope "+scope, http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// adminOnly enforces that only the admin token (not agent tokens) can access
+// the wrapped handler. Use this for sensitive operations like agent management.
+func adminOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !actorIsAdmin(r) {
+			jsonError(w, "Forbidden: admin token required", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // corsMiddleware adds CORS headers. Origins are restricted to DASHBOARD_ORIGIN
 // when set, otherwise to the same hostname as the API request. Credentials are
 // NOT enabled because auth uses bearer tokens, not cookies.

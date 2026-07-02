@@ -30,6 +30,9 @@ func Run() {
 	// Load or provision the admin token (must run after initDB).
 	initAuth()
 
+	// Load scoped agent tokens into memory for fast validation.
+	loadAgentsIntoMemory()
+
 	// Clear a stale "running" update marker now that we've booted the new build.
 	resetUpdateStateOnBoot()
 
@@ -66,9 +69,11 @@ func Run() {
 
 	mux := newRouter()
 
-	// Auth gate, then CORS. Health stays public for uptime probes.
+	// Auth gate, then audit log, then body limit, then rate limit, then CORS.
+	// Health stays public for uptime probes.
 	authed := authGate(mux)
-	limited := limitBody(authed)
+	audited := auditLogMiddleware(authed)
+	limited := limitBody(audited)
 	throttled := rateLimit(limited)
 	handler := corsMiddleware(throttled)
 

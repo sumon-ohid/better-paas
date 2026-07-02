@@ -146,6 +146,32 @@ func handleAddons(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/addons/get?id=<addonID>
+// ---------------------------------------------------------------------------
+
+func handleGetAddon(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		jsonError(w, "Missing id", http.StatusBadRequest)
+		return
+	}
+	addon, err := dbGetAddon(id)
+	if err != nil {
+		jsonError(w, "Failed to load add-on", http.StatusInternalServerError)
+		return
+	}
+	if addon == nil {
+		jsonError(w, "Add-on not found", http.StatusNotFound)
+		return
+	}
+	jsonOK(w, addon.Public())
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/addons/create
 // ---------------------------------------------------------------------------
 
