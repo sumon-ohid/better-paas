@@ -148,3 +148,49 @@ func (c *Client) ListProjects() ([]ProjectSummary, error) {
 	err := c.do(http.MethodGet, "/api/projects", nil, &out)
 	return out, err
 }
+
+type deployRequest struct {
+	Name     string `json:"name"`
+	GitRepo  string `json:"gitRepo"`
+	Branch   string `json:"branch"`
+	ServerID string `json:"serverId,omitempty"`
+}
+
+func (c *Client) Deploy(name, gitRepo, branch string) (App, error) {
+	if branch == "" {
+		branch = "main"
+	}
+	var out App
+	err := c.do(http.MethodPost, "/api/deploy", deployRequest{
+		Name:    name,
+		GitRepo: gitRepo,
+		Branch:  branch,
+	}, &out)
+	return out, err
+}
+
+func (c *Client) Redeploy(appID string) (map[string]any, error) {
+	var out map[string]any
+	err := c.do(http.MethodPost, "/api/apps/redeploy", map[string]string{"id": appID}, &out)
+	return out, err
+}
+
+func (c *Client) GetApp(appID string) (map[string]any, error) {
+	var out map[string]any
+	err := c.do(http.MethodGet, "/api/apps/get?id="+appID, nil, &out)
+	return out, err
+}
+
+type runtimeLogsResponse struct {
+	Logs []string `json:"logs"`
+}
+
+func (c *Client) RuntimeLogs(appID string, lines int) ([]string, error) {
+	if lines <= 0 {
+		lines = 100
+	}
+	var out runtimeLogsResponse
+	path := fmt.Sprintf("/api/apps/runtime-logs?id=%s&lines=%d", appID, lines)
+	err := c.do(http.MethodGet, path, nil, &out)
+	return out.Logs, err
+}

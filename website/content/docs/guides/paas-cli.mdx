@@ -135,6 +135,46 @@ Try: paas status
 
 ---
 
+## Use with AI tools (Cursor, Claude Code, Codex)
+
+After `paas connect`, run **one more command**:
+
+```bash
+paas setup
+```
+
+This configures MCP for **Cursor** (`~/.cursor/mcp.json`) and **Claude Code**
+(`~/.claude/settings.json`). **Restart your editor**, then ask in plain English:
+
+- "List my Better-PaaS apps"
+- "Show logs for better-paas"
+- "Redeploy better-paas"
+- "Deploy https://github.com/me/repo as my-api"
+
+### MCP tools included
+
+| Tool | What it does |
+| ---- | ------------ |
+| `paas_list_apps` | List deployed apps |
+| `paas_list_projects` | List multi-service projects |
+| `paas_get_app` | App details by name or ID |
+| `paas_deploy` | Deploy from Git |
+| `paas_redeploy` | Rebuild an existing app |
+| `paas_get_logs` | Runtime logs |
+| `paas_status` | Connection + app summary |
+
+The MCP server reads `~/.paas/config.json` — no extra env vars needed.
+
+### Terminal fallback (no MCP)
+
+```bash
+eval "$(paas env)"
+```
+
+Exports `PAAS_API_URL` and `PAAS_TOKEN` for shell-based agents that use curl.
+
+---
+
 ## Permission profiles
 
 When you authorize, you pick one of three built-in profiles. Each maps to a
@@ -153,6 +193,12 @@ Claude Code managing deploys without full admin access.
 ---
 
 ## Daily commands
+
+### Wire up AI tools
+
+```bash
+paas setup
+```
 
 ### Check connection and list apps
 

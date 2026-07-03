@@ -21,6 +21,12 @@ func main() {
 		code = runStatus()
 	case "disconnect":
 		code = runDisconnect()
+	case "env":
+		code = runEnv(os.Args[2:])
+	case "setup":
+		code = runSetup()
+	case "mcp":
+		code = runMCP()
 	case "help", "-h", "--help":
 		printUsage(os.Stdout)
 	case "version", "-v", "--version":
@@ -38,21 +44,28 @@ func printUsage(w *os.File) {
 
 Usage:
   paas connect <url>    Link this machine via browser authorization
-                        Flags: --legacy, --ui (override dashboard URL)
+  paas setup            Configure Cursor / Claude Code MCP (run after connect)
   paas status           Show apps on the connected instance
+  paas env              Print shell exports (eval "$(paas env)")
+  paas mcp              MCP server for AI tools (used by setup, not run manually)
   paas disconnect       Remove local credentials
   paas version          Print version
   paas help             Show this help
 
 Examples:
   paas connect https://paas.better-paas.com
-  paas connect http://localhost:8080
+  paas setup
   paas status
+
+AI tools (Cursor, Claude Code, Codex):
+  1. paas connect <dashboard-url>
+  2. paas setup
+  3. Restart your editor — then ask: "list my apps", "redeploy X", "show logs"
 
 Setup:
   1. Install:  go install github.com/sumon-ohid/better-paas/backend/cmd/paas@latest
   2. Connect:  paas connect <your-dashboard-url>
-  3. Use:      paas status
+  3. AI:       paas setup
 
 Use your dashboard URL (the one you open in the browser). The CLI discovers
 the API automatically. Browser flow saves a scoped agent token to
