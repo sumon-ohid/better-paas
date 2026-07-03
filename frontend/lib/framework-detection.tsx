@@ -93,7 +93,7 @@ export function makeRepoRef(gitUrl: string): GitHubRepo {
   }
 }
 
-// detectFrameworkByName — instant keyword fallback from repo name/description.
+// detectFrameworkByName - instant keyword fallback from repo name/description.
 export function detectFrameworkByName(repo: GitHubRepo | null): Framework | null {
   if (!repo) return null
   const text = `${repo.name} ${repo.description || ""}`.toLowerCase()
@@ -252,7 +252,7 @@ function isWorkspaceRoot(rootContents: GitHubContent[], rootPkg: Record<string, 
   return false
 }
 
-// detectFrameworkByFiles — repo-wide scan (root + monorepo subdirs).
+// detectFrameworkByFiles - repo-wide scan (root + monorepo subdirs).
 export async function detectFrameworkByFiles(repo: GitHubRepo, branch: string): Promise<DetectionResult | null> {
   try {
     const rootContents = await safeContents(repo, branch, "")
@@ -288,7 +288,7 @@ export async function detectFrameworkByFiles(repo: GitHubRepo, branch: string): 
   return null
 }
 
-// detectFrameworkForDir — single directory, no traversal.
+// detectFrameworkForDir - single directory, no traversal.
 export async function detectFrameworkForDir(repo: GitHubRepo, branch: string, dir: string): Promise<Framework | null> {
   const normalized = dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()
   try {
@@ -302,7 +302,7 @@ export async function detectFrameworkForDir(repo: GitHubRepo, branch: string, di
   }
 }
 
-// listDirContents — thin wrapper for the folder browser to list a directory.
+// listDirContents - thin wrapper for the folder browser to list a directory.
 export function listDirContents(repoFullName: string, branch: string, path: string): Promise<GitHubContent[]> {
   return api.git.contents(repoFullName, branch, path)
 }
@@ -310,7 +310,7 @@ export function listDirContents(repoFullName: string, branch: string, path: stri
 // findDockerfile returns the name of a Dockerfile in the given directory (e.g.
 // "Dockerfile"), or null if none exists. Matches "Dockerfile" case-insensitively
 // and common variants like "Dockerfile.prod". Used to decide whether to offer
-// the build-method selector at all — no Dockerfile means Nixpacks is the only
+// the build-method selector at all - no Dockerfile means Nixpacks is the only
 // sensible option.
 export async function findDockerfile(repo: GitHubRepo, branch: string, dir: string): Promise<string | null> {
   const normalized = dir.replace(/^\.\//, "").replace(/\/+$/, "").trim()

@@ -34,7 +34,7 @@ func loadConfig() (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return Config{}, fmt.Errorf("not connected — run: paas connect <url>")
+			return Config{}, fmt.Errorf("not connected - run: paas connect <url>")
 		}
 		return Config{}, err
 	}
@@ -43,7 +43,7 @@ func loadConfig() (Config, error) {
 		return Config{}, fmt.Errorf("invalid config at %s: %w", path, err)
 	}
 	if cfg.URL == "" || cfg.Token == "" {
-		return Config{}, fmt.Errorf("config at %s is incomplete — run: paas connect <url>", path)
+		return Config{}, fmt.Errorf("config at %s is incomplete - run: paas connect <url>", path)
 	}
 	return cfg, nil
 }

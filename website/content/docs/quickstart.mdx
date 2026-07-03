@@ -16,7 +16,7 @@ instead.
   - A Git repository with an app you want to deploy.
 </Callout>
 
-## Step 1 — Install Better-PaaS
+## Step 1 - Install Better-PaaS
 
 SSH into your server, then run the one-command installer:
 
@@ -24,8 +24,8 @@ SSH into your server, then run the one-command installer:
 curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | sudo bash
 ```
 
-This installs everything Better-PaaS needs — **Go**, **Docker**, **Nixpacks**,
-**Caddy**, and **Node.js** — then builds and starts the dashboard and API.
+This installs everything Better-PaaS needs - **Go**, **Docker**, **Nixpacks**,
+**Caddy**, and **Node.js** - then builds and starts the dashboard and API.
 
 <Callout type="info">
   On a fresh machine this takes a few minutes. Grab a coffee. ☕
@@ -63,14 +63,14 @@ When it finishes, you'll see a summary like this:
   Dashboard:  http://localhost:3000
   API:        http://localhost:8080
 
-🔑  ADMIN TOKEN — you need this to LOG IN to the dashboard
+🔑  ADMIN TOKEN - you need this to LOG IN to the dashboard
 
       bp_live_a1b2c3d4e5f6...      ← copy this
 ```
 
-## Step 2 — Grab your admin token
+## Step 2 - Grab your admin token
 
-The installer prints your **admin token** — this is the password to your
+The installer prints your **admin token** - this is the password to your
 dashboard. Copy it somewhere safe.
 
 Lost it? You can print it again any time:
@@ -79,7 +79,7 @@ Lost it? You can print it again any time:
 cd ~/better-paas/backend && ./server token
 ```
 
-## Step 3 — Open the dashboard and sign in
+## Step 3 - Open the dashboard and sign in
 
 In your browser, open the dashboard:
 
@@ -88,7 +88,7 @@ In your browser, open the dashboard:
 
 Paste your admin token into the sign-in screen. You're in.
 
-## Step 4 — Deploy your first app
+## Step 4 - Deploy your first app
 
 1. Click **Deploy a service**.
 2. Paste your **Git repository URL** (e.g. `https://github.com/you/my-app`).
@@ -105,7 +105,7 @@ Better-PaaS now:
 Watch the build logs stream live in the dashboard. When the status turns
 **Running**, your app is online. 🎉
 
-## Step 5 — Visit your app
+## Step 5 - Visit your app
 
 Each app gets an automatic URL like:
 
@@ -114,7 +114,7 @@ http://<app-id>.<your-server-ip>.sslip.io
 ```
 
 Click the link in the dashboard to open it. (`sslip.io` is a free service that
-turns any IP into a working hostname — no DNS setup needed to get started.)
+turns any IP into a working hostname - no DNS setup needed to get started.)
 
 ## What's next?
 

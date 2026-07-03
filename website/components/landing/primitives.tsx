@@ -60,7 +60,7 @@ const STATUS_META: Record<
   },
 };
 
-/** Bare status dot with a state-aware ping — frontend StatusDot. */
+/** Bare status dot with a state-aware ping - frontend StatusDot. */
 export function StatusDot({ status, className }: { status: AppStatus; className?: string }) {
   const meta = STATUS_META[status];
   return (
@@ -78,7 +78,7 @@ export function StatusDot({ status, className }: { status: AppStatus; className?
   );
 }
 
-/** Status pill with icon + label — frontend StatusBadge (rounded-full chip). */
+/** Status pill with icon + label - frontend StatusBadge (rounded-full chip). */
 export function StatusBadge({ status, className }: { status: AppStatus; className?: string }) {
   const meta = STATUS_META[status];
   const Icon = meta.icon;
@@ -97,7 +97,7 @@ export function StatusBadge({ status, className }: { status: AppStatus; classNam
   );
 }
 
-/** Outline badge, e.g. the branch tag — frontend Badge variant="outline". */
+/** Outline badge, e.g. the branch tag - frontend Badge variant="outline". */
 export function BranchBadge({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span
@@ -111,7 +111,7 @@ export function BranchBadge({ children, className }: { children: ReactNode; clas
   );
 }
 
-/** Rounded repo chip — frontend RepoLink. */
+/** Rounded repo chip - frontend RepoLink. */
 export function RepoPill({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span
@@ -125,7 +125,7 @@ export function RepoPill({ children, className }: { children: ReactNode; classNa
   );
 }
 
-/** Keycap — frontend Kbd. */
+/** Keycap - frontend Kbd. */
 export function Kbd({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <kbd

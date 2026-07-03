@@ -1,7 +1,7 @@
 # Testing Agent Access with AI Coding Tools (Cursor, Claude Code, Codex)
 
 Connect Better-PaaS to AI coding assistants so they can list apps, deploy, read
-logs, and more — without sharing your admin token.
+logs, and more - without sharing your admin token.
 
 For the full published guide, see [PaaS CLI on better-paas.com](https://better-paas.com/docs/guides/paas-cli).
 
@@ -59,7 +59,7 @@ No curl, no pasted API docs, no admin token on your laptop.
 `paas_status`, `paas_list_apps`, `paas_list_projects`, `paas_get_app`,
 `paas_deploy`, `paas_redeploy`, `paas_get_logs`
 
-More tools (addons, metrics, stop/delete, backups) are on the roadmap — see
+More tools (addons, metrics, stop/delete, backups) are on the roadmap - see
 [paas-cli.mdx](../website/content/docs/guides/paas-cli.mdx) on the website.
 
 ---
@@ -121,7 +121,7 @@ curl -X POST http://localhost:8080/api/agents/rotate \
 | MCP tools don't appear | Run `paas setup`, restart editor, check Settings → MCP |
 | `not connected` | Run `paas connect <url>` first |
 | 403 Forbidden | Reconnect with a higher profile (Deployer / Operator) |
-| 401 Unauthorized | Token revoked — run `paas connect` again |
+| 401 Unauthorized | Token revoked - run `paas connect` again |
 | Editor uses wrong binary | Re-run `paas setup` after `go install` |
 
 ---

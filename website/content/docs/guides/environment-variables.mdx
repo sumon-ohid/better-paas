@@ -6,7 +6,7 @@ icon: Settings2
 
 Environment variables are key–value pairs your app reads at runtime. They're the
 standard way to configure things like API keys, database URLs, and feature
-flags — without hard-coding them into your source.
+flags - without hard-coding them into your source.
 
 ## Setting variables
 
@@ -24,12 +24,12 @@ Save and redeploy. The new variables are injected into your container.
 
 ## Secret variables
 
-Some values — API keys, passwords, tokens — shouldn't be visible in the UI or
+Some values - API keys, passwords, tokens - shouldn't be visible in the UI or
 API responses. Mark a variable's key as **secret** and Better-PaaS redacts its
 value everywhere it's displayed, the same way it handles deploy tokens.
 
 <Callout type="info">
-  Secret values are still passed to your app normally at runtime — they're just
+  Secret values are still passed to your app normally at runtime - they're just
   hidden from API responses and the dashboard so they don't leak over your
   shoulder or through logs.
 </Callout>

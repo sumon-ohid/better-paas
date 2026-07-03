@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Better-PaaS — Clean Uninstaller
+# Better-PaaS - Clean Uninstaller
 #
 # Removes Better-PaaS background services and configurations safely without
 # deleting your system-wide dependencies (like Go, Node, Docker, Caddy, etc.).

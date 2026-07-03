@@ -170,7 +170,7 @@ function BranchBadge({ branch }: { branch: string }) {
 }
 
 function UrlLink({ url }: { url: string | undefined }) {
-  if (!url) return <span className="text-sm text-muted-foreground font-mono">—</span>
+  if (!url) return <span className="text-sm text-muted-foreground font-mono">-</span>
   const displayUrl = url.replace(/^https?:\/\//, "")
   return (
     <a

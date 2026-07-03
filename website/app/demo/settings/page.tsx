@@ -573,7 +573,7 @@ export default function SettingsPage() {
             </FrameTitle>
             <FrameDescription className="text-xs sm:text-sm">
               SSH into your server, pull the latest code, and re-run the installer. This
-              rebuilds the backend and frontend and restarts services — the easiest and
+              rebuilds the backend and frontend and restarts services - the easiest and
               most reliable way to update.
             </FrameDescription>
           </FramePanel>
@@ -1017,7 +1017,7 @@ sudo bash install.sh`}
                 Onboarding Setup
               </p>
               <p className="text-xs text-muted-foreground">
-                Run the initial setup flow again — servers, GitHub, and your first deploy.
+                Run the initial setup flow again - servers, GitHub, and your first deploy.
               </p>
             </div>
             <Button

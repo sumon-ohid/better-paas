@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes how Better-PaaS is managed and monitored from **local CLI-based AI coding tools** — Claude Code, OpenAI Codex, OpenCode, Cursor, Aider, and any other MCP-compatible assistant. The goal is for a developer to work inside their project directory and control their entire PaaS lifecycle without leaving the terminal.
+This document describes how Better-PaaS is managed and monitored from **local CLI-based AI coding tools** - Claude Code, OpenAI Codex, OpenCode, Cursor, Aider, and any other MCP-compatible assistant. The goal is for a developer to work inside their project directory and control their entire PaaS lifecycle without leaving the terminal.
 
 > **Workflow**:  `git push` → open terminal → ask Codex "deploy my-api to staging" → check logs → ask Claude Code "why is the build failing?" → fix code → ask "redeploy"
 
@@ -113,12 +113,12 @@ The `paas-mcp` binary automatically resolves the current context:
 5. What's the app name?     →  "myapp-api" from config, or auto-guessed from repo
 ```
 
-This means the developer never has to type IDs — the tool knows the context.
+This means the developer never has to type IDs - the tool knows the context.
 
 ### 2.3 Login Flow
 
 ```bash
-# Interactive login — generates an agent token and saves config
+# Interactive login - generates an agent token and saves config
 paas-mcp login https://paas.mycompany.com
 # → prompts for admin token (one-time)
 # → creates scoped agent token
@@ -386,11 +386,11 @@ $ claude
   → GET /api/apps, /api/servers, /api/addons, /api/metrics/apps
   → AI synthesizes:
      "Platform Health Report:
-      — 5 apps running, 1 stopped (myapp-worker, intentionally stopped)
-      — Server localhost: CPU 34%, Memory 61%, Disk 42%
-      — 2 addons healthy (postgres-primary, redis-cache)
-      — 1 deployment failure in last 24h (myapp-api at 09:15, build timeout)
-      — No active vulnerability alerts"
+      - 5 apps running, 1 stopped (myapp-worker, intentionally stopped)
+      - Server localhost: CPU 34%, Memory 61%, Disk 42%
+      - 2 addons healthy (postgres-primary, redis-cache)
+      - 1 deployment failure in last 24h (myapp-api at 09:15, build timeout)
+      - No active vulnerability alerts"
 
 > which apps can I optimize?
   → AI analyzes metrics:
@@ -563,7 +563,7 @@ better-paas/
 The `paas-mcp` binary implements the MCP protocol over stdio:
 
 ```go
-// main.go — transport initialization
+// main.go - transport initialization
 func main() {
     config := loadConfig()
     client := NewPaasClient(config)
@@ -677,7 +677,7 @@ claude
 
 | Feature | Description |
 |---------|-------------|
-| **Chat Mode** | `paas-mcp chat` — start an interactive shell for complex multi-turn operations |
+| **Chat Mode** | `paas-mcp chat` - start an interactive shell for complex multi-turn operations |
 | **GitHub Actions Integration** | GitHub Action that uses agent token to deploy on push |
 | **Slack Bot** | Slack app using the same MCP tool definitions |
 | **VS Code Extension** | GUI panel showing apps, logs, metrics alongside editor |

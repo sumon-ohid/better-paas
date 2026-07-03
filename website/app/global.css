@@ -13,11 +13,11 @@
  *
  * Design rules: near-monochrome, one accent (brand blue), hairline
  * borders, soft monochrome shadows. No colorful gradients, no grid/dot
- * textures. Depth comes from fills, borders, and type — not effects.
+ * textures. Depth comes from fills, borders, and type - not effects.
  * ────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* fumadocs tokens — light mode, mapped to the dashboard palette. */
+  /* fumadocs tokens - light mode, mapped to the dashboard palette. */
   --color-fd-background: #f7f8fa;
   --color-fd-foreground: #14151b;
   --color-fd-muted: #eef0f3;
@@ -45,7 +45,7 @@
 }
 
 .dark {
-  /* fumadocs tokens — dark mode, mapped 1:1 to the dashboard's dark palette. */
+  /* fumadocs tokens - dark mode, mapped 1:1 to the dashboard's dark palette. */
   --color-fd-background: #0c0d0e;
   --color-fd-foreground: #ededed;
   --color-fd-muted: rgba(255, 255, 255, 0.05);
@@ -157,10 +157,10 @@ html > body[data-scroll-locked] {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   bp-card — the dashboard's du-card: flat fill in light mode, and in dark mode
+   bp-card - the dashboard's du-card: flat fill in light mode, and in dark mode
    a faint top-left interior sheen plus a gradient-border ring drawn on ::after
    so it follows the element's own radius. This monochrome ring (white at low
-   alpha) is structure, not decoration — it is what makes panels read as glass.
+   alpha) is structure, not decoration - it is what makes panels read as glass.
    ────────────────────────────────────────────────────────────────────────── */
 .bp-card {
   position: relative;
@@ -226,7 +226,7 @@ html > body[data-scroll-locked] {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   bp-surface — du-surface: the same ring, built with background-clip so it can
+   bp-surface - du-surface: the same ring, built with background-clip so it can
    sit on buttons/pills that own their pseudo-elements.
    ────────────────────────────────────────────────────────────────────────── */
 .bp-surface {
@@ -268,7 +268,7 @@ html > body[data-scroll-locked] {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   bp-primary — du-primary: solid brand button with a top-left spotlight ring.
+   bp-primary - du-primary: solid brand button with a top-left spotlight ring.
    ────────────────────────────────────────────────────────────────────────── */
 .bp-primary {
   --du-fill: var(--bp-primary);
@@ -334,7 +334,7 @@ html > body[data-scroll-locked] {
   transform: none;
 }
 
-/* Soft blur-in variant — used for hero headlines so the type resolves into
+/* Soft blur-in variant - used for hero headlines so the type resolves into
    focus rather than just sliding up. Slightly longer, gentler easing. */
 .bp-reveal-blur {
   opacity: 0;
@@ -399,7 +399,7 @@ html > body[data-scroll-locked] {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Feature showcase — Linear-style auto-advancing tabs.
+   Feature showcase - Linear-style auto-advancing tabs.
 
    ·bp-progress-fill: a vertical rail on the active tab that fills top→bottom
     over --bp-progress-duration, then fires `animationend` so the component can

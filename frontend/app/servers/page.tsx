@@ -791,7 +791,7 @@ export function AddServerWizard({
 
               <div className="space-y-2">
                 <Label className="text-xs font-semibold text-muted-foreground">
-                  Quick install command — run this on your server terminal:
+                  Quick install command - run this on your server terminal:
                 </Label>
                 <div className="relative">
                   <pre className="overflow-x-auto rounded-lg bg-[#090a0f] p-3 pr-12 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-slate-200">
@@ -1137,9 +1137,9 @@ function ServerCard({
               </FieldLabel>
               <span
                 className="block truncate font-mono text-sm"
-                title={server.isLocal ? "—" : server.sshUser}
+                title={server.isLocal ? "-" : server.sshUser}
               >
-                {server.isLocal ? "—" : server.sshUser}
+                {server.isLocal ? "-" : server.sshUser}
               </span>
             </Field>
           </div>
@@ -1193,7 +1193,7 @@ function PublicKeyModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <KeyIcon className="h-4 w-4 text-muted-foreground" />
-            Public Key — {serverName}
+            Public Key - {serverName}
           </DialogTitle>
           <DialogDescription>
             Add this to{" "}
@@ -1209,7 +1209,7 @@ function PublicKeyModal({
           ) : (
             <CopyableCodeBlock
               label="Authorized key"
-              value={publicKey || "No key found — please recreate the server."}
+              value={publicKey || "No key found - please recreate the server."}
               canCopy={!!publicKey}
             />
           )}

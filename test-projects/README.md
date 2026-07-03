@@ -62,4 +62,4 @@ uses) to confirm the stack is detected and a correct start command is produced.
 additionally run locally and confirmed to serve `/` and `/health` with `200`.
 The remaining apps (Next.js, Rust, Ruby, PHP, Java, static) rely on toolchains
 not installed on this machine, so they were verified at the Nixpacks-plan level
-only — build/run them on the platform to confirm end-to-end.
+only - build/run them on the platform to confirm end-to-end.

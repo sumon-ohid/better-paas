@@ -61,7 +61,7 @@ func getPublicIP() string {
 	return getLocalIP()
 }
 
-// GET /api/server/info — connection details the dashboard needs to render DNS
+// GET /api/server/info - connection details the dashboard needs to render DNS
 // setup instructions for custom domains.
 func handleServerInfo(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -112,7 +112,7 @@ func setCloudflareToken(t string) error {
 
 // ── Domain management endpoints ───────────────────────────────────────────────
 
-// POST /api/apps/domains/add — attach a custom domain to an app.
+// POST /api/apps/domains/add - attach a custom domain to an app.
 func handleDomainAdd(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -140,7 +140,7 @@ func handleDomainAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	appsLock.Lock()
-	// Reject a domain that is already routed to another app — duplicate site
+	// Reject a domain that is already routed to another app - duplicate site
 	// blocks would make the generated Caddyfile ambiguous.
 	for i := range apps {
 		for _, d := range apps[i].Domains {
@@ -176,7 +176,7 @@ func handleDomainAdd(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, updated.Public())
 }
 
-// POST /api/apps/domains/remove — detach a custom domain from an app.
+// POST /api/apps/domains/remove - detach a custom domain from an app.
 func handleDomainRemove(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -227,7 +227,7 @@ func handleDomainRemove(w http.ResponseWriter, r *http.Request) {
 
 // ── Cloudflare endpoints ──────────────────────────────────────────────────────
 
-// GET /api/cloudflare/status — report whether a Cloudflare token is connected.
+// GET /api/cloudflare/status - report whether a Cloudflare token is connected.
 func handleCloudflareStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -238,7 +238,7 @@ func handleCloudflareStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// POST /api/cloudflare/token/save — store (and verify) a Cloudflare API token.
+// POST /api/cloudflare/token/save - store (and verify) a Cloudflare API token.
 func handleCloudflareTokenSet(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -273,7 +273,7 @@ func handleCloudflareTokenSet(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]string{"status": "saved"})
 }
 
-// DELETE /api/cloudflare/token/delete — forget the stored Cloudflare token.
+// DELETE /api/cloudflare/token/delete - forget the stored Cloudflare token.
 func handleCloudflareTokenDelete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete && r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -287,7 +287,7 @@ func handleCloudflareTokenDelete(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]string{"status": "deleted"})
 }
 
-// POST /api/cloudflare/dns — create/update the A record for a domain so it
+// POST /api/cloudflare/dns - create/update the A record for a domain so it
 // points at this server. Requires a connected Cloudflare token whose account
 // manages the domain's zone.
 func handleCloudflareDNS(w http.ResponseWriter, r *http.Request) {
@@ -441,7 +441,7 @@ func cfFindZone(token, domain string) (cfZone, error) {
 		}
 	}
 	if best.ID == "" {
-		return cfZone{}, fmt.Errorf("no Cloudflare zone found for %q — is this domain in the connected account?", domain)
+		return cfZone{}, fmt.Errorf("no Cloudflare zone found for %q - is this domain in the connected account?", domain)
 	}
 	return best, nil
 }

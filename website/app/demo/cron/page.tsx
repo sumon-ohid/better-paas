@@ -271,7 +271,7 @@ export default function CronPage() {
                 <FramePanel className="shrink-0">
                   <FrameTitle>New scheduled job</FrameTitle>
                   <FrameDescription className="text-xs sm:text-sm">
-                    5-field cron expression — minute, hour, day, month, weekday.
+                    5-field cron expression - minute, hour, day, month, weekday.
                   </FrameDescription>
                 </FramePanel>
                 <FramePanel className="space-y-4">
@@ -546,7 +546,7 @@ export default function CronPage() {
                 <FramePanel>
                   <FrameTitle>Examples</FrameTitle>
                   <FrameDescription className="mb-3 text-xs">
-                    Common patterns — tap one to fill the schedule field.
+                    Common patterns - tap one to fill the schedule field.
                   </FrameDescription>
                   <div className="space-y-2">
                     {[

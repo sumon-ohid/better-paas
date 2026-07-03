@@ -1,13 +1,13 @@
 # Better-PaaS Agent-First Roadmap
 
 ## Vision
-Transform Better-PaaS from a dashboard-centric PaaS into an **agent-first platform** where an AI agent is a first-class operator with the same (and greater) capabilities as a human using the UI. The agent can observe, reason, and act on the entire platform surface: deploying apps, debugging failures, managing databases, scaling resources, and maintaining infrastructure — autonomously or collaboratively.
+Transform Better-PaaS from a dashboard-centric PaaS into an **agent-first platform** where an AI agent is a first-class operator with the same (and greater) capabilities as a human using the UI. The agent can observe, reason, and act on the entire platform surface: deploying apps, debugging failures, managing databases, scaling resources, and maintaining infrastructure - autonomously or collaboratively.
 
 > **Principle**: *Anything possible from the UI must be possible via the agent. Anything possible via the agent should be observable in the UI.*
 
 ---
 
-## Phase 1: Foundation — Agent Identity & API Surface
+## Phase 1: Foundation - Agent Identity & API Surface
 
 ### 1.1 Agent Authentication & Authorization
 **Goal**: Give agents their own identity, separate from the single admin token.
@@ -43,7 +43,7 @@ Transform Better-PaaS from a dashboard-centric PaaS into an **agent-first platfo
 
 ---
 
-## Phase 2: Agent Capabilities — From Observation to Action
+## Phase 2: Agent Capabilities - From Observation to Action
 
 ### 2.1 Comprehensive Read-Only Agent Tools
 **Goal**: Agent can fully observe the platform state before acting.
@@ -88,7 +88,7 @@ Transform Better-PaaS from a dashboard-centric PaaS into an **agent-first platfo
 | Job Queue Table | `Job { ID, Type, Status, Payload, Result, Progress%, CreatedAt, UpdatedAt }` | `backend/internal/paas/db.go` |
 | Async Wrapper | Wrap deployment, backup, prune, update-apply in a unified job runner. | New: `backend/internal/paas/jobs.go` |
 | Polling API | `GET /api/jobs/:id` returns job status and result. | `backend/internal/paas/routes.go` |
-| Streaming API | `GET /api/jobs/:id/stream` — SSE stream of progress events (for agents who prefer streaming over WS). | New |
+| Streaming API | `GET /api/jobs/:id/stream` - SSE stream of progress events (for agents who prefer streaming over WS). | New |
 
 ---
 
@@ -111,7 +111,7 @@ Transform Better-PaaS from a dashboard-centric PaaS into an **agent-first platfo
 
 | Task | Description | Files |
 |------|-------------|-------|
-| Chat Backend | `POST /api/agent/chat` — accepts messages, maintains conversation context, calls tools via internal dispatch, returns responses. Optionally proxy to an external LLM. | New: `backend/internal/agent/chat.go` |
+| Chat Backend | `POST /api/agent/chat` - accepts messages, maintains conversation context, calls tools via internal dispatch, returns responses. Optionally proxy to an external LLM. | New: `backend/internal/agent/chat.go` |
 | Conversation Store | SQLite table: `Conversation { ID, Title, MessagesJSON, CreatedAt }`. | `backend/internal/paas/db.go` |
 | Chat UI Component | A slide-over or dedicated `/agent` page with message history, tool-call visualization, and markdown rendering. | New: `frontend/app/agent/page.tsx`, `frontend/components/agent-chat.tsx` |
 | Tool Call Visualization | Show the agent's thought process: "I will check the logs for app `xyz` → [call get_logs] → Found error: ... → [call restart_app]". | Frontend component |
@@ -192,8 +192,8 @@ Transform Better-PaaS from a dashboard-centric PaaS into an **agent-first platfo
 
 | Feature | Implementation |
 |---------|----------------|
-| **Container Exec** | `POST /api/apps/:id/exec` — runs a command in the container, returns stdout/stderr. Scopable: `apps:exec`. |
-| **Host Exec** | `POST /api/server/exec` — runs on host. Requires `system:exec` scope (not granted by default). |
+| **Container Exec** | `POST /api/apps/:id/exec` - runs a command in the container, returns stdout/stderr. Scopable: `apps:exec`. |
+| **Host Exec** | `POST /api/server/exec` - runs on host. Requires `system:exec` scope (not granted by default). |
 | **Streaming Output** | SSE stream for long-running commands. |
 
 ### 6.2 GitOps Agent
@@ -212,7 +212,7 @@ Transform Better-PaaS from a dashboard-centric PaaS into an **agent-first platfo
 |---------|----------------|
 | **Placement Advisor** | Suggest which server to deploy on based on CPU, memory, disk. |
 | **Cross-Server Migration** | Move an app from Server A to Server B with zero downtime (blue/green). |
-| **Global Status** | `GET /api/agent/overview` — synthesized health report across all infrastructure. |
+| **Global Status** | `GET /api/agent/overview` - synthesized health report across all infrastructure. |
 
 ---
 

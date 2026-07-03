@@ -75,7 +75,7 @@ func runCronJob(job CronJob) {
 	job.LastRun = time.Now()
 	if err != nil {
 		job.LastStatus = "failed"
-		log.Printf("[cron] job %s failed: %v — %s", job.ID, err, string(out))
+		log.Printf("[cron] job %s failed: %v - %s", job.ID, err, string(out))
 	} else {
 		job.LastStatus = "success"
 	}
@@ -243,7 +243,7 @@ func validCronRange(s string, min, max int) bool {
 // HTTP handlers
 // ---------------------------------------------------------------------------
 
-// GET /api/cron — list all jobs.
+// GET /api/cron - list all jobs.
 func handleCronList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -305,7 +305,7 @@ func handleCronCreate(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, job)
 }
 
-// POST /api/cron/update — toggle enabled / edit schedule+command.
+// POST /api/cron/update - toggle enabled / edit schedule+command.
 func handleCronUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -373,7 +373,7 @@ func handleCronDelete(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]string{"status": "deleted"})
 }
 
-// POST /api/cron/run — run a job immediately (manual trigger).
+// POST /api/cron/run - run a job immediately (manual trigger).
 func handleCronRunNow(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)

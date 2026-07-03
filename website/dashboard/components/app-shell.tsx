@@ -167,7 +167,7 @@ interface NavSection {
 
 // Static reference for the keyboard-shortcuts cheat sheet. Mirrors the bindings
 // implemented in the keydown handler below. Kept as plain data (label + keys)
-// because this dialog is a read-only guide, not a launcher — the command
+// because this dialog is a read-only guide, not a launcher - the command
 // palette (⌘K) is the searchable "do things" surface.
 const SHORTCUT_SECTIONS: { heading: string; items: [string, string[]][] }[] = [
   {
@@ -461,7 +461,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
       }
 
       // While typing in any field (including the palette's own input), let the
-      // field handle the keystroke — the Command component manages its own
+      // field handle the keystroke - the Command component manages its own
       // arrow/enter/escape navigation internally.
       if (isInput || showCommandPalette) return
 
@@ -670,7 +670,7 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
               </a>
             </div>
           )}
-          {/* Header Bar — pinned, never scrolls */}
+          {/* Header Bar - pinned, never scrolls */}
           <header className="shrink-0 flex h-14 items-center justify-between bg-transparent px-4 select-none">
             <div className="flex items-center gap-2.5">
               <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer" />
@@ -691,14 +691,14 @@ export function AppShell({ children, appCount, hasActiveLogs }: AppShellProps) {
             </div>
           </header>
 
-          {/* Page Content — scrolls independently */}
+          {/* Page Content - scrolls independently */}
           <main className="relative flex-1 overflow-y-auto min-h-0">{children}</main>
         </SidebarInset>
       </div>
 
       {/* ── Modals ────────────────────────────────────────────────────── */}
 
-      {/* Keyboard Shortcuts — read-only reference (the palette is the launcher) */}
+      {/* Keyboard Shortcuts - read-only reference (the palette is the launcher) */}
       <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -935,7 +935,7 @@ export function LogTerminal({
         <div className="text-slate-400 italic h-full flex flex-col items-center justify-center gap-2 select-none">
           <TerminalIcon className={`h-6 w-6 opacity-45 ${connected ? "animate-pulse" : ""}`} />
           {connected ? (
-            <span>Connected — waiting for log output...</span>
+            <span>Connected - waiting for log output...</span>
           ) : (
             <span className="flex items-center gap-1.5">
               <SpinIcon className="h-3.5 w-3.5 animate-spin" />

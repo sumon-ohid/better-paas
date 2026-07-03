@@ -43,7 +43,7 @@ out how to build and run it based on the files it finds:
 <Callout type="info" title="Tip: bind to the PORT variable">
   Better-PaaS tells your app which port to listen on through the `PORT`
   environment variable. Make sure your app reads it instead of hard-coding a
-  port — almost every framework supports this out of the box.
+  port - almost every framework supports this out of the box.
 </Callout>
 
 ## Build configuration
@@ -53,7 +53,7 @@ deploy wizard or an app's **Configuration** tab:
 
 | Setting | What it does |
 | ------- | ------------ |
-| **Root directory** | Build from a subdirectory instead of the repo root — useful for monorepos. Better-PaaS re-detects the framework for the directory you pick, and you can browse the repo's folders to choose one. |
+| **Root directory** | Build from a subdirectory instead of the repo root - useful for monorepos. Better-PaaS re-detects the framework for the directory you pick, and you can browse the repo's folders to choose one. |
 | **Install / build / start commands** | Override the commands Nixpacks would run. Leave blank to use the detected defaults. |
 | **Port override** | Tell Better-PaaS the exact port your app listens on, instead of relying on the injected `PORT`. |
 | **Health check path** | An HTTP path (e.g. `/health`) probed before traffic cuts over to a new deploy. Leave empty for a plain TCP check. See [Rollbacks & zero-downtime](/docs/guides/rollbacks). |
@@ -68,7 +68,7 @@ Dockerfile path if it isn't at the repo root.
 
 <Callout type="info" title="No repo? Deploy an image or Dockerfile directly">
   You can also run a prebuilt registry image or a pasted Dockerfile with no Git
-  repository at all — see the [App Catalog & Custom Images](/docs/guides/app-catalog)
+  repository at all - see the [App Catalog & Custom Images](/docs/guides/app-catalog)
   guide.
 </Callout>
 
@@ -76,17 +76,17 @@ Dockerfile path if it isn't at the repo root.
 
 There are three ways to deploy:
 
-1. **Manually** — click **Deploy a service** for a new app, or **Redeploy** on
+1. **Manually** - click **Deploy a service** for a new app, or **Redeploy** on
    an existing one.
-2. **On git push** — enable [auto-deploy](/docs/guides/auto-deploy) and every
+2. **On git push** - enable [auto-deploy](/docs/guides/auto-deploy) and every
    push to the configured branch redeploys automatically.
-3. **Via the API** — call the deploy endpoint directly (see
+3. **Via the API** - call the deploy endpoint directly (see
    [API basics](#deploying-via-the-api)).
 
 ## Watching the build
 
 While an app is **Building**, its logs stream live in the dashboard. This is the
-first place to look if something goes wrong — Nixpacks and your build tooling
+first place to look if something goes wrong - Nixpacks and your build tooling
 print exactly what they're doing.
 
 The dashboard polls building apps automatically, so the status updates on its
@@ -115,7 +115,7 @@ Every API request must carry your admin token. See
 - **Keep builds reproducible.** Commit a lockfile (`package-lock.json`,
   `pnpm-lock.yaml`, `go.sum`, etc.) so builds are consistent.
 - **Read the `PORT` env var** rather than hard-coding a port.
-- **Use environment variables** for config and secrets — see
+- **Use environment variables** for config and secrets - see
   [Environment Variables](/docs/guides/environment-variables).
 - **Test the build locally** if a deploy fails; the same build commands run on
   the server.

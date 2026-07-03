@@ -44,7 +44,7 @@ const STEPS = [
   {
     title: "Browse and deploy",
     description:
-      "Pick a repo and branch — push webhooks are registered automatically.",
+      "Pick a repo and branch - push webhooks are registered automatically.",
   },
 ] as const
 

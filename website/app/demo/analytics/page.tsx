@@ -234,7 +234,7 @@ function EmbedSnippet({ appId }: { appId: string }) {
       </FramePanel>
       <Card>
         <CardPanel>
-          {/* Code block — themed via the design-system code tokens so it reads
+          {/* Code block - themed via the design-system code tokens so it reads
               cleanly in both light and dark mode. */}
           <div className="overflow-hidden rounded-lg border border-border bg-transparent shadow-xs">
             <pre className="overflow-x-auto p-3.5 font-mono text-xs leading-relaxed text-code-foreground">
@@ -242,7 +242,7 @@ function EmbedSnippet({ appId }: { appId: string }) {
             </pre>
           </div>
 
-          {/* Action buttons — stack on mobile, row from sm up */}
+          {/* Action buttons - stack on mobile, row from sm up */}
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
@@ -277,7 +277,7 @@ function EmbedSnippet({ appId }: { appId: string }) {
             Pageviews are recorded automatically, including SPA route changes. Not sure where it
             goes? Use{" "}
             <span className="font-medium text-foreground">Copy AI prompt</span> and paste it into
-            Cursor, Copilot, or any AI assistant — it explains how to install on plain HTML,
+            Cursor, Copilot, or any AI assistant - it explains how to install on plain HTML,
             Next.js, Vite, Vue, SvelteKit, Astro, and more.
           </p>
         </div>
@@ -573,13 +573,13 @@ export default function AnalyticsPage() {
                           <span className="mb-2 block text-xs font-medium text-muted-foreground">
                             Browser
                           </span>
-                          <BreakdownList items={summary!.browsers} emptyLabel="—" />
+                          <BreakdownList items={summary!.browsers} emptyLabel="-" />
                         </div>
                         <div>
                           <span className="mb-2 block text-xs font-medium text-muted-foreground">
                             Operating system
                           </span>
-                          <BreakdownList items={summary!.os} emptyLabel="—" />
+                          <BreakdownList items={summary!.os} emptyLabel="-" />
                         </div>
                         <div>
                           <span className="mb-2 block text-xs font-medium text-muted-foreground">
@@ -587,7 +587,7 @@ export default function AnalyticsPage() {
                           </span>
                           <div className="flex flex-wrap gap-2">
                             {summary!.devices.length === 0 ? (
-                              <span className="text-sm text-muted-foreground">—</span>
+                              <span className="text-sm text-muted-foreground">-</span>
                             ) : (
                               summary!.devices.map((d) => (
                                 <Badge key={d.label} variant="outline" className="gap-1.5">

@@ -96,7 +96,7 @@ export function DeleteConfirmModal({
         </AlertDialogHeader>
 
         <div className="space-y-3 px-6 mb-4">
-          {/* Project name — neutral, copyable chip */}
+          {/* Project name - neutral, copyable chip */}
           <Button
             type="button"
             variant={"ghost"}
@@ -139,7 +139,7 @@ export function DeleteConfirmModal({
             />
             {inputValue.length > 0 && !isMatch && (
               <p className="text-xs font-medium text-destructive-foreground">
-                Name doesn&apos;t match — check for typos.
+                Name doesn&apos;t match - check for typos.
               </p>
             )}
           </div>

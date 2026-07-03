@@ -374,7 +374,7 @@ export function DbExplorer({ addon, onClose }: { addon: Addon; onClose: () => vo
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* Sidebar — full-width on mobile, fixed rail on md+. Hidden on mobile
+        {/* Sidebar - full-width on mobile, fixed rail on md+. Hidden on mobile
             while viewing content. */}
         <aside
           className={`${
@@ -471,7 +471,7 @@ export function DbExplorer({ addon, onClose }: { addon: Addon; onClose: () => vo
             mobileView === "list" ? "hidden md:flex" : "flex"
           } min-w-0 flex-1 flex-col`}
         >
-          {/* Tab strip — includes a back button on mobile to return to the list. */}
+          {/* Tab strip - includes a back button on mobile to return to the list. */}
           <div className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b border-border bg-muted/10">
             <button
               type="button"
@@ -1011,7 +1011,7 @@ function EditableGrid({
                         key={c}
                         className="relative max-w-[200px] truncate border-b border-r border-border/60 p-0 font-mono text-foreground/90 sm:max-w-[420px]"
                         onDoubleClick={() => !busy && beginEdit(r, c)}
-                        title={isEditing ? undefined : cell === null ? "NULL — double-click to edit" : "Double-click to edit"}
+                        title={isEditing ? undefined : cell === null ? "NULL - double-click to edit" : "Double-click to edit"}
                       >
                         {/* Display content always renders so it drives the column
                             width; the editor overlays it absolutely so editing

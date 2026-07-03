@@ -67,7 +67,7 @@ export default function PricingPage() {
           {/* Parent Translucent Card */}
           <div className="relative w-full rounded-[0.85rem] bg-[#f8fbff]/92 p-3 sm:p-7 xl:p-8 dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)] shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)]">
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-              {/* Card 1 — Self-hosted */}
+              {/* Card 1 - Self-hosted */}
               <div className="relative overflow-hidden group rounded-[0.85rem] p-5 sm:p-8 bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]">
                 <div className="relative z-10 flex h-full flex-col">
                   <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -118,7 +118,7 @@ export default function PricingPage() {
                 />
               </div>
 
-              {/* Card 2 — Managed */}
+              {/* Card 2 - Managed */}
               <div className="relative overflow-hidden group rounded-[0.85rem] p-5 sm:p-8 bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]">
                 <div className="relative z-10 flex h-full flex-col justify-between gap-10">
                   <div>

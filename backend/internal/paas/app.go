@@ -21,7 +21,7 @@ func Run() {
 
 	// CLI subcommands (run after initDB so the token store is available).
 	// These let operators retrieve or rotate the admin token without the
-	// dashboard — useful on a headless VPS regardless of how it was deployed.
+	// dashboard - useful on a headless VPS regardless of how it was deployed.
 	if len(os.Args) > 1 {
 		runCLI(os.Args[1:])
 		return

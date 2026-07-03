@@ -27,7 +27,7 @@ export default function PrivacyPage() {
 
         <section className="space-y-6 text-fd-muted-foreground leading-relaxed text-sm">
           <p>
-            At Better-PaaS, privacy is not a feature—it is the foundation of the project. This Privacy Policy details how data is handled when you use the Better-PaaS software.
+            At Better-PaaS, privacy is not a feature-it is the foundation of the project. This Privacy Policy details how data is handled when you use the Better-PaaS software.
           </p>
 
           <h2 className="text-xl font-bold text-fd-foreground pt-4">1. 100% Self-Hosted & Local Control</h2>

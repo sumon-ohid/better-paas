@@ -16,7 +16,6 @@ function TaskRow({ title, agent, badge, status, type }: TaskItemProps) {
   return (
     <div className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md px-0 py-[0.3125rem] transition-all duration-300 hover:bg-white/[0.025] sm:gap-4 sm:py-2">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-        {/* Status Indicator Icon */}
         {type === 'up-next' && (
           <Circle className="size-2.5 shrink-0 text-[#4d5f7a]/70 transition-colors group-hover:text-[#1f2937] sm:size-3 dark:text-[#eceff5]/80 dark:group-hover:text-white" />
         )}
@@ -31,7 +30,6 @@ function TaskRow({ title, agent, badge, status, type }: TaskItemProps) {
           </span>
         )}
 
-        {/* Text and Badges */}
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:gap-x-2.5">
           <span className="truncate text-[10px] font-medium tracking-[-0.01em] text-[#172033] sm:text-[12px] dark:text-[#eeeeee]">
             {title}
@@ -48,11 +46,12 @@ function TaskRow({ title, agent, badge, status, type }: TaskItemProps) {
         </div>
       </div>
 
-      {/* Right side status/time */}
-      <span className={cn(
-        "shrink-0 text-right text-[9.5px] font-medium tabular-nums text-[#657286] transition-colors group-hover:text-[#26364d] sm:text-[11.5px] dark:text-[#929297] dark:group-hover:text-[#d7d7dc]",
-        status === 'In progress' && "text-[#4a3c8f] group-hover:text-[#312565] dark:text-[#a9a9ae] dark:group-hover:text-[#d7d7dc]"
-      )}>
+      <span
+        className={cn(
+          'shrink-0 text-right text-[9.5px] font-medium tabular-nums text-[#657286] transition-colors group-hover:text-[#26364d] sm:text-[11.5px] dark:text-[#929297] dark:group-hover:text-[#d7d7dc]',
+          status === 'In progress' && 'text-[#4a3c8f] group-hover:text-[#312565] dark:text-[#a9a9ae] dark:group-hover:text-[#d7d7dc]',
+        )}
+      >
         {status}
       </span>
     </div>
@@ -64,135 +63,93 @@ export function AutomationsSection() {
     <section className="relative overflow-hidden bg-[#f7f8fb] py-10 dark:bg-fd-background">
       <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-4 pb-7 pt-16 sm:px-9 sm:py-8 md:grid-cols-1 md:gap-8 lg:grid-cols-[minmax(0,1.02fr)_minmax(270px,0.55fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
         <div className="relative order-2 w-full lg:order-1">
-          <div 
+          <div
             className="relative flex min-h-[220px] sm:min-h-[clamp(315px,54vh,510px)] w-full items-center justify-center overflow-hidden rounded-md px-3 py-4.5 shadow-none sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
             style={{
               background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
             }}
           >
-            {/* Soft sky-blue/mystic-blue radial glow in the top-left */}
-            <div 
-              className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-35 dark:opacity-75 blur-[72px]"
+            <div
+              className="pointer-events-none absolute -bottom-24 -left-20 size-[31rem] rounded-full opacity-35 blur-[72px] dark:opacity-75"
               style={{ background: '#eef1ff' }}
             />
-            
-            {/* Soft indigo/purple glow in the bottom-right */}
-            <div 
-              className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-20 dark:opacity-45 blur-[82px]"
+            <div
+              className="pointer-events-none absolute -right-28 -top-20 size-[33rem] rounded-full opacity-20 blur-[82px] dark:opacity-45"
               style={{ background: '#2538d8' }}
             />
-
-            {/* Radial highlight in center */}
-            <div 
-              className="pointer-events-none absolute inset-0 opacity-15 dark:opacity-35 mix-blend-soft-light"
+            <div
+              className="pointer-events-none absolute inset-0 opacity-15 mix-blend-soft-light dark:opacity-35"
               style={{
                 background: 'radial-gradient(circle at 9% 84%, #ffffff 0%, transparent 36%)',
               }}
             />
 
-            {/* Task Automation Card */}
             <div className="relative w-full max-w-[500px] rounded-[0.85rem] bg-[#f8fbff]/92 p-3 sm:max-w-[518px] sm:rounded-[0.675rem] sm:px-7 sm:py-6 xl:max-w-[540px] dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
-              {/* Up next Section */}
               <div className="space-y-1">
                 <h4 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">
-                  Active & Scheduled
+                  Agent activity
                 </h4>
-                <TaskRow 
-                  title="Build & Deploy" 
-                  agent="better-paas-web" 
-                  badge="Git webhook" 
-                  status="In progress" 
-                  type="up-next" 
+                <TaskRow
+                  title="Redeploy my-api"
+                  agent="Cursor · deployer"
+                  badge="MCP"
+                  status="In progress"
+                  type="up-next"
                 />
-                <TaskRow 
-                  title="Database Snapshot" 
-                  agent="postgres-db" 
-                  badge="Cron 0 2 * * *" 
-                  status="Starts in 13m" 
-                  type="up-next" 
+                <TaskRow
+                  title="Fetch runtime logs"
+                  agent="Claude Code · deployer"
+                  badge="paas_get_logs"
+                  status="Queued"
+                  type="up-next"
                 />
-                <TaskRow 
-                  title="SSL Cert Renewal" 
-                  agent="caddy-proxy" 
-                  badge="Auto renew" 
-                  status="Starts in 4h" 
-                  type="up-next" 
-                />
-                <TaskRow 
-                  title="Audit Logs Purge" 
-                  agent="system" 
-                  badge="Daily 3am" 
-                  status="Starts in 14h" 
-                  type="up-next" 
+                <TaskRow
+                  title="List deployed apps"
+                  agent="Codex · observer"
+                  badge="paas_list_apps"
+                  status="Starts next"
+                  type="up-next"
                 />
               </div>
 
-                {/* Separator line */}
-                <div className="h-2.5 sm:h-5" />
+              <div className="h-2.5 sm:h-5" />
 
-                {/* Unread Section */}
-                <div className="space-y-1">
-                  <h4 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">
-                    Live Events
-                  </h4>
-                  <TaskRow 
-                    title="Git webhook received" 
-                    agent="better-paas-web" 
-                    status="Just now" 
-                    type="unread" 
-                  />
-                  <TaskRow 
-                    title="Health check passed" 
-                    agent="auth-service" 
-                    status="5m ago" 
-                    type="unread" 
-                  />
-                </div>
+              <div className="space-y-1">
+                <h4 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">
+                  Live events
+                </h4>
+                <TaskRow title="Git webhook received" agent="better-paas-web" status="Just now" type="unread" />
+                <TaskRow title="Health check passed" agent="auth-service" status="5m ago" type="unread" />
+              </div>
 
-                {/* Separator line */}
-                <div className="h-2.5 sm:h-5" />
+              <div className="h-2.5 sm:h-5" />
 
-                {/* Completed Section */}
-                <div className="space-y-1">
-                  <h4 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">
-                    <span className="sm:hidden">Completed</span>
-                    <span className="hidden sm:inline">Completed</span>
-                  </h4>
-                  <TaskRow 
-                    title="Nixpacks image build" 
-                    agent="better-paas-web" 
-                    status="1h ago" 
-                    type="completed" 
-                  />
-                  <TaskRow 
-                    title="Daily DB Backup" 
-                    agent="postgres-db" 
-                    status="3h ago" 
-                    type="completed" 
-                  />
-                  <TaskRow 
-                    title="Caddy TLS provisioned" 
-                    agent="api.betterpaas.dev" 
-                    status="1d ago" 
-                    type="completed" 
-                  />
-                </div>
-
+              <div className="space-y-1">
+                <h4 className="mb-1.5 text-[8.5px] font-medium tracking-[-0.01em] text-[#66758e] sm:mb-3 sm:text-[11.5px] dark:text-[#9a9a9f]">
+                  Completed
+                </h4>
+                <TaskRow title="Nixpacks image build" agent="better-paas-web" status="1h ago" type="completed" />
+                <TaskRow title="paas connect authorized" agent="my-macbook CLI" status="2h ago" type="completed" />
+                <TaskRow title="Caddy TLS provisioned" agent="api.example.com" status="1d ago" type="completed" />
               </div>
             </div>
           </div>
+        </div>
 
         <div className="order-1 max-w-[443px] lg:order-2 lg:pl-1.5">
+          <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">
+            Platform automations
+          </p>
           <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
-            Made for always-on background jobs
+            Agents deploy. {appName} keeps things running.
           </h2>
           <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:mt-5 lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
-            With built-in automations, {appName} manages background work automatically. It handles Git-push auto-deployments, schedules database backups, runs cron tasks inside containers, and monitors application health, keeping your apps running smoothly without manual overhead.
+            Your editor handles deploys and log checks through MCP. The control plane handles
+            webhooks, health checks, TLS renewal, cron jobs, and backups in the background.
           </p>
         </div>
       </div>
-      
-      {/* Custom slow spin utility if not already in tailwind */}
+
       <style jsx global>{`
         @keyframes spin-slow {
           from {

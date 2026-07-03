@@ -175,7 +175,7 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
                               ) : row.winner === 'competitor' ? (
                                 <X className="mt-0.5 size-4 shrink-0 text-fd-muted-foreground opacity-50" />
                               ) : (
-                                <span className="mt-0.5 size-4 shrink-0 text-center text-xs text-fd-muted-foreground">—</span>
+                                <span className="mt-0.5 size-4 shrink-0 text-center text-xs text-fd-muted-foreground">-</span>
                               )}
                               <span className="text-fd-foreground">{row.appName}</span>
                             </div>
@@ -187,7 +187,7 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
                               ) : row.winner === 'app' ? (
                                 <X className="mt-0.5 size-4 shrink-0 text-fd-muted-foreground opacity-50" />
                               ) : (
-                                <span className="mt-0.5 size-4 shrink-0 text-center text-xs text-fd-muted-foreground">—</span>
+                                <span className="mt-0.5 size-4 shrink-0 text-center text-xs text-fd-muted-foreground">-</span>
                               )}
                               <span className="text-fd-muted-foreground">{row.competitor}</span>
                             </div>

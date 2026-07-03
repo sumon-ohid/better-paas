@@ -235,7 +235,7 @@ function ConnectAgentContent() {
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
                 A scoped agent token is created for this machine. Your admin token
-                is never sent to the CLI — only a revocable <code className="rounded bg-muted px-1">bpagt_</code> token is saved locally.
+                is never sent to the CLI - only a revocable <code className="rounded bg-muted px-1">bpagt_</code> token is saved locally.
               </span>
             </div>
 

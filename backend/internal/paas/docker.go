@@ -246,7 +246,7 @@ func portFree(port int) bool {
 // It tries ss(8) first (most common on modern Linux), then falls back to
 // netstat(8), then to bash /dev/tcp probing. If none of these can be run
 // (e.g. SSH unreachable), it optimistically returns true so allocation doesn't
-// deadlock — the subsequent docker-run will still surface a clear port-bind
+// deadlock - the subsequent docker-run will still surface a clear port-bind
 // error if it was actually in use.
 func remotePortFree(serverID string, port int) bool {
 	ex, err := GetExecutorForServer(serverID)
@@ -368,7 +368,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 		if app.ServerID != "" && app.ServerID != "localhost" {
 			// Remote server: pull the registry image directly on the remote
 			// host. This avoids the slow docker-save|SSH|docker-load pipe
-			// entirely — the remote Docker daemon fetches compressed layers
+			// entirely - the remote Docker daemon fetches compressed layers
 			// straight from the registry.
 			localLog(fmt.Sprintf("🐳 Pulling image %s on remote server...", image))
 			ex, err := GetExecutorForServer(app.ServerID)
@@ -388,7 +388,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 					out, err = ex.RunCommand("docker", amd64PullArgs...)
 				}
 				if err != nil {
-					localLog(fmt.Sprintf("✖ Failed to pull image on remote: %v — %s", err, out))
+					localLog(fmt.Sprintf("✖ Failed to pull image on remote: %v - %s", err, out))
 					finish("failed", "")
 					return
 				}
@@ -417,7 +417,7 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 	} else if app.BuildMethod == "dockerfile-inline" {
 		// ── Inline-Dockerfile path: build from pasted Dockerfile, no repo ────
 		// There is no build context (no clone), so the Dockerfile must be
-		// self-contained — COPY/ADD of local files won't resolve.
+		// self-contained - COPY/ADD of local files won't resolve.
 		content := strings.TrimSpace(app.DockerfileContent)
 		if content == "" {
 			localLog("✖ No Dockerfile content provided.")
@@ -817,7 +817,7 @@ func startContainer(app App, image, containerName string, hostPort, containerPor
 	}
 
 	if output, err := ex.RunCommand("docker", runArgs...); err != nil {
-		return fmt.Errorf("%v — %s", err, output)
+		return fmt.Errorf("%v - %s", err, output)
 	}
 
 	// Attach to the shared add-on network (best-effort) so the container can
@@ -938,7 +938,7 @@ func waitHealthy(serverID, containerName string, hostPort int, healthPath string
 					}
 				}
 			} else {
-				msg := fmt.Sprintf("🩺 Remote health check command error (curl): %v — %s", err, out)
+				msg := fmt.Sprintf("🩺 Remote health check command error (curl): %v - %s", err, out)
 				if msg != lastError {
 					logf(msg)
 					lastError = msg
@@ -950,7 +950,7 @@ func waitHealthy(serverID, containerName string, hostPort int, healthPath string
 				streamContainerLogs(serverID, containerName, &printedLines, logf)
 				return nil
 			} else {
-				msg := fmt.Sprintf("🩺 Remote health check command error (wget): %v — %s", err, out)
+				msg := fmt.Sprintf("🩺 Remote health check command error (wget): %v - %s", err, out)
 				if msg != lastError {
 					logf(msg)
 					lastError = msg
@@ -1069,7 +1069,7 @@ func containerRunning(serverID, name string) bool {
 
 // reconcileStuckBuilds fixes apps left in the "building" state by a server
 // restart or crash that interrupted an in-flight deployment. Builds run in
-// memory, so they don't survive a restart — yet the persisted status stays
+// memory, so they don't survive a restart - yet the persisted status stays
 // "building" forever, showing an eternal spinner in the UI.
 //
 // For each stuck app we resolve a sane terminal status: if its active container
@@ -1300,7 +1300,7 @@ func finishDeployment(app App, deployLogs []string, status string, startedAt tim
 // patchPackageJSON sanitizes Node.js package.json files for Nixpacks
 // compatibility. It relaxes the engines constraint on the root manifest *and*
 // every workspace package, because pnpm enforces engines.node across the whole
-// workspace — a single package pinned to a Node version the builder doesn't
+// workspace - a single package pinned to a Node version the builder doesn't
 // provide fails the entire install. The "packageManager" field is preserved so
 // Nixpacks still provisions the correct package-manager binary.
 func patchPackageJSON(appID, buildDir string, logger func(string)) {
@@ -1692,7 +1692,7 @@ func workspacePackageDirs(buildDir string, rootPkg map[string]interface{}) []str
 //   - the "packages:" globs in pnpm-workspace.yaml (pnpm).
 //
 // pnpm monorepos (like the one this fixes) declare packages ONLY in
-// pnpm-workspace.yaml, so reading package.json alone misses apps/* entirely —
+// pnpm-workspace.yaml, so reading package.json alone misses apps/* entirely -
 // which is why a nested app's engines.node went undetected.
 func allWorkspacePackageDirs(buildDir string, rootPkg map[string]interface{}) []string {
 	seen := make(map[string]bool)
@@ -1804,7 +1804,7 @@ func expandWorkspaceGlobs(buildDir string, patterns []string) []string {
 // A full-stack repo often has multiple package.json files (root + workspace
 // packages). pnpm enforces engines.node across the whole workspace, so the
 // builder must use a Node version that satisfies the *highest* minimum any
-// package requires — otherwise `pnpm install` fails with ERR_PNPM_UNSUPPORTED_ENGINE.
+// package requires - otherwise `pnpm install` fails with ERR_PNPM_UNSUPPORTED_ENGINE.
 
 var nodeMajorRe = regexp.MustCompile(`(\d+)`)
 
@@ -2096,7 +2096,7 @@ func transferImageToRemote(serverID, image string, localLog func(string)) error 
 	session.Stderr = &errBuf
 
 	if err := session.Run("docker load"); err != nil {
-		return fmt.Errorf("docker load on remote: %w — %s", err, errBuf.String())
+		return fmt.Errorf("docker load on remote: %w - %s", err, errBuf.String())
 	}
 
 	if err := gzipCmd.Wait(); err != nil {

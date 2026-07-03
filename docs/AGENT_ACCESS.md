@@ -1,6 +1,6 @@
 # Better-PaaS Agent Access & Audit Logs
 
-Better-PaaS now supports **scoped agent tokens** — machine-to-machine credentials that let AI coding assistants, CI pipelines, and automation tools manage your platform without sharing your admin password.
+Better-PaaS now supports **scoped agent tokens** - machine-to-machine credentials that let AI coding assistants, CI pipelines, and automation tools manage your platform without sharing your admin password.
 
 Every action taken by an agent is recorded in an **audit log**, so you always know who (or what) did what.
 
@@ -11,7 +11,7 @@ Every action taken by an agent is recorded in an **audit log**, so you always kn
 Your dashboard login uses a single admin token. Agent tokens are **separate, scoped credentials** designed for machines:
 
 - **Scoped**: Each token can be limited to specific abilities (e.g. "read logs only" or "deploy apps but not delete them").
-- **Revocable**: Delete a token instantly if it's compromised — without rotating your admin password.
+- **Revocable**: Delete a token instantly if it's compromised - without rotating your admin password.
 - **Auditable**: Every agent action appears in the audit log with the agent's name.
 - **Free**: No per-seat pricing. Create as many agents as you need.
 
@@ -25,7 +25,7 @@ Your dashboard login uses a single admin token. Agent tokens are **separate, sco
 
 ## Creating Your First Agent Token
 
-Agent tokens can only be created by the admin. There is no UI page yet — use `curl` or any HTTP client.
+Agent tokens can only be created by the admin. There is no UI page yet - use `curl` or any HTTP client.
 
 ### 1. Get your admin token
 
@@ -99,7 +99,7 @@ When creating an agent, choose only the scopes it needs. This is the **principle
 | `cron:manage` | Create, update, delete, and run scheduled jobs | Job schedulers |
 | `backups:manage` | Create, restore, and delete backups | Disaster recovery scripts |
 | `notifications:manage` | Configure Slack/webhook notifications | Alert setup |
-| `agent:admin` | Create, delete, and rotate agent tokens | Rare — effectively admin lite |
+| `agent:admin` | Create, delete, and rotate agent tokens | Rare - effectively admin lite |
 
 ### Recommended Scope Sets
 
@@ -168,7 +168,7 @@ curl -X POST http://localhost:8080/api/agents/delete \
 
 ## Using an Agent Token
 
-Agent tokens are used exactly like your admin token — in the `Authorization: Bearer` header.
+Agent tokens are used exactly like your admin token - in the `Authorization: Bearer` header.
 
 ```bash
 AGENT_TOKEN="bpagt_ac7f83b2...91f4"
@@ -245,14 +245,14 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 - **Actor**: `admin` for the main token, or the agent's ID for agent tokens
 - **Action**: Human-readable like `app:deploy`, `app:stop`, `addon:attach`, `backup:create`
 - **Resource**: What type of thing was affected (`app`, `addon`, `server`, `project`, etc.)
-- **Outcome**: `success` (errors like 404/500 are still logged as `success` — the attempt was authenticated)
+- **Outcome**: `success` (errors like 404/500 are still logged as `success` - the attempt was authenticated)
 - **IP Address**: Where the request came from
 
 ### Limits
 
 - Up to **500 entries** per request (`?limit=500`)
 - Logs are stored in the same SQLite database as the rest of your platform data
-- No automatic retention or pruning yet — future versions may add this
+- No automatic retention or pruning yet - future versions may add this
 
 ---
 

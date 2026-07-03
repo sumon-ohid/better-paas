@@ -4,8 +4,8 @@ description: Snapshot your control plane data on demand or on a schedule, and do
 icon: Archive
 ---
 
-Better-PaaS keeps important state — its database, your admin token, the
-encryption key, and logs — in a `data/` directory. Backups let you snapshot that
+Better-PaaS keeps important state - its database, your admin token, the
+encryption key, and logs - in a `data/` directory. Backups let you snapshot that
 state so you can recover from mistakes or move to a new server.
 
 ## What gets backed up
@@ -17,7 +17,7 @@ A backup is a snapshot of the control plane's `data/` directory, which holds:
 - Persisted **logs**
 
 <Callout type="info" title="This backs up Better-PaaS itself">
-  Backups capture the *control plane's* state — your configuration and metadata.
+  Backups capture the *control plane's* state - your configuration and metadata.
   Application data inside [volumes](/docs/guides/volumes) and
   [databases](/docs/guides/databases) is separate; back those up according to
   their own needs.
@@ -60,12 +60,12 @@ the most recent 10 backups, pruning older ones.
 
 Backups can also be configured for off-server storage from the **Backups**
 screen. Toggle on **offsite storage** and enter your **S3-compatible** bucket
-details (AWS S3, Cloudflare R2, MinIO) — bucket, region, endpoint, and
+details (AWS S3, Cloudflare R2, MinIO) - bucket, region, endpoint, and
 credentials. Each new backup is then uploaded to your bucket, so a snapshot
 lives somewhere other than the server it's protecting. Use the **Test** button
 to confirm your storage credentials work before relying on them.
 
-The same screen also has the **automatic backup** controls — turn on a schedule,
+The same screen also has the **automatic backup** controls - turn on a schedule,
 set the interval, and choose how many recent backups to keep.
 
 ## Restoring
@@ -87,8 +87,8 @@ disk as `data.pre-restore-…` next to the repo if you need to undo manually.
 </Step>
 </Steps>
 
-Restoring rolls back **control-plane state** — apps, settings, deploy history,
-tokens — to what was in the snapshot. User app containers already running on
+Restoring rolls back **control-plane state** - apps, settings, deploy history,
+tokens - to what was in the snapshot. User app containers already running on
 Docker are not deleted, but the dashboard only knows about apps recorded in the
 restored database.
 

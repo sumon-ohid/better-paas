@@ -541,7 +541,7 @@ export function AppDetailDrawer({
                      </a>
                    ) : (
                      <span className="font-mono text-xs text-muted-foreground max-w-[180px] truncate">
-                       {app.image || "—"}
+                       {app.image || "-"}
                      </span>
                    )}
                  </div>
@@ -644,7 +644,7 @@ export function AppDetailDrawer({
                     <div className="text-slate-400 italic text-center py-12 flex flex-col items-center justify-center gap-2">
                       <TerminalIcon className={`h-5 w-5 opacity-40 ${runtimeLogsConnected ? "animate-pulse" : ""}`} />
                       {runtimeLogsConnected ? (
-                        <span>Connected — waiting for container output...</span>
+                        <span>Connected - waiting for container output...</span>
                       ) : (
                         <span className="flex items-center gap-1.5">
                           <RefreshCwIcon className="h-3 w-3 animate-spin" />
@@ -848,8 +848,8 @@ export function AppDetailDrawer({
                     </div>
                   </div>
                   <div className="space-y-1 font-mono text-[10px] text-muted-foreground break-all">
-                    <div><span className="text-foreground/80 font-semibold">URL: </span><span className="select-all">{webhookUrl || "—"}</span></div>
-                    <div><span className="text-foreground/80 font-semibold">Secret: </span><span className="select-all">{webhookSecret || "—"}</span></div>
+                    <div><span className="text-foreground/80 font-semibold">URL: </span><span className="select-all">{webhookUrl || "-"}</span></div>
+                    <div><span className="text-foreground/80 font-semibold">Secret: </span><span className="select-all">{webhookSecret || "-"}</span></div>
                   </div>
                   <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
                     Create it automatically with your connected GitHub token, or add it manually as a

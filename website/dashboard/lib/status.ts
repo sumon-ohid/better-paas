@@ -3,7 +3,7 @@
 // This is the single source of truth so every screen (dashboard, app detail,
 // logs, health) renders identical labels, colors, and icons. Colors map to the
 // shared `Badge` variants (success / warning / error / secondary), which are
-// themselves driven by the semantic design tokens in globals.css — so theming
+// themselves driven by the semantic design tokens in globals.css - so theming
 // stays consistent across light and dark modes without any hard-coded hex.
 
 import type { BadgeProps } from "@/dashboard/components/ui/badge"

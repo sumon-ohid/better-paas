@@ -50,7 +50,7 @@ function ValueCell({
 
   if (isEmpty) {
     return (
-      <span className="font-mono text-xs text-muted-foreground">—</span>
+      <span className="font-mono text-xs text-muted-foreground">-</span>
     )
   }
 

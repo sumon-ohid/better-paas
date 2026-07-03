@@ -23,7 +23,7 @@ import { IconMonitor, IconServer2 } from "nucleo-isometric"
 // browsers and after a localStorage clear.
 //
 // Flow: Welcome (checklist + Let's go / Skip) → Connect GitHub → Deploy first
-// app → Complete. Every step can be skipped — onboarding never blocks the user
+// app → Complete. Every step can be skipped - onboarding never blocks the user
 // from reaching the dashboard.
 
 type Phase = "loading" | "active" | "done"
@@ -209,7 +209,7 @@ function WelcomeScreen({
   const items = [
     { title: "Setup server", desc: "Choose localhost or connect a remote VPS." },
     { title: "Connect GitHub", desc: "Link a token to browse and deploy your repositories." },
-    { title: "Deploy your first app", desc: "Pick a repo and branch — we build and run it for you." },
+    { title: "Deploy your first app", desc: "Pick a repo and branch - we build and run it for you." },
     { title: "Manage everything", desc: "Logs, metrics, domains, databases, and backups in one place." },
   ]
   return (
@@ -397,7 +397,7 @@ function DeployStep({
     <StepCard
       icon={<NucleoIcon name="layers" className="h-6 w-6" />}
       title="Deploy your first app"
-      description="Pick a repository and branch — Better-PaaS builds it with Nixpacks, runs it as a container, and routes it through Caddy automatically."
+      description="Pick a repository and branch - Better-PaaS builds it with Nixpacks, runs it as a container, and routes it through Caddy automatically."
     >
       <div className="flex flex-col items-center gap-3">
         <Button onClick={onDeploy} loading={busy} className="h-10 w-full max-w-xs gap-1.5 text-sm">

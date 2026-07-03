@@ -23,7 +23,7 @@ flowchart LR
 ```
 
 Because traffic only switches *after* the new container passes a health check,
-your users never hit a dead app — even if the new build is broken.
+your users never hit a dead app - even if the new build is broken.
 
 ## How builds are tagged
 
@@ -42,13 +42,13 @@ Find a previous **successful** deploy in the history.
 </Step>
 <Step>
 Click **Roll back**. Better-PaaS starts that prior build's container and switches
-traffic to it — the same zero-downtime path as a normal deploy.
+traffic to it - the same zero-downtime path as a normal deploy.
 </Step>
 </Steps>
 
 <Callout type="info" title="Rollback is just another deploy">
   A rollback reuses an image you already built, so it's fast and safe. Nothing is
-  rebuilt — Better-PaaS simply brings the older, known-good version back online.
+  rebuilt - Better-PaaS simply brings the older, known-good version back online.
 </Callout>
 
 ## When should I roll back?

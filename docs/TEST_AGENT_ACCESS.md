@@ -72,7 +72,7 @@ curl -X POST http://localhost:8080/api/agents/create \
 }
 ```
 
-Copy the `token` value immediately — it is shown **only once**.
+Copy the `token` value immediately - it is shown **only once**.
 
 Save it:
 
@@ -434,10 +434,10 @@ chmod +x test-agent.sh
 - Make sure the server is running and listening on `:8080`.
 
 ### "Forbidden: admin token required" on everything
-- You are using an agent token for an admin-only endpoint. That's the correct behavior — switch to the admin token.
+- You are using an agent token for an admin-only endpoint. That's the correct behavior - switch to the admin token.
 
 ### "Unauthorized" for a newly created agent
-- Agent tokens are cached in memory on server start. The token should work immediately after creation. If not, restart `./server` — the cache is rebuilt on boot.
+- Agent tokens are cached in memory on server start. The token should work immediately after creation. If not, restart `./server` - the cache is rebuilt on boot.
 
 ### Agent shows `"actorId": ""` in audit logs
 - The `actorId` is the agent's ID, not the token. This is correct. It links the audit entry to the agent row.

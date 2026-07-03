@@ -153,7 +153,7 @@ export default function BackupsPage() {
       await api.backups.restore(restoreTarget)
       showToast(
         "Restore started",
-        "A safety backup was taken first. Services are restarting — reload the dashboard in a minute.",
+        "A safety backup was taken first. Services are restarting - reload the dashboard in a minute.",
         "success",
       )
       setRestoreTarget(null)
@@ -260,7 +260,7 @@ export default function BackupsPage() {
                     <span className="block text-sm font-medium">Include database contents</span>
                     <span className="block text-xs text-muted-foreground">
                       Also dump each managed database (Postgres/MySQL/Redis) into the archive, so a restore
-                      brings back real data — not empty databases.
+                      brings back real data - not empty databases.
                     </span>
                   </span>
                   <Switch
@@ -275,7 +275,7 @@ export default function BackupsPage() {
                   <CloudIcon className="h-6 w-6 text-muted-foreground/30" />
                   <p className="text-sm font-medium text-foreground">No backups yet</p>
                   <p className="text-xs text-muted-foreground">
-                    Create one above — it only takes a moment.
+                    Create one above - it only takes a moment.
                   </p>
                 </FramePanel>
               ) : (
@@ -427,7 +427,7 @@ export default function BackupsPage() {
                     <Input
                       value={cfg.s3Endpoint}
                       onChange={(e) => set("s3Endpoint", e.target.value.trim())}
-                      placeholder="https://<account>.r2.cloudflarestorage.com — leave blank for AWS S3"
+                      placeholder="https://<account>.r2.cloudflarestorage.com - leave blank for AWS S3"
                       className="h-9 text-sm sm:h-8 font-mono"
                     />
                   </div>

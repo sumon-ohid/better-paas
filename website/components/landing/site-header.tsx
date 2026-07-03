@@ -11,7 +11,7 @@ import { GithubIcon } from '@/components/landing/github-icon';
 import { githubUrl, demoUrl } from '@/lib/shared';
 
 /* ──────────────────────────────────────────────────────────────────────────
- * SiteHeader — a custom, Linear-style top bar for the marketing pages.
+ * SiteHeader - a custom, Linear-style top bar for the marketing pages.
  *
  * Replaces fumadocs' default HomeLayout nav (disabled via nav.enabled=false)
  * with a sticky header that:
@@ -24,11 +24,11 @@ import { githubUrl, demoUrl } from '@/lib/shared';
 
 const NAV_LINKS: { label: string; href: string; external?: boolean }[] = [
   { label: 'Demo', href: demoUrl },
+  { label: 'CLI', href: '/docs/guides/paas-cli' },
   { label: 'Product', href: '/platform' },
   { label: 'Catalog', href: '/catalog' },
-  { label: 'Security', href: '/docs/security' },
   { label: 'Pricing', href: '/pricing' },
-  { label: 'Sponsor', href: '/sponsorships' },
+  { label: 'Docs', href: '/docs' },
 ];
 
 function NavItem({
@@ -125,7 +125,7 @@ export function SiteHeader() {
           <Logo className="text-base" />
         </Link>
 
-        {/* Center nav — desktop */}
+        {/* Center nav - desktop */}
         <nav className="hidden flex-1 items-center justify-center gap-7 md:flex">
           {NAV_LINKS.map((link) => (
             <NavItem

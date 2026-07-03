@@ -32,7 +32,7 @@ export const blogMetaBySlug: Record<string, BlogMeta> = {
       {
         question: 'Is self-hosting cheaper than Vercel?',
         answer:
-          'For multiple apps and steady traffic, yes—typically $5–12/month flat on a VPS vs per-seat and usage-based billing. For a single static marketing site, Vercel Hobby or Cloudflare Pages may still be cheaper and simpler.',
+          'For multiple apps and steady traffic, yes-typically $5–12/month flat on a VPS vs per-seat and usage-based billing. For a single static marketing site, Vercel Hobby or Cloudflare Pages may still be cheaper and simpler.',
       },
       {
         question: 'Can I deploy Next.js on Hetzner without Docker knowledge?',
@@ -52,7 +52,7 @@ export const blogMetaBySlug: Record<string, BlogMeta> = {
       {
         question: 'Is Better-PaaS really free?',
         answer:
-          'The control plane is open source (AGPL-3.0). You pay only for your VPS and optional backup storage—not per app or per seat.',
+          'The control plane is open source (AGPL-3.0). You pay only for your VPS and optional backup storage-not per app or per seat.',
       },
     ],
   },

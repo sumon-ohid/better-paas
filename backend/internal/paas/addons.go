@@ -268,7 +268,7 @@ func launchAddon(addon Addon, spec addonSpec, password string) {
 			defer sshEx.Close()
 		}
 		if out, err := ex.RunCommand("docker", args...); err != nil {
-			log.Printf("[addon] failed to launch %s: %v — %s", addon.ContainerName, err, out)
+			log.Printf("[addon] failed to launch %s: %v - %s", addon.ContainerName, err, out)
 			addon.Status = "failed"
 		} else {
 			// Wait for the addon to become healthy/ready to accept connections
@@ -492,7 +492,7 @@ func handleAddonDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/addons/attach — copy an add-on's conn env into an app
+// POST /api/addons/attach - copy an add-on's conn env into an app
 // ---------------------------------------------------------------------------
 
 func handleAddonAttach(w http.ResponseWriter, r *http.Request) {
@@ -566,7 +566,7 @@ func handleAddonAttach(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/addons/detach — remove an add-on's conn env from an app
+// POST /api/addons/detach - remove an add-on's conn env from an app
 // ---------------------------------------------------------------------------
 
 func handleAddonDetach(w http.ResponseWriter, r *http.Request) {

@@ -1,12 +1,12 @@
 ---
 title: Database Explorer
-description: Browse tables, page through rows, and run queries against your managed databases — right in the dashboard.
+description: Browse tables, page through rows, and run queries against your managed databases - right in the dashboard.
 icon: DatabaseZap
 ---
 
 Once you've created a [managed database add-on](/docs/guides/databases), you
 don't need a separate desktop client to look inside it. Better-PaaS has a
-built-in **database explorer** — a lightweight "studio" for browsing tables,
+built-in **database explorer** - a lightweight "studio" for browsing tables,
 paging through rows, and running ad-hoc queries against **Postgres**, **MySQL**,
 and **Redis**.
 
@@ -23,7 +23,7 @@ action). The database must be running to explore it.
 </Steps>
 
 The explorer opens as a full-screen studio with a list of tables (or Redis keys)
-on the left and tabs on the right — a **query console** plus a tab for each table
+on the left and tabs on the right - a **query console** plus a tab for each table
 you open.
 
 ## Browsing tables and keys
@@ -40,10 +40,10 @@ Use the filter box to find a table or key quickly.
 
 Open the **query console** tab to run statements directly:
 
-- **Postgres / MySQL** — run any SQL, e.g. `SELECT * FROM users LIMIT 100;`.
+- **Postgres / MySQL** - run any SQL, e.g. `SELECT * FROM users LIMIT 100;`.
   Statements that return rows show a results grid; others (INSERT/UPDATE/DDL)
   report success. Real SQL `NULL` is shown distinctly from an empty string.
-- **Redis** — run any `redis-cli` command, e.g. `KEYS *` or `GET mykey`.
+- **Redis** - run any `redis-cli` command, e.g. `KEYS *` or `GET mykey`.
 
 <Callout type="info" title="How it works under the hood">
   The explorer doesn't expose any extra database ports. It runs by shelling into
@@ -55,7 +55,7 @@ Open the **query console** tab to run statements directly:
 
 <Callout type="warn" title="This runs real statements">
   The query console executes exactly what you type against the live database,
-  including writes and schema changes. There's no undo — double-check
+  including writes and schema changes. There's no undo - double-check
   destructive statements, and consider a [backup](/docs/guides/backups) first.
 </Callout>
 

@@ -9,7 +9,7 @@ const glossaryUnique: Record<
 > = {
   paas: {
     example:
-      'A team pushes a Rails API to Git; the PaaS builds a container, attaches Postgres, routes api.example.com over HTTPS, and streams logs — without SSHing to edit nginx configs.',
+      'A team pushes a Rails API to Git; the PaaS builds a container, attaches Postgres, routes api.example.com over HTTPS, and streams logs - without SSHing to edit nginx configs.',
     mistake: 'Treating PaaS as "no ops." You still own patching, backups, capacity planning, and incident response on self-hosted PaaS.',
     inProduct: 'Better-PaaS installs as a control plane on your VPS. Apps deploy as Docker containers; Caddy terminates TLS and routes hostnames to the right container.',
   },
@@ -28,7 +28,7 @@ const glossaryUnique: Record<
   caddy: {
     example:
       'After DNS for staging.example.com points to your VPS, Caddy requests a Let\'s Encrypt certificate and begins proxying traffic once the upstream app passes health checks.',
-    mistake: 'Blocking ports 80/443 on the firewall while expecting automatic HTTPS — ACME HTTP-01 validation needs inbound port 80.',
+    mistake: 'Blocking ports 80/443 on the firewall while expecting automatic HTTPS - ACME HTTP-01 validation needs inbound port 80.',
     inProduct: 'Better-PaaS manages Caddy site blocks per app. You add domains in the UI; certificate renewal is handled by Caddy without manual certbot cron jobs.',
   },
   nixpacks: {
@@ -40,7 +40,7 @@ const glossaryUnique: Record<
   'docker-container': {
     example:
       'Your FastAPI app runs inside an isolated filesystem with only port 8000 exposed; a redeploy replaces the container image while a mounted volume keeps uploaded files.',
-    mistake: 'Writing persistent data inside the container layer instead of a Docker volume — data is lost on redeploy.',
+    mistake: 'Writing persistent data inside the container layer instead of a Docker volume - data is lost on redeploy.',
     inProduct: 'Every Better-PaaS app is a container. Catalog apps use pinned images; Git apps use images built by Nixpacks or your Dockerfile.',
   },
   'zero-downtime-deployment': {
@@ -82,7 +82,7 @@ const glossaryUnique: Record<
   gitops: {
     example:
       'Production always tracks the main branch; a merge triggers webhook deploy. Rollback means redeploying a previous Git commit from history.',
-    mistake: 'Editing production env vars only on the server without documenting them — the next Git deploy won\'t include those changes.',
+    mistake: 'Editing production env vars only on the server without documenting them - the next Git deploy won\'t include those changes.',
     inProduct: 'Connect a repo and branch per app. Env vars live in the platform database; document them alongside your repository README.',
   },
   'environment-variable': {
@@ -94,7 +94,7 @@ const glossaryUnique: Record<
   'persistent-volume': {
     example:
       'Uptime Kuma stores monitor state in /app/data mounted from a Docker volume so redeploys do not wipe monitor history.',
-    mistake: 'Assuming docker compose down -v is safe — it deletes named volumes and application data.',
+    mistake: 'Assuming docker compose down -v is safe - it deletes named volumes and application data.',
     inProduct: 'Catalog apps declare volume paths. For Git apps, attach volumes in settings before relying on the app for production data.',
   },
   'health-check': {
@@ -118,7 +118,7 @@ const glossaryUnique: Record<
   'control-plane': {
     example:
       'The Better-PaaS API stores app definitions, env vars, and deployment records while agents on the server execute docker pull, run, and Caddy updates.',
-    mistake: 'Backing up only application containers but not control-plane data — you lose deploy history and configuration.',
+    mistake: 'Backing up only application containers but not control-plane data - you lose deploy history and configuration.',
     inProduct: 'Back up /var/lib/better-paas (paths vary by install) alongside application databases and volumes.',
   },
   'managed-database': {
@@ -153,7 +153,7 @@ const glossaryUnique: Record<
   },
   'container-log': {
     example:
-      'A failed Stripe webhook shows payment_intent.succeeded followed by PG::ConnectionBad in container stdout — visible in the live logs panel.',
+      'A failed Stripe webhook shows payment_intent.succeeded followed by PG::ConnectionBad in container stdout - visible in the live logs panel.',
     mistake: 'Logging secrets or full credit card numbers, which then persist in log files on disk.',
     inProduct: 'Logs stream in the dashboard and are stored on the server. Use structured logging and redact sensitive fields.',
   },
@@ -172,7 +172,7 @@ const glossaryUnique: Record<
   'private-repository': {
     example:
       'Better-PaaS clones github.com/acme/internal-api using a fine-grained PAT with Contents: Read on that repository only.',
-    mistake: 'Using a personal PAT tied to one employee who leaves the company — clones break when the token is revoked.',
+    mistake: 'Using a personal PAT tied to one employee who leaves the company - clones break when the token is revoked.',
     inProduct: 'Store Git credentials in platform settings. Use organization machine users or deploy keys with minimal scope.',
   },
   'secret-encryption': {
@@ -184,7 +184,7 @@ const glossaryUnique: Record<
   'docker-network': {
     example:
       'App container talks to postgres:5432 on the internal bridge network; only Caddy publishes ports 80/443 to the internet.',
-    mistake: 'Hard-coding localhost for database host inside a container — localhost refers to the app container itself, not Postgres.',
+    mistake: 'Hard-coding localhost for database host inside a container - localhost refers to the app container itself, not Postgres.',
     inProduct: 'Add-ons receive stable hostnames on the Docker network. Use injected connection URLs rather than localhost.',
   },
   'app-catalog': {
@@ -208,19 +208,19 @@ const glossaryUnique: Record<
   'edge-deployment': {
     example:
       'Vercel serves static assets from 40+ PoPs so Tokyo users hit a nearby edge node instead of your origin in Virginia.',
-    mistake: 'Expecting edge deployment from a single VPS in one region — you need a CDN or multi-region platform for that.',
+    mistake: 'Expecting edge deployment from a single VPS in one region - you need a CDN or multi-region platform for that.',
     inProduct: 'Better-PaaS is single-region by default. Put Cloudflare in front for caching and DDoS protection if needed.',
   },
   'container-orchestration': {
     example:
       'Kubernetes schedules 50 microservices across six nodes with auto-healing, HPA, and service mesh sidecars.',
-    mistake: 'Adopting Kubernetes for three monolith apps on one server — operational cost exceeds benefit.',
+    mistake: 'Adopting Kubernetes for three monolith apps on one server - operational cost exceeds benefit.',
     inProduct: 'Better-PaaS orchestrates containers on one server (or a few agents). Graduate to K8s when multi-node scheduling is required.',
   },
   'deployment-platform': {
     example:
-      'Developers git push; the platform builds, runs health checks, routes HTTPS, and shows logs — whether hosted (Heroku) or self-hosted (Better-PaaS).',
-    mistake: 'Confusing a deployment platform with a CDN or database — you still need to provision data stores and assets appropriately.',
+      'Developers git push; the platform builds, runs health checks, routes HTTPS, and shows logs - whether hosted (Heroku) or self-hosted (Better-PaaS).',
+    mistake: 'Confusing a deployment platform with a CDN or database - you still need to provision data stores and assets appropriately.',
     inProduct: 'Better-PaaS covers build/deploy/route/observability on your VPS. You bring the server and own the data.',
   },
 };
@@ -234,7 +234,7 @@ const competitorUnique: Record<string, UniqueBundle> = {
         bullets: [
           'Map Heroku config vars → Better-PaaS environment variables one-to-one.',
           'Replace Heroku Postgres with a Postgres add-on container on the same VPS or an external managed DB.',
-          'Ensure the app reads process.env.PORT — Heroku and Better-PaaS both inject dynamic ports.',
+          'Ensure the app reads process.env.PORT - Heroku and Better-PaaS both inject dynamic ports.',
           'Schedule DNS cutover only after staging deploy logs are clean.',
         ],
       },
@@ -264,7 +264,7 @@ const competitorUnique: Record<string, UniqueBundle> = {
       {
         question: 'Can I run Better-PaaS on the same server as Coolify?',
         answer:
-          'Not recommended — both manage Docker and reverse proxies. Pick one control plane per server to avoid port and routing conflicts.',
+          'Not recommended - both manage Docker and reverse proxies. Pick one control plane per server to avoid port and routing conflicts.',
       },
     ],
   },
@@ -272,7 +272,7 @@ const competitorUnique: Record<string, UniqueBundle> = {
     sections: [
       {
         title: 'Dokku CLI vs Better-PaaS dashboard',
-        body: 'Dokku is git-push-to-deploy over SSH with a minimal footprint — excellent for terminal-first operators. Better-PaaS adds a web dashboard, catalog apps, multi-user workflows, and integrated log streaming for teams that do not want SSH for every operation.',
+        body: 'Dokku is git-push-to-deploy over SSH with a minimal footprint - excellent for terminal-first operators. Better-PaaS adds a web dashboard, catalog apps, multi-user workflows, and integrated log streaming for teams that do not want SSH for every operation.',
       },
     ],
     faqs: [],
@@ -281,7 +281,7 @@ const competitorUnique: Record<string, UniqueBundle> = {
     sections: [
       {
         title: 'When Vercel wins vs self-hosted Next.js',
-        body: 'Vercel optimizes edge middleware, ISR, and global static delivery. Better-PaaS runs a Node server in one region — better for full-stack apps with long-lived connections, private databases, and predictable flat VPS pricing, not for global edge caching out of the box.',
+        body: 'Vercel optimizes edge middleware, ISR, and global static delivery. Better-PaaS runs a Node server in one region - better for full-stack apps with long-lived connections, private databases, and predictable flat VPS pricing, not for global edge caching out of the box.',
       },
     ],
     faqs: [
@@ -323,7 +323,7 @@ const competitorUnique: Record<string, UniqueBundle> = {
     sections: [
       {
         title: 'Fly.io regions vs one VPS',
-        body: 'Fly.io places VMs close to users in many regions. Better-PaaS targets one primary server — add Cloudflare CDN in front if static assets need geographic caching.',
+        body: 'Fly.io places VMs close to users in many regions. Better-PaaS targets one primary server - add Cloudflare CDN in front if static assets need geographic caching.',
       },
     ],
     faqs: [],
@@ -332,7 +332,7 @@ const competitorUnique: Record<string, UniqueBundle> = {
     sections: [
       {
         title: 'Jamstack hosting vs full-stack containers',
-        body: 'Netlify excels at static sites and serverless functions at the edge. Better-PaaS runs long-lived Node/Python/Ruby processes with attached databases — a better fit for traditional APIs and admin panels.',
+        body: 'Netlify excels at static sites and serverless functions at the edge. Better-PaaS runs long-lived Node/Python/Ruby processes with attached databases - a better fit for traditional APIs and admin panels.',
       },
     ],
     faqs: [],
@@ -368,7 +368,7 @@ const competitorUnique: Record<string, UniqueBundle> = {
     sections: [
       {
         title: 'Elastic Beanstalk abstraction vs a single VPS',
-        body: 'Beanstalk integrates with RDS, ALB, and IAM in AWS accounts. Better-PaaS is intentionally smaller: one server, Docker, Caddy — ideal when AWS complexity and bill unpredictability outweigh elasticity needs.',
+        body: 'Beanstalk integrates with RDS, ALB, and IAM in AWS accounts. Better-PaaS is intentionally smaller: one server, Docker, Caddy - ideal when AWS complexity and bill unpredictability outweigh elasticity needs.',
       },
     ],
     faqs: [],
@@ -395,7 +395,7 @@ const fixUnique: Record<string, UniqueBundle> = {
     sections: [
       {
         title: 'Let\'s Encrypt failure checklist',
-        body: 'ACME failures are almost always DNS, firewall, or routing — not the app framework.',
+        body: 'ACME failures are almost always DNS, firewall, or routing - not the app framework.',
         bullets: [
           'dig +short yourdomain.com must return your VPS IP',
           'Ports 80 and 443 open in cloud firewall and ufw',
@@ -441,7 +441,7 @@ const fixUnique: Record<string, UniqueBundle> = {
     sections: [
       {
         title: 'When Nixpacks mis-detects your stack',
-        body: 'Read the build log from the top — detection errors show which language provider failed. Monorepos and custom tooling often need explicit config.',
+        body: 'Read the build log from the top - detection errors show which language provider failed. Monorepos and custom tooling often need explicit config.',
         bullets: [
           'Add nixpacks.toml or set custom build command in app settings',
           'Switch to Dockerfile deploy for non-standard layouts',
@@ -634,7 +634,7 @@ function featureEnrichment(page: SeoPage): UniqueBundle {
     'automatic-https': 'Verify DNS before adding domains. Use Cloudflare DNS-only (grey cloud) during initial certificate issuance if redirects conflict.',
     'managed-postgres': 'Run pg_dump nightly to object storage; test restore on a staging database quarterly.',
     'webhooks': 'Use a shared secret and restrict branches to main or release/* to prevent accidental production deploys.',
-    'server-backups': 'Back up control-plane data, not just app containers — you need deployment history and env configuration.',
+    'server-backups': 'Back up control-plane data, not just app containers - you need deployment history and env configuration.',
   };
   const tip = tips[page.slug];
   if (!tip) return { sections: [], faqs: [] };
@@ -649,7 +649,7 @@ function integrationEnrichment(page: SeoPage): UniqueBundle {
     github: 'Use fine-grained PATs or GitHub App credentials with repository-scoped access. Rotate tokens on offboarding.',
     cloudflare: 'API token needs Zone.DNS Edit on the zones you manage. Use proxied vs DNS-only deliberately for ACME.',
     nixpacks: 'Pin versions via config when production stability matters more than bleeding-edge runtimes.',
-    caddy: 'Caddy config is managed by the platform — avoid hand-editing Caddyfiles on the host unless you understand override risks.',
+    caddy: 'Caddy config is managed by the platform - avoid hand-editing Caddyfiles on the host unless you understand override risks.',
   };
   const tip = tips[page.slug];
   if (!tip) return { sections: [], faqs: [] };
@@ -682,7 +682,7 @@ export function getUniqueEnrichment(page: SeoPage): UniqueBundle {
   }
 }
 
-/** Families with thin templated pages — submit to sitemap after unique enrichment. */
+/** Families with thin templated pages - submit to sitemap after unique enrichment. */
 export const seoSitemapFamilies: Set<SeoPage['family']> = new Set([
   'alternatives',
   'compare',

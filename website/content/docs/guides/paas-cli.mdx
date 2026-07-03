@@ -1,13 +1,13 @@
 ---
-title: PaaS CLI — Connect from Your Machine
-description: Install the paas CLI, authorize via browser, and manage your instance with scoped agent tokens — no curl or admin token on your laptop.
+title: PaaS CLI - Connect from Your Machine
+description: Install the paas CLI, authorize via browser, and manage your instance with scoped agent tokens - no curl or admin token on your laptop.
 icon: Terminal
 ---
 
 The **paas CLI** is the recommended way to connect AI coding assistants (Cursor,
 Claude Code, Codex), local scripts, and your laptop to a Better-PaaS instance.
 You run one command, approve access in the browser, and a **scoped agent token**
-is saved locally — your admin token never leaves the server.
+is saved locally - your admin token never leaves the server.
 
 <Callout type="info">
   This replaces the manual `curl` + admin-token workflow for day-to-day use.
@@ -21,7 +21,7 @@ is saved locally — your admin token never leaves the server.
 
 - A Better-PaaS instance with the **dashboard** and **API** running (see
   [Quickstart](/docs/quickstart) if you haven't installed yet).
-- The **dashboard URL** — the same address you open in your browser, e.g.
+- The **dashboard URL** - the same address you open in your browser, e.g.
   `https://paas.example.com` or `http://YOUR_SERVER_IP:3000`.
 - **Go 1.22+** on your local machine (to build the CLI once).
 
@@ -29,7 +29,7 @@ is saved locally — your admin token never leaves the server.
 
 ## Install the CLI
 
-**Remote install (recommended)** — no clone required:
+**Remote install (recommended)** - no clone required:
 
 ```bash title="On your laptop"
 go install github.com/sumon-ohid/better-paas/backend/cmd/paas@latest
@@ -55,7 +55,7 @@ paas version
 ```
 
 <Callout type="info">
-  Requires **Go 1.22+**. The CLI is a standalone module — you do not need to
+  Requires **Go 1.22+**. The CLI is a standalone module - you do not need to
   clone the Better-PaaS repo to install it.
 </Callout>
 
@@ -155,15 +155,15 @@ This configures MCP for **Cursor** (`~/.cursor/mcp.json`) and **Claude Code**
 
 | Tool | What it does | Parameters |
 | ---- | ------------ | ---------- |
-| `paas_status` | Connection info + app summary | — |
-| `paas_list_apps` | List deployed apps | — |
-| `paas_list_projects` | List multi-service projects | — |
+| `paas_status` | Connection info + app summary | - |
+| `paas_list_apps` | List deployed apps | - |
+| `paas_list_projects` | List multi-service projects | - |
 | `paas_get_app` | App details | `app` (name or ID) |
 | `paas_get_logs` | Runtime logs | `app`, `lines?` (default 100) |
 | `paas_deploy` | Deploy from Git | `name`, `gitRepo`, `branch?` |
 | `paas_redeploy` | Rebuild existing app | `app` (name or ID) |
 
-The MCP server reads `~/.paas/config.json` — no extra env vars needed. What you
+The MCP server reads `~/.paas/config.json` - no extra env vars needed. What you
 can do depends on your connect profile (**Observer**, **Deployer**, or
 **Operator**).
 
@@ -198,7 +198,7 @@ Exports `PAAS_API_URL` and `PAAS_TOKEN` for shell-based agents that use curl.
 ## Permission profiles
 
 When you authorize, you pick one of three built-in profiles. Each maps to a
-fixed set of API scopes — you don't need to know scope names unless you use the
+fixed set of API scopes - you don't need to know scope names unless you use the
 raw API.
 
 | Profile | Best for | Can do | Cannot do |
@@ -207,7 +207,7 @@ raw API.
 | **Deployer** | AI coding tools, CI on a dev machine | Observer + deploy, redeploy, stop/start apps | Delete apps, manage addons/backups/servers |
 | **Operator** | Full local automation | Deployer + addons, cron, backups, servers, notifications | Create/delete agents, view audit logs |
 
-The default in the browser is **Deployer** — a good balance for Cursor or
+The default in the browser is **Deployer** - a good balance for Cursor or
 Claude Code managing deploys without full admin access.
 
 ---
@@ -236,7 +236,7 @@ paas disconnect
 ```
 
 Deletes `~/.paas/config.json` on this machine. The agent token still exists on
-the server until you delete it via the admin API — see
+the server until you delete it via the admin API - see
 [Agent Access](/docs/guides/agent-access#delete-an-agent).
 
 ### Help
@@ -253,7 +253,7 @@ paas help
 | `paas setup` | Write MCP config for Cursor and Claude Code |
 | `paas status` | List apps in the terminal |
 | `paas env` | Print `export PAAS_API_URL=…` / `PAAS_TOKEN=…` for shell agents |
-| `paas mcp` | MCP server (spawned by your editor — do not run manually) |
+| `paas mcp` | MCP server (spawned by your editor - do not run manually) |
 | `paas disconnect` | Remove local credentials |
 | `paas version` | Print CLI version |
 
@@ -261,17 +261,17 @@ paas help
 
 ## URL discovery
 
-You only pass **one URL** — your dashboard address. The CLI finds the API
+You only pass **one URL** - your dashboard address. The CLI finds the API
 automatically.
 
 ### How it works
 
-1. **Well-known manifest** — the CLI fetches
+1. **Well-known manifest** - the CLI fetches
    `/.well-known/better-paas.json` from the URL you provide.
-2. **Same-origin fallback** — if the manifest is missing but `/api/health`
+2. **Same-origin fallback** - if the manifest is missing but `/api/health`
    responds on that URL (common when Caddy proxies `/api` on the same domain),
    the CLI uses that URL for both dashboard and API.
-3. **Local dev** — `http://localhost:8080` maps the dashboard to
+3. **Local dev** - `http://localhost:8080` maps the dashboard to
    `http://localhost:3000` automatically.
 
 Example manifest:
@@ -321,7 +321,7 @@ See [Configuration](/docs/configuration) for all environment variables.
 
 If you cannot use a browser (headless CI, SSH-only server), use **legacy mode**.
 This prompts for your admin token in the terminal and creates an agent via the
-API directly. The admin token is **not** saved — only the resulting agent token
+API directly. The admin token is **not** saved - only the resulting agent token
 is written to `~/.paas/config.json`.
 
 ```bash
@@ -356,7 +356,7 @@ Environment variables:
 ## Using the token elsewhere
 
 After `paas connect`, the agent token in `~/.paas/config.json` works with any
-HTTP client — curl, GitHub Actions, or custom scripts. For AI editors, prefer
+HTTP client - curl, GitHub Actions, or custom scripts. For AI editors, prefer
 `paas setup` (built-in MCP) over hand-rolled curl.
 
 ```bash title="Read token from config (jq required)"
@@ -372,13 +372,13 @@ For the full API surface, see the [AI Agent API Guide](/docs/guides/ai-agents).
 
 ## Security notes
 
-- **Admin token stays on the server** during browser connect — you paste it in
+- **Admin token stays on the server** during browser connect - you paste it in
   the dashboard page, but only the scoped `bpagt_` token is saved locally.
-- **Revoke anytime** — delete the agent via the admin API; `paas disconnect`
+- **Revoke anytime** - delete the agent via the admin API; `paas disconnect`
   only removes the local copy.
-- **Audit trail** — every action the agent takes is logged. See
+- **Audit trail** - every action the agent takes is logged. See
   [Agent Access & Audit Logs](/docs/guides/agent-access#audit-logs).
-- **Least privilege** — prefer **Observer** or **Deployer** over **Operator**
+- **Least privilege** - prefer **Observer** or **Deployer** over **Operator**
   unless the tool truly needs addon/backup/server management.
 
 ---
@@ -387,7 +387,7 @@ For the full API surface, see the [AI Agent API Guide](/docs/guides/ai-agents).
 
 ### "could not reach PaaS at …"
 
-- Check the URL in a browser — the dashboard should load.
+- Check the URL in a browser - the dashboard should load.
 - Ensure `/api/health` returns JSON (directly or via reverse proxy).
 - For split-host setups, confirm `NEXT_PUBLIC_API_URL` is set and the frontend
   was rebuilt.
@@ -417,7 +417,7 @@ faster. Don't close the terminal while waiting.
 ### "Forbidden: missing scope …"
 
 The agent profile doesn't include the scope needed for that API call. Disconnect,
-delete the agent on the server, and reconnect with a higher profile — or create
+delete the agent on the server, and reconnect with a higher profile - or create
 a custom-scoped token via the [API](/docs/guides/agent-access#creating-an-agent-token).
 
 ---

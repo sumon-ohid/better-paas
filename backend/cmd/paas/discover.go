@@ -67,7 +67,7 @@ func apiHealthy(baseURL string, client *http.Client) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-// resolveConnectTargets accepts a dashboard URL, API URL, or either — and returns
+// resolveConnectTargets accepts a dashboard URL, API URL, or either - and returns
 // both endpoints needed for browser authorization.
 func resolveConnectTargets(input, uiOverride string) (apiURL, uiURL string, err error) {
 	input = strings.TrimRight(strings.TrimSpace(input), "/")
@@ -99,7 +99,7 @@ func resolveConnectTargets(input, uiOverride string) (apiURL, uiURL string, err 
 
 	if apiURL == "" {
 		return "", "", fmt.Errorf(
-			"could not reach PaaS at %s — use your dashboard URL (e.g. https://paas.example.com) and ensure it is running",
+			"could not reach PaaS at %s - use your dashboard URL (e.g. https://paas.example.com) and ensure it is running",
 			input,
 		)
 	}

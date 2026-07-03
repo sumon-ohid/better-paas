@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ElementType, type ReactNode } from 'r
 import { cn } from '@/lib/cn';
 
 /**
- * Reveal — fades + lifts its children into place once they scroll into view.
+ * Reveal - fades + lifts its children into place once they scroll into view.
  *
  * This is the restrained, Linear-style motion: content settles as you reach it
  * rather than animating all at once on load. `delay` staggers siblings. Honors

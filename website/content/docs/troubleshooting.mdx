@@ -40,13 +40,13 @@ dashboard's origin.
 
 <Accordions>
 <Accordion title="The build fails">
-Open the app and read the **build logs** — Nixpacks and your build tools print
+Open the app and read the **build logs** - Nixpacks and your build tools print
 the exact error. Common causes: a missing dependency, a failing build command,
 or no lockfile. Fix it in your repo and **Redeploy**.
 </Accordion>
 
 <Accordion title="The build succeeds but the app won't start">
-Almost always a **port** issue. Better-PaaS sets a `PORT` environment variable —
+Almost always a **port** issue. Better-PaaS sets a `PORT` environment variable -
 your app must listen on it rather than a hard-coded port. See
 [Environment Variables](/docs/guides/environment-variables#the-port-variable).
 </Accordion>
@@ -106,7 +106,7 @@ Caddy can only get a certificate once your domain resolves to the server. Check:
 - The DNS `A` record points to the correct server IP and has propagated
   (`dig yourdomain.com`).
 - `ACME_EMAIL` is set in the backend environment.
-- Ports **80 and 443** are open on your firewall — Let's Encrypt needs them.
+- Ports **80 and 443** are open on your firewall - Let's Encrypt needs them.
 
 Then remove and re-add the domain. See
 [Custom Domains](/docs/guides/custom-domains#troubleshooting).
@@ -144,7 +144,7 @@ journalctl -u better-paas-backend -f
 
 <Accordion title="I want to go back to a previous app version">
 That's a [rollback](/docs/guides/rollbacks), done per-app from the
-**Deployments** tab — separate from updating Better-PaaS itself.
+**Deployments** tab - separate from updating Better-PaaS itself.
 </Accordion>
 </Accordions>
 

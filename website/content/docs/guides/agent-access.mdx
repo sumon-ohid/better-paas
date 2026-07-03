@@ -4,15 +4,15 @@ description: Create scoped agent tokens for AI tools, CI/CD, and automation. Tra
 icon: KeyRound
 ---
 
-Better-PaaS now supports **scoped agent tokens** — separate credentials for machines and AI assistants that are limited to only the actions they need. Every action they take is recorded in an **audit log** you can review.
+Better-PaaS now supports **scoped agent tokens** - separate credentials for machines and AI assistants that are limited to only the actions they need. Every action they take is recorded in an **audit log** you can review.
 
-This means you can let Claude Code deploy from your terminal, a GitHub Action push on every commit, or a monitoring script check health — all without sharing your admin password.
+This means you can let Claude Code deploy from your terminal, a GitHub Action push on every commit, or a monitoring script check health - all without sharing your admin password.
 
 <Callout type="info" title="Fastest path: use the paas CLI">
   Run `paas connect https://your-dashboard-url`, then `paas setup`, and restart
   your editor. Sign in in the browser, pick a permission profile, and you're
-  done — no curl, no copying admin tokens locally. See
-  [PaaS CLI — Connect from Your Machine](/docs/guides/paas-cli).
+  done - no curl, no copying admin tokens locally. See
+  [PaaS CLI - Connect from Your Machine](/docs/guides/paas-cli).
 </Callout>
 
 ---
@@ -43,7 +43,7 @@ Your admin token is the master key. Agent tokens are **scoped copies** designed 
 
 ## Creating an agent token
 
-### Option A — Browser connect (recommended)
+### Option A - Browser connect (recommended)
 
 Use the [paas CLI](/docs/guides/paas-cli) on your local machine:
 
@@ -57,10 +57,10 @@ to `~/.paas/config.json`.
 
 Then run `paas setup` and restart Cursor or Claude Code for native MCP tools.
 
-Your admin token is used only in the browser session — it is **not** stored on
+Your admin token is used only in the browser session - it is **not** stored on
 your laptop.
 
-### Option B — API with curl (advanced)
+### Option B - API with curl (advanced)
 
 Create tokens manually when you need custom scope lists or headless CI.
 
@@ -140,7 +140,7 @@ Choose only the scopes an agent needs. This is the **principle of least privileg
 
 ## Using an agent token
 
-Agent tokens work exactly like your admin token — in the `Authorization: Bearer` header.
+Agent tokens work exactly like your admin token - in the `Authorization: Bearer` header.
 
 ```bash title="Using an agent token"
 AGENT_TOKEN="bpagt_ac7f83b2...91f4"
@@ -187,7 +187,7 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
   http://localhost:8080/api/agents
 ```
 
-The response includes metadata — **but never the raw token**:
+The response includes metadata - **but never the raw token**:
 
 ```json
 [
@@ -225,7 +225,7 @@ curl -X POST http://localhost:8080/api/agents/delete \
 
 ## Audit logs
 
-Every mutating action — deploys, deletes, stops, addon attaches, and so on — is recorded automatically. This includes actions by the admin token and every agent token.
+Every mutating action - deploys, deletes, stops, addon attaches, and so on - is recorded automatically. This includes actions by the admin token and every agent token.
 
 ### Viewing audit logs
 
@@ -262,7 +262,7 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 ### What gets logged?
 
-- **Actor**: The token type — `admin` for the main token, or an agent's ID.
+- **Actor**: The token type - `admin` for the main token, or an agent's ID.
 - **Action**: Human-readable like `app:deploy`, `app:stop`, `addon:attach`.
 - **Resource**: What kind of thing was affected (`app`, `addon`, `server`, etc.).
 - **Outcome**: `success` for authenticated requests.

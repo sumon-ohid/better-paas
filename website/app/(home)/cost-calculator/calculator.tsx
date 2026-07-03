@@ -110,7 +110,7 @@ export function CostCalculator() {
             >
               {serverTiers.map((tier, i) => (
                 <option key={tier.label} value={i}>
-                  {tier.label} — {formatCurrency(tier.price)}/mo
+                  {tier.label} - {formatCurrency(tier.price)}/mo
                 </option>
               ))}
             </select>

@@ -522,7 +522,7 @@ func Templates() []Template {
 			HealthPath:  "/",
 			Website:     "https://filebrowser.org",
 			Icon:        "filebrowser",
-			Notes:       "Default login is admin / admin — change it immediately after first sign-in.",
+			Notes:       "Default login is admin / admin - change it immediately after first sign-in.",
 		},
 		{
 			ID:          "libretranslate",
@@ -900,7 +900,7 @@ func Templates() []Template {
 		{
 			ID:          "trypost",
 			Name:        "TryPost",
-			Description: "Open-source social media scheduling and publishing platform — an alternative to Buffer and Hootsuite.",
+			Description: "Open-source social media scheduling and publishing platform - an alternative to Buffer and Hootsuite.",
 			Category:    "Marketing",
 			Image:       "ghcr.io/trypostit/trypost:1.0.2",
 			Port:        80,
@@ -945,7 +945,7 @@ func Templates() []Template {
 			HealthPath: "/up",
 			Website:    "https://trypost.it",
 			Icon:       "trypost",
-			Notes:      "Better PaaS auto-creates and connects Postgres and Redis add-ons. First boot runs migrations automatically, but you must open the container terminal after deploy and run 'php artisan db:seed --class=UserSeeder' to create the default admin account (admin@trypost.it / password). The pre-built image bakes Reverb WebSocket config to localhost:8080 — real-time browser features won't work on a custom domain unless you rebuild the image with your domain as a Vite build arg.",
+			Notes:      "Better PaaS auto-creates and connects Postgres and Redis add-ons. First boot runs migrations automatically, but you must open the container terminal after deploy and run 'php artisan db:seed --class=UserSeeder' to create the default admin account (admin@trypost.it / password). The pre-built image bakes Reverb WebSocket config to localhost:8080 - real-time browser features won't work on a custom domain unless you rebuild the image with your domain as a Vite build arg.",
 		},
 		{
 			ID:          "docuseal",

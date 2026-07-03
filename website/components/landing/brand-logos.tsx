@@ -47,7 +47,7 @@ export function LetsEncryptLogo(props: SVGProps<SVGSVGElement>) {
 }
 
 /* Next.js "N" circle mark, drawn with currentColor (the official mark is the
- * black/white circle — we let it inherit so it matches the monochrome row). */
+ * black/white circle - we let it inherit so it matches the monochrome row). */
 export function NextjsLogo(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>

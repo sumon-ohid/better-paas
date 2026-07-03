@@ -510,7 +510,7 @@ export function AppDetailView() {
                   <Card>
                     <CardPanel>
                       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-0">
-                        {/* Left: Live site preview — pinned on desktop */}
+                        {/* Left: Live site preview - pinned on desktop */}
                         <div className="lg:sticky lg:top-4 lg:self-start">
                           <SitePreview
                             url={getAppUrl(app)}
@@ -519,7 +519,7 @@ export function AppDetailView() {
                           />
                         </div>
 
-                        {/* Right: Deployment summary — lighter background */}
+                        {/* Right: Deployment summary - lighter background */}
                         <div className="rounded-xl lg:rounded-l-none lg:border-l-0 lg:px-6">
                           <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
                             {/* Created */}
@@ -563,7 +563,7 @@ export function AppDetailView() {
                                   className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
                                 />
                                 <span className="font-medium tabular-nums">
-                                  {activeDeployment?.duration || "—"}
+                                  {activeDeployment?.duration || "-"}
                                 </span>
                                 {activeDeployment?.createdAt && (
                                   <span className="text-muted-foreground">
@@ -604,7 +604,7 @@ export function AppDetailView() {
                                     />
                                     <span>
                                       {app.composeService
-                                        ? "Internal service — no public URL"
+                                        ? "Internal service - no public URL"
                                         : "No public URL"}
                                     </span>
                                   </div>
@@ -942,7 +942,7 @@ export function AppDetailView() {
                               <p className="text-xs text-foreground">
                                 {detectedFramework.name} detected{" "}
                                 <span className="text-muted-foreground">
-                                  — commands updated below
+                                  - commands updated below
                                 </span>
                               </p>
                             </>
@@ -1018,7 +1018,7 @@ export function AppDetailView() {
                             />
                             <FieldDescription>
                               Relative to the root directory. Install/build/start
-                              commands are ignored — your Dockerfile controls the
+                              commands are ignored - your Dockerfile controls the
                               build. Make sure it exposes the app on the port
                               above.
                             </FieldDescription>
@@ -1234,7 +1234,7 @@ export function AppDetailView() {
                           className={`h-8 w-8 opacity-25 ${logsConnected ? "animate-pulse" : ""}`}
                         />
                         {logsConnected ? (
-                          <span>Connected — waiting for output…</span>
+                          <span>Connected - waiting for output…</span>
                         ) : (
                           <span className="flex items-center gap-2">
                             <RefreshIcon className="h-3.5 w-3.5 animate-spin" />
@@ -1332,7 +1332,7 @@ export function AppDetailView() {
                           className={`inline-block h-1.5 w-1.5 rounded-full ${app.status === "running" ? "bg-success" : app.status === "stopped" ? "bg-muted-foreground/30" : "bg-warning animate-pulse"}`}
                         />
                         {app.status === "running"
-                          ? "Container is running — shell ready"
+                          ? "Container is running - shell ready"
                           : app.status === "stopped"
                             ? "Container is stopped"
                             : app.status === "building"
@@ -1797,7 +1797,7 @@ export function AppDetailView() {
                   "this deployment"
                 )}
                 {rollbackTarget?.commitMsg
-                  ? ` — “${rollbackTarget.commitMsg}”`
+                  ? ` - “${rollbackTarget.commitMsg}”`
                   : ""}
                 . A new deployment will be created and your live container will
                 be replaced with it. No rebuild happens, so it&apos;s fast.

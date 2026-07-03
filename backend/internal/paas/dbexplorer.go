@@ -25,7 +25,7 @@ import (
 // and are passed to the client via environment variables on `docker exec` so
 // they never appear in the container's process list. SQL/commands are passed
 // as a single argv element to the client (never through a shell), so there is
-// no shell-injection surface — the admin is intentionally running SQL here.
+// no shell-injection surface - the admin is intentionally running SQL here.
 //
 // These endpoints sit behind the same admin auth gate as the rest of the API.
 
@@ -42,7 +42,7 @@ type dbQueryResult struct {
 }
 
 // normalized guarantees Columns/Rows are non-nil so they marshal as JSON
-// arrays ([]) rather than null — the frontend contract expects arrays even for
+// arrays ([]) rather than null - the frontend contract expects arrays even for
 // error/empty results.
 func (r dbQueryResult) normalized() dbQueryResult {
 	if r.Columns == nil {
@@ -55,12 +55,12 @@ func (r dbQueryResult) normalized() dbQueryResult {
 }
 
 // Field/record separators for psql unaligned output. These are the ASCII
-// "unit separator" / "record separator" control chars — chosen because they
+// "unit separator" / "record separator" control chars - chosen because they
 // effectively never appear in real text data.
 const (
 	pgFieldSep = "\x1f"
 	pgRecSep   = "\x1e"
-	pgNullMark = "\u2400" // ␀ SYMBOL FOR NULL — used as psql's NULL display string
+	pgNullMark = "\u2400" // ␀ SYMBOL FOR NULL - used as psql's NULL display string
 )
 
 // addonExecTimeout bounds a single explorer operation so a runaway query can't
@@ -828,7 +828,7 @@ func resolveExplorerAddon(w http.ResponseWriter, id string) *Addon {
 	return addon
 }
 
-// POST /api/addons/db/tables — list tables (SQL) or keys (Redis).
+// POST /api/addons/db/tables - list tables (SQL) or keys (Redis).
 func handleAddonDBTables(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -853,7 +853,7 @@ func handleAddonDBTables(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]any{"type": addon.Type, "tables": tables})
 }
 
-// POST /api/addons/db/table — browse one page of a table (or one Redis key).
+// POST /api/addons/db/table - browse one page of a table (or one Redis key).
 func handleAddonDBTable(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -882,7 +882,7 @@ func handleAddonDBTable(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, browseTable(addon, req.Table, req.Limit, req.Offset, req.OrderBy, req.OrderDir).normalized())
 }
 
-// POST /api/addons/db/query — run an ad-hoc query / command.
+// POST /api/addons/db/query - run an ad-hoc query / command.
 func handleAddonDBQuery(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -925,7 +925,7 @@ func requireSQLAddon(w http.ResponseWriter, id string) *Addon {
 	return addon
 }
 
-// POST /api/addons/db/columns — column metadata for the add/edit-row UI.
+// POST /api/addons/db/columns - column metadata for the add/edit-row UI.
 func handleAddonDBColumns(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -955,7 +955,7 @@ func handleAddonDBColumns(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]any{"columns": cols})
 }
 
-// POST /api/addons/db/row/insert — add a row.
+// POST /api/addons/db/row/insert - add a row.
 func handleAddonDBRowInsert(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -981,7 +981,7 @@ func handleAddonDBRowInsert(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, insertRow(addon, req.Table, req.Values).normalized())
 }
 
-// POST /api/addons/db/row/update — edit a row, identified by its prior values.
+// POST /api/addons/db/row/update - edit a row, identified by its prior values.
 func handleAddonDBRowUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1008,7 +1008,7 @@ func handleAddonDBRowUpdate(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, updateRow(addon, req.Table, req.Set, req.Where).normalized())
 }
 
-// POST /api/addons/db/row/delete — delete a row, identified by its values.
+// POST /api/addons/db/row/delete - delete a row, identified by its values.
 func handleAddonDBRowDelete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)

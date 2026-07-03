@@ -39,7 +39,7 @@ var AllScopes = []string{
 type Agent struct {
 	ID         string    `json:"id"`
 	Name       string    `json:"name"`
-	TokenHash  string    `json:"-"` // SHA-256 of the token — never exposed
+	TokenHash  string    `json:"-"` // SHA-256 of the token - never exposed
 	Scopes     []string  `json:"scopes"`
 	CreatedAt  time.Time `json:"createdAt"`
 	LastUsedAt time.Time `json:"lastUsedAt,omitempty"`
@@ -98,11 +98,11 @@ type App struct {
 
 	// ── Build method ─────────────────────────────────────────────────────────
 	// How the image is produced from the repo:
-	//   "nixpacks"   (default) — auto-detected build via Nixpacks
-	//   "dockerfile"           — `docker build` against a Dockerfile in the repo
-	//   "compose"              — `docker compose up` from a compose file in the
+	//   "nixpacks"   (default) - auto-detected build via Nixpacks
+	//   "dockerfile"           - `docker build` against a Dockerfile in the repo
+	//   "compose"              - `docker compose up` from a compose file in the
 	//                            repo; expands into one App row per service
-	//   "image"                — run a prebuilt registry image directly (catalog
+	//   "image"                - run a prebuilt registry image directly (catalog
 	//                            one-click apps); no clone/build step
 	BuildMethod    string `json:"buildMethod"`
 	DockerfilePath string `json:"dockerfilePath"` // path to Dockerfile, relative to the build context (default "Dockerfile")
@@ -363,7 +363,7 @@ type Server struct {
 	PublicKey string `json:"publicKey,omitempty"`
 }
 
-// Public returns a safe view of Server — the SSH private key is always stripped.
+// Public returns a safe view of Server - the SSH private key is always stripped.
 func (s Server) Public() Server {
 	clone := s
 	clone.SSHKey = ""

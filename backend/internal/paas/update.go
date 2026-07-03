@@ -67,7 +67,7 @@ func isGitCheckout() bool {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/system/version — current version + cached update status
+// GET /api/system/version - current version + cached update status
 // ---------------------------------------------------------------------------
 
 func handleSystemVersion(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +83,7 @@ func handleSystemVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// GET/POST /api/system/domain — configure the custom domain for the PAAS control plane itself
+// GET/POST /api/system/domain - configure the custom domain for the PAAS control plane itself
 // ---------------------------------------------------------------------------
 
 func handleSystemDomain(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +143,7 @@ func handleSystemDomain(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/system/update/check — query latest release (cached)
+// GET /api/system/update/check - query latest release (cached)
 // ---------------------------------------------------------------------------
 
 func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +161,7 @@ func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/system/update/status — progress of an in-flight/last update
+// GET /api/system/update/status - progress of an in-flight/last update
 // ---------------------------------------------------------------------------
 
 func handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +185,7 @@ func handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/system/update/apply — back up, then run the detached updater
+// POST /api/system/update/apply - back up, then run the detached updater
 // ---------------------------------------------------------------------------
 
 func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
@@ -574,12 +574,12 @@ if health_has_version "%[2]s"; then
   exit 0
 fi
 
-echo "[updater] NEW VERSION FAILED HEALTH CHECK — rolling back."
+echo "[updater] NEW VERSION FAILED HEALTH CHECK - rolling back."
 rollback_full "backend health check failed"
 if health_any && frontend_ready; then
   echo "[updater] rollback healthy; staying on previous version."
 else
-  echo "[updater] WARN: rollback did not pass health check — manual intervention needed."
+  echo "[updater] WARN: rollback did not pass health check - manual intervention needed."
 fi
 echo "=== update ROLLED BACK $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) ==="
 exit 1

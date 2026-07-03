@@ -17,10 +17,30 @@ export function FAQSection() {
 
   const faqs: FAQItem[] = [
     {
+      question: 'How do I connect Cursor or Claude Code to my instance?',
+      answer: (
+        <>
+          Install the CLI with{' '}
+          <code className="rounded bg-fd-muted/50 px-1.5 py-0.5 font-mono text-[0.9em]">
+            go install github.com/sumon-ohid/better-paas/backend/cmd/paas@latest
+          </code>
+          , run <strong>paas connect</strong> with your dashboard URL, approve in the browser, then{' '}
+          <strong>paas setup</strong> and restart your editor. See the{' '}
+          <Link href="/docs/guides/paas-cli" className="underline hover:text-fd-foreground">
+            CLI guide
+          </Link>{' '}
+          for profiles and MCP tools.
+        </>
+      ),
+    },
+    {
       question: `Is ${appName} really free to self-host?`,
       answer: (
         <>
-          <strong>Yes, it is 100% free.</strong> {appName} is open-source under the MIT license. You can install it on your own server for <strong>$0/month</strong> and run unlimited applications, databases, and cron jobs. There are no request caps, user seat limits, or platform markup fees.
+          <strong>Yes, it is 100% free.</strong> {appName} is open source under the{' '}
+          <strong>AGPL-3.0</strong> license. Install on your own server for <strong>$0/month</strong>{' '}
+          and run unlimited applications, databases, and agent tokens. No seat pricing or platform
+          markup.
         </>
       ),
     },
@@ -52,7 +72,7 @@ export function FAQSection() {
       question: "How does database management and backup billing work?",
       answer: (
         <>
-          You can spin up PostgreSQL, MySQL, Redis, MongoDB, and MariaDB directly on your server with one click. {appName} handles backups (configured to run daily or on custom cron schedules) and uploads them to your own S3-compatible storage. There are <strong>$0 database platform fees</strong> — you only pay for storage.
+          You can spin up PostgreSQL, MySQL, Redis, MongoDB, and MariaDB directly on your server with one click. {appName} handles backups (configured to run daily or on custom cron schedules) and uploads them to your own S3-compatible storage. There are <strong>$0 database platform fees</strong> - you only pay for storage.
         </>
       ),
     },
@@ -80,7 +100,7 @@ export function FAQSection() {
               Frequently Asked Questions
             </h2>
             <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
-              Everything you need to know about {appName} pricing, self-hosting server requirements, and capabilities.
+              Self-hosting, agent access, CLI setup, and platform capabilities.
             </p>
             <div className="mt-8">
               <Link

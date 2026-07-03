@@ -55,7 +55,7 @@ func handleAgentCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate scopes — reject unknown ones.
+	// Validate scopes - reject unknown ones.
 	validScope := map[string]bool{}
 	for _, s := range AllScopes {
 		validScope[s] = true

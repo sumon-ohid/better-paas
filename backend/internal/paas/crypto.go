@@ -25,14 +25,14 @@ import (
 //
 // Key sourcing, in priority order:
 //
-//   1. BETTER_PAAS_SECRET_KEY — a 32-byte key (hex or base64). Supply this from
+//   1. BETTER_PAAS_SECRET_KEY - a 32-byte key (hex or base64). Supply this from
 //      a secrets manager / systemd credential in production so the key never
 //      touches the data directory.
-//   2. data/secret.key — auto-generated on first run (mode 0600) for zero-config
+//   2. data/secret.key - auto-generated on first run (mode 0600) for zero-config
 //      self-hosting.
 //
 // Threat model: the on-disk key protects against leaked DB *copies* (backups,
-// an accidental commit, a snapshot) — the secret.key file is separate and
+// an accidental commit, a snapshot) - the secret.key file is separate and
 // gitignored. It does NOT protect against an attacker who already has full read
 // access to the data directory (they get both the DB and the key). For that,
 // supply BETTER_PAAS_SECRET_KEY out-of-band. This tradeoff is documented in the
@@ -53,7 +53,7 @@ var (
 
 // initSecretKey loads or provisions the encryption key and initializes the
 // AES-GCM cipher. It must run before any secret is read from or written to the
-// DB (i.e. before initDB's loadStateFromDB). Fatal on unrecoverable errors —
+// DB (i.e. before initDB's loadStateFromDB). Fatal on unrecoverable errors -
 // continuing would mean silently mishandling credentials.
 func initSecretKey() {
 	secretKeyOnce.Do(func() {

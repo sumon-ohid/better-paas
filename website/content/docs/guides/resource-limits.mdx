@@ -33,7 +33,7 @@ Use a number with a unit:
 | `2g` | 2 gigabytes |
 
 If an app tries to exceed its memory limit, the container is restricted (and may
-be killed and restarted by Docker) — protecting the rest of the server.
+be killed and restarted by Docker) - protecting the rest of the server.
 
 ## CPU values
 
@@ -49,7 +49,7 @@ CPU is expressed as a number of cores, and fractions are allowed:
 
 - Start a little generous, then watch the app's **live CPU/memory** in its
   Overview tab and tighten if there's headroom.
-- Leave room for the host itself and for other apps — don't allocate 100% of the
+- Leave room for the host itself and for other apps - don't allocate 100% of the
   server to one app.
 - Memory-heavy apps (databases, image processing) need higher memory caps;
   bursty web apps usually need more CPU than memory.

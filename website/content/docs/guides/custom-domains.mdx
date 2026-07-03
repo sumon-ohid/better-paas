@@ -11,11 +11,11 @@ you HTTPS automatically.
 ## How it works
 
 Better-PaaS uses **Caddy** as its web server. When you add a domain to an app,
-Caddy automatically requests a free **Let's Encrypt** certificate for it — so
+Caddy automatically requests a free **Let's Encrypt** certificate for it - so
 your site is served over `https://` with a valid padlock, no manual certificate
 wrangling.
 
-## Step 1 — Point your DNS at the server
+## Step 1 - Point your DNS at the server
 
 Before adding the domain in Better-PaaS, create a DNS record at your domain
 registrar that points the domain to your server's IP address:
@@ -36,7 +36,7 @@ registrar that points the domain to your server's IP address:
   [GitHub & Cloudflare](/docs/guides/integrations#cloudflare).
 </Callout>
 
-## Step 2 — Set an email for Let's Encrypt
+## Step 2 - Set an email for Let's Encrypt
 
 Let's Encrypt uses an email address for expiry notices. Set it in the backend
 environment as `ACME_EMAIL`:
@@ -47,7 +47,7 @@ ACME_EMAIL=you@example.com
 
 Restart the backend after setting it.
 
-## Step 3 — Add the domain in the dashboard
+## Step 3 - Add the domain in the dashboard
 
 <Steps>
 <Step>
@@ -73,7 +73,7 @@ immediately.
 <Accordion title="The certificate isn't being issued">
 Check that your DNS record points to the correct server IP and has propagated
 (try `dig app.yourdomain.com`). Confirm `ACME_EMAIL` is set and that ports 80
-and 443 are open on your server's firewall — Let's Encrypt needs them for
+and 443 are open on your server's firewall - Let's Encrypt needs them for
 validation.
 </Accordion>
 

@@ -180,7 +180,7 @@ func reloadCaddy() error {
 
 // startCaddySubprocess ensures exactly one Caddy instance is serving the
 // generated Caddyfile. If one is already running (detected via its admin port)
-// it reloads that instance instead of starting a second one — starting a
+// it reloads that instance instead of starting a second one - starting a
 // duplicate would race for ports :80/:2019 and, on platforms that allow the
 // rebind, leave multiple instances fielding requests (some with a stale/empty
 // config), which surfaces as blank pages on deployed apps.
@@ -196,12 +196,12 @@ func startCaddySubprocess() {
 		if err := reloadCaddy(); err != nil {
 			log.Printf("⚠️  Caddy already running but reload failed: %v", err)
 		} else {
-			log.Println("Caddy already running — reloaded existing instance.")
+			log.Println("Caddy already running - reloaded existing instance.")
 		}
 		return
 	}
 
-	log.Println("Caddy detected — launching reverse proxy...")
+	log.Println("Caddy detected - launching reverse proxy...")
 	caddyCmd := exec.Command("caddy", "run", "--config", "Caddyfile", "--watch")
 	caddyCmd.Stdout = os.Stdout
 	caddyCmd.Stderr = os.Stderr

@@ -27,7 +27,7 @@ type Executor interface {
 }
 
 // ---------------------------------------------------------------------------
-// LocalExecutor — uses os/exec and os package; zero overhead.
+// LocalExecutor - uses os/exec and os package; zero overhead.
 // ---------------------------------------------------------------------------
 
 // LocalExecutor runs commands on the local machine.
@@ -51,7 +51,7 @@ func (l *LocalExecutor) DeleteFile(path string) error {
 }
 
 // ---------------------------------------------------------------------------
-// SSHExecutor — tunnels commands to a remote server over SSH.
+// SSHExecutor - tunnels commands to a remote server over SSH.
 // ---------------------------------------------------------------------------
 
 // SSHExecutor runs commands on a remote server via an SSH connection.
@@ -223,14 +223,14 @@ func (s *SSHExecutor) WriteFile(path string, content []byte, mode os.FileMode) e
 	}
 	defer session.Close()
 
-	// Use `cat > file` piped via stdin — avoids needing SFTP subsystem.
+	// Use `cat > file` piped via stdin - avoids needing SFTP subsystem.
 	session.Stdin = bytes.NewReader(content)
 	cmd := fmt.Sprintf("install -m %04o /dev/stdin %s", mode, shellQuote(path))
 	if out, err := session.CombinedOutput(cmd); err != nil {
 		if !s.unpooled && (strings.Contains(err.Error(), "closed") || strings.Contains(err.Error(), "EOF")) {
 			evictSSHClient(s.serverID)
 		}
-		return fmt.Errorf("write file %s: %w — %s", path, err, out)
+		return fmt.Errorf("write file %s: %w - %s", path, err, out)
 	}
 	return nil
 }
@@ -298,7 +298,7 @@ func sshDialTest(server *Server) (dockerVersion string, err error) {
 
 	out, err := exec.RunCommand("docker", "info", "--format", "{{.ServerVersion}}")
 	if err != nil {
-		return "", fmt.Errorf("docker not available on remote: %w — %s", err, strings.TrimSpace(out))
+		return "", fmt.Errorf("docker not available on remote: %w - %s", err, strings.TrimSpace(out))
 	}
 	return strings.TrimSpace(out), nil
 }

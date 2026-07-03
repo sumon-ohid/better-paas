@@ -1,6 +1,6 @@
 // Tiny dependency-free API service for the compose test project.
 //
-// Binds a fixed port (3001) that the compose file publishes — the platform
+// Binds a fixed port (3001) that the compose file publishes - the platform
 // pins the real host port via its generated override. Demonstrates reaching
 // the `db` service by its compose service name over the project network.
 const http = require("http");

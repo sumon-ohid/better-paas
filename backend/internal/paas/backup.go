@@ -376,7 +376,7 @@ func pruneBackups(keep int) {
 // HTTP handlers
 // ---------------------------------------------------------------------------
 
-// GET /api/backups — list backups.
+// GET /api/backups - list backups.
 func handleBackupsList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -390,7 +390,7 @@ func handleBackupsList(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, list)
 }
 
-// POST /api/backups/create — make a new backup.
+// POST /api/backups/create - make a new backup.
 func handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -412,7 +412,7 @@ func handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GET /api/backups/download?name=<file> — stream a backup file.
+// GET /api/backups/download?name=<file> - stream a backup file.
 func handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -521,7 +521,7 @@ STAGING_ARCHIVE="$REPO/.restore-staging-$STAMP.tar.gz"
 %[4]s
 
 restore_failed() {
-  echo "[restore] FAILED — attempting to bring services back..."
+  echo "[restore] FAILED - attempting to bring services back..."
   rm -f "$STAGING_ARCHIVE"
   if [ -d "$SAFETY_DIR" ] && [ ! -f "$DATA_DIR/baas.db" ]; then
     rm -rf "$DATA_DIR"
@@ -577,7 +577,7 @@ echo "=== restore finished OK $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) ==="
 	return abs, nil
 }
 
-// POST /api/backups/restore — unpack a backup into data/ and restart services.
+// POST /api/backups/restore - unpack a backup into data/ and restart services.
 func handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -644,7 +644,7 @@ func handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// POST /api/backups/delete — remove a backup file.
+// POST /api/backups/delete - remove a backup file.
 func handleBackupDelete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -668,7 +668,7 @@ func handleBackupDelete(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]string{"status": "deleted"})
 }
 
-// GET /api/backups/config — return the current backup configuration.
+// GET /api/backups/config - return the current backup configuration.
 func handleBackupConfigGet(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -677,7 +677,7 @@ func handleBackupConfigGet(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, getBackupConfig())
 }
 
-// POST /api/backups/config — update the backup configuration.
+// POST /api/backups/config - update the backup configuration.
 func handleBackupConfigSave(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -717,7 +717,7 @@ func handleBackupConfigSave(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, getBackupConfig())
 }
 
-// POST /api/backups/s3/test — verify S3/R2 credentials and bucket reachability.
+// POST /api/backups/s3/test - verify S3/R2 credentials and bucket reachability.
 // Uses the secret from the request body if present, else the stored one.
 func handleBackupS3Test(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

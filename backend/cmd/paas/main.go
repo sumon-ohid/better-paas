@@ -40,7 +40,7 @@ func main() {
 }
 
 func printUsage(w *os.File) {
-	fmt.Fprintf(w, `paas — Better-PaaS local CLI for AI agents and automation
+	fmt.Fprintf(w, `paas - Better-PaaS local CLI for AI agents and automation
 
 Usage:
   paas connect <url>    Link this machine via browser authorization
@@ -60,7 +60,7 @@ Examples:
 AI tools (Cursor, Claude Code, Codex):
   1. paas connect <dashboard-url>
   2. paas setup
-  3. Restart your editor — then ask: "list my apps", "redeploy X", "show logs"
+  3. Restart your editor - then ask: "list my apps", "redeploy X", "show logs"
 
 Setup:
   1. Install:  go install github.com/sumon-ohid/better-paas/backend/cmd/paas@latest

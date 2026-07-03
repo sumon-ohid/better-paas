@@ -88,7 +88,7 @@ export default function TerminalPage() {
               <div className="min-w-0">
                 <FrameTitle className="flex items-center gap-2">
                   <span className="truncate">
-                    {isRemote ? `Terminal — ${serverName}` : "Host Shell"}
+                    {isRemote ? `Terminal - ${serverName}` : "Host Shell"}
                   </span>
                   <span
                     className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${

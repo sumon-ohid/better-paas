@@ -8,7 +8,7 @@
 
 <p align="center">
   <strong>Agent-first, self-hosted PaaS.</strong> Deploy from Git on infrastructure you own.<br />
-  Manage apps from the dashboard, terminal, or AI tools — without sharing your admin password.
+  Manage apps from the dashboard, terminal, or AI tools - without sharing your admin password.
 </p>
 
 <p align="center">
@@ -32,8 +32,8 @@ Most PaaS products assume a human clicking through a dashboard. Better-PaaS is b
 
 | You get | What it means |
 | --- | --- |
-| **Self-hosted control plane** | Git push deploy, HTTPS, databases, rollbacks — on your server, not a vendor bill |
-| **Scoped agent tokens** | Separate credentials for Cursor, Claude Code, CI, and scripts — revocable and audited |
+| **Self-hosted control plane** | Git push deploy, HTTPS, databases, rollbacks - on your server, not a vendor bill |
+| **Scoped agent tokens** | Separate credentials for Cursor, Claude Code, CI, and scripts - revocable and audited |
 | **`paas connect`** | Browser authorization; your admin token never saved on your laptop |
 | **MCP integration** | `paas setup` registers tools so your editor can list apps, deploy, and read logs |
 | **No lock-in** | Open source (AGPL-3.0). Your code, your data, your VPS |
@@ -89,7 +89,7 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 Authorize via browser (use your **dashboard URL**):
 
 ```bash
-# Production — same URL you open in the browser
+# Production - same URL you open in the browser
 paas connect https://paas.example.com
 
 # Local dev
@@ -137,7 +137,7 @@ List my Better-PaaS projects and what's deployed in each.
 ```
 
 ```
-Show me full details for the app named "my-api" — status, URL, git repo, and last deploy.
+Show me full details for the app named "my-api" - status, URL, git repo, and last deploy.
 ```
 
 ### Deploy new apps
@@ -151,13 +151,13 @@ Deploy my FastAPI repo https://github.com/me/api-service as "api" using the prod
 ```
 
 ```
-I have a Node app at https://github.com/acme/worker — deploy it as "background-worker" from main.
+I have a Node app at https://github.com/acme/worker - deploy it as "background-worker" from main.
 ```
 
 ### Redeploy and ship changes
 
 ```
-Redeploy the app "my-api" — I just pushed fixes to Git.
+Redeploy the app "my-api" - I just pushed fixes to Git.
 ```
 
 ```
@@ -175,7 +175,7 @@ Show the last 100 lines of logs for "my-api".
 ```
 
 ```
-The app "storefront" is returning 500 errors — pull the recent logs and summarize what's failing.
+The app "storefront" is returning 500 errors - pull the recent logs and summarize what's failing.
 ```
 
 ```
@@ -200,7 +200,7 @@ I'm debugging a production issue on "storefront": get app details, fetch the las
 
 - Use the **app name** you chose at deploy time (or the name shown in `paas status`), not only the Git repo name.
 - If the assistant can't find MCP tools, run `paas setup` again and restart your editor.
-- For destructive actions (delete app, manage databases), use the dashboard or REST API until those MCP tools ship — see the [CLI roadmap](https://better-paas.com/docs/guides/paas-cli#mcp-tools-coming-soon).
+- For destructive actions (delete app, manage databases), use the dashboard or REST API until those MCP tools ship - see the [CLI roadmap](https://better-paas.com/docs/guides/paas-cli#mcp-tools-coming-soon).
 
 ---
 
@@ -235,7 +235,7 @@ When you authorize the CLI, choose the least privilege that fits the job:
 | **Deployer** | Cursor, Claude Code, local CI | Observer + deploy, redeploy, stop/start | Delete apps, addons, backups, servers |
 | **Operator** | Full local automation | Deployer + addons, cron, backups, servers | Create/delete agents, audit logs |
 
-Default in the browser: **Deployer** — enough for AI-assisted deploys without full admin access.
+Default in the browser: **Deployer** - enough for AI-assisted deploys without full admin access.
 
 ---
 
@@ -261,14 +261,14 @@ Available actions depend on your connect profile. See [AI agents guide](https://
 
 Beyond agent access, the control plane includes:
 
-- **Git-based deploys** — Nixpacks builds; webhook auto-deploy with HMAC validation
-- **Zero-downtime deploys and rollbacks** — health checks before traffic switch
-- **Automatic HTTPS** — Caddy + Let's Encrypt for custom domains
-- **Managed databases** — Postgres, Redis, MySQL on a private Docker network
-- **App catalog** — one-click templates for common self-hosted apps
-- **Cron jobs, volumes, backups** — scheduled tasks, persistent mounts, on-demand snapshots
-- **Database explorer, metrics, log streaming** — operate from the dashboard
-- **Audit logs** — every agent action recorded with scope and timestamp
+- **Git-based deploys** - Nixpacks builds; webhook auto-deploy with HMAC validation
+- **Zero-downtime deploys and rollbacks** - health checks before traffic switch
+- **Automatic HTTPS** - Caddy + Let's Encrypt for custom domains
+- **Managed databases** - Postgres, Redis, MySQL on a private Docker network
+- **App catalog** - one-click templates for common self-hosted apps
+- **Cron jobs, volumes, backups** - scheduled tasks, persistent mounts, on-demand snapshots
+- **Database explorer, metrics, log streaming** - operate from the dashboard
+- **Audit logs** - every agent action recorded with scope and timestamp
 
 ---
 
@@ -307,11 +307,11 @@ When the dashboard and API are on different hosts, set `NEXT_PUBLIC_API_URL` at 
 
 ## Security
 
-- **Admin token** — required for privileged API access; stored in session storage in the browser, not on your laptop when using `paas connect`
-- **Agent tokens** — scoped, revocable, audited; prefer these for AI tools and CI
-- **Encryption at rest** — git and deploy tokens encrypted with AES-256-GCM
-- **Brute-force protection** — escalating lockout on failed login attempts
-- **Data isolation** — SQLite database and secrets live in `backend/data/` (gitignored, `0700`)
+- **Admin token** - required for privileged API access; stored in session storage in the browser, not on your laptop when using `paas connect`
+- **Agent tokens** - scoped, revocable, audited; prefer these for AI tools and CI
+- **Encryption at rest** - git and deploy tokens encrypted with AES-256-GCM
+- **Brute-force protection** - escalating lockout on failed login attempts
+- **Data isolation** - SQLite database and secrets live in `backend/data/` (gitignored, `0700`)
 
 Hardening details: [Security docs](https://better-paas.com/docs/security)
 

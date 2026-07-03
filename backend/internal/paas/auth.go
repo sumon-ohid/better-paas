@@ -73,7 +73,7 @@ var (
 )
 
 // ---------------------------------------------------------------------------
-// Request Context — actor identification for auth + audit + scopes
+// Request Context - actor identification for auth + audit + scopes
 // ---------------------------------------------------------------------------
 
 type actorType string
@@ -197,7 +197,7 @@ func printTokenBanner(tok string, firstRun bool) {
 	line := func(s string) { log.Printf("║ %-72s ║", s) }
 	log.Println("╔══════════════════════════════════════════════════════════════════════════╗")
 	if firstRun {
-		line("Better-PaaS ADMIN TOKEN — GENERATED ON FIRST RUN")
+		line("Better-PaaS ADMIN TOKEN - GENERATED ON FIRST RUN")
 	} else {
 		line("Better-PaaS ADMIN TOKEN")
 	}
@@ -211,7 +211,7 @@ func printTokenBanner(tok string, firstRun bool) {
 	line("Also saved to: data/admin_token.txt   (chmod 0600)")
 	line("Show again:    ./server token")
 	line("Rotate it:     ./server token rotate")
-	line("Keep it secret — anyone with this token has full control.")
+	line("Keep it secret - anyone with this token has full control.")
 	log.Println("╚══════════════════════════════════════════════════════════════════════════╝")
 }
 

@@ -4,7 +4,7 @@ description: Keep files and data alive across redeploys for stateful apps.
 icon: HardDrive
 ---
 
-By default, a container's filesystem is wiped on every redeploy — you get a
+By default, a container's filesystem is wiped on every redeploy - you get a
 fresh start each time. That's perfect for stateless apps, but a problem if your
 app stores files locally (uploads, a SQLite database, generated assets).
 
@@ -22,7 +22,7 @@ Use a volume when your app writes data to disk that must persist, such as:
 
 <Callout type="info" title="Prefer a managed database when you can">
   For relational data, an attached [managed database](/docs/guides/databases) is
-  usually a better choice than a volume + SQLite — it's easier to back up and
+  usually a better choice than a volume + SQLite - it's easier to back up and
   scale. Use volumes for files and genuinely file-based state.
 </Callout>
 

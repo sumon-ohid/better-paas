@@ -41,7 +41,7 @@ cd ~/better-paas/backend && ./server token
 ## Agent tokens (scoped access)
 
 Instead of sharing the admin token with every tool and teammate, create **agent
-tokens** — scoped, revocable credentials for machines and automation.
+tokens** - scoped, revocable credentials for machines and automation.
 
 - **Scoped**: Each token is limited to specific actions (e.g. read logs only, or
   deploy but not delete).
@@ -49,7 +49,7 @@ tokens** — scoped, revocable credentials for machines and automation.
 - **Auditable**: Every agent action is recorded in the audit log with its name.
 - **Free**: Create as many as you need.
 
-Agent tokens are prefixed with `bpagt_` and are validated via SHA-256 hash —
+Agent tokens are prefixed with `bpagt_` and are validated via SHA-256 hash -
 only the hash is stored in the database.
 
 <Callout type="info">
@@ -67,7 +67,7 @@ paas setup                     # configure Cursor / Claude Code MCP
 ```
 
 Restart your editor after `paas setup`. Your admin token is never saved on your
-laptop — only a scoped `bpagt_` agent token in `~/.paas/config.json`.
+laptop - only a scoped `bpagt_` agent token in `~/.paas/config.json`.
 
 ## Audit logs
 
@@ -88,7 +88,7 @@ yet. Review it regularly, especially after granting new agent tokens.
 ## Brute-force protection
 
 Could an attacker just guess the token? No. Repeated bad tokens from an IP
-trigger an **escalating lockout** — the server responds with HTTP `429` and a
+trigger an **escalating lockout** - the server responds with HTTP `429` and a
 `Retry-After` header, slowing guesses to a crawl. Combined with a 256-bit token,
 guessing is infeasible.
 
@@ -115,7 +115,7 @@ AES-256-GCM:
 The encryption key comes from `BETTER_PAAS_SECRET_KEY`, or is generated on first
 run at `backend/data/secret.key` (mode `0600`).
 
-This protects leaked database copies — an accidental commit, a stolen backup, an
+This protects leaked database copies - an accidental commit, a stolen backup, an
 old snapshot. Existing cleartext values are read transparently and upgraded to
 ciphertext on the next write.
 
@@ -153,7 +153,7 @@ example `https://paas.example.com` and `https://api.example.com`.
 logs. It's created with `0700` permissions and is gitignored.
 
 <Callout type="warn" title="Never commit backend/data/">
-  It contains secrets. It's already in `.gitignore` — keep it that way.
+  It contains secrets. It's already in `.gitignore` - keep it that way.
 </Callout>
 
 ## Your security checklist
@@ -182,7 +182,7 @@ hostnames.
 **Keep backups off-server** so a lost server doesn't mean lost data.
 </Step>
 <Step>
-**Keep Better-PaaS updated** — see [Updates](/docs/updates).
+**Keep Better-PaaS updated** - see [Updates](/docs/updates).
 </Step>
 </Steps>
 

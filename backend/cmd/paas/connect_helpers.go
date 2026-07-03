@@ -18,7 +18,7 @@ func chooseProfile(defaultName string) (string, error) {
 		if name == defaultName {
 			marker = "*"
 		}
-		fmt.Printf("  %s %d) %-9s — %s\n", marker, i+1, name, p.Description)
+		fmt.Printf("  %s %d) %-9s - %s\n", marker, i+1, name, p.Description)
 	}
 	fmt.Printf("Profile [%s]: ", defaultName)
 

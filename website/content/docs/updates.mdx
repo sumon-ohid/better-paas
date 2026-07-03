@@ -66,22 +66,22 @@ flowchart TD
   B --> C[Rebuild backend + frontend]
   C --> D[Restart services]
   D --> E{Health check /api/health}
-  E -->|Healthy| F[Done — running new version]
+  E -->|Healthy| F[Done - running new version]
   E -->|Unhealthy| G[Restore previous binary + ref, restart]
 ```
 
-1. **Takes a backup** of your `data/` directory first — always.
+1. **Takes a backup** of your `data/` directory first - always.
 2. Launches a detached helper that runs `git fetch` and checks out the new
    release tag.
 3. Rebuilds the backend (swapping in the new binary only on a successful build,
    keeping `server.bak`) and rebuilds the frontend **out-of-band** into
-   `.next.new` — the running dashboard keeps serving its current assets,
+   `.next.new` - the running dashboard keeps serving its current assets,
    untouched, for the entire build.
 4. Atomically swaps the new frontend build in and restarts the frontend **before**
    restarting the backend, so the version badge and dashboard UI stay in sync.
 5. Restarts the services and **health-checks** the new build at `/api/health`.
 6. If the new build doesn't come up, it **automatically restores** the previous
-   binary, frontend build, and git ref and restarts — so a bad release rolls
+   binary, frontend build, and git ref and restarts - so a bad release rolls
    itself back.
 
 <Callout type="info" title="Your data is never touched">
@@ -113,7 +113,7 @@ cross-compiles the backend for Linux and macOS (amd64 + arm64), bakes the
 version into the binary, and publishes the binaries plus a `SHA256SUMS` file to
 GitHub Releases.
 
-Keep tags semver-shaped (`vMAJOR.MINOR.PATCH`) — the updater parses
+Keep tags semver-shaped (`vMAJOR.MINOR.PATCH`) - the updater parses
 `major.minor.patch` for version comparison.
 
 ## Choosing the update source

@@ -5,7 +5,7 @@ icon: Database
 ---
 
 Most real apps need a database. Better-PaaS can run **Postgres**, **Redis**, and
-**MySQL** for you as managed containers — no manual setup, no separate hosting.
+**MySQL** for you as managed containers - no manual setup, no separate hosting.
 
 ## Creating an add-on
 
@@ -14,7 +14,7 @@ Most real apps need a database. Better-PaaS can run **Postgres**, **Redis**, and
 Go to the **Add-ons** screen in the dashboard.
 </Step>
 <Step>
-Choose a type — **Postgres**, **Redis**, or **MySQL** — and give it a name.
+Choose a type - **Postgres**, **Redis**, or **MySQL** - and give it a name.
 </Step>
 <Step>
 Create it. Better-PaaS starts a container for it on a shared internal network.
@@ -23,7 +23,7 @@ Create it. Better-PaaS starts a container for it on a shared internal network.
 
 ## Attaching an add-on to an app
 
-Creating a database isn't enough — your app needs to know how to reach it.
+Creating a database isn't enough - your app needs to know how to reach it.
 **Attaching** handles that automatically:
 
 <Steps>
@@ -32,7 +32,7 @@ Open the add-on (or your app's config) and **attach** the add-on to an app.
 </Step>
 <Step>
 Better-PaaS injects the connection details into the app as
-[environment variables](/docs/guides/environment-variables) — host, port,
+[environment variables](/docs/guides/environment-variables) - host, port,
 username, password, database name, and/or a ready-to-use connection URL.
 </Step>
 <Step>
@@ -42,7 +42,7 @@ Redeploy the app. Your code reads the injected variables and connects.
 
 <Callout type="info" title="Why a shared internal network?">
   Add-ons run on a private Docker network alongside your apps. That means your
-  app talks to the database over the internal network — it isn't exposed to the
+  app talks to the database over the internal network - it isn't exposed to the
   public internet, which is exactly what you want for a database.
 </Callout>
 

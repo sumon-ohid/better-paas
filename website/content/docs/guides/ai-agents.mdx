@@ -4,11 +4,11 @@ description: A complete reference for AI coding agents, LLMs, and automation too
 icon: Cpu
 ---
 
-Better-PaaS is designed to be fully programmable. This guide gives AI coding agents, CI/CD tools, and automation scripts everything they need to deploy apps, read logs, manage databases, and monitor health — all through a clean JSON REST API.
+Better-PaaS is designed to be fully programmable. This guide gives AI coding agents, CI/CD tools, and automation scripts everything they need to deploy apps, read logs, manage databases, and monitor health - all through a clean JSON REST API.
 
 <Callout type="info">
   You can authenticate with either your **admin token** or a **scoped agent token**.
-  Agent tokens are recommended for any automated tool — they can be limited to
+  Agent tokens are recommended for any automated tool - they can be limited to
   specific actions and revoked independently.
 </Callout>
 
@@ -28,7 +28,7 @@ For manual token creation and scope reference, see
 ## Using with AI editors (MCP)
 
 The CLI includes a built-in **MCP server** (`paas mcp`) that Cursor, Claude Code,
-and other MCP clients can call directly — no curl in chat.
+and other MCP clients can call directly - no curl in chat.
 
 | Step | Command |
 | ---- | ------- |
@@ -39,7 +39,7 @@ and other MCP clients can call directly — no curl in chat.
 
 MCP tools available today: `paas_list_apps`, `paas_list_projects`, `paas_get_app`,
 `paas_deploy`, `paas_redeploy`, `paas_get_logs`, `paas_status`. See the full list
-and roadmap in [PaaS CLI — MCP tools](/docs/guides/paas-cli#mcp-tools-available-today).
+and roadmap in [PaaS CLI - MCP tools](/docs/guides/paas-cli#mcp-tools-available-today).
 
 If your tool does not support MCP, use the terminal fallback:
 
@@ -81,7 +81,7 @@ cd ~/better-paas/backend && ./server token
 
 ```bash
 paas connect https://paas.example.com
-paas setup    # MCP for Cursor / Claude Code — restart editor after
+paas setup    # MCP for Cursor / Claude Code - restart editor after
 paas status
 ```
 

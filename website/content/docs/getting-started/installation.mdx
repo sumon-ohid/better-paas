@@ -48,19 +48,19 @@ The script is fully automated. Step by step, it:
 **Detects your operating system** and installs system packages (curl, git, build tools).
 </Step>
 <Step>
-**Installs Go** — the language the control plane is written in.
+**Installs Go** - the language the control plane is written in.
 </Step>
 <Step>
-**Installs Docker** — runs your apps in isolated containers.
+**Installs Docker** - runs your apps in isolated containers.
 </Step>
 <Step>
-**Installs Nixpacks** — auto-detects how to build your code.
+**Installs Nixpacks** - auto-detects how to build your code.
 </Step>
 <Step>
-**Installs Caddy** — the web server that routes traffic and handles HTTPS.
+**Installs Caddy** - the web server that routes traffic and handles HTTPS.
 </Step>
 <Step>
-**Installs Node.js + pnpm** — needed to build the dashboard.
+**Installs Node.js + pnpm** - needed to build the dashboard.
 </Step>
 <Step>
 **Builds and starts** the backend and frontend as background services.
@@ -157,7 +157,7 @@ docker run -d \
 
 ## Building manually (for developers)
 
-If you want to run the pieces by hand — useful for contributing — build each
+If you want to run the pieces by hand - useful for contributing - build each
 part separately.
 
 **Backend** (it's a multi-file Go package, so build the whole directory, not
@@ -182,9 +182,9 @@ pnpm start
 
 When the installer finishes it prints a summary with two important things:
 
-1. **The dashboard URL** — usually `http://localhost:3000` or
+1. **The dashboard URL** - usually `http://localhost:3000` or
    `http://YOUR_SERVER_IP:3000`.
-2. **Your admin token** — the secret you'll use to log in.
+2. **Your admin token** - the secret you'll use to log in.
 
 <Callout type="info">
   Keep that admin token safe. It's the only credential protecting your dashboard.
