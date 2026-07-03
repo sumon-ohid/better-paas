@@ -167,7 +167,7 @@ function Hero({
               },
             },
           }}
-          className="mt-9 w-full max-w-md"
+          className="mt-9 w-full max-w-xl"
         >
           <InstallLine />
           <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:gap-4">
@@ -176,13 +176,6 @@ function Hero({
               className="inline-flex items-center gap-1.5 text-fd-muted-foreground transition-colors hover:text-fd-foreground"
             >
               Connect with the paas CLI
-              <ArrowRight className="size-3.5" />
-            </Link>
-            <Link
-              href="/vercel-alternative"
-              className="inline-flex items-center gap-1.5 text-fd-muted-foreground transition-colors hover:text-fd-foreground"
-            >
-              Vercel alternative guide
               <ArrowRight className="size-3.5" />
             </Link>
           </div>

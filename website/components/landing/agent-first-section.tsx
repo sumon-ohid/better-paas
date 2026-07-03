@@ -11,8 +11,20 @@ const highlights = [
 export function AgentFirstSection() {
   return (
     <section id="agents" className="relative overflow-hidden bg-fd-background py-10">
-      <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-4 pb-7 pt-16 sm:px-9 sm:py-8 lg:grid-cols-[minmax(270px,0.55fr)_minmax(0,1.02fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
-        <div className="order-1 max-w-[400px] lg:pl-1.5">
+      <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-4 pb-7 pt-16 sm:px-9 sm:py-8 lg:grid-cols-[minmax(0,1.02fr)_minmax(270px,0.55fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
+        <div className="relative order-1 w-full">
+          <div
+            className="relative flex h-[520px] w-full items-center justify-center overflow-hidden rounded-md px-3.5 py-5 sm:px-8 sm:py-8"
+            style={{
+              background:
+                'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
+            }}
+          >
+            <AgentDeployDemo />
+          </div>
+        </div>
+
+        <div className="order-2 max-w-[400px] lg:ml-auto lg:pr-1.5">
           <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">
             Agent-first
           </p>
@@ -45,18 +57,6 @@ export function AgentFirstSection() {
             Set up MCP
             <ArrowRight className="size-4" />
           </Link>
-        </div>
-
-        <div className="relative order-2 w-full">
-          <div
-            className="relative flex h-[520px] w-full items-center justify-center overflow-hidden rounded-md px-3.5 py-5 sm:px-8 sm:py-8"
-            style={{
-              background:
-                'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
-            }}
-          >
-            <AgentDeployDemo />
-          </div>
         </div>
       </div>
     </section>
