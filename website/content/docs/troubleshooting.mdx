@@ -168,6 +168,12 @@ See the full [CLI troubleshooting guide](/docs/guides/paas-cli#troubleshooting).
 Common fixes:
 
 <Accordions>
+<Accordion title="MCP tools don't show in Cursor / Claude Code">
+Run `paas setup` after `paas connect`, then **fully restart** your editor. Check
+Settings → MCP for a `better-paas` server. Re-run `paas setup` if you moved or
+rebuilt the `paas` binary.
+</Accordion>
+
 <Accordion title="Browser opens localhost:3000 on production">
 Update Better-PaaS to the latest release and redeploy the **frontend** so
 `/connect/agent` and `/.well-known/better-paas.json` exist. Temporarily:

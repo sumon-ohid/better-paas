@@ -12,9 +12,43 @@ Better-PaaS is designed to be fully programmable. This guide gives AI coding age
   specific actions and revoked independently.
 </Callout>
 
-**Recommended:** connect from your laptop with the [paas CLI](/docs/guides/paas-cli)
-(`paas connect <dashboard-url>`). For manual token creation and scope reference,
-see [Agent Access & Audit Logs](/docs/guides/agent-access).
+**Recommended:** connect from your laptop with the [paas CLI](/docs/guides/paas-cli):
+
+```bash
+paas connect <dashboard-url>   # browser authorization
+paas setup                   # wire up Cursor / Claude Code MCP
+```
+
+Restart your editor, then ask in plain English ("list my apps", "show logs for X").
+For manual token creation and scope reference, see
+[Agent Access & Audit Logs](/docs/guides/agent-access).
+
+---
+
+## Using with AI editors (MCP)
+
+The CLI includes a built-in **MCP server** (`paas mcp`) that Cursor, Claude Code,
+and other MCP clients can call directly — no curl in chat.
+
+| Step | Command |
+| ---- | ------- |
+| 1. Connect | `paas connect https://paas.example.com` |
+| 2. Configure editor | `paas setup` |
+| 3. Restart editor | Quit and reopen Cursor or Claude Code |
+| 4. Ask in chat | "List my Better-PaaS apps", "Redeploy my-api", etc. |
+
+MCP tools available today: `paas_list_apps`, `paas_list_projects`, `paas_get_app`,
+`paas_deploy`, `paas_redeploy`, `paas_get_logs`, `paas_status`. See the full list
+and roadmap in [PaaS CLI — MCP tools](/docs/guides/paas-cli#mcp-tools-available-today).
+
+If your tool does not support MCP, use the terminal fallback:
+
+```bash
+eval "$(paas env)"
+```
+
+Then the AI can call the REST API with `$PAAS_API_URL` and `$PAAS_TOKEN`. The
+endpoints below document that path.
 
 ---
 
@@ -47,6 +81,7 @@ cd ~/better-paas/backend && ./server token
 
 ```bash
 paas connect https://paas.example.com
+paas setup    # MCP for Cursor / Claude Code — restart editor after
 paas status
 ```
 

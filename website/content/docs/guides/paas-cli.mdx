@@ -151,19 +151,39 @@ This configures MCP for **Cursor** (`~/.cursor/mcp.json`) and **Claude Code**
 - "Redeploy better-paas"
 - "Deploy https://github.com/me/repo as my-api"
 
-### MCP tools included
+### MCP tools available today
 
-| Tool | What it does |
-| ---- | ------------ |
-| `paas_list_apps` | List deployed apps |
-| `paas_list_projects` | List multi-service projects |
-| `paas_get_app` | App details by name or ID |
-| `paas_deploy` | Deploy from Git |
-| `paas_redeploy` | Rebuild an existing app |
-| `paas_get_logs` | Runtime logs |
-| `paas_status` | Connection + app summary |
+| Tool | What it does | Parameters |
+| ---- | ------------ | ---------- |
+| `paas_status` | Connection info + app summary | — |
+| `paas_list_apps` | List deployed apps | — |
+| `paas_list_projects` | List multi-service projects | — |
+| `paas_get_app` | App details | `app` (name or ID) |
+| `paas_get_logs` | Runtime logs | `app`, `lines?` (default 100) |
+| `paas_deploy` | Deploy from Git | `name`, `gitRepo`, `branch?` |
+| `paas_redeploy` | Rebuild existing app | `app` (name or ID) |
 
-The MCP server reads `~/.paas/config.json` — no extra env vars needed.
+The MCP server reads `~/.paas/config.json` — no extra env vars needed. What you
+can do depends on your connect profile (**Observer**, **Deployer**, or
+**Operator**).
+
+### MCP tools coming soon
+
+These are on the roadmap; use the [REST API](/docs/guides/ai-agents) or
+`eval "$(paas env)"` + curl until they ship:
+
+| Planned tool | What it will do |
+| ------------ | --------------- |
+| `paas_stop_app` / `paas_start_app` | Stop or start an app |
+| `paas_delete_app` / `paas_rollback` | Delete or roll back |
+| `paas_update_app` | Change env vars, memory, CPUs |
+| `paas_get_build_logs` / `paas_get_metrics` | Build logs and resource usage |
+| `paas_list_addons` / `paas_create_addon` / `paas_attach_addon` | Databases and caches |
+| `paas_db_query` | Run SQL against an addon |
+| `paas_list_servers` / `paas_server_info` | Target servers |
+| `paas_run_cron` / `paas_create_backup` / `paas_list_backups` | Cron and backups |
+| `paas_exec` | Run a command inside the app container |
+| `paas_add_domain` / `paas_scan_vulns` / `paas_prune_docker` | Domains, security, cleanup |
 
 ### Terminal fallback (no MCP)
 
@@ -224,6 +244,18 @@ the server until you delete it via the admin API — see
 ```bash
 paas help
 ```
+
+### All CLI commands
+
+| Command | Purpose |
+| ------- | ------- |
+| `paas connect <url>` | Browser authorization; saves `~/.paas/config.json` |
+| `paas setup` | Write MCP config for Cursor and Claude Code |
+| `paas status` | List apps in the terminal |
+| `paas env` | Print `export PAAS_API_URL=…` / `PAAS_TOKEN=…` for shell agents |
+| `paas mcp` | MCP server (spawned by your editor — do not run manually) |
+| `paas disconnect` | Remove local credentials |
+| `paas version` | Print CLI version |
 
 ---
 
@@ -324,8 +356,8 @@ Environment variables:
 ## Using the token elsewhere
 
 After `paas connect`, the agent token in `~/.paas/config.json` works with any
-HTTP client — curl, GitHub Actions, custom scripts, or an MCP server you build
-yourself.
+HTTP client — curl, GitHub Actions, or custom scripts. For AI editors, prefer
+`paas setup` (built-in MCP) over hand-rolled curl.
 
 ```bash title="Read token from config (jq required)"
 TOKEN=$(jq -r .token ~/.paas/config.json)

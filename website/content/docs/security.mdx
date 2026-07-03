@@ -60,7 +60,14 @@ only the hash is stored in the database.
 
 See [Agent Access & Audit Logs](/docs/guides/agent-access) for how to create,
 rotate, and manage them. The fastest path is the [paas CLI](/docs/guides/paas-cli):
-run `paas connect <dashboard-url>` on your laptop and authorize in the browser.
+
+```bash
+paas connect <dashboard-url>   # authorize in browser
+paas setup                     # configure Cursor / Claude Code MCP
+```
+
+Restart your editor after `paas setup`. Your admin token is never saved on your
+laptop — only a scoped `bpagt_` agent token in `~/.paas/config.json`.
 
 ## Audit logs
 
