@@ -1017,7 +1017,7 @@ function examplePage(ex: (typeof deploymentExamples)[number]): SeoPage {
   return {
     family: 'examples',
     slug: ex.slug,
-    title: `${ex.name} — Deployment Example | ${appName}`,
+    title: `${ex.name} - Deployment Example | ${appName}`,
     h1: `${ex.name}: deployment example`,
     description: `${ex.description} See how to deploy this stack on your own VPS with Better-PaaS.`,
     eyebrow: 'Example',

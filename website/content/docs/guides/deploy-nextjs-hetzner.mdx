@@ -24,7 +24,7 @@ $5/month Hetzner VPS using Better-PaaS. By the end, you will have:
   Prices vary by region and currency.
 </Callout>
 
-## Step 1 — Create a Hetzner server
+## Step 1 - Create a Hetzner server
 
 1. Log in to the [Hetzner Cloud Console](https://console.hetzner.cloud/).
 2. Create a new project (or use an existing one).
@@ -37,7 +37,7 @@ $5/month Hetzner VPS using Better-PaaS. By the end, you will have:
 
 Once the server is running, copy its public IPv4 address.
 
-## Step 2 — Open the firewall
+## Step 2 - Open the firewall
 
 Better-PaaS needs the following ports open:
 
@@ -52,7 +52,7 @@ Better-PaaS needs the following ports open:
 In the Hetzner console, go to **Firewalls**, create a firewall with those inbound
 TCP rules, and apply it to your server.
 
-## Step 3 — Install Better-PaaS
+## Step 3 - Install Better-PaaS
 
 SSH into your server and run the installer:
 
@@ -71,7 +71,7 @@ When it finishes, it prints an admin token. Copy it somewhere safe.
   later from `backend/data/admin_token.txt` on the server.
 </Callout>
 
-## Step 4 — Log in to the dashboard
+## Step 4 - Log in to the dashboard
 
 Open your browser and visit:
 
@@ -81,7 +81,7 @@ http://YOUR_SERVER_IP:3000
 
 Paste the admin token and sign in. You should see the Better-PaaS dashboard.
 
-## Step 5 — Prepare your Next.js app
+## Step 5 - Prepare your Next.js app
 
 Better-PaaS uses Nixpacks to detect and build Next.js apps automatically. Make
 sure your repository has these:
@@ -108,7 +108,7 @@ A typical `package.json` looks like this:
   `next start -p $PORT`.
 </Callout>
 
-## Step 6 — Deploy the app
+## Step 6 - Deploy the app
 
 1. In the Better-PaaS dashboard, click **Deploy a service**.
 2. Choose **Git** and paste your repository URL, e.g.
@@ -123,7 +123,7 @@ runs a health check. The first deploy may take 60–120 seconds.
 
 When it is healthy, the dashboard shows the container status as **Running**.
 
-## Step 7 — Add a Postgres database
+## Step 7 - Add a Postgres database
 
 1. Go to the **Databases** section and click **Create database**.
 2. Choose **Postgres**.
@@ -133,7 +133,7 @@ When it is healthy, the dashboard shows the container status as **Running**.
 5. Open your app settings, go to **Environment variables**, and attach the
    database. The connection string is added automatically.
 
-## Step 8 — Add your domain and HTTPS
+## Step 8 - Add your domain and HTTPS
 
 1. In your domain registrar or DNS provider, create an `A` record pointing your
    domain (e.g. `app.yourdomain.com`) to your Hetzner server IP.
@@ -149,7 +149,7 @@ After DNS propagates (usually within minutes), your app is live on
   `dig app.yourdomain.com` or an online DNS checker.
 </Callout>
 
-## Step 9 — Enable auto-deploy on git push
+## Step 9 - Enable auto-deploy on git push
 
 1. Open your app in the dashboard and go to **Settings**.
 2. Copy the webhook URL.

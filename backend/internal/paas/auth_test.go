@@ -1,6 +1,7 @@
 package paas
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -150,11 +151,11 @@ func TestWSTicketIsSingleUse(t *testing.T) {
 	wsTickets = make(map[string]wsTicket)
 	t.Cleanup(func() { wsTickets = prev })
 
-	ticket := issueWSTicket()
-	if !consumeWSTicket(ticket) {
+	ticket := issueWSTicket(nil)
+	if _, ok := consumeWSTicket(ticket); !ok {
 		t.Fatalf("expected fresh ticket to be accepted")
 	}
-	if consumeWSTicket(ticket) {
+	if _, ok := consumeWSTicket(ticket); ok {
 		t.Fatalf("expected ticket to be single-use")
 	}
 }
@@ -165,11 +166,58 @@ func TestWSTicketExpires(t *testing.T) {
 	t.Cleanup(func() { wsTickets = prev })
 
 	wsTicketLock.Lock()
-	wsTickets["expired"] = wsTicket{expiresAt: time.Now().Add(-time.Second)}
+	wsTickets["expired"] = wsTicket{expiresAt: time.Now().Add(-time.Second), isAdmin: true}
 	wsTicketLock.Unlock()
 
-	if consumeWSTicket("expired") {
+	if _, ok := consumeWSTicket("expired"); ok {
 		t.Fatalf("expected expired ticket to be rejected")
+	}
+}
+
+func TestWSTicketScopes(t *testing.T) {
+	prev := wsTickets
+	wsTickets = make(map[string]wsTicket)
+	t.Cleanup(func() { wsTickets = prev })
+
+	ticket := issueWSTicket(&actorInfo{
+		kind:   actorAgent,
+		id:     "agent-1",
+		scopes: []string{ScopeLogsRead},
+	})
+
+	r := httptest.NewRequest("GET", "/ws/logs?ticket="+ticket, nil)
+	w := httptest.NewRecorder()
+	if !wsAuthOK(w, r, ScopeLogsRead, ScopeAppsRead) {
+		t.Fatalf("expected logs scope to allow build log stream")
+	}
+
+	ticket = issueWSTicket(&actorInfo{
+		kind:   actorAgent,
+		id:     "agent-2",
+		scopes: []string{ScopeAppsRead},
+	})
+	r = httptest.NewRequest("GET", "/ws/logs?ticket="+ticket, nil)
+	w = httptest.NewRecorder()
+	if wsAuthOK(w, r, ScopeLogsRead) {
+		t.Fatalf("expected agent without logs:read to be rejected")
+	}
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected HTTP 403, got %d", w.Code)
+	}
+}
+
+func TestActorHasAllScopes(t *testing.T) {
+	r := httptest.NewRequest("GET", "/api/apps", nil)
+	r = withActor(r, &actorInfo{kind: actorAgent, scopes: []string{ScopeAppsRead}})
+
+	if !actorHasAllScopes(r, ScopeAppsRead) {
+		t.Fatal("expected apps:read")
+	}
+	if actorHasAllScopes(r, ScopeAppsWrite) {
+		t.Fatal("agent should not have apps:write")
+	}
+	if !actorHasAllScopes(withActor(r, &actorInfo{kind: actorAgent, scopes: []string{ScopeDeployTrigger, ScopeAppsWrite}}), ScopeDeployTrigger, ScopeAppsWrite) {
+		t.Fatal("expected both deploy scopes")
 	}
 }
 
@@ -198,10 +246,12 @@ func TestRequestOriginAllowedDefaultsToSameHostname(t *testing.T) {
 
 func TestPublicPathsStayNarrow(t *testing.T) {
 	want := map[string]bool{
-		"/api/health":              true,
-		"/api/auth/verify":         true,
-		"/api/track":               true,
-		"/api/analytics/script.js": true,
+		"/api/health":                   true,
+		"/.well-known/better-paas.json": true,
+		"/api/auth/verify":              true,
+		"/api/connect/agent/exchange":   true,
+		"/api/track":                    true,
+		"/api/analytics/script.js":      true,
 	}
 	if len(publicPaths) != len(want) {
 		t.Fatalf("publicPaths length = %d, want %d: %#v", len(publicPaths), len(want), publicPaths)

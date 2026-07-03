@@ -106,7 +106,7 @@ func handleServerCreate(w http.ResponseWriter, r *http.Request) {
 		req.SSHUser = "root"
 	}
 
-	// Generate Ed25519 key pair — private key stored encrypted, public key
+	// Generate Ed25519 key pair - private key stored encrypted, public key
 	// shown to the user so they can paste it into ~/.ssh/authorized_keys.
 	privKeyPEM, pubKeyStr, err := generateEd25519KeyPair()
 	if err != nil {
@@ -235,7 +235,7 @@ func handleServerTest(w http.ResponseWriter, r *http.Request) {
 		dockerVersion, testErr = localConnectivityCheck()
 	} else {
 		if server.SSHKey == "" {
-			jsonError(w, "server has no SSH key — please recreate it", http.StatusBadRequest)
+			jsonError(w, "server has no SSH key - please recreate it", http.StatusBadRequest)
 			return
 		}
 		dockerVersion, testErr = sshDialTest(server)

@@ -6,6 +6,73 @@ import (
 	"time"
 )
 
+// Scope definitions for agent tokens.
+const (
+	ScopeAppsRead        = "apps:read"
+	ScopeAppsWrite       = "apps:write"
+	ScopeAppsDelete      = "apps:delete"
+	ScopeAddonsManage    = "addons:manage"
+	ScopeServersManage   = "servers:manage"
+	ScopeDeployTrigger   = "deploy:trigger"
+	ScopeLogsRead        = "logs:read"
+	ScopeMetricsRead     = "metrics:read"
+	ScopeSystemManage    = "system:manage"
+	ScopeCronManage      = "cron:manage"
+	ScopeBackupsManage   = "backups:manage"
+	ScopeNotificationsManage = "notifications:manage"
+	ScopeAgentAdmin      = "agent:admin"
+)
+
+var AllScopes = []string{
+	ScopeAppsRead, ScopeAppsWrite, ScopeAppsDelete,
+	ScopeAddonsManage, ScopeServersManage, ScopeDeployTrigger,
+	ScopeLogsRead, ScopeMetricsRead, ScopeSystemManage,
+	ScopeCronManage, ScopeBackupsManage, ScopeNotificationsManage,
+	ScopeAgentAdmin,
+}
+
+// ---------------------------------------------------------------------------
+// Agent
+// ---------------------------------------------------------------------------
+
+// Agent represents a scoped API access token for machines / AI tools.
+type Agent struct {
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	TokenHash  string    `json:"-"` // SHA-256 of the token - never exposed
+	Scopes     []string  `json:"scopes"`
+	CreatedAt  time.Time `json:"createdAt"`
+	LastUsedAt time.Time `json:"lastUsedAt,omitempty"`
+}
+
+// HasScope reports whether the agent is granted scope s.
+func (a Agent) HasScope(s string) bool {
+	for _, sc := range a.Scopes {
+		if sc == s {
+			return true
+		}
+	}
+	return false
+}
+
+// ---------------------------------------------------------------------------
+// Audit Log
+// ---------------------------------------------------------------------------
+
+// AuditLog records every mutating action on the platform.
+type AuditLog struct {
+	ID             string    `json:"id"`
+	ActorType      string    `json:"actorType"` // "admin", "agent"
+	ActorID        string    `json:"actorId,omitempty"`
+	Action         string    `json:"action"`       // e.g. "app:deploy"
+	ResourceType   string    `json:"resourceType"` // e.g. "app"
+	ResourceID     string    `json:"resourceId,omitempty"`
+	PayloadSummary string    `json:"payloadSummary,omitempty"`
+	Outcome        string    `json:"outcome"` // "success", "failure"
+	IPAddress      string    `json:"ipAddress,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
+}
+
 // ---------------------------------------------------------------------------
 // Data Types
 // ---------------------------------------------------------------------------
@@ -31,11 +98,11 @@ type App struct {
 
 	// ── Build method ─────────────────────────────────────────────────────────
 	// How the image is produced from the repo:
-	//   "nixpacks"   (default) — auto-detected build via Nixpacks
-	//   "dockerfile"           — `docker build` against a Dockerfile in the repo
-	//   "compose"              — `docker compose up` from a compose file in the
+	//   "nixpacks"   (default) - auto-detected build via Nixpacks
+	//   "dockerfile"           - `docker build` against a Dockerfile in the repo
+	//   "compose"              - `docker compose up` from a compose file in the
 	//                            repo; expands into one App row per service
-	//   "image"                — run a prebuilt registry image directly (catalog
+	//   "image"                - run a prebuilt registry image directly (catalog
 	//                            one-click apps); no clone/build step
 	BuildMethod    string `json:"buildMethod"`
 	DockerfilePath string `json:"dockerfilePath"` // path to Dockerfile, relative to the build context (default "Dockerfile")
@@ -296,7 +363,7 @@ type Server struct {
 	PublicKey string `json:"publicKey,omitempty"`
 }
 
-// Public returns a safe view of Server — the SSH private key is always stripped.
+// Public returns a safe view of Server - the SSH private key is always stripped.
 func (s Server) Public() Server {
 	clone := s
 	clone.SSHKey = ""
@@ -324,6 +391,11 @@ var (
 
 	githubTokenLock sync.RWMutex
 	githubToken     = ""
+
+	agentsLock sync.RWMutex
+	agentsMap  = make(map[string]Agent) // key = tokenHash
+
+	auditLogLock sync.Mutex
 
 	startTime = time.Now()
 )

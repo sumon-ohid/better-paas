@@ -35,8 +35,10 @@ func limitBody(next http.Handler) http.Handler {
 
 // publicPaths are reachable without an admin token.
 var publicPaths = map[string]bool{
-	"/api/health":      true,
-	"/api/auth/verify": true,
+	"/api/health":                   true,
+	"/.well-known/better-paas.json": true,
+	"/api/auth/verify":              true,
+	"/api/connect/agent/exchange":   true,
 	// Analytics ingestion + the embeddable tracking script run on third-party
 	// deployed sites, which never carry the admin token.
 	"/api/track":               true,
@@ -62,6 +64,45 @@ func authGate(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// scoped wraps a handler and requires the actor to hold every listed scope.
+// Admin tokens bypass all scope checks.
+func scoped(h http.HandlerFunc, scopes ...string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		for _, s := range scopes {
+			if !actorHasScope(r, s) {
+				jsonError(w, "Forbidden: missing scope "+s, http.StatusForbidden)
+				return
+			}
+		}
+		h(w, r)
+	}
+}
+
+// scopedAny wraps a handler and requires at least one of the listed scopes.
+func scopedAny(h http.HandlerFunc, scopes ...string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !actorHasAnyScope(r, scopes...) {
+			jsonError(w, "Forbidden: missing scope "+scopes[0], http.StatusForbidden)
+			return
+		}
+		h(w, r)
+	}
+}
+
+// scopeGate enforces that the authenticated actor (admin or agent) has the
+// given scope. Admin tokens bypass all scope checks.
+func scopeGate(scope string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !actorHasScope(r, scope) {
+				jsonError(w, "Forbidden: missing scope "+scope, http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // corsMiddleware adds CORS headers. Origins are restricted to DASHBOARD_ORIGIN

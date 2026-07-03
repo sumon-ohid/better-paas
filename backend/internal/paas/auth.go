@@ -1,7 +1,9 @@
 package paas
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
@@ -37,13 +39,112 @@ var (
 
 type wsTicket struct {
 	expiresAt time.Time
-	used      bool
+	isAdmin   bool
+	scopes    []string
+}
+
+func (t wsTicket) hasScope(s string) bool {
+	if t.isAdmin {
+		return true
+	}
+	for _, sc := range t.scopes {
+		if sc == s {
+			return true
+		}
+	}
+	return false
+}
+
+func (t wsTicket) hasAnyScope(scopes ...string) bool {
+	if t.isAdmin {
+		return true
+	}
+	for _, s := range scopes {
+		if t.hasScope(s) {
+			return true
+		}
+	}
+	return false
 }
 
 var (
 	wsTicketLock sync.Mutex
 	wsTickets    = make(map[string]wsTicket)
 )
+
+// ---------------------------------------------------------------------------
+// Request Context - actor identification for auth + audit + scopes
+// ---------------------------------------------------------------------------
+
+type actorType string
+
+const (
+	actorAdmin actorType = "admin"
+	actorAgent actorType = "agent"
+)
+
+type actorInfo struct {
+	kind   actorType
+	id     string
+	scopes []string
+}
+
+type actorContextKey struct{}
+
+func withActor(r *http.Request, a *actorInfo) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), actorContextKey{}, a))
+}
+
+func actorFromRequest(r *http.Request) *actorInfo {
+	if v := r.Context().Value(actorContextKey{}); v != nil {
+		if a, ok := v.(*actorInfo); ok {
+			return a
+		}
+	}
+	return nil
+}
+
+func actorIsAdmin(r *http.Request) bool {
+	a := actorFromRequest(r)
+	return a != nil && a.kind == actorAdmin
+}
+
+func actorHasScope(r *http.Request, s string) bool {
+	a := actorFromRequest(r)
+	if a == nil {
+		return false
+	}
+	if a.kind == actorAdmin {
+		return true
+	}
+	for _, sc := range a.scopes {
+		if sc == s {
+			return true
+		}
+	}
+	return false
+}
+
+func actorHasAnyScope(r *http.Request, scopes ...string) bool {
+	if actorIsAdmin(r) {
+		return true
+	}
+	for _, s := range scopes {
+		if actorHasScope(r, s) {
+			return true
+		}
+	}
+	return false
+}
+
+func actorHasAllScopes(r *http.Request, scopes ...string) bool {
+	for _, s := range scopes {
+		if !actorHasScope(r, s) {
+			return false
+		}
+	}
+	return true
+}
 
 // secureToken returns a 32-byte cryptographically random hex string.
 func secureToken() string {
@@ -96,7 +197,7 @@ func printTokenBanner(tok string, firstRun bool) {
 	line := func(s string) { log.Printf("║ %-72s ║", s) }
 	log.Println("╔══════════════════════════════════════════════════════════════════════════╗")
 	if firstRun {
-		line("Better-PaaS ADMIN TOKEN — GENERATED ON FIRST RUN")
+		line("Better-PaaS ADMIN TOKEN - GENERATED ON FIRST RUN")
 	} else {
 		line("Better-PaaS ADMIN TOKEN")
 	}
@@ -110,7 +211,7 @@ func printTokenBanner(tok string, firstRun bool) {
 	line("Also saved to: data/admin_token.txt   (chmod 0600)")
 	line("Show again:    ./server token")
 	line("Rotate it:     ./server token rotate")
-	line("Keep it secret — anyone with this token has full control.")
+	line("Keep it secret - anyone with this token has full control.")
 	log.Println("╚══════════════════════════════════════════════════════════════════════════╝")
 }
 
@@ -150,51 +251,111 @@ func bearerFromRequest(r *http.Request) string {
 	return ""
 }
 
-// issueWSTicket creates a one-use, short-lived credential for browser
+// ---------------------------------------------------------------------------
+// Agent token validation
+// ---------------------------------------------------------------------------
+
+func hashToken(tok string) string {
+	h := sha256.Sum256([]byte(tok))
+	return hex.EncodeToString(h[:])
+}
+
+// validAgentToken checks the bearer token against in-memory agent tokens.
+func validAgentToken(tok string) *Agent {
+	if tok == "" {
+		return nil
+	}
+	hash := hashToken(tok)
+	agentsLock.RLock()
+	defer agentsLock.RUnlock()
+	a, ok := agentsMap[hash]
+	if !ok {
+		return nil
+	}
+	if subtle.ConstantTimeCompare([]byte(a.TokenHash), []byte(hash)) != 1 {
+		return nil
+	}
+	copy := a
+	return &copy
+}
+
+// loadAgentsIntoMemory refreshes the in-memory agent cache from the DB.
+func loadAgentsIntoMemory() {
+	list, err := dbLoadAgents()
+	if err != nil {
+		log.Printf("[auth] failed to load agents: %v", err)
+		return
+	}
+	agentsLock.Lock()
+	agentsMap = make(map[string]Agent, len(list))
+	for _, a := range list {
+		agentsMap[a.TokenHash] = a
+	}
+	agentsLock.Unlock()
+}
+
+// ---------------------------------------------------------------------------
+// WebSocket ticket helpers
+// ---------------------------------------------------------------------------
 // WebSocket upgrades. Browsers cannot attach Authorization headers to WS
 // handshakes, and putting the long-lived admin token in the URL leaks it into
 // access logs. A ticket limits that exposure to a single handshake.
-func issueWSTicket() string {
+func issueWSTicket(actor *actorInfo) string {
+	entry := wsTicket{expiresAt: time.Now().Add(60 * time.Second), isAdmin: true}
+	if actor != nil {
+		entry.isAdmin = actor.kind == actorAdmin
+		if !entry.isAdmin {
+			entry.scopes = append([]string(nil), actor.scopes...)
+		}
+	}
 	ticket := secureToken()
 	wsTicketLock.Lock()
-	wsTickets[ticket] = wsTicket{expiresAt: time.Now().Add(60 * time.Second)}
+	wsTickets[ticket] = entry
 	wsTicketLock.Unlock()
 	return ticket
 }
 
-func consumeWSTicket(ticket string) bool {
+func consumeWSTicket(ticket string) (wsTicket, bool) {
 	if ticket == "" {
-		return false
+		return wsTicket{}, false
 	}
 	now := time.Now()
 	wsTicketLock.Lock()
 	defer wsTicketLock.Unlock()
 	entry, ok := wsTickets[ticket]
 	if !ok {
-		return false
+		return wsTicket{}, false
 	}
 	delete(wsTickets, ticket)
-	return !entry.used && now.Before(entry.expiresAt)
+	if now.After(entry.expiresAt) {
+		return wsTicket{}, false
+	}
+	return entry, true
 }
 
 func sweepWSTickets() {
 	now := time.Now()
 	wsTicketLock.Lock()
 	for ticket, entry := range wsTickets {
-		if entry.used || now.After(entry.expiresAt) {
+		if now.After(entry.expiresAt) {
 			delete(wsTickets, ticket)
 		}
 	}
 	wsTicketLock.Unlock()
 }
 
-// wsAuthOK validates a short-lived ticket for a WebSocket upgrade. On failure
-// it writes the HTTP status before the upgrade handshake and returns false.
-func wsAuthOK(w http.ResponseWriter, r *http.Request) bool {
-	if consumeWSTicket(r.URL.Query().Get("ticket")) {
+// wsAuthOK validates a one-use WebSocket ticket and checks that the ticket
+// bearer has at least one of the required scopes (admin tickets bypass).
+func wsAuthOK(w http.ResponseWriter, r *http.Request, scopes ...string) bool {
+	entry, ok := consumeWSTicket(r.URL.Query().Get("ticket"))
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return false
+	}
+	if len(scopes) == 0 || entry.hasAnyScope(scopes...) {
 		return true
 	}
-	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	http.Error(w, "Forbidden: missing scope "+scopes[0], http.StatusForbidden)
 	return false
 }
 
@@ -208,7 +369,7 @@ func handleAuthWSTicket(w http.ResponseWriter, r *http.Request) {
 	}
 	sweepWSTickets()
 	jsonOK(w, map[string]interface{}{
-		"ticket":    issueWSTicket(),
+		"ticket":    issueWSTicket(actorFromRequest(r)),
 		"expiresIn": 60,
 	})
 }
@@ -226,6 +387,7 @@ type authResult struct {
 	OK         bool          // token was valid
 	LockedOut  bool          // request is currently rate-limited for auth failures
 	RetryAfter time.Duration // how long until the lockout clears (when LockedOut)
+	Actor      *actorInfo    // nil unless authenticated with an agent token
 }
 
 // authenticate validates tok for the request while enforcing the per-IP
@@ -243,7 +405,17 @@ func authenticate(r *http.Request, tok string) authResult {
 
 	if validToken(tok) {
 		authLimiter.recordSuccess(key)
-		return authResult{OK: true}
+		return authResult{OK: true, Actor: &actorInfo{kind: actorAdmin, id: "admin"}}
+	}
+
+	// Check agent tokens (scoped, machine-to-machine).
+	if agent := validAgentToken(tok); agent != nil {
+		authLimiter.recordSuccess(key)
+		// Update last-used timestamp async.
+		go func(id string) {
+			_ = dbUpdateAgentLastUsed(id, time.Now())
+		}(agent.ID)
+		return authResult{OK: true, Actor: &actorInfo{kind: actorAgent, id: agent.ID, scopes: agent.Scopes}}
 	}
 
 	if tok != "" {
@@ -259,9 +431,13 @@ func authenticate(r *http.Request, tok string) authResult {
 
 // httpAuthOK enforces auth for an HTTP request, writing 401 (bad token) or 429
 // with a Retry-After header (locked out). Returns true only when allowed.
+// On success it also stamps the actor into the request context.
 func httpAuthOK(w http.ResponseWriter, r *http.Request, tok string) bool {
 	res := authenticate(r, tok)
 	if res.OK {
+		if res.Actor != nil {
+			*r = *withActor(r, res.Actor)
+		}
 		return true
 	}
 	if res.LockedOut {

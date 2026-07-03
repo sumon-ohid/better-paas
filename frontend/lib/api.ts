@@ -154,6 +154,22 @@ export const authApi = {
     }),
 }
 
+export const connectAgentApi = {
+  approve: (data: {
+    state: string
+    profile: string
+    name: string
+    port: number
+  }) =>
+    req<{ callbackUrl: string; agentId: string }>(
+      "/api/connect/agent/approve",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    ),
+}
+
 // ── Apps ─────────────────────────────────────────────────────────────────────
 
 export const api = {

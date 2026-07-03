@@ -990,7 +990,7 @@ function ApplicationsDashboard() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          {/* View toggle — desktop only; mobile always uses cards */}
+          {/* View toggle - desktop only; mobile always uses cards */}
           <ToggleGroup
             variant="outline"
             size="sm"
@@ -1102,7 +1102,7 @@ function ApplicationsDashboard() {
         </div>
       </div>
 
-      {/* Docker Prune Confirm Modal — reuses shared AlertDialog */}
+      {/* Docker Prune Confirm Modal - reuses shared AlertDialog */}
       <AlertDialog open={showPruneModal} onOpenChange={setShowPruneModal}>
         <AlertDialogContent>
           <AlertDialogHeader>

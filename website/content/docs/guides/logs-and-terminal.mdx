@@ -10,7 +10,7 @@ Better-PaaS gives you two tools: **live logs** and an **in-browser terminal**.
 ## Live logs
 
 Open an app and go to the **Logs** tab to see its output (stdout and stderr)
-streaming in real time over a WebSocket — exactly what your app is printing,
+streaming in real time over a WebSocket - exactly what your app is printing,
 as it prints it.
 
 ### Logs survive restarts
@@ -20,8 +20,8 @@ container restarts or redeploys. You can scroll back through past output, not
 just whatever happened since the last restart.
 
 <Callout type="info" title="Logs are your first debugging stop">
-  Most problems — a crash on startup, a failing request, a misconfigured env var
-  — show up clearly in the logs. Check here before digging deeper.
+  Most problems - a crash on startup, a failing request, a misconfigured env var
+  - show up clearly in the logs. Check here before digging deeper.
 </Callout>
 
 ## In-browser terminal
@@ -53,7 +53,7 @@ netstat -tlnp 2>/dev/null || ss -tlnp
 <Callout type="warn" title="Changes in the terminal aren't permanent">
   The container filesystem resets on the next redeploy (except for
   [volumes](/docs/guides/volumes)). Use the terminal for inspection and
-  debugging — make lasting changes in your code or config and redeploy.
+  debugging - make lasting changes in your code or config and redeploy.
 </Callout>
 
 ## Host-level metrics

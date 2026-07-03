@@ -40,13 +40,13 @@ dashboard's origin.
 
 <Accordions>
 <Accordion title="The build fails">
-Open the app and read the **build logs** — Nixpacks and your build tools print
+Open the app and read the **build logs** - Nixpacks and your build tools print
 the exact error. Common causes: a missing dependency, a failing build command,
 or no lockfile. Fix it in your repo and **Redeploy**.
 </Accordion>
 
 <Accordion title="The build succeeds but the app won't start">
-Almost always a **port** issue. Better-PaaS sets a `PORT` environment variable —
+Almost always a **port** issue. Better-PaaS sets a `PORT` environment variable -
 your app must listen on it rather than a hard-coded port. See
 [Environment Variables](/docs/guides/environment-variables#the-port-variable).
 </Accordion>
@@ -106,7 +106,7 @@ Caddy can only get a certificate once your domain resolves to the server. Check:
 - The DNS `A` record points to the correct server IP and has propagated
   (`dig yourdomain.com`).
 - `ACME_EMAIL` is set in the backend environment.
-- Ports **80 and 443** are open on your firewall — Let's Encrypt needs them.
+- Ports **80 and 443** are open on your firewall - Let's Encrypt needs them.
 
 Then remove and re-add the domain. See
 [Custom Domains](/docs/guides/custom-domains#troubleshooting).
@@ -144,7 +144,7 @@ journalctl -u better-paas-backend -f
 
 <Accordion title="I want to go back to a previous app version">
 That's a [rollback](/docs/guides/rollbacks), done per-app from the
-**Deployments** tab — separate from updating Better-PaaS itself.
+**Deployments** tab - separate from updating Better-PaaS itself.
 </Accordion>
 </Accordions>
 
@@ -161,6 +161,40 @@ journalctl -u better-paas-backend -f
 # Is the API healthy?
 curl http://localhost:8080/api/health
 ```
+
+## The paas CLI won't connect
+
+See the full [CLI troubleshooting guide](/docs/guides/paas-cli#troubleshooting).
+Common fixes:
+
+<Accordions>
+<Accordion title="MCP tools don't show in Cursor / Claude Code">
+Run `paas setup` after `paas connect`, then **fully restart** your editor. Check
+Settings → MCP for a `better-paas` server. Re-run `paas setup` if you moved or
+rebuilt the `paas` binary.
+</Accordion>
+
+<Accordion title="Browser opens localhost:3000 on production">
+Update Better-PaaS to the latest release and redeploy the **frontend** so
+`/connect/agent` and `/.well-known/better-paas.json` exist. Temporarily:
+`paas connect https://your-domain --ui https://your-domain`
+</Accordion>
+
+<Accordion title="/connect/agent returns 404">
+The authorize page ships with the dashboard. Rebuild and redeploy the frontend
+from a current Better-PaaS release.
+</Accordion>
+
+<Accordion title="CLI can't find the API (split dashboard/API hosts)">
+Set `NEXT_PUBLIC_API_URL` at frontend build time and redeploy. Verify:
+`curl https://your-dashboard/.well-known/better-paas.json`
+</Accordion>
+
+<Accordion title="Headless server / no browser">
+Use legacy mode: `paas connect <url> --legacy` (prompts for admin token in the
+terminal; only the agent token is saved locally).
+</Accordion>
+</Accordions>
 
 ## Still stuck?
 

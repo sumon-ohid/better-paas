@@ -835,7 +835,7 @@ export default function DeployPage() {
 
   return (
     <main className="relative h-dvh bg-background text-foreground flex flex-col items-center overflow-y-auto p-4">
-      {/* Close (desktop only) — return to the dashboard */}
+      {/* Close (desktop only) - return to the dashboard */}
       <button
         onClick={() => router.push(projectId ? `/project/${projectId}` : "/")}
         aria-label="Close"
@@ -1513,7 +1513,7 @@ export default function DeployPage() {
                             {detectedFramework.name} detected
                           </p>
                           <p className="text-[11px] text-muted-foreground">
-                            Commands pre-filled below — adjust if needed.
+                            Commands pre-filled below - adjust if needed.
                           </p>
                         </div>
                       </>
@@ -1591,7 +1591,7 @@ export default function DeployPage() {
                           className="h-9 font-mono text-sm"
                         />
                         <p className="text-[11px] text-muted-foreground">
-                          Relative to root directory. Your Dockerfile controls the build — install,
+                          Relative to root directory. Your Dockerfile controls the build - install,
                           build, and start commands below are ignored.
                         </p>
                       </div>
@@ -1608,7 +1608,7 @@ export default function DeployPage() {
                         />
                         <p className="text-[11px] leading-snug text-muted-foreground">
                           Each service becomes its own app. Web-facing services get a URL. The
-                          compose file controls ports and commands — settings below are ignored.
+                          compose file controls ports and commands - settings below are ignored.
                         </p>
                       </div>
                     )}
@@ -1736,7 +1736,7 @@ export default function DeployPage() {
                         className="h-9 font-mono text-sm"
                       />
                       <p className="text-[11px] text-muted-foreground">
-                        Comma-separated. HTTPS certs are issued automatically — point DNS here
+                        Comma-separated. HTTPS certs are issued automatically - point DNS here
                         first.
                       </p>
                     </div>
@@ -1811,7 +1811,7 @@ export default function DeployPage() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">Environment variables</p>
                       <p className="text-xs text-muted-foreground">
-                        Optional runtime config — injected at deploy, not baked into the image.
+                        Optional runtime config - injected at deploy, not baked into the image.
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
@@ -2055,7 +2055,7 @@ export default function DeployPage() {
               Deploy public repository
             </DialogTitle>
             <DialogDescription>
-              Paste a public GitHub URL — no account connection required.
+              Paste a public GitHub URL - no account connection required.
             </DialogDescription>
           </DialogHeader>
 

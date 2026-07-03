@@ -10,12 +10,15 @@ import { DockerLogo } from './brand-logos';
  * with matching icons for each method. */
 
 export function InstallLine() {
-  const [method, setMethod] = useState<'curl' | 'docker'>('curl');
+  const [method, setMethod] = useState<'curl' | 'docker' | 'cli'>('curl');
   const [copied, setCopied] = useState(false);
 
-  const command = method === 'curl' 
-    ? 'curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | sudo bash'
-    : 'docker pull ghcr.io/sumon-ohid/better-paas:latest && docker run -d --name better-paas --restart unless-stopped -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/data:/app/data -v $(pwd)/builds:/app/builds -p 80:80 -p 443:443 -p 3000:3000 -p 8080:8080 -p 9000-9050:9000-9050 -e LISTEN_ADDR=:8080 -e FRONTEND_PORT=3000 -e TRUST_PROXY=true ghcr.io/sumon-ohid/better-paas:latest';
+  const command =
+    method === 'curl'
+      ? 'curl -fsSL https://raw.githubusercontent.com/sumon-ohid/better-paas/main/install.sh | sudo bash'
+      : method === 'docker'
+        ? 'docker pull ghcr.io/sumon-ohid/better-paas:latest && docker run -d --name better-paas --restart unless-stopped -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/data:/app/data -v $(pwd)/builds:/app/builds -p 80:80 -p 443:443 -p 3000:3000 -p 8080:8080 -p 9000-9050:9000-9050 -e LISTEN_ADDR=:8080 -e FRONTEND_PORT=3000 -e TRUST_PROXY=true ghcr.io/sumon-ohid/better-paas:latest'
+        : 'go install github.com/sumon-ohid/better-paas/backend/cmd/paas@latest && paas connect https://your-dashboard-url';
 
   const copy = useCallback(async () => {
     try {
@@ -23,7 +26,7 @@ export function InstallLine() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard API unavailable (e.g. insecure context) — fail silently.
+      // Clipboard API unavailable (e.g. insecure context) - fail silently.
     }
   }, [command]);
 
@@ -45,7 +48,10 @@ export function InstallLine() {
         </button>
         <button
           type="button"
-          onClick={() => { setMethod('docker'); setCopied(false); }}
+          onClick={() => {
+            setMethod('docker');
+            setCopied(false);
+          }}
           className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-md font-medium transition-all duration-200 cursor-pointer border ${
             method === 'docker'
               ? 'bg-white dark:bg-white/[0.08] text-[#121722] dark:text-[#f4f4f5] border-black/5 dark:border-white/10 shadow-[0_1.5px_3px_rgba(0,0,0,0.06)]'
@@ -54,6 +60,21 @@ export function InstallLine() {
         >
           <DockerLogo className="size-3.5" />
           Docker
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMethod('cli');
+            setCopied(false);
+          }}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-md font-medium transition-all duration-200 cursor-pointer border ${
+            method === 'cli'
+              ? 'bg-white dark:bg-white/[0.08] text-[#121722] dark:text-[#f4f4f5] border-black/5 dark:border-white/10 shadow-[0_1.5px_3px_rgba(0,0,0,0.06)]'
+              : 'text-[#66758e] dark:text-[#929297] hover:text-[#121722] dark:hover:text-[#f4f4f5] border-transparent'
+          }`}
+        >
+          <Terminal className="size-3.5" />
+          CLI
         </button>
       </div>
 

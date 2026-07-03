@@ -8,7 +8,7 @@ import { cn } from "@/dashboard/lib/utils"
 interface SitePreviewProps {
   /** Live URL of the deployed app. */
   url?: string
-  /** Current app status — drives the placeholder vs. live preview. */
+  /** Current app status - drives the placeholder vs. live preview. */
   status: string
   className?: string
 }
@@ -24,7 +24,7 @@ export function SitePreview({ url, status, className }: SitePreviewProps) {
   const [scale, setScale] = useState(0)
   const [reloadToken] = useState(0)
   // Track which url/reload combination has finished loading, so the spinner
-  // clears only for the frame that's actually shown — no effect needed to reset.
+  // clears only for the frame that's actually shown - no effect needed to reset.
   const [loadedKey, setLoadedKey] = useState("")
   const [isMixedContent, setIsMixedContent] = useState(false)
 

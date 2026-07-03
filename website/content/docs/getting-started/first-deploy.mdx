@@ -6,7 +6,7 @@ icon: Rocket
 
 Better-PaaS is installed and running. Let's put an app online.
 
-## Step 1 — Sign in
+## Step 1 - Sign in
 
 Open the dashboard in your browser:
 
@@ -24,7 +24,7 @@ installer gave you and continue.
   ```
 </Callout>
 
-## Step 2 — Start a new deploy
+## Step 2 - Start a new deploy
 
 From the main dashboard, click **Deploy a service**. You'll be asked for a few
 things:
@@ -33,7 +33,7 @@ things:
 | ----- | ------------- |
 | **Git repository** | The URL of your repo, e.g. `https://github.com/you/my-app`. |
 | **Branch** | The branch to deploy, usually `main`. |
-| **Name** | A friendly name for the app (optional — one is suggested). |
+| **Name** | A friendly name for the app (optional - one is suggested). |
 
 ### Deploying a private repository
 
@@ -42,7 +42,7 @@ access token** (a personal access token from GitHub/GitLab) when prompted, or
 save one ahead of time under **Settings → Git**. Tokens are
 [encrypted at rest](/docs/security#encryption-at-rest).
 
-## Step 3 — Watch it build
+## Step 3 - Watch it build
 
 Click **Deploy**. The app status moves through a few stages:
 
@@ -52,19 +52,19 @@ flowchart LR
   A --> C[Failed]
 ```
 
-- **Building** — Nixpacks is detecting your stack and compiling your code. Build
+- **Building** - Nixpacks is detecting your stack and compiling your code. Build
   logs stream live; watch them to spot any errors.
-- **Running** — success! Your container is up and serving traffic.
-- **Failed** — something went wrong during the build. Read the logs to see what,
+- **Running** - success! Your container is up and serving traffic.
+- **Failed** - something went wrong during the build. Read the logs to see what,
   fix it, and redeploy.
 
 <Callout type="info" title="What is Nixpacks doing?">
-  Nixpacks looks at your project files — `package.json`, `requirements.txt`,
-  `go.mod`, and so on — to automatically detect the language and build commands.
+  Nixpacks looks at your project files - `package.json`, `requirements.txt`,
+  `go.mod`, and so on - to automatically detect the language and build commands.
   For most common stacks you don't need a Dockerfile at all.
 </Callout>
 
-## Step 4 — Open your live app
+## Step 4 - Open your live app
 
 Once the status is **Running**, the app gets an automatic URL:
 
@@ -73,9 +73,9 @@ http://<app-id>.<your-server-ip>.sslip.io
 ```
 
 Click it in the dashboard to open your app in a new tab. That's a real,
-internet-reachable URL — no DNS configuration required to get going.
+internet-reachable URL - no DNS configuration required to get going.
 
-## Step 5 — Make a change and redeploy
+## Step 5 - Make a change and redeploy
 
 Change some code, push it, and redeploy to see the loop in action:
 
@@ -91,7 +91,7 @@ retired once the new one is healthy.
 
 <Accordions>
 <Accordion title="My build failed. What do I do?">
-Open the app and read the build logs — they almost always say what went wrong
+Open the app and read the build logs - they almost always say what went wrong
 (a missing dependency, a failing build command, etc.). Fix it in your repo and
 click **Redeploy**. See [Troubleshooting](/docs/troubleshooting) for common
 cases.
@@ -99,7 +99,7 @@ cases.
 
 <Accordion title="My app builds but won't start.">
 Make sure your app listens on the port Better-PaaS expects. Most frameworks read
-a `PORT` environment variable — bind to that rather than a hard-coded port.
+a `PORT` environment variable - bind to that rather than a hard-coded port.
 </Accordion>
 
 <Accordion title="Can I deploy more than one app?">

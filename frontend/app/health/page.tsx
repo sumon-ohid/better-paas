@@ -185,7 +185,7 @@ export default function HealthPage() {
     },
     {
       label: "Uptime",
-      value: health?.uptime ?? "—",
+      value: health?.uptime ?? "-",
       icon: <NucleoIcon name="clock" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />,
     },
     {

@@ -12,8 +12,8 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: `${appName} — ${appTagline}`,
-    template: `%s — ${appName}`,
+    default: `${appName} - ${appTagline}`,
+    template: `%s - ${appName}`,
   },
   description: appDescription,
   applicationName: appName,
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     canonical: './',
   },
   openGraph: {
-    title: `${appName} — ${appTagline}`,
+    title: `${appName} - ${appTagline}`,
     description: appDescription,
     url: siteUrl,
     siteName: appName,
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: `${appName} — ${appTagline}`,
+        alt: `${appName} - ${appTagline}`,
       },
     ],
     type: 'website',
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${appName} — ${appTagline}`,
+    title: `${appName} - ${appTagline}`,
     description: appDescription,
     images: ['/og-image.png'],
   },

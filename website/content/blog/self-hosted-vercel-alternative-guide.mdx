@@ -1,0 +1,222 @@
+---
+title: Self-Hosted Vercel Alternative - The Complete Guide to Owning Your Deploy Stack (2026)
+description: Tired of Vercel bills? Compare self-hosted PaaS options, deploy Next.js on a $5 VPS with git push and HTTPS, and own your stack. Free open-source guide.
+---
+
+**Self-hosted Vercel alternatives** are open-source or self-managed platforms (e.g. Better-PaaS, Coolify, Dokploy, CapRover) that run on your own VPS. You connect Git, get automatic HTTPS, and deploy unlimited apps for a flat monthly server cost-typically **$4–12/month** instead of per-seat or bandwidth-metered platform pricing. They fit solo founders with full-stack apps that run on one server; Vercel remains better for edge/serverless at global scale.
+
+You shipped on Vercel because deploys were instant and preview URLs felt like magic. Then traffic ticked up, a second service appeared, and the dashboard started showing numbers that did not match "side project" in your head.
+
+You are not alone. The search spike around **"vercel alternative"** (roughly **2.4k–6.6k US searches/month**) is not anti-Vercel sentiment-it is **anti-surprise-billing** and **anti-lock-in**. Developers want the *workflow* without renting infrastructure they could own.
+
+This guide covers what a **self-hosted PaaS** actually is, how it compares to Vercel, which tools fit solo founders, and how to **deploy Next.js on a VPS** in an afternoon-with real cost math and honest tradeoffs.
+
+## Why developers search for a Vercel alternative
+
+Vercel wins when you need:
+
+- Global edge and serverless functions at scale
+- Zero ops for frontend-heavy JAMstack
+- Enterprise compliance without running servers
+
+It hurts when you have:
+
+- A **full-stack app** (API + DB + workers) on one logical unit
+- **Predictable costs** more important than infinite scale on day one
+- **Data residency** or "my Postgres lives where I say"
+- Multiple small apps and **per-project / per-seat pricing** that compounds
+
+The pattern behind queries like **"self hosted vercel"** (~170–590/mo) and **"deploy nextjs on vps"** (~90–390/mo) is consistent: *keep the git-push deploy experience, drop the platform tax.*
+
+### The platform tax (simple math)
+
+| Setup | Typical monthly cost | Apps | Cost per app (3 apps) |
+|-------|---------------------|------|------------------------|
+| Vercel Pro (team) | ~$20/seat + overages | 1–few | Escalates with seats & usage |
+| Railway / Render (managed PaaS) | ~$5–25+ per service | Few | Adds up per DB + service |
+| **Self-hosted PaaS on Hetzner CX22** | **~$4–6 VPS** | **Unlimited*** | **~$1–2/app** |
+
+\*Unlimited within VPS RAM/CPU-real constraint, honest limit.
+
+For bootstrapped SaaS, that table is why **"heroku alternative"** (~5.4k–12k/mo) and **"self hosted paas"** (~320–880/mo) keep growing even as managed platforms improve.
+
+## What is a self-hosted PaaS?
+
+A **self-hosted Platform-as-a-Service (PaaS)** is a control plane you install on **your** server. It automates what you would otherwise script by hand:
+
+1. **Git → build → run** (Nixpacks, Dockerfile, or buildpacks)
+2. **Reverse proxy + TLS** (Caddy, Traefik, or nginx + Let's Encrypt)
+3. **Environment variables & secrets** per app
+4. **Databases and caches** as managed containers on a private network
+5. **Rollbacks, health checks, logs** from a dashboard
+
+You still own the VPS bill, backups, and OS updates-but you stop SSH-ing into production for every deploy.
+
+**"PaaS on VPS"** (~70–260/mo) is the sweet spot between:
+
+- **Raw VPS** (maximum control, maximum toil)
+- **Managed PaaS** (minimum toil, maximum bill)
+
+## Self-hosted Vercel alternatives compared (2026)
+
+| Platform | Best for | Git deploy | Auto HTTPS | Built-in DBs | Solo-founder fit | License |
+|----------|----------|------------|------------|--------------|------------------|---------|
+| **Better-PaaS** | Indie hackers, lean stack | ✅ | ✅ (Caddy) | Postgres, Redis, MySQL | **High** - focused scope | AGPL-3.0 |
+| Coolify | Teams, broad catalog | ✅ | ✅ | Many one-click services | Medium - more surface area | Apache-2.0 |
+| Dokploy | Production Docker workflows | ✅ | ✅ | Yes + Swarm story | Medium | Apache-2.0 |
+| CapRover | Simple single-node | ✅ | ✅ | Via apps | Medium | MIT |
+| Dokku | CLI-first Heroku clone | ✅ (git push) | ✅ | Plugins | High if you love CLI | MIT |
+| Kamal | Rails/any, no UI | ✅ | ✅ (via config) | External | High for DevOps-comfortable | MIT |
+
+**How to read this table:** If your issue with Vercel is **cost at 3+ apps** or **owning data**, any row above beats staying put. If your issue is **preview URLs at PR scale** or **edge functions worldwide**, Coolify or managed Netlify may be closer-or stay on Vercel.
+
+Better-PaaS sits in the **"Heroku-shaped solo founder"** niche: push code, get HTTPS, attach Postgres, rollback when you break prod at 11pm.
+
+## When you should NOT self-host
+
+Credibility matters for SEO and conversions. Skip self-hosting if:
+
+- You need **multi-region edge** with automatic scale-to-zero globally
+- Your team has **zero appetite** for VPS security patches (use managed PaaS instead)
+- You rely on **Vercel-specific** features (Fluid compute, deep Next.js integration at edge)
+- Compliance requires **certified managed** infra, not "we run Ubuntu on Hetzner"
+
+Self-hosting is a **business decision**, not a purity contest.
+
+## How to deploy Next.js on a VPS (step-by-step)
+
+This is the **transactional core** for **"deploy nextjs on vps"** and **"self host nextjs"**-the queries with lower volume but **highest conversion**.
+
+### What you need
+
+- A VPS (Hetzner, DigitalOcean, Linode): **2 vCPU, 4 GB RAM** is a comfortable start
+- A domain (optional day one; you can use the server IP + platform URL)
+- A Git repo (GitHub/GitLab) with a Next.js app
+
+### Step 1 - Provision the server
+
+Create an Ubuntu 22.04+ VM. Open ports **22, 80, 443**. Point DNS `A` record when ready.
+
+### Step 2 - Install the control plane
+
+For Better-PaaS, use the [one-line installer from the docs](/docs/quickstart) (replaces hours of Docker + Caddy wiring). You get a dashboard, API, and agent on the host.
+
+### Step 3 - Connect Git
+
+In the dashboard: **New app → Git repository → branch**. The platform clones, detects Next.js via Nixpacks, builds, and runs the container.
+
+### Step 4 - Add environment variables
+
+Copy `.env` from Vercel: `DATABASE_URL`, `NEXTAUTH_SECRET`, etc. Redeploy.
+
+### Step 5 - Attach Postgres
+
+**New database → Postgres** on the internal network. Update `DATABASE_URL` to the internal hostname-traffic never leaves the box.
+
+### Step 6 - Custom domain + HTTPS
+
+Add `app.yourdomain.com`. Caddy provisions Let's Encrypt. Wait for health check green.
+
+### Step 7 - Cut over DNS
+
+Lower TTL 24h before. Swap production DNS. Keep Vercel deploy alive 48h for rollback.
+
+**Time budget:** 1–3 hours first time; **15 minutes** per additional app after that.
+
+## Better-PaaS vs Coolify vs Dokploy (honest take)
+
+Search terms like **"coolify alternative"** (~90–320/mo) and **"dokploy vs coolify"** (~40–180/mo) are comparison-heavy. Short version:
+
+**Choose Coolify** if you want the largest ecosystem, many one-click services, and do not mind a bigger install footprint.
+
+**Choose Dokploy** if you want Docker Swarm, Traefik, and a production-ops mental model from day one.
+
+**Choose Better-PaaS** if you want:
+
+- A **lighter control plane** (Go, focused feature set)
+- **Caddy-first** HTTPS and routing
+- **Git + catalog deploys** without homelab complexity
+- An **indie-founder narrative** in the product (not enterprise platform sprawl)
+
+None of these replace Kubernetes. All of them replace **surprise invoices**.
+
+See also: [Coolify alternative](/alternatives/coolify), [Compare Vercel](/compare/vercel), and our dedicated [Vercel alternative page](/vercel-alternative).
+
+## Cost breakdown: first year on self-hosted PaaS
+
+| Item | Year 1 cost |
+|------|-------------|
+| VPS ($5/mo avg) | ~$60 |
+| Domain | ~$12 |
+| Backups (optional object storage) | ~$0–24 |
+| Control plane (Better-PaaS) | **$0** (open source) |
+| **Total** | **~$72–96/year** |
+
+Compare to **$240+/year** for a single Vercel Pro seat before bandwidth or add-ons. The savings fund features users ask for-not egress.
+
+## Security and ops checklist (do not skip)
+
+Self-hosted means **you** are the platform team-lightly:
+
+- SSH keys only, disable password auth
+- Automatic security updates (unattended-upgrades)
+- Off-site database backups (weekly minimum)
+- Separate staging app or branch deploy
+- Scoped deploy tokens for CI (not your admin password)
+
+Modern control planes support **agent tokens** and audit trails so CI and AI tools deploy without god-mode credentials-worth setting up before you automate. See [agent access](/docs/guides/agent-access) and the [paas CLI](/docs/guides/paas-cli).
+
+## Migration checklist from Vercel
+
+1. Export env vars and document build settings
+2. Reproduce build locally with same Node version
+3. Deploy to staging subdomain on VPS
+4. Load test critical paths (auth, uploads, API)
+5. Migrate database (dump/restore or logical replication)
+6. Switch DNS with low TTL
+7. Monitor logs 48h; keep rollback image tagged
+
+## FAQ
+
+### What is the best self-hosted Vercel alternative in 2026?
+
+For **solo founders and small full-stack apps**, Better-PaaS, Coolify, and Dokploy are the most common answers. Better-PaaS optimizes for a lean git-push workflow on one VPS; Coolify offers the broadest catalog; Dokploy targets Docker-native production patterns.
+
+### Is self-hosting cheaper than Vercel?
+
+For **multiple apps and steady traffic**, yes-typically **$5–12/month flat** on a VPS vs per-seat and usage-based billing. For a **single static marketing site**, Vercel Hobby or Cloudflare Pages may still be cheaper and simpler.
+
+### Can I deploy Next.js on Hetzner without Docker knowledge?
+
+Yes. Self-hosted PaaS tools detect Next.js, build containers for you, and handle HTTPS. You need basic VPS literacy (SSH, DNS), not deep Docker expertise.
+
+### How does Dokploy compare to Coolify?
+
+**Coolify** emphasizes ease of use and a large one-click library. **Dokploy** emphasizes production workflows, Docker Swarm, and Traefik. Teams debating **"dokploy vs coolify"** usually pick Coolify for speed-to-first-deploy and Dokploy for ops-heavy Docker environments.
+
+### Will I lose preview deployments if I leave Vercel?
+
+You lose **Vercel's native PR previews** unless your self-hosted tool provides branch apps (Coolify does; check your platform). Many teams run **staging branch deploys** instead of per-PR URLs until they need full preview parity.
+
+### Is Better-PaaS really free?
+
+The control plane is **open source (AGPL-3.0)**. You pay only for your VPS and optional backup storage-not per app or per seat.
+
+## Conclusion: rent servers, not your app
+
+The search volume around **vercel alternative** is not a trend against good developer experience. It is a trend **for** good developer experience **without** opaque pricing.
+
+If your app fits on one server, **self-hosted PaaS** gives you:
+
+- **Git push deploy** (~480–1.3k/mo search interest cluster)
+- **Automatic HTTPS**
+- **Managed databases on a private network**
+- **Flat, predictable costs**
+
+Vercel is still excellent at what it was built for. Better-PaaS is built for the moment your side project stops feeling like a side project on someone else's invoice.
+
+**Next steps:**
+
+1. [Try the interactive demo](/demo)
+2. [Follow the 5-minute quickstart](/docs/quickstart)
+3. [Star on GitHub](https://github.com/sumon-ohid/better-paas) - it helps other founders find the guide

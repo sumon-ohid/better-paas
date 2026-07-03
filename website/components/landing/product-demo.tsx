@@ -57,7 +57,7 @@ type DemoApp = {
   deployed: string;
 };
 
-// Mirrors frontend/components/app-shell.tsx — Deploy / Operate / Data /
+// Mirrors frontend/components/app-shell.tsx - Deploy / Operate / Data /
 // Insights / Admin groupings, so the marketing demo reads identically to the
 // real product sidebar.
 const NAV_SECTIONS: NavSection[] = [
@@ -126,7 +126,7 @@ const APPS: DemoApp[] = [
   {
     name: 'worker-billing',
     status: 'stopped',
-    url: '—',
+    url: '-',
     repo: 'acme/billing',
     branch: 'release',
     commit: 'chore: bump stripe sdk',
@@ -144,7 +144,7 @@ const APPS: DemoApp[] = [
   {
     name: 'legacy-cron',
     status: 'failed',
-    url: '—',
+    url: '-',
     repo: 'acme/cron',
     branch: 'main',
     commit: 'fix: timezone in digest job',
@@ -158,7 +158,7 @@ const mutedPanel =
   'border border-fd-border/60 bg-[color-mix(in_oklab,var(--color-fd-muted)_24%,transparent)]';
 
 /* ────────────────────────────────────────────────────────────────────────── *
- * Cards — visual port of frontend Frame + Card + FrameFooter
+ * Cards - visual port of frontend Frame + Card + FrameFooter
  * ────────────────────────────────────────────────────────────────────────── */
 
 function AppGridCard({ app }: { app: DemoApp }) {
@@ -189,7 +189,7 @@ function AppGridCard({ app }: { app: DemoApp }) {
         </div>
 
         <div className="space-y-1.5">
-          {app.url === '—' ? (
+          {app.url === '-' ? (
             <span className="flex items-center gap-1.5 font-mono text-xs text-fd-muted-foreground/70">
               <Link2Off className="size-3 shrink-0 opacity-55" />
               No URL assigned

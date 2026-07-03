@@ -1,8 +1,9 @@
-# Why I Built Better-PaaS After My Vercel Bill Surprised Me
+---
+title: Why I Built Better-PaaS After My Vercel Bill Surprised Me
+description: A founder story about surprise Vercel bills, the self-hosting rabbit hole, and building an open-source PaaS for indie hackers who want git push deploys on a VPS they own.
+---
 
 *A founder story for Indie Hackers, Hacker News, or your company blog.*
-
----
 
 ## The moment I got tired of renting my own app
 
@@ -46,7 +47,7 @@ So I started building Better-PaaS.
 Better-PaaS is an open-source control plane you install on your own VPS. It turns a cheap Hetzner, DigitalOcean, or Linode server into your personal deployment platform.
 
 - Connect a Git repo. Nixpacks detects your framework and builds it.
-- Caddy handles routing and free Let&apos;s Encrypt certificates.
+- Caddy handles routing and free Let's Encrypt certificates.
 - Postgres, Redis, and MySQL are one-click containers on the same private network.
 - Zero-downtime deploys with health checks.
 - One-click rollbacks.
@@ -72,9 +73,9 @@ The installer is one command. The dashboard has an interactive demo. The code is
 
 **If this resonates, a GitHub star would mean a lot.** It helps more solo founders find an alternative to the platform tax.
 
-- GitHub: https://github.com/sumon-ohid/better-paas
-- Docs: https://better-paas.com/docs/quickstart
-- Vercel comparison: https://better-paas.com/vercel-alternative
+- [GitHub](https://github.com/sumon-ohid/better-paas)
+- [Docs quickstart](/docs/quickstart)
+- [Vercel comparison](/vercel-alternative)
 
 ## A few honest notes
 

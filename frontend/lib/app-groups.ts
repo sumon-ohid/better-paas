@@ -39,7 +39,7 @@ export function resolveComposePrimary(app: App, allApps: App[]): App {
   return services.find((s) => s.composePrimary) ?? services[0] ?? app
 }
 
-/** True when viewing the project root — overview lists all services in the group. */
+/** True when viewing the project root - overview lists all services in the group. */
 export function isProjectHub(app: App, allApps: App[]): boolean {
   const primary = resolveComposePrimary(app, allApps)
   if (app.id !== primary.id) return false

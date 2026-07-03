@@ -44,7 +44,7 @@ const TABS: { id: TabId; icon: typeof GitBranch; title: string; desc: string }[]
     id: 'cron',
     icon: Clock,
     title: 'Scheduled jobs',
-    desc: 'Run any command inside a container on a cron schedule — migrations, cleanups, backups.',
+    desc: 'Run any command inside a container on a cron schedule - migrations, cleanups, backups.',
   },
   {
     id: 'logs',

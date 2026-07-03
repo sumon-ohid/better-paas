@@ -32,6 +32,7 @@ const footerNav: { heading: string; links: { label: string; href: string; extern
   {
     heading: 'Resources',
     links: [
+      { label: 'Blog', href: '/blog' },
       { label: 'Alternatives', href: '/alternatives' },
       { label: 'Comparisons', href: '/compare' },
       { label: 'Use Cases', href: '/use-cases' },

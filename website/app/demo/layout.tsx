@@ -13,7 +13,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono' });
 
 export const metadata: Metadata = {
-  title: 'Interactive Demo — Better-PaaS',
+  title: 'Interactive Demo - Better-PaaS',
   description: 'Read-only walkthrough of the Better-PaaS dashboard with sample projects and services.',
   robots: { index: true, follow: true },
 };

@@ -409,7 +409,7 @@ export default function CatalogPage() {
             {filtered.map((tpl) => (
               <Frame key={tpl.id}>
                 <FramePanel className="relative flex flex-1 flex-col gap-3">
-                  {/* Image size badge — top-right corner. Always rendered so
+                  {/* Image size badge - top-right corner. Always rendered so
                       the card height is stable; fades in once the backend
                       background-fetch has populated the size. */}
                   <span
@@ -917,7 +917,7 @@ function CustomDeployModal({
                     Dockerfile
                   </Label>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Self-contained builds only — fetch dependencies inside the
+                    Self-contained builds only - fetch dependencies inside the
                     Dockerfile.
                   </p>
                 </div>

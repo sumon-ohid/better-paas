@@ -40,7 +40,7 @@ export class DemoWebSocket {
   }
 
   send(_data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
-    // Terminal echo — show that input is disabled in demo
+    // Terminal echo - show that input is disabled in demo
     if (this.path.includes("terminal") && this.onmessage) {
       this.onmessage(
         new MessageEvent("message", {

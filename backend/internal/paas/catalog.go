@@ -17,7 +17,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// App catalog — one-click deploys of popular open-source apps
+// App catalog - one-click deploys of popular open-source apps
 // ---------------------------------------------------------------------------
 //
 // Each template describes a single prebuilt Docker image that runs as one
@@ -40,7 +40,7 @@ type CatalogRequiredAddon = catalogdata.RequiredAddon
 type CatalogTemplate = catalogdata.Template
 
 // ---------------------------------------------------------------------------
-// Image-size cache — fetches compressed sizes from Docker Hub in the background
+// Image-size cache - fetches compressed sizes from Docker Hub in the background
 // ---------------------------------------------------------------------------
 
 var (
@@ -93,7 +93,7 @@ func fetchImageSize(imageRef string) string {
 	case strings.Contains(imageRef, "ghcr.io"):
 		return fetchGHCRSize(imageRef)
 	case strings.Contains(imageRef, "quay.io"):
-		return "" // quay.io API requires auth — skip
+		return "" // quay.io API requires auth - skip
 	default:
 		return fetchDockerHubSize(imageRef)
 	}
@@ -102,7 +102,7 @@ func fetchImageSize(imageRef string) string {
 // fetchDockerHubSize resolves a Docker Hub image ("namespace/repo:tag" or
 // "repo:tag" for official library images) via the Hub v2 REST API.
 func fetchDockerHubSize(imageRef string) string {
-	// Parse "[namespace/]name:tag" — defaults to library/ and latest.
+	// Parse "[namespace/]name:tag" - defaults to library/ and latest.
 	ref := imageRef
 	tag := "latest"
 	if idx := strings.LastIndex(ref, ":"); idx != -1 {
@@ -193,7 +193,7 @@ func fetchGHCRSize(imageRef string) string {
 	defer mresp.Body.Close()
 	mbody, _ := io.ReadAll(mresp.Body)
 
-	// A manifest list contains per-platform manifests — each has a size field
+	// A manifest list contains per-platform manifests - each has a size field
 	// that is the total compressed size of that image variant. We pick the
 	// first linux/amd64 entry, or the first entry if no amd64 is present.
 	var manifestList struct {
@@ -330,7 +330,7 @@ func findCatalogTemplate(id string) *CatalogTemplate {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/catalog — list available one-click templates
+// GET /api/catalog - list available one-click templates
 // ---------------------------------------------------------------------------
 
 func handleCatalog(w http.ResponseWriter, r *http.Request) {
@@ -350,7 +350,7 @@ func handleCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/catalog/deploy — deploy a catalog template in one click
+// POST /api/catalog/deploy - deploy a catalog template in one click
 // ---------------------------------------------------------------------------
 
 func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
@@ -798,7 +798,7 @@ func startCustomDeploy(w http.ResponseWriter, newApp App, trigger string) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/catalog/deploy-image — deploy any registry image
+// POST /api/catalog/deploy-image - deploy any registry image
 // ---------------------------------------------------------------------------
 
 func handleCatalogDeployImage(w http.ResponseWriter, r *http.Request) {
@@ -858,7 +858,7 @@ func handleCatalogDeployImage(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/catalog/deploy-dockerfile — build & run an inline Dockerfile
+// POST /api/catalog/deploy-dockerfile - build & run an inline Dockerfile
 // ---------------------------------------------------------------------------
 
 func handleCatalogDeployDockerfile(w http.ResponseWriter, r *http.Request) {

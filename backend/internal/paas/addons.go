@@ -146,6 +146,32 @@ func handleAddons(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/addons/get?id=<addonID>
+// ---------------------------------------------------------------------------
+
+func handleGetAddon(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		jsonError(w, "Missing id", http.StatusBadRequest)
+		return
+	}
+	addon, err := dbGetAddon(id)
+	if err != nil {
+		jsonError(w, "Failed to load add-on", http.StatusInternalServerError)
+		return
+	}
+	if addon == nil {
+		jsonError(w, "Add-on not found", http.StatusNotFound)
+		return
+	}
+	jsonOK(w, addon.Public())
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/addons/create
 // ---------------------------------------------------------------------------
 
@@ -242,7 +268,7 @@ func launchAddon(addon Addon, spec addonSpec, password string) {
 			defer sshEx.Close()
 		}
 		if out, err := ex.RunCommand("docker", args...); err != nil {
-			log.Printf("[addon] failed to launch %s: %v — %s", addon.ContainerName, err, out)
+			log.Printf("[addon] failed to launch %s: %v - %s", addon.ContainerName, err, out)
 			addon.Status = "failed"
 		} else {
 			// Wait for the addon to become healthy/ready to accept connections
@@ -466,7 +492,7 @@ func handleAddonDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/addons/attach — copy an add-on's conn env into an app
+// POST /api/addons/attach - copy an add-on's conn env into an app
 // ---------------------------------------------------------------------------
 
 func handleAddonAttach(w http.ResponseWriter, r *http.Request) {
@@ -540,7 +566,7 @@ func handleAddonAttach(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/addons/detach — remove an add-on's conn env from an app
+// POST /api/addons/detach - remove an add-on's conn env from an app
 // ---------------------------------------------------------------------------
 
 func handleAddonDetach(w http.ResponseWriter, r *http.Request) {

@@ -164,7 +164,7 @@ export default function DeploymentsIndexPage() {
                           hour: "2-digit",
                           minute: "2-digit",
                         })
-                      : "—"}
+                      : "-"}
                   </span>
 
                   <Badge variant="secondary" size="sm" className="font-mono">

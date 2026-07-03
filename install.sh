@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Better-PaaS — Single-Command VPS Installer
+# Better-PaaS - Single-Command VPS Installer
 #
 # Set BETTER_PAAS_REPO_URL to your fork/repo before piping to bash, e.g.:
 #   curl -fsSL https://raw.githubusercontent.com/<you>/better-paas/main/install.sh \
@@ -544,7 +544,7 @@ EOF
 }
 
 create_launchd_services() {
-  info "macOS detected — configuring LaunchAgents..."
+  info "macOS detected - configuring LaunchAgents..."
 
   local plist_dir="$REAL_HOME/Library/LaunchAgents"
   mkdir -p "$plist_dir"
@@ -699,7 +699,7 @@ print_admin_token() {
 
   if [ -f "$token_file" ]; then
     echo -e "${YELLOW}─────────────────────────────────────────────────────────────${NC}"
-    echo -e "  ${YELLOW}🔑  ADMIN TOKEN — you need this to LOG IN to the dashboard${NC}"
+    echo -e "  ${YELLOW}🔑  ADMIN TOKEN - you need this to LOG IN to the dashboard${NC}"
     echo ""
     echo -e "      ${GREEN}$(cat "$token_file")${NC}"
     echo ""

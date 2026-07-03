@@ -21,7 +21,7 @@ import (
 //
 // Supports any S3-compatible object store (AWS S3, Cloudflare R2, MinIO, etc.)
 // using path-style addressing and AWS Signature Version 4. Implemented with the
-// standard library only — no AWS SDK dependency — to keep the build lean.
+// standard library only - no AWS SDK dependency - to keep the build lean.
 //
 // R2 note: use endpoint https://<accountid>.r2.cloudflarestorage.com and region
 // "auto". S3 note: endpoint may be left blank to default to AWS regional host.
@@ -142,7 +142,7 @@ func s3CheckAccess(t s3Target) error {
 	msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
 	switch resp.StatusCode {
 	case http.StatusForbidden:
-		return fmt.Errorf("access denied — check the access key, secret, and bucket permissions")
+		return fmt.Errorf("access denied - check the access key, secret, and bucket permissions")
 	case http.StatusNotFound:
 		return fmt.Errorf("bucket %q not found at this endpoint", t.Bucket)
 	default:
@@ -168,7 +168,7 @@ func s3Sign(req *http.Request, accessKey, secretKey, region, host string, payloa
 	req.Header.Set("X-Amz-Date", amzDate)
 	req.Header.Set("X-Amz-Content-Sha256", payloadHash)
 
-	// Canonical headers — must be sorted by lowercased name.
+	// Canonical headers - must be sorted by lowercased name.
 	signedHeaderNames := []string{"host", "x-amz-content-sha256", "x-amz-date"}
 	sort.Strings(signedHeaderNames)
 

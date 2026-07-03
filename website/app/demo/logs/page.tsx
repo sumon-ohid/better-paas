@@ -450,7 +450,7 @@ function LogsPage() {
                   {!selectedAppId ? (
                     <span>Select an application above to stream logs.</span>
                   ) : connected ? (
-                    <span>Connected — waiting for output…</span>
+                    <span>Connected - waiting for output…</span>
                   ) : (
                     <span className="flex items-center gap-2">
                       <RefreshIcon className="h-3.5 w-3.5 animate-spin" />

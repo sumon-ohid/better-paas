@@ -15,7 +15,7 @@ you can verify classification, routing, grouping, terminals, and lifecycle.
 
 The `api` service connects to `db` by its compose service name (`db:5432`) to
 prove service-name DNS and the shared project network work. Hit the `api`
-subdomain root and check the `db.status` field — it should be `reachable`.
+subdomain root and check the `db.status` field - it should be `reachable`.
 
 ## What to expect after deploying
 
@@ -44,5 +44,5 @@ docker compose up --build
 # api  → http://localhost:3001  (JSON, includes db.status)
 ```
 
-On the platform the published ports above are ignored — the platform assigns
+On the platform the published ports above are ignored - the platform assigns
 real host ports and routes its subdomains to them.

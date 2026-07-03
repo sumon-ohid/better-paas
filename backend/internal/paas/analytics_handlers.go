@@ -28,7 +28,7 @@ const analyticsScript = `(function(){
   try {
     // document.currentScript works for a normal <script> the browser parses
     // from HTML. But framework loaders (Next.js next/script, etc.) inject the
-    // tag dynamically, and currentScript is null for injected scripts — so we
+    // tag dynamically, and currentScript is null for injected scripts - so we
     // fall back to locating our own tag by the script src path.
     var s = document.currentScript;
     if (!s) {
@@ -114,7 +114,7 @@ func handleTrack(w http.ResponseWriter, r *http.Request) {
 	}
 	// sendBeacon posts as text/plain; decodeJSON handles the raw body fine.
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// Swallow malformed beacons quietly — never surface errors to the
+		// Swallow malformed beacons quietly - never surface errors to the
 		// tracked site's console.
 		w.WriteHeader(http.StatusNoContent)
 		return

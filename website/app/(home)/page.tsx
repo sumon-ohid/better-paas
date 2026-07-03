@@ -27,6 +27,7 @@ import { TextEffect } from '@/components/tailark/text-effect';
 import { AnimatedGroup } from '@/components/tailark/animated-group';
 import { BorderBeam } from '@/components/tailark/border-beam';
 import { AutomationsSection } from '@/components/landing/automations';
+import { AgentFirstSection } from '@/components/landing/agent-first-section';
 import { FAQSection } from '@/components/landing/faq';
 import { cn } from '@/lib/cn';
 
@@ -37,15 +38,14 @@ export default async function HomePage() {
     <main className="flex flex-1 flex-col relative">
       <Hero latestRelease={latestRelease} />
       <TechStrip />
+      <AgentFirstSection />
       <Showcase />
       <Stats />
       <Bento />
       <AutomationsSection />
-      <div className="relative z-10">
-        <HowItWorks />
-        <Integrations />
-        <Security />
-      </div>
+      <HowItWorks />
+      <Integrations />
+      <Security />
       <Pricing />
       <FAQSection />
       <CallToAction />
@@ -103,7 +103,7 @@ function Hero({
               as="h1"
               className="bp-display max-w-4xl text-[2rem] font-normal text-fd-foreground sm:text-[3.25rem] md:text-[4rem]"
             >
-              Deploy like Vercel on a server you actually own
+              Deploy and manage apps with AI - on infrastructure you own
             </TextEffect>
 
             <AnimatedGroup
@@ -120,9 +120,12 @@ function Hero({
               className="mt-7 max-w-2xl"
             >
               <p className="text-base leading-7 text-fd-muted-foreground sm:text-md">
-                Better-PaaS gives indie hackers and solo founders the Vercel experience - git push,
-                automatic HTTPS, databases, and rollbacks - on any cheap VPS. No usage limits, no
-                vendor lock-in, no surprise bills.
+                Better-PaaS is an agent-first, self-hosted PaaS. Git push deploys, automatic HTTPS,
+                and databases on your VPS - plus scoped tokens,{' '}
+                <code className="rounded bg-fd-muted/50 px-1.5 py-0.5 font-mono text-[0.9em]">
+                  paas connect
+                </code>
+                , and MCP tools for Cursor and Claude Code.
               </p>
             </AnimatedGroup>
           </div>
@@ -164,15 +167,15 @@ function Hero({
               },
             },
           }}
-          className="mt-9 w-full max-w-md"
+          className="mt-9 w-full max-w-xl"
         >
           <InstallLine />
-          <div className="mt-4 flex items-center gap-4 text-sm">
+          <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:gap-4">
             <Link
-              href="/vercel-alternative"
+              href="/docs/guides/paas-cli"
               className="inline-flex items-center gap-1.5 text-fd-muted-foreground transition-colors hover:text-fd-foreground"
             >
-              See why developers switch from Vercel
+              Connect with the paas CLI
               <ArrowRight className="size-3.5" />
             </Link>
           </div>
@@ -242,11 +245,11 @@ function Showcase() {
       <div className="mx-auto grid max-w-[1268px] grid-cols-1 gap-7 px-4 pb-7 pt-16 sm:px-6 sm:py-8 md:grid-cols-1 md:gap-8 lg:grid-cols-[minmax(270px,0.55fr)_minmax(0,1.02fr)] lg:items-center lg:gap-9 lg:px-9 lg:py-9 xl:px-12">
         <div className="order-1 max-w-[443px] lg:pl-1.5">
           <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
-            Everything a real platform needs
+            Self-hosted platform, agent-ready
           </h2>
           <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:mt-5 lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
-            Deploy from Git, route HTTPS, add databases, run scheduled jobs, inspect logs, and roll
-            back safely from one self-hosted control plane.
+            Deploy from Git, route HTTPS, add databases, inspect logs, and roll back - then hand
+            day-to-day ops to scoped agents from your editor.
           </p>
         </div>
 
@@ -262,9 +265,9 @@ function Showcase() {
 
 const stats = [
   { value: '~90s', label: 'cold deploy, from git push to live' },
+  { value: '7', label: 'MCP tools for deploy and ops' },
+  { value: '3', label: 'agent permission profiles' },
   { value: '$5', label: 'a month is enough to run it' },
-  { value: '0', label: 'YAML files to write' },
-  { value: '100%', label: 'your data, on your hardware' },
 ];
 
 function Stats() {
@@ -331,7 +334,7 @@ function Bento() {
           {/* Bento Grid Parent Translucent Card */}
           <div className="relative w-full rounded-[0.85rem] bg-[#f8fbff]/92 p-3 sm:p-7 xl:p-8 dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)]">
             <div className="grid gap-3.5 sm:gap-6 grid-cols-1 sm:grid-cols-6">
-              {/* Wide feature cell — live logs */}
+              {/* Wide feature cell - live logs */}
               <div className="sm:col-span-6 md:col-span-4 relative overflow-hidden flex h-full flex-col justify-between gap-4 rounded-[0.85rem] p-4.5 sm:p-6 md:flex-row md:items-center group bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]">
                 <div className="max-w-sm relative z-10">
                   <Terminal className="size-4.5 sm:size-5.5 text-black dark:text-white" />
@@ -362,7 +365,7 @@ function Bento() {
                 />
               </div>
 
-              {/* Tall-ish cell — resource limits */}
+              {/* Tall-ish cell - resource limits */}
               <div className="sm:col-span-3 md:col-span-2 relative overflow-hidden flex h-full flex-col rounded-[0.85rem] p-4.5 sm:p-6 group bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]">
                 <div className="relative z-10">
                   <Cpu className="size-4.5 sm:size-5.5 text-black dark:text-white" />
@@ -443,49 +446,56 @@ function Bento() {
 const steps = [
   {
     n: '01',
-    title: 'Install on a server',
-    desc: 'Run the one-command installer on any Ubuntu, Debian, or macOS box. It provisions Docker, Caddy, and the dashboard for you.',
+    title: 'Install on your VPS',
+    desc: 'Run the one-command installer. Docker, Caddy, and the dashboard are ready in minutes.',
     icon: Terminal,
   },
   {
     n: '02',
-    title: 'Connect a repository',
-    desc: 'Sign in with your admin token, paste a Git URL, pick a branch. The framework is detected automatically.',
+    title: 'Connect a Git repo',
+    desc: 'Sign in to the dashboard, paste a Git URL, and pick a branch. Nixpacks detects your stack.',
     icon: GitBranch,
   },
   {
     n: '03',
-    title: 'Ship on every push',
-    desc: 'It builds with Nixpacks, health-checks the container, and routes traffic through Caddy with HTTPS. Every git push redeploys.',
+    title: 'Authorize the CLI',
+    desc: 'Run paas connect from your laptop, approve in the browser, and get a scoped agent token.',
     icon: Rocket,
+  },
+  {
+    n: '04',
+    title: 'Deploy with your editor',
+    desc: 'Run paas setup for MCP. Ask Cursor or Claude Code to list apps, redeploy, or ship from Git.',
+    icon: Cpu,
   },
 ];
 
 function HowItWorks() {
   return (
-    <section className="relative lg:sticky lg:top-24 z-10 py-10 bg-fd-background">
+    <section className="relative py-10 bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
-        <div className="grid items-center gap-12 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="lg:sticky lg:top-24">
+        <div className="grid items-start gap-12 lg:grid-cols-[0.8fr_1.2fr]">
+          <div>
             <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-[#66758e] dark:text-[#9a9a9f]">How it works</p>
             <h2 className="bp-display text-[clamp(2rem,7.8vw,2.35rem)] font-normal leading-[1.16] tracking-[-0.035em] text-[#121722] lg:text-[clamp(1.7rem,2.6vw,2.7rem)] dark:text-[#f4f4f5]">
-              From zero to deployed in minutes
+              From VPS install to AI-managed deploys
             </h2>
             <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
-              Three steps, no prior DevOps experience required.
+              Install the control plane, connect Git, authorize your laptop, then manage deploys from
+              the dashboard or your AI tools.
             </p>
             <Link
-              href="/docs/quickstart"
+              href="/docs/guides/paas-cli"
               className="mt-6 inline-flex items-center gap-2 text-sm font-medium hover:underline"
             >
-              Read the quickstart
+              paas CLI quickstart
               <ArrowRight className="size-4" />
             </Link>
           </div>
 
         <div className="relative order-2 w-full">
           <div 
-            className="relative flex min-h-[220px] sm:min-h-[clamp(315px,54vh,510px)] w-full items-center justify-center overflow-hidden rounded-md px-3 py-4.5 shadow-none sm:px-9 sm:py-9 lg:min-h-[clamp(375px,57vh,540px)]"
+            className="relative flex w-full items-stretch justify-center overflow-hidden rounded-md px-3 py-4.5 shadow-none sm:px-9 sm:py-9"
             style={{
               background: 'linear-gradient(134deg, #d9e1ff 0%, #7197ff 20%, #4c69ff 48%, #3035d5 100%)',
             }}
@@ -560,7 +570,7 @@ function HowItWorks() {
 
 function Integrations() {
   return (
-    <section className="relative lg:sticky lg:top-24 z-20 py-10 bg-fd-background">
+    <section className="relative py-10 bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 md:py-20 xl:px-12">
         <div className="grid items-center gap-16 sm:grid-cols-2">
           <div className="relative order-2 lg:order-1 w-full">
@@ -667,29 +677,29 @@ function IntegrationCard({ children, className, borderClassName }: { children: R
 const securityPoints = [
   {
     icon: Lock,
-    title: 'Single admin token',
-    desc: 'Every API and WebSocket call is gated by a 256-bit bearer token, generated on first run.',
+    title: 'Scoped agent tokens',
+    desc: 'AI tools and CI get their own credentials with fixed permissions - not your admin password.',
   },
   {
     icon: ShieldCheck,
-    title: 'Brute-force lockout',
-    desc: 'Repeated bad tokens trigger an escalating per-IP lockout, so guessing is infeasible.',
+    title: 'Audit logs',
+    desc: 'Every agent action is recorded with scope, timestamp, and resource so you can review what ran.',
   },
   {
     icon: HardDrive,
     title: 'Encryption at rest',
-    desc: 'Deploy tokens and secrets are AES-256-GCM encrypted before they ever touch the database.',
+    desc: 'Deploy tokens and secrets are AES-256-GCM encrypted before they touch the database.',
   },
   {
     icon: Gauge,
-    title: 'Safe self-updates',
-    desc: 'Updates back up your data, rebuild, health-check, and auto-roll-back on any failure.',
+    title: 'Brute-force lockout',
+    desc: 'Repeated bad tokens trigger escalating per-IP lockout, so guessing is infeasible.',
   },
 ];
 
 function Security() {
   return (
-    <section className="relative lg:sticky lg:top-24 z-30 py-10 bg-fd-background">
+    <section className="relative py-10 bg-fd-background">
       <div className="mx-auto max-w-[1268px] px-4 py-16 sm:px-9 sm:py-20 xl:px-12">
       <div className="grid items-center gap-14 lg:grid-cols-2">
         <div>
@@ -701,10 +711,10 @@ function Security() {
           </h2>
           <p className="mt-5 text-[clamp(0.82rem,3.35vw,1rem)] font-light leading-[1.42] tracking-[-0.006em] text-[#394355] sm:text-[clamp(1rem,4.1vw,1.2rem)] sm:leading-[1.48] lg:text-[clamp(0.8rem,1.1vw,1.07rem)] dark:text-[#dfdfe2]">
             Your server, your data, your keys. {appName} is built so the safe path is the default
-            path — you don’t have to be a security expert to run it well.
+            path - you don’t have to be a security expert to run it well.
           </p>
           <ul className="mt-6 space-y-2.5">
-            {['No third-party access to your code', 'Secrets encrypted before storage', 'Audited, open source control plane'].map(
+            {['Scoped tokens for AI tools and CI', 'Admin password stays on the server', 'Audited, open source control plane'].map(
               (item) => (
                 <li key={item} className="flex items-center gap-2.5 text-sm text-fd-muted-foreground">
                   <span className="flex size-5 items-center justify-center rounded-full ">
@@ -824,7 +834,7 @@ function Pricing() {
           {/* Parent Translucent Card */}
           <div className="relative w-full rounded-[0.85rem] bg-[#f8fbff]/92 p-3 sm:p-7 xl:p-8 dark:bg-[#050505]/90 dark:shadow-[0_15px_52px_-21px_rgba(0,0,0,0.95)] shadow-[0_15px_52px_-21px_rgba(23,44,92,0.55)]">
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-              {/* Card 1 — Self-hosted */}
+              {/* Card 1 - Self-hosted */}
               <div className="relative overflow-hidden group rounded-[0.85rem] p-5 sm:p-8 bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]">
                 <div className="relative z-10 flex h-full flex-col">
                   <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -852,9 +862,9 @@ function Pricing() {
                     {[
                       'Unlimited apps on your hardware',
                       'Git deploys, HTTPS, logs, shell',
+                      'Scoped agent tokens and MCP tools',
                       'Databases, volumes, backups',
                       'No platform markup or seat pricing',
-                      'No request limits or egress charges',
                       'No vendor lock-in',
                     ].map((item) => (
                       <div key={item} className="flex items-center gap-2.5 text-sm text-[#394355] dark:text-[#929297]">
@@ -875,7 +885,7 @@ function Pricing() {
                 />
               </div>
 
-              {/* Card 2 — Managed */}
+              {/* Card 2 - Managed */}
               <div className="relative overflow-hidden group rounded-[0.85rem] p-5 sm:p-8 bg-white/60 dark:bg-white/[0.03] border border-black/5 dark:border-white/10 transition-all duration-300 hover:bg-white/80 dark:hover:bg-white/[0.06]">
                 <div className="relative z-10 flex h-full flex-col justify-between gap-10">
                   <div>
@@ -946,19 +956,28 @@ function CallToAction() {
                 Start shipping
               </p>
               <h2 className="bp-display mt-3 max-w-2xl text-[clamp(2rem,7.8vw,2.8rem)] font-normal leading-[1.08] tracking-[-0.035em] text-[#121722] dark:text-[#f4f4f5]">
-                Stop renting your deploys
+                Your VPS. Your agents. Your deploys.
               </h2>
               <p className="bp-balance mt-5 max-w-xl text-[clamp(0.92rem,3.2vw,1.1rem)] font-light leading-[1.5] tracking-[-0.006em] text-[#394355] dark:text-[#dfdfe2]">
-                Spin up {appName} on a $5 VPS and get Vercel-like deploys without the platform
-                tax. Free, open source, yours forever.
+                Install on a $5 VPS, connect with{' '}
+                <code className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/10">
+                  paas connect
+                </code>
+                , and manage deploys from your editor. Free, open source, yours forever.
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
                 <Link
-                  href="/docs"
+                  href="/docs/guides/paas-cli"
                   className="inline-flex h-11 items-center gap-2 rounded-full bg-[#121722] px-6 text-sm font-medium text-white transition-colors hover:bg-[#26364d] dark:bg-[#f4f4f5] dark:text-[#080809] dark:hover:bg-white"
                 >
-                  Read the docs
+                  Get started with the CLI
                   <ArrowRight className="size-4" />
+                </Link>
+                <Link
+                  href="/docs/quickstart"
+                  className="inline-flex h-11 items-center gap-2 rounded-full border border-fd-border bg-fd-card/70 px-5 text-sm font-medium text-fd-foreground transition-colors hover:bg-fd-card dark:bg-white/[0.055] dark:hover:bg-white/[0.09]"
+                >
+                  Install on a VPS
                 </Link>
                 <a
                   href={githubUrl}

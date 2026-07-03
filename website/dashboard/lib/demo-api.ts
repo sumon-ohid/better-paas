@@ -216,7 +216,7 @@ export function demoStatsPayload() {
 }
 
 export function demoTerminalBanner(): string {
-  return "\r\n\x1b[38;5;244m[read-only demo — install Better-PaaS to get a real shell]\x1b[0m\r\n$ "
+  return "\r\n\x1b[38;5;244m[read-only demo - install Better-PaaS to get a real shell]\x1b[0m\r\n$ "
 }
 
 export function demoHostTerminalBanner(): string {

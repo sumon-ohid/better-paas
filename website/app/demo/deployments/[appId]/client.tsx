@@ -288,7 +288,7 @@ export default function ProjectDeploymentsPage() {
                             {dep.commit && (
                               <span className="text-[11px] font-mono text-muted-foreground">
                                 {dep.commit.slice(0, 7)}
-                                {dep.commitMsg ? ` — ${dep.commitMsg}` : ""}
+                                {dep.commitMsg ? ` - ${dep.commitMsg}` : ""}
                               </span>
                             )}
                           </div>

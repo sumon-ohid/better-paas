@@ -95,6 +95,34 @@ func handleApps(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/apps/get?id=<appID>
+// ---------------------------------------------------------------------------
+
+func handleGetApp(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		jsonError(w, "Missing id", http.StatusBadRequest)
+		return
+	}
+	app := findApp(id)
+	if app == nil {
+		jsonError(w, "App not found", http.StatusNotFound)
+		return
+	}
+	// Enrich with latest deployment info.
+	clone := app.Public()
+	if dep, err := dbGetLatestDeployment(clone.ID); err == nil && dep != nil {
+		clone.ActiveCommit = dep.Commit
+		clone.ActiveCommitMsg = dep.CommitMsg
+	}
+	jsonOK(w, clone)
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/deploy
 // ---------------------------------------------------------------------------
 
@@ -365,7 +393,7 @@ func handleStart(w http.ResponseWriter, r *http.Request) {
 		defer sshEx.Close()
 	}
 	if out, err := ex.RunCommand("docker", "start", app.containerName()); err != nil {
-		jsonError(w, fmt.Sprintf("Failed to start container: %v — %s", err, out), http.StatusInternalServerError)
+		jsonError(w, fmt.Sprintf("Failed to start container: %v - %s", err, out), http.StatusInternalServerError)
 		return
 	}
 	startRuntimeLogCapture(app.ID, app.containerName())
@@ -867,7 +895,7 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/auth/verify — validates an admin token (used by the login screen).
+// POST /api/auth/verify - validates an admin token (used by the login screen).
 // ---------------------------------------------------------------------------
 
 func handleAuthVerify(w http.ResponseWriter, r *http.Request) {
@@ -1211,7 +1239,7 @@ func handleGitTokenDelete(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// POST /api/apps/rollback — re-release a previous deployment's image
+// POST /api/apps/rollback - re-release a previous deployment's image
 // ---------------------------------------------------------------------------
 
 func handleRollback(w http.ResponseWriter, r *http.Request) {
@@ -1284,8 +1312,8 @@ func handleRollback(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// GET  /api/apps/webhook?id=<appID>   — fetch webhook URL + secret
-// POST /api/apps/webhook/regenerate   — rotate the webhook secret
+// GET  /api/apps/webhook?id=<appID>   - fetch webhook URL + secret
+// POST /api/apps/webhook/regenerate   - rotate the webhook secret
 // ---------------------------------------------------------------------------
 
 func handleWebhookInfo(w http.ResponseWriter, r *http.Request) {
@@ -1338,7 +1366,7 @@ func handleWebhookRegenerate(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]string{"secret": newSecret})
 }
 
-// POST /api/apps/webhook/github/create — create or update the repo webhook on GitHub.
+// POST /api/apps/webhook/github/create - create or update the repo webhook on GitHub.
 func handleGitHubWebhookCreate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1584,7 +1612,7 @@ func externalBaseURL(r *http.Request) string {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/metrics/apps — per-container resource usage
+// GET /api/metrics/apps - per-container resource usage
 // ---------------------------------------------------------------------------
 
 func handlePerAppMetrics(w http.ResponseWriter, r *http.Request) {
@@ -1624,14 +1652,14 @@ func handleNotificationsSave(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, cfg)
 }
 
-// POST /api/notifications/test — send a test notification.
+// POST /api/notifications/test - send a test notification.
 func handleNotificationsTest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	cfg := getNotificationConfig()
-	text := "🔔 Better-PaaS test notification — your webhook is configured correctly."
+	text := "🔔 Better-PaaS test notification - your webhook is configured correctly."
 	if cfg.SlackWebhookURL != "" {
 		postJSON(cfg.SlackWebhookURL, map[string]string{"text": text})
 	}
@@ -1642,7 +1670,7 @@ func handleNotificationsTest(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/apps/runtime-logs?id=<appID>&lines=N — persisted runtime logs
+// GET /api/apps/runtime-logs?id=<appID>&lines=N - persisted runtime logs
 // ---------------------------------------------------------------------------
 
 func handleRuntimeLogHistory(w http.ResponseWriter, r *http.Request) {

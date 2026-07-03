@@ -51,7 +51,7 @@ Save. Now every push to your configured branch redeploys the app.
 The webhook is authenticated with an **HMAC signature** unique to each app.
 GitHub signs every request with your secret, and Better-PaaS verifies that
 signature before doing anything. A request without the correct signature is
-rejected — so nobody can trigger your deploys by guessing the URL.
+rejected - so nobody can trigger your deploys by guessing the URL.
 
 <Callout type="warn" title="Pushes to other branches are ignored">
   Only pushes to the branch you configured for the app trigger a deploy. Pushing

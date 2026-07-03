@@ -58,7 +58,7 @@ const LIGHT_THEME: ITheme = {
 interface XtermShellProps {
   /** Factory that opens the backing WebSocket for this shell session. */
   connect: () => Promise<WebSocket>
-  /** Label shown in the terminal chrome header, e.g. "web — shell". */
+  /** Label shown in the terminal chrome header, e.g. "web - shell". */
   title: string
   /** Bumping this value forces a reconnect (used by the Reconnect button). */
   reconnectToken: number
@@ -217,7 +217,7 @@ function XtermShell({ connect, title, reconnectToken, sessionKey }: XtermShellPr
         </span>
       </div>
 
-      {/* xterm host — padded so output doesn't hug the border */}
+      {/* xterm host - padded so output doesn't hug the border */}
       <div ref={hostRef} className="min-h-0 flex-1 overflow-hidden px-3 py-2" />
     </div>
   )
@@ -238,7 +238,7 @@ export function ContainerTerminal({ appId, appName, reconnectToken }: ContainerT
   return (
     <XtermShell
       connect={() => createTerminalWs(appId)}
-      title={`${appName} — shell`}
+      title={`${appName} - shell`}
       reconnectToken={reconnectToken}
       sessionKey={appId}
     />
@@ -281,7 +281,7 @@ export function HostTerminal({ reconnectToken }: HostTerminalProps) {
   return (
     <XtermShell
       connect={() => createHostTerminalWs(activeServerId)}
-      title={`${serverName} — host shell`}
+      title={`${serverName} - host shell`}
       reconnectToken={reconnectToken}
       sessionKey={`host-${activeServerId}`}
     />

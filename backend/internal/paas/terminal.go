@@ -16,7 +16,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// /ws/terminal — interactive PTY shell access to a deployed container
+// /ws/terminal - interactive PTY shell access to a deployed container
 // ---------------------------------------------------------------------------
 //
 // Allocates a real pseudo-terminal and runs `docker exec -it <container> sh`
@@ -48,7 +48,7 @@ type terminalClientMsg struct {
 }
 
 func handleTerminalWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(w, r) {
+	if !wsAuthOK(w, r, ScopeAppsWrite) {
 		return
 	}
 	appID := r.URL.Query().Get("appId")
@@ -285,13 +285,13 @@ func handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// /ws/host-terminal — interactive PTY shell on the host (the server itself)
+// /ws/host-terminal - interactive PTY shell on the host (the server itself)
 // ---------------------------------------------------------------------------
 //
 // Same wire protocol and rendering as /ws/terminal, but instead of exec'ing
 // into a container it spawns a login shell directly on the host machine that
 // Better-PaaS runs on. This gives the operator a full terminal to the server
-// from the dashboard — inspect disk, tail system logs, run docker, etc.
+// from the dashboard - inspect disk, tail system logs, run docker, etc.
 //
 // SECURITY: this grants shell access to the host with the same privileges as
 // the Better-PaaS process. It is gated behind the same admin auth token as
@@ -304,7 +304,7 @@ func handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 var hostShellCandidates = []string{"/bin/bash", "/bin/zsh", "/bin/sh"}
 
 func handleHostTerminalWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(w, r) {
+	if !wsAuthOK(w, r, ScopeSystemManage) {
 		return
 	}
 	serverId := r.URL.Query().Get("serverId")

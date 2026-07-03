@@ -3,7 +3,7 @@ import type { SVGProps } from 'react';
 /**
  * GitHub glyph that inherits the current text color (so it matches whatever
  * button or link it sits in, in both light and dark themes). Ported from the
- * dashboard's GitHub SVGs (frontend/components/ui/svgs) — lucide-react@1.x in
+ * dashboard's GitHub SVGs (frontend/components/ui/svgs) - lucide-react@1.x in
  * this project doesn't ship a Github icon.
  */
 export function GithubIcon(props: SVGProps<SVGSVGElement>) {

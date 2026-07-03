@@ -388,7 +388,7 @@ export default function AddonsPage() {
             Managed Databases
           </h2>
           <p className="text-xs text-muted-foreground sm:text-sm">
-            One-click Postgres, Redis, and MySQL for your apps — no connection
+            One-click Postgres, Redis, and MySQL for your apps - no connection
             setup required.
           </p>
         </div>
@@ -634,7 +634,7 @@ export default function AddonsPage() {
                             ) : (
                               <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                                 <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                                Not attached to any app yet — attach one to
+                                Not attached to any app yet - attach one to
                                 start using it.
                               </span>
                             )}
@@ -746,7 +746,7 @@ export default function AddonsPage() {
                 </p>
                 <p>
                   Databases live on a private network and aren&apos;t exposed to
-                  the internet — only your attached apps can reach them.
+                  the internet - only your attached apps can reach them.
                 </p>
                 <p>
                   Deleting a database keeps its stored data unless you opt in to

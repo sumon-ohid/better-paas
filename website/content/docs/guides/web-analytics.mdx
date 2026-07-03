@@ -4,7 +4,7 @@ description: Privacy-friendly, cookie-free visitor analytics for your deployed s
 icon: ChartBar
 ---
 
-Better-PaaS includes a lightweight, privacy-friendly **web analytics** tool —
+Better-PaaS includes a lightweight, privacy-friendly **web analytics** tool -
 think Plausible or Umami, built right in. Add a one-line script to any site you
 deploy and see pageviews, unique visitors, and where your traffic comes from,
 without cookies or consent banners.
@@ -16,9 +16,9 @@ You'll find it on the **Web Analytics** screen in the dashboard sidebar.
 - **Pageviews** and **unique visitors**, with a **views-per-visitor** ratio.
 - A **traffic-over-time** chart (hourly for a single day, daily for longer
   ranges), switchable across **1 / 7 / 30 / 90 day** windows.
-- **Top pages** — your most-visited paths.
-- **Top referrers** — where visitors come from.
-- **Browsers & devices** — a breakdown of your visitors' environment.
+- **Top pages** - your most-visited paths.
+- **Top referrers** - where visitors come from.
+- **Browsers & devices** - a breakdown of your visitors' environment.
 
 ## Adding analytics to a site
 
@@ -35,16 +35,16 @@ Copy the **tracking snippet**. It looks like this:
 </Step>
 <Step>
 Paste it into the `<head>` of your site so it loads on every page, then
-redeploy. Pageviews start showing up right away — including client-side route
+redeploy. Pageviews start showing up right away - including client-side route
 changes in single-page apps.
 </Step>
 </Steps>
 
 <Callout type="info" title="Not sure where the snippet goes?">
   The Analytics screen has a **Copy AI prompt** button. It generates a
-  ready-to-paste instruction — including the exact snippet and per-framework
+  ready-to-paste instruction - including the exact snippet and per-framework
   placement guidance (plain HTML, Next.js, Vite/React, Vue/Nuxt, SvelteKit,
-  Astro, Angular) — that you can hand to an AI coding assistant to install it
+  Astro, Angular) - that you can hand to an AI coding assistant to install it
   correctly.
 </Callout>
 
@@ -67,7 +67,7 @@ available so the request survives a page unload.
 
 <Callout type="info" title="Why the script and collector are public">
   The tracking script (`/api/analytics/script.js`) and the collector endpoint
-  (`/api/track`) are reachable without the admin token — they have to be, since
+  (`/api/track`) are reachable without the admin token - they have to be, since
   they run on your public, deployed sites. Your analytics *dashboard* queries
   remain behind the admin token like everything else.
 </Callout>

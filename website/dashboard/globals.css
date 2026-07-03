@@ -266,7 +266,7 @@
     background: rgba(255, 255, 255, 0.16);
   }
 
-  /* Lock document scroll only while the demo shell is mounted — avoids sticky
+  /* Lock document scroll only while the demo shell is mounted - avoids sticky
      overflow:hidden on marketing pages after client nav away from /demo. */
   html:has(.demo-dashboard) {
     @apply font-sans scroll-smooth;
@@ -326,7 +326,7 @@
    Applies to the Card primitive ([data-slot="card"]) and any `.du-card` element.
    The ring draws a uniform thin baseline on every edge plus a brighter top-left
    spotlight glow, all on a single ::after so it follows the card's own radius.
-   The main content panel (sidebar inset) reuses this with a darker fill — see
+   The main content panel (sidebar inset) reuses this with a darker fill - see
    the scoped rules below.
    ────────────────────────────────────────────────────────────────────────── */
 
@@ -434,7 +434,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Toasts — match the card aesthetic. The toast root animates its own
+   Toasts - match the card aesthetic. The toast root animates its own
    background-color (for the stacked depth effect) and already uses ::before
    (inset highlight) + ::after (hover gap-fill), so we can't reuse the card's
    ::after glow ring. Instead we layer the card's soft top-left interior glow
@@ -453,7 +453,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   "du-surface" — same treatment as du-card, but pseudo-element-free so it can
+   "du-surface" - same treatment as du-card, but pseudo-element-free so it can
    be layered onto buttons (which already use ::before/::after). Built with the
    background-clip gradient-border technique:
      · soft top-left spotlight glow + solid fill, clipped to the padding box
@@ -497,7 +497,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   "du-primary" — du-surface treatment tuned for the default solid button:
+   "du-primary" - du-surface treatment tuned for the default solid button:
      · soft top-left spotlight glow over the button fill (padding box)
      · a top-left corner glow ring, bright then fading on all sides (border box)
    Uses --button / --button-foreground (neutral inverted), separate from --primary.
@@ -554,7 +554,7 @@
 }
 
 @layer utilities {
-  /* Fine pixel grid — for hero/header surfaces that need texture. */
+  /* Fine pixel grid - for hero/header surfaces that need texture. */
   .bg-pixel-grid {
     background-image:
       linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
@@ -562,7 +562,7 @@
     background-size: var(--grid-size) var(--grid-size);
   }
 
-  /* Dotted pixel pattern — for empty states and decorative panels. */
+  /* Dotted pixel pattern - for empty states and decorative panels. */
   .bg-pixel-dots {
     background-image: radial-gradient(
       color-mix(in oklab, var(--foreground) 14%, transparent) 1px,
@@ -590,7 +590,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   xterm.js — let the terminal background stay transparent.
+   xterm.js - let the terminal background stay transparent.
    xterm ships a hardcoded `.xterm-viewport { background-color: #000 }` which
    overrides the transparent theme, so we reset it (and the helper layers) here.
    ────────────────────────────────────────────────────────────────────────── */

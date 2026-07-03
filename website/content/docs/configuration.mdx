@@ -17,6 +17,7 @@ are chosen so a fresh install just works.
 | `ADMIN_TOKEN` | generated | The admin bearer token. Set this to pin or rotate it instead of using the auto-generated value. |
 | `LISTEN_ADDR` | `:8080` | The address the API listens on. Use `127.0.0.1:8080` when running behind a reverse proxy. |
 | `DASHBOARD_ORIGIN` | same hostname | Comma-separated list of allowed origins for CORS and WebSockets. Set this when the dashboard is served from a different hostname than the API. |
+| `PAAS_UI_URL` | unset | Public dashboard URL (e.g. `https://paas.example.com`). Exposed in `/.well-known/better-paas.json` so the [paas CLI](/docs/guides/paas-cli) can open the browser authorize page when users connect via the raw API URL. |
 | `SHOW_ADMIN_TOKEN_ON_STARTUP` | `false` | Print the admin token on every backend startup. First run always prints it. |
 | `BETTER_PAAS_SECRET_KEY` | generated | 32-byte key (hex or base64) used to encrypt secrets at rest. |
 | `TRUST_PROXY` | `false` | Honor `X-Forwarded-For` / `X-Real-IP`. Set to `true` when behind a proxy so rate-limiting uses the real client IP. |
@@ -54,12 +55,21 @@ the same host on port 8080.
 
 | Variable | Default | What it does |
 | -------- | ------- | ------------ |
-| `NEXT_PUBLIC_API_URL` | same host, port 8080 | Explicit backend API base URL. Set this if the API is on a different host or port. |
+| `NEXT_PUBLIC_API_URL` | same host, port 8080 | Explicit backend API base URL. **Required** when the API is on a different host than the dashboard (e.g. dashboard on `https://paas.example.com`, API on `http://203.0.113.10:8080`). Also used by `/.well-known/better-paas.json` for [CLI URL discovery](/docs/guides/paas-cli#url-discovery). |
+| `NEXT_PUBLIC_PAAS_UI_URL` | current origin | Public dashboard URL in the well-known manifest. Override when the auto-detected origin is wrong. |
 
-Set it in `frontend/.env` (see `frontend/.env.example`):
+Set them in `frontend/.env` (see `frontend/.env.example`):
 
-```bash title="frontend/.env"
-NEXT_PUBLIC_API_URL=https://api.yourdomain.com
+```bash title="frontend/.env - split dashboard and API"
+NEXT_PUBLIC_API_URL=http://203.0.113.10:8080
+NEXT_PUBLIC_PAAS_UI_URL=https://paas.example.com
+```
+
+After changing frontend env vars, **rebuild and redeploy** the dashboard. Verify
+discovery works:
+
+```bash
+curl https://paas.example.com/.well-known/better-paas.json
 ```
 
 ## Checking the running version

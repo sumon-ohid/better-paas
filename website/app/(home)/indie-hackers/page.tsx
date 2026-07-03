@@ -81,7 +81,7 @@ function Hero() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-fd-muted-foreground">
             Ship your MVP, side project, or bootstrapped SaaS on a $5 VPS. Better-PaaS gives you
-            push-to-deploy, automatic HTTPS, and managed databases — without the platform tax or
+            push-to-deploy, automatic HTTPS, and managed databases - without the platform tax or
             the DevOps degree.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -166,7 +166,7 @@ const useCases = [
   {
     icon: Rocket,
     title: 'SaaS MVPs',
-    body: 'Next.js or React frontend, Node/Python API, Postgres database — all on one server for under $10/month.',
+    body: 'Next.js or React frontend, Node/Python API, Postgres database - all on one server for under $10/month.',
   },
   {
     icon: Globe,

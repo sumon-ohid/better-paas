@@ -7,13 +7,13 @@ icon: Store
 Not every app you want to run lives in your own Git repository. Better-PaaS has
 an **App Catalog** of popular self-hosted software you can deploy in one click,
 plus the ability to run **any Docker image** or **a pasted Dockerfile** directly
-— no repo required.
+- no repo required.
 
 You'll find all of this on the **App Catalog** screen in the dashboard sidebar.
 
 ## One-click catalog apps
 
-The catalog is a curated set of single-container, open-source apps — monitoring
+The catalog is a curated set of single-container, open-source apps - monitoring
 tools, note-taking apps, password managers, media servers, developer utilities,
 and more (Uptime Kuma, Vaultwarden, Jellyfin, Gotify, Stirling PDF, and others).
 
@@ -39,7 +39,7 @@ and an in-container [terminal](/docs/guides/logs-and-terminal#in-browser-termina
 
 <Callout type="info" title="Pinned, single-container images">
   Catalog images are pinned to a major/minor version line (not `latest`) so
-  deploys are repeatable. The catalog is intentionally single-container —
+  deploys are repeatable. The catalog is intentionally single-container -
   multi-container stacks (e.g. apps that need a separate database) are excluded
   until Docker Compose support lands, rather than shipping something that would
   fail. Apps that need data persistence get a managed
@@ -48,7 +48,7 @@ and an in-container [terminal](/docs/guides/logs-and-terminal#in-browser-termina
 
 ### Apps that need extra setup
 
-A few catalog apps have caveats — for example, a log viewer that needs read-only
+A few catalog apps have caveats - for example, a log viewer that needs read-only
 access to the Docker socket, or a media server where you mount your library as
 an extra volume. When an app has such a note, the catalog shows it before you
 deploy. Add any required [volume](/docs/guides/volumes) mapping from the app's
@@ -82,7 +82,7 @@ Set the **port** your image listens on, plus any
 ## Deploy from a Dockerfile
 
 You can also paste a **self-contained Dockerfile** and have Better-PaaS build and
-run it on the server — no Git repo needed.
+run it on the server - no Git repo needed.
 
 <Steps>
 <Step>
@@ -97,7 +97,7 @@ Configure the port, env vars, volumes, and limits as above, then deploy.
 </Steps>
 
 <Callout type="warn" title="No build context">
-  Because there's no repository, there's no build context — `COPY` and `ADD` of
+  Because there's no repository, there's no build context - `COPY` and `ADD` of
   local files won't work. The Dockerfile must fetch everything it needs (install
   packages, `ADD https://…`, etc.). If you need to ship local files, use a
   [Git deploy](/docs/guides/deploying-an-app) instead.

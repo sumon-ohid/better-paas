@@ -44,11 +44,11 @@ func wsSend(conn *websocket.Conn, message string) error {
 }
 
 // ---------------------------------------------------------------------------
-// /ws/logs — build log streaming
+// /ws/logs - build log streaming
 // ---------------------------------------------------------------------------
 
 func handleLogsWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(w, r) {
+	if !wsAuthOK(w, r, ScopeLogsRead, ScopeAppsRead) {
 		return
 	}
 	appID := r.URL.Query().Get("appId")
@@ -133,11 +133,11 @@ func handleLogsWS(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// /ws/runtime-logs — Docker container log streaming
+// /ws/runtime-logs - Docker container log streaming
 // ---------------------------------------------------------------------------
 
 func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(w, r) {
+	if !wsAuthOK(w, r, ScopeLogsRead, ScopeAppsRead) {
 		return
 	}
 	appID := r.URL.Query().Get("appId")
@@ -196,7 +196,7 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if currentStatus != "running" && currentStatus != "stopped" && currentStatus != "failed" {
-		wsSend(conn, fmt.Sprintf("App is in state %q — no runtime logs available.", currentStatus))
+		wsSend(conn, fmt.Sprintf("App is in state %q - no runtime logs available.", currentStatus))
 		return
 	}
 
@@ -315,11 +315,11 @@ func handleRuntimeLogsWS(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// /ws/stats — server metrics streaming
+// /ws/stats - server metrics streaming
 // ---------------------------------------------------------------------------
 
 func handleStatsWS(w http.ResponseWriter, r *http.Request) {
-	if !wsAuthOK(w, r) {
+	if !wsAuthOK(w, r, ScopeMetricsRead, ScopeAppsRead) {
 		return
 	}
 	serverID := r.URL.Query().Get("serverId")
