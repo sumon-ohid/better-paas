@@ -1,4 +1,4 @@
-import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+import { defineCollections, defineConfig, defineDocs } from 'fumadocs-mdx/config';
 import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
 import { visit } from 'unist-util-visit';
 
@@ -14,6 +14,16 @@ export const docs = defineDocs({
   },
   meta: {
     schema: metaSchema,
+  },
+});
+
+export const blog = defineCollections({
+  type: 'doc',
+  dir: 'content/blog',
+  files: ['**/*.{md,mdx}'],
+  schema: pageSchema,
+  postprocess: {
+    includeProcessedMarkdown: true,
   },
 });
 
