@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   ChevronRight,
-  Globe,
   Loader2,
   Mic,
   Paperclip,
@@ -15,33 +14,25 @@ import { cn } from '@/lib/cn';
 
 type Phase = 'typing' | 'working' | 'report' | 'pause';
 
-const PROMPT = 'check my better-paas deployed app';
+const PROMPT = 'deploy the current working app on better-paas';
 
 const ACTIVITY = [
-  { icon: Globe, label: 'Searching the repo for deployed Better-PaaS URL' },
-  { icon: Terminal, label: 'Ran HTTP checks on better-paas.com & paas.better-paas.com' },
-  { icon: Globe, label: 'Ran 2 browser actions' },
   { icon: Sparkles, label: 'Thought briefly' },
+  { icon: Terminal, label: 'Ran paas_status via MCP' },
+  { icon: Terminal, label: 'Ran paas_deploy via MCP' },
+  { icon: Terminal, label: 'Ran paas_get_logs via MCP' },
 ];
 
-const DASHBOARD_ROWS = [
-  { check: 'Homepage', status: '200', note: 'loads login screen' },
-  {
-    check: 'API health (via domain)',
-    status: '200',
-    note: '{"status":"healthy","version":"v1.8.4-8-g025e8c0"}',
-  },
-  { check: 'Direct API (92.113.150.63:8080)', status: '200', note: 'uptime ~409h' },
-];
-
-const MARKETING_ROWS = [
-  { check: 'Homepage', status: '200' },
-  { check: '/demo', status: '200' },
-  { check: '/docs/quickstart', status: '200' },
+const DEPLOY_ROWS = [
+  { check: 'MCP connection', status: 'Connected', note: 'profile: deployer · paas.better-paas.com' },
+  { check: 'Git source', status: 'main', note: 'github.com/sumon-ohid/better-paas' },
+  { check: 'Nixpacks build', status: 'Done', note: 'promoted in 38s' },
+  { check: 'Health check', status: '200', note: 'GET /api/health' },
+  { check: 'HTTPS route', status: 'Live', note: 'https://paas.better-paas.com' },
 ];
 
 const PHASE_TIMING: Record<Phase, number> = {
-  typing: 2800,
+  typing: 3000,
   working: 3800,
   report: 5500,
   pause: 800,
@@ -64,7 +55,7 @@ function StatusTable({
       <table className="w-full text-[10px]">
         <thead>
           <tr className="border-b border-[#333] bg-[#1f1f1f] text-left text-[#707070]">
-            <th className="px-2 py-1 font-medium">Check</th>
+            <th className="px-2 py-1 font-medium">Step</th>
             <th className="px-2 py-1 font-medium">Status</th>
           </tr>
         </thead>
@@ -93,7 +84,7 @@ function ActivityStep({
   label,
   state,
 }: {
-  icon: typeof Globe;
+  icon: typeof Sparkles;
   label: string;
   state: 'pending' | 'running' | 'done';
 }) {
@@ -118,10 +109,30 @@ export function AgentDeployDemo() {
   const [phase, setPhase] = useState<Phase>('typing');
   const [typed, setTyped] = useState('');
   const [activeStep, setActiveStep] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const submitted = phase !== 'typing' && phase !== 'pause';
   const showActivity = phase === 'working' || phase === 'report';
   const showReport = phase === 'report';
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    });
+  }, []);
+
+  // Instant reset when loop restarts — must run after hidden content unmounts
+  useLayoutEffect(() => {
+    if (phase !== 'typing') return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = 0;
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase === 'working' || phase === 'report') scrollToBottom();
+  }, [phase, activeStep, showReport, scrollToBottom]);
 
   useEffect(() => {
     if (phase !== 'typing') return;
@@ -132,7 +143,7 @@ export function AgentDeployDemo() {
       i += 1;
       setTyped(PROMPT.slice(0, i));
       if (i >= PROMPT.length) window.clearInterval(interval);
-    }, 32);
+    }, 30);
 
     return () => window.clearInterval(interval);
   }, [phase]);
@@ -165,8 +176,10 @@ export function AgentDeployDemo() {
   return (
     <div className="relative z-10 flex h-[480px] w-full max-w-[580px] flex-col overflow-hidden rounded-lg border border-[#2b2b2b] bg-[#181818] shadow-[0_24px_64px_-16px_rgba(0,0,0,0.65)]">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {/* User prompt - Cursor chip style */}
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           <motion.div
             animate={{ opacity: submitted ? 1 : 0, y: submitted ? 0 : 6 }}
             className={cn('mb-3 flex justify-end', !submitted && 'pointer-events-none')}
@@ -176,61 +189,64 @@ export function AgentDeployDemo() {
             </div>
           </motion.div>
 
-          <div className="flex gap-2">
-            <div className="min-w-0 flex-1 space-y-2.5">
-              {/* Activity log */}
-              <div className="min-h-[72px] space-y-1">
-                {ACTIVITY.map((step, index) => {
-                  let state: 'pending' | 'running' | 'done' = 'pending';
-                  if (showActivity) {
-                    if (phase === 'report' || index < activeStep) state = 'done';
-                    else if (index === activeStep) state = 'running';
-                  }
-                  return (
-                    <ActivityStep
-                      key={step.label}
-                      icon={step.icon}
-                      label={step.label}
-                      state={state}
-                    />
-                  );
-                })}
-              </div>
+          {(showActivity || phase === 'pause') && (
+            <div className="flex gap-2">
+              <div className="min-w-0 flex-1 space-y-2.5">
+                <div className="space-y-1">
+                  {ACTIVITY.map((step, index) => {
+                    let state: 'pending' | 'running' | 'done' = 'pending';
+                    if (showActivity) {
+                      if (phase === 'report' || index < activeStep) state = 'done';
+                      else if (index === activeStep) state = 'running';
+                    }
+                    return (
+                      <ActivityStep
+                        key={step.label}
+                        icon={step.icon}
+                        label={step.label}
+                        state={state}
+                      />
+                    );
+                  })}
+                </div>
 
-              {/* Structured report */}
-              <motion.div
-                animate={{ opacity: showReport ? 1 : 0, y: showReport ? 0 : 8 }}
-                transition={{ duration: 0.35 }}
-                className={cn('space-y-3 pb-1', !showReport && 'pointer-events-none')}
-              >
+                {(showReport || phase === 'pause') && (
+                  <motion.div
+                    animate={{ opacity: showReport ? 1 : 0.4, y: showReport ? 0 : 4 }}
+                    transition={{ duration: 0.35 }}
+                    className={cn('space-y-3 pb-1', phase === 'pause' && 'pointer-events-none')}
+                  >
                 <div>
-                  <h3 className="text-[12px] font-semibold text-[#e8e8e8]">Production health summary</h3>
-                </div>
-
-                <div className="space-y-1.5">
-                  <p className="text-[11px] text-[#b4b4b4]">
-                    Dashboard -{' '}
-                    <span className="text-[#6b9fff]">paas.better-paas.com</span>
-                  </p>
-                  <StatusTable rows={DASHBOARD_ROWS} visible={showReport} />
-                  <p className="text-[10px] text-[#707070]">
-                    Control plane up ~17 days on{' '}
-                    <code className="rounded bg-[#2a2a2a] px-1 py-px font-mono text-[9px] text-[#858585]">
-                      v1.8.4-8-g025e8c0
-                    </code>
+                  <h3 className="text-[12px] font-semibold text-[#e8e8e8]">Deploy summary</h3>
+                  <p className="mt-1 text-[11px] leading-relaxed text-[#b4b4b4]">
+                    Deployed{' '}
+                    <span className="text-[#cccccc]">better-paas</span> from the current workspace
+                    to{' '}
+                    <span className="text-[#6b9fff]">paas.better-paas.com</span>.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[11px] text-[#b4b4b4]">
-                    Marketing site -{' '}
-                    <span className="text-[#6b9fff]">better-paas.com</span>
-                  </p>
-                  <StatusTable rows={MARKETING_ROWS} visible={showReport} />
+                  <StatusTable rows={DEPLOY_ROWS} visible={showReport} />
                 </div>
-              </motion.div>
+
+                <div className="space-y-1 text-[11px] leading-relaxed text-[#b4b4b4]">
+                  <p>
+                    <span className="relative mr-1.5 inline-flex size-1.5 align-middle">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#6bbf8a] opacity-50" />
+                      <span className="relative size-1.5 rounded-full bg-[#6bbf8a]" />
+                    </span>
+                    <span className="text-[#d4d4d4]">better-paas is live</span>
+                    {' · '}
+                    <span className="text-[#6b9fff]">https://paas.better-paas.com</span>
+                  </p>
+                  <p className="text-[10px] text-[#707070]">Deployed in 47s · HTTPS ready</p>
+                </div>
+                  </motion.div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="shrink-0 px-2.5 pb-2.5">
