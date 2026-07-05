@@ -35,46 +35,44 @@ function ConnectAgentContent() {
   const portRaw = searchParams.get("port")?.trim() ?? ""
   const port = Number.parseInt(portRaw, 10)
 
-  const [phase, setPhase] = useState<Phase>("checking")
-  const [error, setError] = useState("")
-
-  const [tokenInput, setTokenInput] = useState("")
-  const [showToken, setShowToken] = useState(false)
-  const [loginSubmitting, setLoginSubmitting] = useState(false)
-
-  const [agentName, setAgentName] = useState("CLI Agent")
-  const [profile, setProfile] = useState<(typeof PROFILES)[number]["id"]>("deployer")
-  const [authorizing, setAuthorizing] = useState(false)
-
   const paramsValid = useMemo(
     () => state.length >= 16 && Number.isFinite(port) && port >= 1024 && port <= 65535,
     [state, port],
   )
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setAgentName(`${window.location.hostname} CLI`)
-    }
-  }, [])
+  const invalidParamsMessage =
+    "Missing or invalid connect link. Run paas connect from your terminal again."
+
+  const [phase, setPhase] = useState<Phase>(() => {
+    if (!paramsValid) return "error"
+    if (!getToken()) return "login"
+    return "checking"
+  })
+  const [error, setError] = useState(() =>
+    !paramsValid ? invalidParamsMessage : "",
+  )
+
+  const [tokenInput, setTokenInput] = useState("")
+  const [showToken, setShowToken] = useState(false)
+  const [loginSubmitting, setLoginSubmitting] = useState(false)
+
+  const [agentName, setAgentName] = useState(() =>
+    typeof window !== "undefined" ? `${window.location.hostname} CLI` : "CLI Agent",
+  )
+  const [profile, setProfile] = useState<(typeof PROFILES)[number]["id"]>("deployer")
+  const [authorizing, setAuthorizing] = useState(false)
 
   useEffect(() => {
-    if (!paramsValid) {
-      setPhase("error")
-      setError("Missing or invalid connect link. Run paas connect from your terminal again.")
-      return
-    }
+    if (!paramsValid) return
     const stored = getToken()
-    if (stored) {
-      authApi
-        .verify(stored)
-        .then(() => setPhase("authorize"))
-        .catch(() => {
-          clearToken()
-          setPhase("login")
-        })
-    } else {
-      setPhase("login")
-    }
+    if (!stored) return
+    authApi
+      .verify(stored)
+      .then(() => setPhase("authorize"))
+      .catch(() => {
+        clearToken()
+        setPhase("login")
+      })
   }, [paramsValid])
 
   const handleLogin = useCallback(

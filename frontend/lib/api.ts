@@ -8,6 +8,8 @@ import type {
   ProjectDetail,
   ProjectCreateRequest,
   ProjectServiceDeployRequest,
+  ProjectDeployConfig,
+  ProjectConfigUpdateRequest,
   DeploymentRecord,
   UpdateRequest,
   GitHubContent,
@@ -362,6 +364,20 @@ export const api = {
         "/api/projects/services/deploy/upload",
         buildUploadFormData(config, files),
       ),
+    getConfig: (id: string) =>
+      req<ProjectDeployConfig>(
+        `/api/projects/config?id=${encodeURIComponent(id)}`,
+      ),
+    updateConfig: (data: ProjectConfigUpdateRequest) =>
+      req<App>("/api/projects/config/update", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    redeploy: (projectId: string, noCache?: boolean) =>
+      req<App>("/api/projects/redeploy", {
+        method: "POST",
+        body: JSON.stringify({ projectId, noCache: noCache ?? false }),
+      }),
   },
 
   // ── App catalog (one-click deploys) ─────────────────────────────────────────

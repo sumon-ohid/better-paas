@@ -562,6 +562,11 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, noCache boo
 	}
 	localLog(fmt.Sprintf("🧩 Using compose file: %s", composeFile))
 
+	if err := applyComposeContentOverride(app, composeDir, composeFile); err != nil {
+		localLog(fmt.Sprintf("✖ Failed to write compose override: %v", err))
+		return "failed", commitSHA, commitMsg
+	}
+
 	// ── 3. Parse + classify services ─────────────────────────────────────────
 	env := composeEnv(app)
 	cfg, err := parseComposeConfig(composeDir, composeFile, project, env)

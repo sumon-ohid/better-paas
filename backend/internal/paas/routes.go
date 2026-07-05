@@ -53,6 +53,9 @@ func registerProjectRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/projects/delete", scoped(handleProjectDelete, ScopeAppsDelete))
 	mux.HandleFunc("/api/projects/services/deploy", scoped(handleProjectServiceDeploy, ScopeDeployTrigger, ScopeAppsWrite))
 	mux.HandleFunc("/api/projects/services/deploy/upload", scoped(handleProjectServiceDeployUpload, ScopeDeployTrigger, ScopeAppsWrite))
+	mux.HandleFunc("/api/projects/config", scoped(handleProjectConfigGet, ScopeAppsRead))
+	mux.HandleFunc("/api/projects/config/update", scoped(handleProjectConfigUpdate, ScopeAppsWrite))
+	mux.HandleFunc("/api/projects/redeploy", scoped(handleProjectRedeploy, ScopeDeployTrigger, ScopeAppsWrite))
 }
 
 func registerServerRoutes(mux *http.ServeMux) {

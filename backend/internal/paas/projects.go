@@ -76,17 +76,23 @@ func statusPriority(status string) int {
 func projectSummary(p Project) ProjectSummary {
 	services := appsForProject(p.ID)
 	hasGit, hasDocker := projectSourceFlags(services)
+	deployType, primary := projectDeployType(services)
 	status := aggregateProjectStatus(services)
-	return ProjectSummary{
+	summary := ProjectSummary{
 		Project:         p,
 		ServiceCount:    len(services),
 		Status:          status,
 		HasGit:          hasGit,
 		HasDocker:       hasDocker,
+		DeployType:      deployType,
 		LastServiceAt:   latestServiceTime(services),
 		FocusServiceID:  focusServiceForStatus(services, status),
 		ServiceStatuses: projectServiceStatuses(services),
 	}
+	if primary != nil {
+		summary.PrimaryServiceID = primary.ID
+	}
+	return summary
 }
 
 func projectServiceStatuses(services []App) []ProjectServiceStatus {

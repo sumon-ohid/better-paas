@@ -152,6 +152,7 @@ CREATE TABLE IF NOT EXISTS meta (
 		{"apps", "image", "TEXT"},
 		{"apps", "catalog_id", "TEXT"},
 		{"apps", "dockerfile_content", "TEXT"},
+		{"apps", "compose_content", "TEXT"},
 		{"deployments", "image", "TEXT"},
 		{"deployments", "trigger", "TEXT"},
 		{"deployments", "commit_sha", "TEXT"},
@@ -418,7 +419,7 @@ func loadStateFromDB() {
 	apps = []App{}
 	buildLogs = make(map[string][]string)
 
-	rows, err := sqliteDB.Query(`SELECT id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override, domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, server_id, vulnerabilities_count, project_id, service_name FROM apps`)
+	rows, err := sqliteDB.Query(`SELECT id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override, domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, compose_content, server_id, vulnerabilities_count, project_id, service_name FROM apps`)
 	if err != nil {
 		log.Printf("[db] failed to load apps: %v", err)
 		return
@@ -433,13 +434,13 @@ func loadStateFromDB() {
 		var buildMethod, dockerfilePath, composePath sql.NullString
 		var composeProject, composeService sql.NullString
 		var composeWeb, composePrimary sql.NullBool
-		var image, catalogID, dockerfileContent sql.NullString
+		var image, catalogID, dockerfileContent, composeContent sql.NullString
 		var autoDeploy sql.NullBool
 		var serverID sql.NullString
 		var vulnerabilitiesCount sql.NullInt64
 		var projectID, serviceName sql.NullString
 		err := rows.Scan(&a.ID, &a.Name, &a.Status, &a.GitRepo, &a.Branch, &a.Port, &a.URL, &a.CreatedAt, &a.GitToken, &a.RootDir, &envJSON, &a.BuildCommand, &a.StartCommand, &a.InstallCommand, &a.PortOverride,
-			&domainsJSON, &memory, &cpus, &volumesJSON, &healthPath, &activeContainer, &activeImage, &activeDeployID, &secretKeysJSON, &webhookSecret, &autoDeploy, &buildMethod, &dockerfilePath, &composePath, &composeProject, &composeService, &composeWeb, &composePrimary, &image, &catalogID, &dockerfileContent, &serverID, &vulnerabilitiesCount, &projectID, &serviceName)
+			&domainsJSON, &memory, &cpus, &volumesJSON, &healthPath, &activeContainer, &activeImage, &activeDeployID, &secretKeysJSON, &webhookSecret, &autoDeploy, &buildMethod, &dockerfilePath, &composePath, &composeProject, &composeService, &composeWeb, &composePrimary, &image, &catalogID, &dockerfileContent, &composeContent, &serverID, &vulnerabilitiesCount, &projectID, &serviceName)
 		if err != nil {
 			log.Printf("[db] failed to scan app: %v", err)
 			continue
@@ -474,6 +475,7 @@ func loadStateFromDB() {
 		a.Image = image.String
 		a.CatalogID = catalogID.String
 		a.DockerfileContent = dockerfileContent.String
+		a.ComposeContent = composeContent.String
 		a.GitToken = decryptSecret(a.GitToken)
 		a.ServerID = serverID.String
 		if a.ServerID == "" {
@@ -544,8 +546,8 @@ func dbSaveAppTx(tx *sql.Tx, app App) error {
 	encWebhook := encryptSecret(app.WebhookSecret)
 	_, err := tx.Exec(`
 		INSERT INTO apps (id, name, status, git_repo, branch, port, url, created_at, git_token, root_dir, env_vars, build_command, start_command, install_command, port_override,
-			domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, server_id, vulnerabilities_count, project_id, service_name)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			domains, memory, cpus, volumes, health_path, active_container, active_image, active_deploy_id, secret_keys, webhook_secret, auto_deploy, build_method, dockerfile_path, compose_path, compose_project, compose_service, compose_web, compose_primary, image, catalog_id, dockerfile_content, compose_content, server_id, vulnerabilities_count, project_id, service_name)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name,
 			status=excluded.status,
@@ -581,12 +583,13 @@ func dbSaveAppTx(tx *sql.Tx, app App) error {
 			image=excluded.image,
 			catalog_id=excluded.catalog_id,
 			dockerfile_content=excluded.dockerfile_content,
+			compose_content=excluded.compose_content,
 			server_id=excluded.server_id,
 			vulnerabilities_count=excluded.vulnerabilities_count,
 			project_id=excluded.project_id,
 			service_name=excluded.service_name
 	`, app.ID, app.Name, app.Status, app.GitRepo, app.Branch, app.Port, app.URL, app.CreatedAt, encToken, app.RootDir, string(envJSON), app.BuildCommand, app.StartCommand, app.InstallCommand, app.PortOverride,
-		string(domainsJSON), app.Memory, app.CPUs, string(volumesJSON), app.HealthPath, app.ActiveContainer, app.ActiveImage, app.ActiveDeployID, string(secretKeysJSON), encWebhook, app.AutoDeploy, app.BuildMethod, app.DockerfilePath, app.ComposePath, app.ComposeProject, app.ComposeService, app.ComposeWeb, app.ComposePrimary, app.Image, app.CatalogID, app.DockerfileContent, app.ServerID, app.VulnerabilitiesCount, app.ProjectID, app.ServiceName)
+		string(domainsJSON), app.Memory, app.CPUs, string(volumesJSON), app.HealthPath, app.ActiveContainer, app.ActiveImage, app.ActiveDeployID, string(secretKeysJSON), encWebhook, app.AutoDeploy, app.BuildMethod, app.DockerfilePath, app.ComposePath, app.ComposeProject, app.ComposeService, app.ComposeWeb, app.ComposePrimary, app.Image, app.CatalogID, app.DockerfileContent, app.ComposeContent, app.ServerID, app.VulnerabilitiesCount, app.ProjectID, app.ServiceName)
 	return err
 }
 

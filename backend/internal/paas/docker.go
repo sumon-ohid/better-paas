@@ -516,6 +516,14 @@ func runDeployment(app App, gitURL, deployID, logFile, trigger, rollbackImage st
 			method = "nixpacks"
 		}
 
+		if method == "dockerfile" {
+			if err := applyDockerfileContentOverride(app, buildSubDir); err != nil {
+				localLog(fmt.Sprintf("✖ Failed to write Dockerfile override: %v", err))
+				finish("failed", "")
+				return
+			}
+		}
+
 		var buildErr error
 		switch method {
 		case "dockerfile":

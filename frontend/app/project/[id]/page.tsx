@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback, Suspense } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { BreadcrumbPage } from "@/components/ui/breadcrumb"
 import { AppShell, useToast } from "@/components/app-shell"
@@ -14,6 +14,7 @@ import {
   ProjectBreadcrumb,
 } from "@/components/project-breadcrumb"
 import { ProjectServicesOverview } from "@/components/project-services-overview"
+import { ProjectDeployConfigPanel } from "@/components/project-deploy-config"
 import { NucleoIcon } from "@/components/nucleo-icons"
 import { api } from "@/lib/api"
 import type { ProjectDetail, ProjectSummary } from "@/lib/types"
@@ -22,6 +23,8 @@ type IconProps = Omit<React.ComponentProps<typeof NucleoIcon>, "name">
 const EditIcon = (props: IconProps) => <NucleoIcon {...props} name="edit" />
 const CheckIcon = (props: IconProps) => <NucleoIcon {...props} name="check" />
 const XIcon = (props: IconProps) => <NucleoIcon {...props} name="x" />
+const SettingsIcon = (props: IconProps) => <NucleoIcon {...props} name="settings" />
+const GridIcon = (props: IconProps) => <NucleoIcon {...props} name="grid" />
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr)
@@ -39,6 +42,7 @@ function formatRelativeTime(dateStr: string): string {
 function ProjectDetailPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const projectId = params.id as string
   const { showToast } = useToast()
 
@@ -49,6 +53,9 @@ function ProjectDetailPage() {
   const [renameValue, setRenameValue] = useState("")
   const [isRenaming, setIsRenaming] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [view, setView] = useState<"services" | "config">(() =>
+    searchParams.get("tab") === "config" ? "config" : "services",
+  )
 
   const fetchProject = useCallback(async () => {
     try {
@@ -150,85 +157,130 @@ function ProjectDetailPage() {
   if (!project) return null
 
   const addService = () => router.push(`/deploy?projectId=${project.id}`)
+  const hasStackConfig = Boolean(project.deployType && project.primaryServiceId)
 
   return (
     <AppShell appCount={project.serviceCount}>
       <div className="space-y-3 m-4 md:mx-6">
-        <BreadcrumbHeaderRow
-          trailing={
-            <>
-              <StatusBadge status={project.status} />
-              {!isEditingName ? (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => {
-                    setRenameValue(project.name)
-                    setIsEditingName(true)
-                  }}
-                  aria-label="Rename project"
-                >
-                  <EditIcon className="h-4 w-4" />
-                </Button>
-              ) : null}
-            </>
-          }
-        >
-          <ProjectBreadcrumb
-            projects={allProjects}
-            currentProjectId={projectId}
-            projectCrumb={
-              isEditingName ? (
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  <BreadcrumbRenameInput
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    autoFocus
-                    disabled={isRenaming}
-                    aria-label="Project name"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") void handleRename()
-                      if (e.key === "Escape") cancelRename()
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-3">
+          <BreadcrumbHeaderRow
+            trailing={
+              <>
+                <StatusBadge status={project.status} />
+                {!isEditingName ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      setRenameValue(project.name)
+                      setIsEditingName(true)
                     }}
-                  />
-                  <BreadcrumbRenameIconButton
-                    onClick={() => void handleRename()}
-                    disabled={isRenaming}
-                    label="Save name"
-                    variant="success"
+                    aria-label="Rename project"
                   >
-                    <CheckIcon className="h-3.5 w-3.5" />
-                  </BreadcrumbRenameIconButton>
-                  <BreadcrumbRenameIconButton
-                    onClick={cancelRename}
-                    disabled={isRenaming}
-                    label="Cancel rename"
-                  >
-                    <XIcon className="h-3.5 w-3.5" />
-                  </BreadcrumbRenameIconButton>
-                </div>
-              ) : (
-                <BreadcrumbPage>{project.name}</BreadcrumbPage>
-              )
+                    <EditIcon className="h-4 w-4" />
+                  </Button>
+                ) : null}
+              </>
             }
-          />
-        </BreadcrumbHeaderRow>
+          >
+            <ProjectBreadcrumb
+              projects={allProjects}
+              currentProjectId={projectId}
+              projectCrumb={
+                isEditingName ? (
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <BreadcrumbRenameInput
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      autoFocus
+                      disabled={isRenaming}
+                      aria-label="Project name"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void handleRename()
+                        if (e.key === "Escape") cancelRename()
+                      }}
+                    />
+                    <BreadcrumbRenameIconButton
+                      onClick={() => void handleRename()}
+                      disabled={isRenaming}
+                      label="Save name"
+                      variant="success"
+                    >
+                      <CheckIcon className="h-3.5 w-3.5" />
+                    </BreadcrumbRenameIconButton>
+                    <BreadcrumbRenameIconButton
+                      onClick={cancelRename}
+                      disabled={isRenaming}
+                      label="Cancel rename"
+                    >
+                      <XIcon className="h-3.5 w-3.5" />
+                    </BreadcrumbRenameIconButton>
+                  </div>
+                ) : (
+                  <BreadcrumbPage>{project.name}</BreadcrumbPage>
+                )
+              }
+            />
+          </BreadcrumbHeaderRow>
+          {hasStackConfig ? (
+            view === "services" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto h-8 shrink-0 gap-1.5 text-xs"
+                onClick={() => setView("config")}
+              >
+                <SettingsIcon className="h-3.5 w-3.5" />
+                Config
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto h-8 shrink-0 gap-1.5 text-xs"
+                onClick={() => setView("services")}
+              >
+                <GridIcon className="h-3.5 w-3.5" />
+                Services
+              </Button>
+            )
+          ) : null}
+        </div>
 
         <p className="text-xs text-muted-foreground sm:text-sm">
           {project.serviceCount}{" "}
           {project.serviceCount === 1 ? "service" : "services"} · Created{" "}
           {formatRelativeTime(project.createdAt)}
+          {hasStackConfig ? (
+            <>
+              {" "}
+              ·{" "}
+              {project.deployType === "compose"
+                ? "Docker Compose stack"
+                : "Dockerfile project"}
+            </>
+          ) : null}
         </p>
       </div>
 
       <div className="p-4 md:p-6">
-        <ProjectServicesOverview
-          services={project.services}
-          loading={loading}
-          onRefresh={fetchProject}
-          onAddService={addService}
-          onDeleteProject={() => setShowDeleteModal(true)}
-        />
+        {view === "config" && hasStackConfig ? (
+          <ProjectDeployConfigPanel
+            projectId={project.id}
+            deployType={project.deployType!}
+            primaryServiceId={project.primaryServiceId!}
+            serviceCount={project.serviceCount}
+            onRefresh={fetchProject}
+          />
+        ) : (
+          <ProjectServicesOverview
+            services={project.services}
+            loading={loading}
+            onRefresh={fetchProject}
+            onAddService={addService}
+            onDeleteProject={() => setShowDeleteModal(true)}
+          />
+        )}
       </div>
 
       <DeleteConfirmModal

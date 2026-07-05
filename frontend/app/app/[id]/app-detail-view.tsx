@@ -811,10 +811,16 @@ export function AppDetailView() {
                             <span className="font-mono font-semibold">
                               {app.composeService}
                             </span>{" "}
-                            service of a Docker Compose project. Build settings
-                            are controlled by the compose file in the repo, not
-                            here. Redeploy rebuilds the whole project; deleting
-                            any service removes the entire group.
+                            service of a Docker Compose project. Edit the compose
+                            file and shared settings on the{" "}
+                            <Link
+                              href={`/project/${resolvedProjectId}?tab=config`}
+                              className="font-medium text-foreground underline-offset-2 hover:underline"
+                            >
+                              project stack configuration
+                            </Link>
+                            . Redeploy rebuilds the whole project; deleting any
+                            service removes the entire group.
                           </p>
                         </div>
                       </div>

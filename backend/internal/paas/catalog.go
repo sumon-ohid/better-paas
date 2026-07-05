@@ -429,6 +429,9 @@ func handleCatalogDeploy(w http.ResponseWriter, r *http.Request) {
 	if tpl.ID == "seonaut" {
 		autoEnv["SEONAUT_SERVER_URL"] = appURL
 	}
+	if tpl.ID == "linkwarden" {
+		autoEnv["NEXTAUTH_URL"] = strings.TrimRight(appURL, "/") + "/api/v1/auth"
+	}
 	for _, e := range tpl.Env {
 		val := e.Value
 		if auto, ok := autoEnv[e.Key]; ok {
@@ -664,6 +667,10 @@ func catalogTemplateAddonEnv(templateID string, addon Addon, password string) ma
 			out["MYSQL_PASSWORD"] = base["MYSQL_PASSWORD"]
 			out["MYSQL_DATABASE"] = base["MYSQL_DATABASE"]
 			out["MYSQL_ROOT_PASSWORD"] = base["MYSQL_PASSWORD"]
+		}
+	case "linkwarden":
+		if addon.Type == "postgres" {
+			out["DATABASE_URL"] = fmt.Sprintf("postgresql://appuser:%s@%s:5432/appdb", password, addon.ContainerName)
 		}
 	default:
 		for k, v := range base {

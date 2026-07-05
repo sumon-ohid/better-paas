@@ -747,6 +747,10 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if targetApp.ComposeProject != "" {
+		markComposeGroupBuilding(targetApp.ComposeProject)
+	}
+
 	// Clear old build logs.
 	buildLogsLock.Lock()
 	buildLogs[targetApp.ID] = []string{}

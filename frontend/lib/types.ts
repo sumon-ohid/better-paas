@@ -63,6 +63,8 @@ export interface ProjectSummary extends Project {
   status: string
   hasGit?: boolean
   hasDocker?: boolean
+  deployType?: string
+  primaryServiceId?: string
   lastServiceAt?: string
   focusServiceId?: string
   serviceStatuses?: ProjectServiceStatus[]
@@ -70,6 +72,38 @@ export interface ProjectSummary extends Project {
 
 export interface ProjectDetail extends ProjectSummary {
   services: App[]
+}
+
+export interface ProjectDeployConfig {
+  projectId: string
+  deployType: string
+  primaryServiceId: string
+  gitRepo: string
+  branch: string
+  rootDir: string
+  composePath?: string
+  composeContent?: string
+  dockerfilePath?: string
+  dockerfileContent?: string
+  envVars?: Record<string, string>
+  secretKeys?: string[]
+  autoDeploy: boolean
+  composeProject?: string
+  serviceCount: number
+}
+
+export interface ProjectConfigUpdateRequest {
+  projectId: string
+  gitRepo?: string
+  branch?: string
+  rootDir?: string
+  composePath?: string
+  composeContent?: string
+  dockerfilePath?: string
+  dockerfileContent?: string
+  envVars?: Record<string, string>
+  secretKeys?: string[]
+  autoDeploy?: boolean
 }
 
 export interface ProjectCreateRequest {

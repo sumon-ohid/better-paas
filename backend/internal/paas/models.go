@@ -107,6 +107,10 @@ type App struct {
 	BuildMethod    string `json:"buildMethod"`
 	DockerfilePath string `json:"dockerfilePath"` // path to Dockerfile, relative to the build context (default "Dockerfile")
 	ComposePath    string `json:"composePath"`    // path to the compose file, relative to the build context (default "docker-compose.yml")
+	// ComposeContent holds an inline compose file override. When set, it is
+	// written over the cloned/uploaded compose file at deploy time so the
+	// dashboard can edit the stack without committing to git.
+	ComposeContent string `json:"composeContent,omitempty"`
 
 	// ── Docker Compose grouping ──────────────────────────────────────────────
 	// A compose deploy creates one docker compose project (ComposeProject, the
@@ -200,6 +204,8 @@ type ProjectSummary struct {
 	Status          string                 `json:"status"` // aggregate across services
 	HasGit          bool                   `json:"hasGit"`    // any service deploys from a Git repo
 	HasDocker       bool                   `json:"hasDocker"` // any service uses images / Dockerfile / Compose
+	DeployType      string                 `json:"deployType,omitempty"`      // "compose", "dockerfile", "dockerfile-inline"
+	PrimaryServiceID string                `json:"primaryServiceId,omitempty"` // config/redeploy target for DeployType projects
 	LastServiceAt   *time.Time             `json:"lastServiceAt,omitempty"`
 	FocusServiceID  string                 `json:"focusServiceId,omitempty"` // service driving aggregate status
 	ServiceStatuses []ProjectServiceStatus `json:"serviceStatuses,omitempty"`
@@ -209,6 +215,26 @@ type ProjectSummary struct {
 type ProjectDetail struct {
 	ProjectSummary
 	Services []App `json:"services"`
+}
+
+// ProjectDeployConfig is the project-wide deploy configuration surfaced for
+// Docker Compose and Dockerfile projects (one shared stack / build context).
+type ProjectDeployConfig struct {
+	ProjectID        string            `json:"projectId"`
+	DeployType       string            `json:"deployType"` // compose | dockerfile | dockerfile-inline
+	PrimaryServiceID string            `json:"primaryServiceId"`
+	GitRepo          string            `json:"gitRepo"`
+	Branch           string            `json:"branch"`
+	RootDir          string            `json:"rootDir"`
+	ComposePath      string            `json:"composePath,omitempty"`
+	ComposeContent   string            `json:"composeContent,omitempty"`
+	DockerfilePath   string            `json:"dockerfilePath,omitempty"`
+	DockerfileContent string           `json:"dockerfileContent,omitempty"`
+	EnvVars          map[string]string `json:"envVars,omitempty"`
+	SecretKeys       []string          `json:"secretKeys,omitempty"`
+	AutoDeploy       bool              `json:"autoDeploy"`
+	ComposeProject   string            `json:"composeProject,omitempty"`
+	ServiceCount     int               `json:"serviceCount"`
 }
 
 // containerName returns the name of the container currently serving the app,
