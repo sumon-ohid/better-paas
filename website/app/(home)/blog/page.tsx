@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight, Calendar } from 'lucide-react';
 import { Eyebrow } from '@/components/landing/primitives';
+import { LandingCallToAction } from '@/components/landing/call-to-action';
 import { blogSource } from '@/lib/blog-source';
 import { getBlogMeta, sortBlogSlugsByDate } from '@/lib/blog/meta';
 import { appName, siteUrl } from '@/lib/shared';
@@ -87,6 +88,8 @@ export default function BlogIndexPage() {
           })}
         </ul>
       </section>
+
+      <LandingCallToAction />
     </main>
   );
 }

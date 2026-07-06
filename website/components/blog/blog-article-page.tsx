@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import type { MDXComponents } from 'mdx/types';
-import { ArrowRight, Calendar, ChevronRight, User } from 'lucide-react';
+import { Calendar, ChevronRight, User } from 'lucide-react';
 import { getMDXComponents } from '@/components/mdx';
 import { Eyebrow } from '@/components/landing/primitives';
-import { appName, githubUrl, siteUrl } from '@/lib/shared';
+import { LandingCallToAction } from '@/components/landing/call-to-action';
+import { appName, siteUrl } from '@/lib/shared';
 import { getBlogMeta, type BlogMeta } from '@/lib/blog/meta';
 
 type BlogArticlePageProps = {
@@ -80,36 +81,9 @@ export function BlogArticlePage({ slug, title, description, meta, MDX }: BlogArt
         <div className="prose prose-fd-neutral dark:prose-invert mt-12 max-w-none prose-headings:scroll-mt-24 prose-a:text-fd-primary prose-th:text-left">
           <MDX components={getMDXComponents()} />
         </div>
-
-        <aside className="mt-16 rounded-lg border border-fd-border bg-fd-card/40 p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-fd-muted-foreground">
-            Next steps
-          </h2>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/docs/quickstart"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-foreground px-5 text-sm font-semibold text-fd-background transition-opacity hover:opacity-90"
-            >
-              5-minute quickstart
-              <ArrowRight className="size-4" />
-            </Link>
-            <Link
-              href="/vercel-alternative"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-fd-border bg-fd-card/40 px-5 text-sm font-semibold text-fd-foreground transition-colors hover:bg-fd-card"
-            >
-              Vercel alternative
-            </Link>
-            <a
-              href={githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-fd-border bg-fd-card/40 px-5 text-sm font-semibold text-fd-foreground transition-colors hover:bg-fd-card"
-            >
-              Star on GitHub
-            </a>
-          </div>
-        </aside>
       </article>
+
+      <LandingCallToAction />
     </main>
   );
 }

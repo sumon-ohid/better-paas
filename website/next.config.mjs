@@ -4,7 +4,9 @@ const withMDX = createMDX();
 
 /** @type {import('next').NextConfig} */
 const config = {
-  output: 'export',
+  // Static export is for production (Cloudflare Pages). In dev, dynamic [slug]
+  // routes (blog posts, SEO pages) need a normal server — export mode 404s them.
+  ...(process.env.NODE_ENV === 'production' ? { output: 'export' } : {}),
   distDir: 'dist',
   reactStrictMode: true,
 };
