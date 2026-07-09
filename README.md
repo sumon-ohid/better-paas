@@ -40,6 +40,14 @@ Most PaaS products assume a human clicking through a dashboard. Better-PaaS is b
 
 ---
 
+## See it in action
+
+https://github.com/user-attachments/assets/9f34c3ac-f373-459c-ab95-1952acc4905b
+
+Try the interactive demo without installing: [better-paas.com/demo](https://better-paas.com/demo)
+
+---
+
 ## Quick start
 
 ### 1. Install the control plane (server)
@@ -269,14 +277,6 @@ Beyond agent access, the control plane includes:
 - **Cron jobs, volumes, backups** - scheduled tasks, persistent mounts, on-demand snapshots
 - **Database explorer, metrics, log streaming** - operate from the dashboard
 - **Audit logs** - every agent action recorded with scope and timestamp
-
----
-
-## See it in action
-
-https://github.com/user-attachments/assets/9f34c3ac-f373-459c-ab95-1952acc4905b
-
-Try the interactive demo without installing: [better-paas.com/demo](https://better-paas.com/demo)
 
 ---
 
