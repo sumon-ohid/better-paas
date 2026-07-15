@@ -38,7 +38,7 @@ func TestFormatGitURL(t *testing.T) {
 
 	t.Run("https token injected", func(t *testing.T) {
 		got := formatGitURL("https://github.com/acme/app", "tok123")
-		want := "https://tok123@github.com/acme/app"
+		want := "https://x-access-token:tok123@github.com/acme/app"
 		if got != want {
 			t.Errorf("got %q, want %q", got, want)
 		}
@@ -46,7 +46,7 @@ func TestFormatGitURL(t *testing.T) {
 
 	t.Run("http token injected", func(t *testing.T) {
 		got := formatGitURL("http://example.com/repo", "tok123")
-		want := "http://tok123@example.com/repo"
+		want := "http://x-access-token:tok123@example.com/repo"
 		if got != want {
 			t.Errorf("got %q, want %q", got, want)
 		}
@@ -54,7 +54,7 @@ func TestFormatGitURL(t *testing.T) {
 
 	t.Run("schemeless gets https with token", func(t *testing.T) {
 		got := formatGitURL("github.com/acme/app", "tok123")
-		want := "https://tok123@github.com/acme/app"
+		want := "https://x-access-token:tok123@github.com/acme/app"
 		if got != want {
 			t.Errorf("got %q, want %q", got, want)
 		}
@@ -64,7 +64,7 @@ func TestFormatGitURL(t *testing.T) {
 		raw := "p@ss/word:1"
 		got := formatGitURL("https://github.com/acme/app", raw)
 		// The token must be URL-escaped so it doesn't corrupt the userinfo.
-		if !strings.Contains(got, url.QueryEscape(raw)) {
+		if !strings.Contains(got, "x-access-token:"+url.QueryEscape(raw)) {
 			t.Errorf("expected escaped token in %q", got)
 		}
 		if strings.Contains(got, raw) {

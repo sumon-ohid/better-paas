@@ -462,7 +462,7 @@ deploy:
 
 			// Push to Git
 			gitURL := normalizeGitURL(app.GitRepo)
-			authenticatedURL := formatGitURL(gitURL, app.GitToken)
+			authenticatedURL := formatGitURL(gitURL, resolvedGitHubToken(*app))
 			branch := app.Branch
 			if branch == "" {
 				branch = "main"

@@ -1203,13 +1203,26 @@ func handleGitTokenSet(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[db] failed to save token: %v", err)
 	}
 
-	if req.Token != "" {
-		publicBaseURL := webhookPublicBaseURL(r)
-		appsLock.Lock()
-		appsCopy := make([]App, len(apps))
-		copy(appsCopy, apps)
-		appsLock.Unlock()
+	// Keep per-app deploy tokens in sync so rotating the Settings credential
+	// does not leave stale tokens on existing projects.
+	publicBaseURL := webhookPublicBaseURL(r)
+	appsLock.Lock()
+	appsCopy := make([]App, 0, len(apps))
+	for i := range apps {
+		if apps[i].GitRepo == "" || isUploadSource(apps[i].GitRepo) {
+			continue
+		}
+		if apps[i].GitToken != req.Token {
+			apps[i].GitToken = req.Token
+			if err := dbSaveApp(apps[i]); err != nil {
+				log.Printf("[db] failed to sync git token for app %s: %v", apps[i].ID, err)
+			}
+		}
+		appsCopy = append(appsCopy, apps[i])
+	}
+	appsLock.Unlock()
 
+	if req.Token != "" {
 		for _, app := range appsCopy {
 			if !app.AutoDeploy {
 				continue

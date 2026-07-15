@@ -96,6 +96,10 @@ func TestScrubCredentials(t *testing.T) {
 			"fatal: could not read from https://***@github.com/acme/app.git",
 		},
 		{
+			"cloning https://x-access-token:ghp_secret123@github.com/acme/app.git",
+			"cloning https://***@github.com/acme/app.git",
+		},
+		{
 			"cloning http://user:pass@example.com/repo",
 			"cloning http://***@example.com/repo",
 		},
