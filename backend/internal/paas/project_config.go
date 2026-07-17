@@ -336,6 +336,9 @@ func handleProjectConfigUpdate(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "failed to save configuration", http.StatusInternalServerError)
 			return
 		}
+		if deployType == "compose" {
+			_ = healComposeGitSource(*full)
+		}
 	}
 
 	rebuildCaddyfile()
@@ -428,5 +431,6 @@ func handleProjectRedeploy(w http.ResponseWriter, r *http.Request) {
 	rebuildCaddyfile()
 	jsonOK(w, targetApp.Public())
 
-	go runDeployment(*targetApp, normalizeGitURL(targetApp.GitRepo), deployID, logFile, "manual", "", req.NoCache)
+	*targetApp = healComposeGitSource(*targetApp)
+	go runDeployment(*targetApp, normalizeGitURL(resolvedGitRepo(*targetApp)), deployID, logFile, "manual", "", req.NoCache)
 }

@@ -157,7 +157,8 @@ func triggerAutoDeploy(app App) {
 	_ = dbCreateDeployment(dep)
 	rebuildCaddyfile()
 
-	go runDeployment(app, normalizeGitURL(app.GitRepo), deployID, logFile, "webhook", "", false)
+	app = healComposeGitSource(app)
+	go runDeployment(app, normalizeGitURL(resolvedGitRepo(app)), deployID, logFile, "webhook", "", false)
 }
 
 // resolvedGitHubToken returns the per-app git token, falling back to the
@@ -166,9 +167,95 @@ func resolvedGitHubToken(app App) string {
 	if tok := strings.TrimSpace(app.GitToken); tok != "" {
 		return tok
 	}
+	if app.ComposeProject != "" {
+		for _, sibling := range composeGroupRows(app.ComposeProject) {
+			if tok := strings.TrimSpace(sibling.GitToken); tok != "" {
+				return tok
+			}
+		}
+	}
 	githubTokenLock.RLock()
 	defer githubTokenLock.RUnlock()
 	return githubToken
+}
+
+// resolvedGitRepo returns the app's git repo URL, falling back to a compose
+// sibling when the primary row lost its repo (e.g. a partial settings update).
+func resolvedGitRepo(app App) string {
+	if repo := strings.TrimSpace(app.GitRepo); repo != "" {
+		return repo
+	}
+	if app.ComposeProject == "" {
+		return ""
+	}
+	for _, sibling := range composeGroupRows(app.ComposeProject) {
+		if repo := strings.TrimSpace(sibling.GitRepo); repo != "" {
+			return repo
+		}
+	}
+	return ""
+}
+
+// resolvedGitBranch returns the app's branch, falling back to a compose sibling.
+func resolvedGitBranch(app App) string {
+	if branch := strings.TrimSpace(app.Branch); branch != "" {
+		return branch
+	}
+	if app.ComposeProject == "" {
+		return ""
+	}
+	for _, sibling := range composeGroupRows(app.ComposeProject) {
+		if branch := strings.TrimSpace(sibling.Branch); branch != "" {
+			return branch
+		}
+	}
+	return ""
+}
+
+// healComposeGitSource copies a non-empty git repo/branch/token onto every row
+// in a compose group so partial updates of one service cannot strand redeploys.
+func healComposeGitSource(app App) App {
+	repo := resolvedGitRepo(app)
+	branch := resolvedGitBranch(app)
+	token := resolvedGitHubToken(app)
+	if app.ComposeProject == "" || repo == "" {
+		if repo != "" {
+			app.GitRepo = repo
+		}
+		if branch != "" {
+			app.Branch = branch
+		}
+		return app
+	}
+	appsLock.Lock()
+	defer appsLock.Unlock()
+	for i := range apps {
+		if apps[i].ComposeProject != app.ComposeProject {
+			continue
+		}
+		changed := false
+		if repo != "" && apps[i].GitRepo != repo {
+			apps[i].GitRepo = repo
+			changed = true
+		}
+		if branch != "" && apps[i].Branch != branch {
+			apps[i].Branch = branch
+			changed = true
+		}
+		if token != "" && apps[i].GitToken == "" {
+			apps[i].GitToken = token
+			changed = true
+		}
+		if apps[i].ID == app.ID {
+			app = apps[i]
+		}
+		if changed {
+			if err := dbSaveApp(apps[i]); err != nil {
+				log.Printf("[db] failed to heal git source for app %s: %v", apps[i].ID, err)
+			}
+		}
+	}
+	return app
 }
 
 // scheduleGitHubWebhookSetup registers or updates the repo webhook on GitHub

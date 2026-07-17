@@ -71,6 +71,12 @@ func TestFormatGitURL(t *testing.T) {
 			t.Errorf("raw unescaped token leaked into %q", got)
 		}
 	})
+
+	t.Run("empty url with token stays empty", func(t *testing.T) {
+		if got := formatGitURL("", "tok123"); got != "" {
+			t.Errorf("got %q, want empty", got)
+		}
+	})
 }
 
 func TestValidAppName(t *testing.T) {

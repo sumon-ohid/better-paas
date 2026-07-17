@@ -44,7 +44,7 @@ func generateRandomID() string {
 // formatGitURL injects an auth token into a Git HTTPS URL using GitHub's
 // recommended x-access-token userinfo form so git never prompts for a password.
 func formatGitURL(gitURL, token string) string {
-	if token == "" {
+	if token == "" || strings.TrimSpace(gitURL) == "" {
 		return gitURL
 	}
 	userinfo := "x-access-token:" + url.QueryEscape(token)

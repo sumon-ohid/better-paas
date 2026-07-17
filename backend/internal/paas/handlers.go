@@ -519,25 +519,27 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Pointer / nil-able fields so partial updates (e.g. env-only) do not wipe
+	// git repo, branch, build commands, and other omitted settings.
 	var req struct {
-		ID             string            `json:"id"`
-		GitRepo        string            `json:"gitRepo"`
-		Branch         string            `json:"branch"`
-		RootDir        string            `json:"rootDir"`
-		EnvVars        map[string]string `json:"envVars"`
-		BuildCommand   string            `json:"buildCommand"`
-		StartCommand   string            `json:"startCommand"`
-		InstallCommand string            `json:"installCommand"`
-		PortOverride   int               `json:"portOverride"`
-		Domains        *[]string         `json:"domains"`
-		Memory         string            `json:"memory"`
-		CPUs           string            `json:"cpus"`
-		Volumes        []string          `json:"volumes"`
-		HealthPath     string            `json:"healthPath"`
-		SecretKeys     []string          `json:"secretKeys"`
-		AutoDeploy     *bool             `json:"autoDeploy"`
-		BuildMethod    *string           `json:"buildMethod"`
-		DockerfilePath *string           `json:"dockerfilePath"`
+		ID             string             `json:"id"`
+		GitRepo        *string            `json:"gitRepo"`
+		Branch         *string            `json:"branch"`
+		RootDir        *string            `json:"rootDir"`
+		EnvVars        map[string]string  `json:"envVars"`
+		BuildCommand   *string            `json:"buildCommand"`
+		StartCommand   *string            `json:"startCommand"`
+		InstallCommand *string            `json:"installCommand"`
+		PortOverride   *int               `json:"portOverride"`
+		Domains        *[]string          `json:"domains"`
+		Memory         *string            `json:"memory"`
+		CPUs           *string            `json:"cpus"`
+		Volumes        *[]string          `json:"volumes"`
+		HealthPath     *string            `json:"healthPath"`
+		SecretKeys     *[]string          `json:"secretKeys"`
+		AutoDeploy     *bool              `json:"autoDeploy"`
+		BuildMethod    *string            `json:"buildMethod"`
+		DockerfilePath *string            `json:"dockerfilePath"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -545,9 +547,19 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validateResourceLimits(req.Memory, req.CPUs); err != nil {
-		jsonError(w, err.Error(), http.StatusBadRequest)
-		return
+	memory := ""
+	if req.Memory != nil {
+		memory = *req.Memory
+	}
+	cpus := ""
+	if req.CPUs != nil {
+		cpus = *req.CPUs
+	}
+	if req.Memory != nil || req.CPUs != nil {
+		if err := validateResourceLimits(memory, cpus); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	if req.Domains != nil {
 		if err := validateDomains(*req.Domains); err != nil {
@@ -556,15 +568,19 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if req.Volumes != nil {
-		if err := validateVolumes(req.Volumes); err != nil {
+		if err := validateVolumes(*req.Volumes); err != nil {
 			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
-	rootDir, err := validateRootDir(req.RootDir)
-	if err != nil {
-		jsonError(w, err.Error(), http.StatusBadRequest)
-		return
+	var rootDir string
+	if req.RootDir != nil {
+		var err error
+		rootDir, err = validateRootDir(*req.RootDir)
+		if err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validate build method when provided. We resolve the effective method +
@@ -588,22 +604,50 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	var updated *App
 	for i := range apps {
 		if apps[i].ID == req.ID {
-			apps[i].GitRepo = req.GitRepo
-			apps[i].Branch = req.Branch
-			apps[i].RootDir = rootDir
-			apps[i].EnvVars = mergeEnvVars(apps[i].EnvVars, req.EnvVars, req.SecretKeys)
-			apps[i].BuildCommand = req.BuildCommand
-			apps[i].StartCommand = req.StartCommand
-			apps[i].InstallCommand = req.InstallCommand
-			apps[i].PortOverride = req.PortOverride
+			if req.GitRepo != nil {
+				apps[i].GitRepo = *req.GitRepo
+			}
+			if req.Branch != nil {
+				apps[i].Branch = *req.Branch
+			}
+			if req.RootDir != nil {
+				apps[i].RootDir = rootDir
+			}
+			secretKeys := apps[i].SecretKeys
+			if req.SecretKeys != nil {
+				secretKeys = *req.SecretKeys
+				apps[i].SecretKeys = secretKeys
+			}
+			if req.EnvVars != nil {
+				apps[i].EnvVars = mergeEnvVars(apps[i].EnvVars, req.EnvVars, secretKeys)
+			}
+			if req.BuildCommand != nil {
+				apps[i].BuildCommand = *req.BuildCommand
+			}
+			if req.StartCommand != nil {
+				apps[i].StartCommand = *req.StartCommand
+			}
+			if req.InstallCommand != nil {
+				apps[i].InstallCommand = *req.InstallCommand
+			}
+			if req.PortOverride != nil {
+				apps[i].PortOverride = *req.PortOverride
+			}
 			if req.Domains != nil {
 				apps[i].Domains = *req.Domains
 			}
-			apps[i].Memory = req.Memory
-			apps[i].CPUs = req.CPUs
-			apps[i].Volumes = req.Volumes
-			apps[i].HealthPath = req.HealthPath
-			apps[i].SecretKeys = req.SecretKeys
+			if req.Memory != nil {
+				apps[i].Memory = *req.Memory
+			}
+			if req.CPUs != nil {
+				apps[i].CPUs = *req.CPUs
+			}
+			if req.Volumes != nil {
+				apps[i].Volumes = *req.Volumes
+			}
+			if req.HealthPath != nil {
+				apps[i].HealthPath = *req.HealthPath
+			}
 			if req.AutoDeploy != nil {
 				apps[i].AutoDeploy = *req.AutoDeploy
 			}
@@ -612,10 +656,8 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 				apps[i].DockerfilePath = normDockerfile
 			}
 			apps[i].URL = defaultAppURL(apps[i].ID, apps[i].ServerID)
-			full := apps[i] // full copy WITH secrets for DB persistence
 			clone := apps[i].Public()
 			updated = &clone
-			_ = full
 			break
 		}
 	}
@@ -780,7 +822,8 @@ func handleRedeploy(w http.ResponseWriter, r *http.Request) {
 	rebuildCaddyfile()
 	jsonOK(w, targetApp.Public())
 
-	go runDeployment(*targetApp, normalizeGitURL(targetApp.GitRepo), deployID, logFile, "manual", "", req.NoCache)
+	*targetApp = healComposeGitSource(*targetApp)
+	go runDeployment(*targetApp, normalizeGitURL(resolvedGitRepo(*targetApp)), deployID, logFile, "manual", "", req.NoCache)
 }
 
 // ---------------------------------------------------------------------------

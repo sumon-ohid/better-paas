@@ -501,6 +501,14 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, noCache boo
 
 	// ── 1. Clone (or reuse uploaded source) ────────────────────────────────────
 	localLog(fmt.Sprintf("✨ Initializing Compose deployment for: %s", app.Name))
+	app = healComposeGitSource(app)
+	if repo := resolvedGitRepo(app); repo != "" {
+		app.GitRepo = repo
+		gitURL = normalizeGitURL(repo)
+	}
+	if branch := resolvedGitBranch(app); branch != "" {
+		app.Branch = branch
+	}
 	buildDir := filepath.Join("builds", app.ID)
 	if isUploadSource(app.GitRepo) {
 		if _, err := os.Stat(buildDir); err != nil {
@@ -509,6 +517,10 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, noCache boo
 		}
 		localLog("📂 Using uploaded source files.")
 	} else {
+		if strings.TrimSpace(gitURL) == "" {
+			localLog("✖ No git repository configured for this app. Set the repo in project or app settings, then redeploy.")
+			return "failed", "", ""
+		}
 		os.RemoveAll(buildDir)
 
 		branchLog := app.Branch
@@ -736,6 +748,7 @@ func deployComposeProject(app App, gitURL, deployID, logFile string, noCache boo
 			Status:          "running",
 			GitRepo:         app.GitRepo,
 			Branch:          app.Branch,
+			GitToken:        app.GitToken,
 			CreatedAt:       app.CreatedAt,
 			ServerID:        app.ServerID,
 			BuildMethod:     "compose",
