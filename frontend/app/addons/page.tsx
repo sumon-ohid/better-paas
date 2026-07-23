@@ -178,7 +178,11 @@ export default function AddonsPage() {
   const [loading, setLoading] = useState(true)
   const [type, setType] = useState("postgres")
   const [name, setName] = useState("")
-  const [targetServer, setTargetServer] = useState("localhost")
+  const [targetServer, setTargetServer] = useState(
+    activeServerId === "all" || activeServerId === "localhost"
+      ? "localhost"
+      : activeServerId
+  )
   const [creating, setCreating] = useState(false)
   const targetServerLabel =
     targetServer === "localhost"
@@ -186,11 +190,13 @@ export default function AddonsPage() {
       : (servers.find((server) => server.id === targetServer)?.name ??
         "Remote server")
 
-  const [prevActiveServerId, setPrevActiveServerId] = useState(activeServerId)
-  if (activeServerId !== prevActiveServerId) {
-    setPrevActiveServerId(activeServerId)
-    setTargetServer(activeServerId === "all" || activeServerId === "localhost" ? "localhost" : activeServerId)
-  }
+  useEffect(() => {
+    setTargetServer(
+      activeServerId === "all" || activeServerId === "localhost"
+        ? "localhost"
+        : activeServerId
+    )
+  }, [activeServerId])
 
   // Attach dialog state
   const [attachAddon, setAttachAddon] = useState<Addon | null>(null)

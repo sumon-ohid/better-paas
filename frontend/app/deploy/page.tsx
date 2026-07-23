@@ -1029,7 +1029,7 @@ export default function DeployPage() {
                         <Button
                           type="button"
                           size="sm"
-                          variant="ghost"
+                          variant="outline"
                           onClick={() => zipInputRef.current?.click()}
                         >
                           Upload .zip
