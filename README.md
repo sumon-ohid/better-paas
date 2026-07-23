@@ -15,7 +15,7 @@
   <a href="https://better-paas.com/docs/quickstart">Documentation</a> ·
   <a href="https://better-paas.com/demo">Live demo</a> ·
   <a href="https://better-paas.com/docs/guides/paas-cli">CLI guide</a> ·
-  <a href="https://discord.gg/9TP4xEs2">Discord</a>
+  <a href="https://discord.gg/3Pw4eUgdZ">Discord</a>
 </p>
 
 <p align="center">
