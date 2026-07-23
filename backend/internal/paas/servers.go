@@ -200,6 +200,50 @@ func handleServerDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// POST /api/servers/update
+// ---------------------------------------------------------------------------
+
+func handleServerUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	if req.ID == "" {
+		jsonError(w, "id is required", http.StatusBadRequest)
+		return
+	}
+	if req.Name == "" {
+		jsonError(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	server, err := dbGetServer(req.ID)
+	if err != nil || server == nil {
+		jsonError(w, "Server not found", http.StatusNotFound)
+		return
+	}
+
+	if err := dbUpdateServer(req.ID, req.Name, req.Description); err != nil {
+		log.Printf("[servers] failed to update server %s: %v", req.ID, err)
+		jsonError(w, "Failed to update server", http.StatusInternalServerError)
+		return
+	}
+
+	jsonOK(w, map[string]string{"status": "updated"})
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/servers/test
 // ---------------------------------------------------------------------------
 

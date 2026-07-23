@@ -8,19 +8,19 @@ import (
 
 // Scope definitions for agent tokens.
 const (
-	ScopeAppsRead        = "apps:read"
-	ScopeAppsWrite       = "apps:write"
-	ScopeAppsDelete      = "apps:delete"
-	ScopeAddonsManage    = "addons:manage"
-	ScopeServersManage   = "servers:manage"
-	ScopeDeployTrigger   = "deploy:trigger"
-	ScopeLogsRead        = "logs:read"
-	ScopeMetricsRead     = "metrics:read"
-	ScopeSystemManage    = "system:manage"
-	ScopeCronManage      = "cron:manage"
-	ScopeBackupsManage   = "backups:manage"
+	ScopeAppsRead            = "apps:read"
+	ScopeAppsWrite           = "apps:write"
+	ScopeAppsDelete          = "apps:delete"
+	ScopeAddonsManage        = "addons:manage"
+	ScopeServersManage       = "servers:manage"
+	ScopeDeployTrigger       = "deploy:trigger"
+	ScopeLogsRead            = "logs:read"
+	ScopeMetricsRead         = "metrics:read"
+	ScopeSystemManage        = "system:manage"
+	ScopeCronManage          = "cron:manage"
+	ScopeBackupsManage       = "backups:manage"
 	ScopeNotificationsManage = "notifications:manage"
-	ScopeAgentAdmin      = "agent:admin"
+	ScopeAgentAdmin          = "agent:admin"
 )
 
 var AllScopes = []string{
@@ -200,15 +200,15 @@ type ProjectServiceStatus struct {
 // ProjectSummary is returned by the projects list API.
 type ProjectSummary struct {
 	Project
-	ServiceCount    int                    `json:"serviceCount"`
-	Status          string                 `json:"status"` // aggregate across services
-	HasGit          bool                   `json:"hasGit"`    // any service deploys from a Git repo
-	HasDocker       bool                   `json:"hasDocker"` // any service uses images / Dockerfile / Compose
-	DeployType      string                 `json:"deployType,omitempty"`      // "compose", "dockerfile", "dockerfile-inline"
-	PrimaryServiceID string                `json:"primaryServiceId,omitempty"` // config/redeploy target for DeployType projects
-	LastServiceAt   *time.Time             `json:"lastServiceAt,omitempty"`
-	FocusServiceID  string                 `json:"focusServiceId,omitempty"` // service driving aggregate status
-	ServiceStatuses []ProjectServiceStatus `json:"serviceStatuses,omitempty"`
+	ServiceCount     int                    `json:"serviceCount"`
+	Status           string                 `json:"status"`                     // aggregate across services
+	HasGit           bool                   `json:"hasGit"`                     // any service deploys from a Git repo
+	HasDocker        bool                   `json:"hasDocker"`                  // any service uses images / Dockerfile / Compose
+	DeployType       string                 `json:"deployType,omitempty"`       // "compose", "dockerfile", "dockerfile-inline"
+	PrimaryServiceID string                 `json:"primaryServiceId,omitempty"` // config/redeploy target for DeployType projects
+	LastServiceAt    *time.Time             `json:"lastServiceAt,omitempty"`
+	FocusServiceID   string                 `json:"focusServiceId,omitempty"` // service driving aggregate status
+	ServiceStatuses  []ProjectServiceStatus `json:"serviceStatuses,omitempty"`
 }
 
 // ProjectDetail is a project plus its services.
@@ -220,21 +220,21 @@ type ProjectDetail struct {
 // ProjectDeployConfig is the project-wide deploy configuration surfaced for
 // Docker Compose and Dockerfile projects (one shared stack / build context).
 type ProjectDeployConfig struct {
-	ProjectID        string            `json:"projectId"`
-	DeployType       string            `json:"deployType"` // compose | dockerfile | dockerfile-inline
-	PrimaryServiceID string            `json:"primaryServiceId"`
-	GitRepo          string            `json:"gitRepo"`
-	Branch           string            `json:"branch"`
-	RootDir          string            `json:"rootDir"`
-	ComposePath      string            `json:"composePath,omitempty"`
-	ComposeContent   string            `json:"composeContent,omitempty"`
-	DockerfilePath   string            `json:"dockerfilePath,omitempty"`
-	DockerfileContent string           `json:"dockerfileContent,omitempty"`
-	EnvVars          map[string]string `json:"envVars,omitempty"`
-	SecretKeys       []string          `json:"secretKeys,omitempty"`
-	AutoDeploy       bool              `json:"autoDeploy"`
-	ComposeProject   string            `json:"composeProject,omitempty"`
-	ServiceCount     int               `json:"serviceCount"`
+	ProjectID         string            `json:"projectId"`
+	DeployType        string            `json:"deployType"` // compose | dockerfile | dockerfile-inline
+	PrimaryServiceID  string            `json:"primaryServiceId"`
+	GitRepo           string            `json:"gitRepo"`
+	Branch            string            `json:"branch"`
+	RootDir           string            `json:"rootDir"`
+	ComposePath       string            `json:"composePath,omitempty"`
+	ComposeContent    string            `json:"composeContent,omitempty"`
+	DockerfilePath    string            `json:"dockerfilePath,omitempty"`
+	DockerfileContent string            `json:"dockerfileContent,omitempty"`
+	EnvVars           map[string]string `json:"envVars,omitempty"`
+	SecretKeys        []string          `json:"secretKeys,omitempty"`
+	AutoDeploy        bool              `json:"autoDeploy"`
+	ComposeProject    string            `json:"composeProject,omitempty"`
+	ServiceCount      int               `json:"serviceCount"`
 }
 
 // containerName returns the name of the container currently serving the app,

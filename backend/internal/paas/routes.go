@@ -63,6 +63,7 @@ func registerServerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/servers", scoped(handleServersList, ScopeServersManage))
 	mux.HandleFunc("/api/servers/create", scoped(handleServerCreate, ScopeServersManage))
 	mux.HandleFunc("/api/servers/cloud/create", scoped(handleCloudServerCreate, ScopeServersManage))
+	mux.HandleFunc("/api/servers/update", scoped(handleServerUpdate, ScopeServersManage))
 	mux.HandleFunc("/api/servers/delete", scoped(handleServerDelete, ScopeServersManage))
 	mux.HandleFunc("/api/servers/test", scoped(handleServerTest, ScopeServersManage))
 	mux.HandleFunc("/api/servers/keys/public", scoped(handleServerPublicKey, ScopeServersManage))

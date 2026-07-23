@@ -294,6 +294,11 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ id }),
       }),
+    update: (data: { id: string; name: string; description?: string }) =>
+      req<{ status: string }>("/api/servers/update", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     test: (id: string) =>
       req<{ status: string; dockerVersion?: string; error?: string }>(
         "/api/servers/test",

@@ -123,18 +123,18 @@ func auditLogMiddleware(next http.Handler) http.Handler {
 		// Try to extract a resource ID from common JSON bodies.
 		resourceID := extractResourceID(r)
 
-	// Use the existing clientIP helper from ratelimit.go.
-	entry := AuditLog{
-		ID:           generateRandomID(),
-		ActorType:    string(actor.kind),
-		ActorID:      actor.id,
-		Action:       actionFromRequest(r),
-		ResourceType: extractResourceType(r),
-		ResourceID:   resourceID,
-		Outcome:      "success", // optimistic; failure would have returned earlier
-		IPAddress:    clientIP(r),
-		CreatedAt:    time.Now(),
-	}
+		// Use the existing clientIP helper from ratelimit.go.
+		entry := AuditLog{
+			ID:           generateRandomID(),
+			ActorType:    string(actor.kind),
+			ActorID:      actor.id,
+			Action:       actionFromRequest(r),
+			ResourceType: extractResourceType(r),
+			ResourceID:   resourceID,
+			Outcome:      "success", // optimistic; failure would have returned earlier
+			IPAddress:    clientIP(r),
+			CreatedAt:    time.Now(),
+		}
 
 		auditLogLock.Lock()
 		if err := dbCreateAuditLog(entry); err != nil {
