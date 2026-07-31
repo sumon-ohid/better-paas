@@ -1313,18 +1313,20 @@ function EditServerModal({
   onUpdated: (server: Server) => void
 }) {
   const { showToast } = useToast()
-  const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
+  const [name, setName] = useState(server?.name ?? "")
+  const [description, setDescription] = useState(server?.description ?? "")
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState("")
-
-  useEffect(() => {
+  const [lastOpenServerKey, setLastOpenServerKey] = useState<string | null>(null)
+  const openServerKey = open && server ? `${server.id}` : null
+  if (openServerKey !== lastOpenServerKey) {
+    setLastOpenServerKey(openServerKey)
     if (open && server) {
       setName(server.name)
       setDescription(server.description || "")
       setError("")
     }
-  }, [open, server])
+  }
 
   const handleUpdate = async () => {
     if (!server) return
