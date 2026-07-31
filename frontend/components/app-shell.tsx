@@ -140,6 +140,7 @@ function ServerSelector() {
               <span className="flex items-center gap-2 text-xs">
                 <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
                 <span className="truncate">{server.name}</span>
+                <span className="rounded-sm bg-muted/40 px-1 py-0.2 text-[9px] font-mono text-muted-foreground leading-none">remote</span>
               </span>
             </SelectItem>
           )

@@ -963,6 +963,10 @@ CREATE TABLE IF NOT EXISTS servers (
 		!strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
 		return err
 	}
+	if _, err := sqliteDB.Exec(`ALTER TABLE servers ADD COLUMN label TEXT NOT NULL DEFAULT ''`); err != nil &&
+		!strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
 
 	// Seed the default localhost row on first boot.
 	_, err := sqliteDB.Exec(`
@@ -1060,6 +1064,14 @@ func dbUpdateServerStatus(id, status string) error {
 	_, err := sqliteDB.Exec(
 		`UPDATE servers SET status = ?, last_checked = ? WHERE id = ?`,
 		status, time.Now(), id,
+	)
+	return err
+}
+
+func dbUpdateServer(id, name, description string) error {
+	_, err := sqliteDB.Exec(
+		`UPDATE servers SET name = ?, description = ? WHERE id = ?`,
+		name, description, id,
 	)
 	return err
 }

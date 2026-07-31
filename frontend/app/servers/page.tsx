@@ -994,6 +994,7 @@ interface ServerCardProps {
   server: Server
   onTest: () => void
   onDelete: () => void
+  onEdit: () => void
   onViewKey: () => void
   onTerminal: () => void
   testing: boolean
@@ -1003,6 +1004,7 @@ function ServerCard({
   server,
   onTest,
   onDelete,
+  onEdit,
   onViewKey,
   onTerminal,
   testing,
@@ -1045,9 +1047,13 @@ function ServerCard({
                 >
                   {server.name}
                 </CardTitle>
-                {server.isLocal && (
+                {server.isLocal ? (
                   <span className="shrink-0 rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] text-primary">
                     local
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                    remote
                   </span>
                 )}
               </div>
@@ -1087,6 +1093,11 @@ function ServerCard({
                 <DropdownMenuItem onClick={onTerminal}>
                   <TerminalIcon className="h-4 w-4 text-muted-foreground/75" />
                   Terminal
+                </DropdownMenuItem>
+
+                <DropdownMenuItem onClick={onEdit}>
+                  <NucleoIcon name="edit" className="h-4 w-4 text-muted-foreground/75" />
+                  Edit Server
                 </DropdownMenuItem>
 
                 {!server.isLocal && (
@@ -1288,6 +1299,109 @@ function CopyableCodeBlock({
   )
 }
 
+// ── Edit Server Modal ──────────────────────────────────────────────────────────
+
+function EditServerModal({
+  server,
+  open,
+  onClose,
+  onUpdated,
+}: {
+  server: Server | null
+  open: boolean
+  onClose: () => void
+  onUpdated: (server: Server) => void
+}) {
+  const { showToast } = useToast()
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [updating, setUpdating] = useState(false)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    if (open && server) {
+      setName(server.name)
+      setDescription(server.description || "")
+      setError("")
+    }
+  }, [open, server])
+
+  const handleUpdate = async () => {
+    if (!server) return
+    setError("")
+    if (!name.trim()) {
+      setError("Name is required.")
+      return
+    }
+
+    setUpdating(true)
+    try {
+      await api.servers.update({
+        id: server.id,
+        name: name.trim(),
+        description: description.trim(),
+      })
+      onUpdated({ ...server, name: name.trim(), description: description.trim() })
+      showToast("Server updated", "Server details updated successfully.", "success")
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update server")
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  if (!server) return null
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Server</DialogTitle>
+          <DialogDescription>Update server details.</DialogDescription>
+        </DialogHeader>
+        <DialogPanel className="space-y-4">
+          {error && (
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-muted-foreground">
+              Server Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Production VPS"
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-muted-foreground">
+              Description
+            </Label>
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Optional description"
+              className="text-sm"
+            />
+          </div>
+        </DialogPanel>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleUpdate} loading={updating}>
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ServersPage() {
@@ -1298,6 +1412,9 @@ export default function ServersPage() {
 
   const [showAddWizard, setShowAddWizard] = useState(false)
   const [testingId, setTestingId] = useState<string | null>(null)
+
+  // Edit modal
+  const [editTarget, setEditTarget] = useState<Server | null>(null)
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<Server | null>(null)
@@ -1446,6 +1563,7 @@ export default function ServersPage() {
                 testing={testingId === server.id}
                 onTest={() => handleTest(server)}
                 onDelete={() => setDeleteTarget(server)}
+                onEdit={() => setEditTarget(server)}
                 onViewKey={() => setKeyServer(server)}
                 onTerminal={() => handleTerminal(server)}
               />
@@ -1503,6 +1621,18 @@ export default function ServersPage() {
         serverName={keyServer?.name ?? ""}
         open={!!keyServer}
         onClose={() => setKeyServer(null)}
+      />
+
+      {/* Edit server modal */}
+      <EditServerModal
+        server={editTarget}
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        onUpdated={(updatedServer) => {
+          setServers((prev) =>
+            prev.map((s) => (s.id === updatedServer.id ? updatedServer : s))
+          )
+        }}
       />
     </AppShell>
   )

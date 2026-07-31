@@ -522,24 +522,24 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	// Pointer / nil-able fields so partial updates (e.g. env-only) do not wipe
 	// git repo, branch, build commands, and other omitted settings.
 	var req struct {
-		ID             string             `json:"id"`
-		GitRepo        *string            `json:"gitRepo"`
-		Branch         *string            `json:"branch"`
-		RootDir        *string            `json:"rootDir"`
-		EnvVars        map[string]string  `json:"envVars"`
-		BuildCommand   *string            `json:"buildCommand"`
-		StartCommand   *string            `json:"startCommand"`
-		InstallCommand *string            `json:"installCommand"`
-		PortOverride   *int               `json:"portOverride"`
-		Domains        *[]string          `json:"domains"`
-		Memory         *string            `json:"memory"`
-		CPUs           *string            `json:"cpus"`
-		Volumes        *[]string          `json:"volumes"`
-		HealthPath     *string            `json:"healthPath"`
-		SecretKeys     *[]string          `json:"secretKeys"`
-		AutoDeploy     *bool              `json:"autoDeploy"`
-		BuildMethod    *string            `json:"buildMethod"`
-		DockerfilePath *string            `json:"dockerfilePath"`
+		ID             string            `json:"id"`
+		GitRepo        *string           `json:"gitRepo"`
+		Branch         *string           `json:"branch"`
+		RootDir        *string           `json:"rootDir"`
+		EnvVars        map[string]string `json:"envVars"`
+		BuildCommand   *string           `json:"buildCommand"`
+		StartCommand   *string           `json:"startCommand"`
+		InstallCommand *string           `json:"installCommand"`
+		PortOverride   *int              `json:"portOverride"`
+		Domains        *[]string         `json:"domains"`
+		Memory         *string           `json:"memory"`
+		CPUs           *string           `json:"cpus"`
+		Volumes        *[]string         `json:"volumes"`
+		HealthPath     *string           `json:"healthPath"`
+		SecretKeys     *[]string         `json:"secretKeys"`
+		AutoDeploy     *bool             `json:"autoDeploy"`
+		BuildMethod    *string           `json:"buildMethod"`
+		DockerfilePath *string           `json:"dockerfilePath"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
